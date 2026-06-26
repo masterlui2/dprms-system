@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # DPRMS
 
 DOST Project and Resource Management System monorepo.
@@ -57,3 +58,6 @@ cd frontend
 npm run build
 npm run lint
 ```
+=======
+# dprms-system
+>>>>>>> 4156807a196d6483fbc76e1dc91a38bb8d7e79f0
