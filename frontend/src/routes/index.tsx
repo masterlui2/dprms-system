@@ -5,6 +5,7 @@ import { Dashboard } from '../pages/Dashboard'
 import { Landing } from '../pages/Landing'
 import { Login } from '../pages/Login'
 import { NotFound } from '../pages/NotFound'
+import { ProposalSubmission } from '../pages/ProposalSubmission'
 
 export const router = createBrowserRouter([
   {
@@ -14,6 +15,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Login />,
+  },
+  {
+    path: '/proposal',
+    element: <ProposalSubmission />,
   },
   {
     path: '/dashboard',
