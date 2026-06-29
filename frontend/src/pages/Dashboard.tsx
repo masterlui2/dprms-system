@@ -1,106 +1,271 @@
+import type { LucideIcon } from 'lucide-react'
+import {
+  Activity,
+  ArrowRight,
+  BarChart3,
+  Brain,
+  BriefcaseBusiness,
+  ClipboardCheck,
+  FileUp,
+  QrCode,
+  TrendingUp,
+  Wallet,
+} from 'lucide-react'
+import { Link } from 'react-router-dom'
+
 import { StatusBadge } from '../components/StatusBadge'
 import { useApiConnection } from '../hooks/useApiConnection'
+import { cn } from '../utils/cn'
 
-const metrics = [
-  { label: 'Active Projects', value: '12', detail: 'Across monitoring units' },
-  { label: 'Allocated Resources', value: '84%', detail: 'Current utilization' },
-  { label: 'Reports Due', value: '5', detail: 'This review cycle' },
+type Metric = {
+  accent: string
+  detail: string
+  icon: LucideIcon
+  label: string
+  value: string
+}
+
+type QuickAccessItem = {
+  description: string
+  icon: LucideIcon
+  title: string
+  to?: string
+}
+
+type ActivityItem = {
+  lead: string
+  status: string
+  statusTone: string
+  summary: string
+  time: string
+}
+
+const metrics: Metric[] = [
+  {
+    label: 'Active Projects',
+    value: '24',
+    detail: '+3 this month',
+    icon: Activity,
+    accent: 'bg-[#0f53b7] text-white',
+  },
+  {
+    label: 'Pending Approvals',
+    value: '7',
+    detail: '2 due this week',
+    icon: ClipboardCheck,
+    accent: 'bg-[#ff9a28] text-white',
+  },
+  {
+    label: 'Budget Utilized',
+    value: '68%',
+    detail: '₱12.4M of ₱18.2M',
+    icon: Wallet,
+    accent: 'bg-[#ff7f1e] text-white',
+  },
+  {
+    label: 'MSMEs Onboarded',
+    value: '142',
+    detail: '+12 this quarter',
+    icon: TrendingUp,
+    accent: 'bg-[#e4f1ff] text-[#0a3f8d]',
+  },
 ]
+
+const quickAccessItems: QuickAccessItem[] = [
+  {
+    title: 'Proposal Submission',
+    description: 'Upload and track proposals.',
+    icon: FileUp,
+    to: '/proposal',
+  },
+  {
+    title: 'Approval Workflow',
+    description: 'Review pending applications.',
+    icon: ClipboardCheck,
+  },
+  {
+    title: 'Budget Tracking',
+    description: 'Monitor allocations and disbursements.',
+    icon: Wallet,
+  },
+  {
+    title: 'Project Monitoring',
+    description: 'Track milestones and compliance.',
+    icon: Activity,
+  },
+  {
+    title: 'QR Code Inventory',
+    description: 'Scan and manage equipment.',
+    icon: QrCode,
+  },
+  {
+    title: 'Reports & Analytics',
+    description: 'Generate performance reports.',
+    icon: BarChart3,
+  },
+  {
+    title: 'Predictive Analytics',
+    description: 'Random forest insights.',
+    icon: Brain,
+  },
+]
+
+const activityItems: ActivityItem[] = [
+  {
+    lead: 'Bright Foods Co.',
+    summary: 'submitted a new proposal',
+    status: 'Pending',
+    statusTone: 'bg-[#e8f2ff] text-[#0a3f8d]',
+    time: '10 min ago',
+  },
+  {
+    lead: 'Ana Reyes (DOST)',
+    summary: 'approved CarpenTech proposal',
+    status: 'Approved',
+    statusTone: 'bg-[#eaf8eb] text-[#18794e]',
+    time: '32 min ago',
+  },
+  {
+    lead: 'Regional budget utilization report',
+    summary: 'was generated',
+    status: 'Completed',
+    statusTone: 'bg-[#eef2f7] text-slate-600',
+    time: '1 hr ago',
+  },
+]
+
+function QuickAccessCard({ item }: { item: QuickAccessItem }) {
+  const cardClassName =
+    'group flex items-center gap-4 rounded-[26px] border border-[#d8e1ee] bg-white px-6 py-5 shadow-[0_12px_32px_-28px_rgba(15,23,42,0.65)] transition hover:border-[#c3d6ee] hover:shadow-[0_18px_36px_-28px_rgba(15,23,42,0.45)]'
+
+  const content = (
+    <>
+      <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[#e7f2ff] text-[#0a3f8d]">
+        <item.icon className="h-5 w-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[18px] font-bold text-[#0a3f8d]">{item.title}</p>
+        <p className="mt-1 text-sm text-slate-600">{item.description}</p>
+      </div>
+
+      <ArrowRight className="h-5 w-5 shrink-0 text-slate-400 transition group-hover:text-[#0a3f8d]" />
+    </>
+  )
+
+  if (!item.to) {
+    return (
+      <button className={cn(cardClassName, 'cursor-default opacity-85')} disabled type="button">
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <Link className={cardClassName} to={item.to}>
+      {content}
+    </Link>
+  )
+}
 
 export function Dashboard() {
   const { error, isLoading, message } = useApiConnection()
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+    <div className="space-y-8">
+      <section>
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <StatusBadge tone={error ? 'warning' : 'success'}>
-              {isLoading ? 'Checking API' : error ? 'API Offline' : 'API Online'}
-            </StatusBadge>
-            <h1 className="mt-4 text-2xl font-bold text-slate-950">
-              Project Operations Overview
+            <h1 className="text-4xl font-black tracking-tight text-[#0a3f8d] sm:text-5xl">
+              Welcome back, Admin
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-              Use this dashboard shell to build DPRMS project tracking, resource
-              planning, reports, and future prediction workflows.
+            <p className="mt-3 max-w-3xl text-lg text-slate-600">
+              Signed in as Administrator. Here&apos;s a quick overview of your portal activity.
             </p>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-[#f6f8fb] px-4 py-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Laravel API
-            </p>
-            <p className="mt-1 text-sm font-bold text-slate-950">
-              {isLoading ? 'Loading...' : message ?? error}
-            </p>
+          <div className="rounded-2xl border border-[#d8e1ee] bg-white px-4 py-3 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#edf5ff] text-[#0a3f8d]">
+                <BriefcaseBusiness className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
+                  API Status
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                  <StatusBadge tone={error ? 'warning' : 'success'}>
+                    {isLoading ? 'Checking API' : error ? 'Offline' : 'Online'}
+                  </StatusBadge>
+                  <span className="text-sm text-slate-500">
+                    {isLoading ? 'Loading...' : message ?? error}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {metrics.map((metric) => (
           <article
-            className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+            className="rounded-[28px] border border-[#d8e1ee] bg-white p-6 shadow-[0_14px_36px_-30px_rgba(15,23,42,0.8)]"
             key={metric.label}
           >
-            <p className="text-sm font-semibold text-slate-500">{metric.label}</p>
-            <p className="mt-3 text-3xl font-bold text-slate-950">{metric.value}</p>
-            <p className="mt-2 text-sm text-slate-600">{metric.detail}</p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  {metric.label}
+                </p>
+                <p className="mt-3 text-5xl font-black tracking-tight text-[#0a3f8d]">
+                  {metric.value}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">{metric.detail}</p>
+              </div>
+
+              <div className={cn('grid h-14 w-14 place-items-center rounded-3xl', metric.accent)}>
+                <metric.icon className="h-6 w-6" />
+              </div>
+            </div>
           </article>
         ))}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.4fr_0.8fr]">
-        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-950">Project Pipeline</h2>
-              <p className="mt-1 text-sm text-slate-600">UI-ready placeholder for capstone modules.</p>
-            </div>
-            <StatusBadge>Scaffold</StatusBadge>
-          </div>
+      <section>
+        <h2 className="text-2xl font-black text-[#0a3f8d]">Quick access</h2>
+        <div className="mt-5 grid gap-4 xl:grid-cols-3">
+          {quickAccessItems.map((item) => (
+            <QuickAccessCard item={item} key={item.title} />
+          ))}
+        </div>
+      </section>
 
-          <div className="mt-5 overflow-hidden rounded-lg border border-slate-200">
-            <div className="grid grid-cols-3 bg-slate-50 px-4 py-3 text-xs font-bold uppercase tracking-wide text-slate-500">
-              <span>Project</span>
-              <span>Status</span>
-              <span>Owner</span>
-            </div>
-            {['Research Grants Portal', 'Regional Lab Upgrade', 'Scholarship Tracker'].map(
-              (project, index) => (
-                <div
-                  className="grid grid-cols-3 border-t border-slate-200 px-4 py-3 text-sm"
-                  key={project}
-                >
-                  <span className="font-semibold text-slate-800">{project}</span>
-                  <span className="text-slate-600">{index === 1 ? 'Review' : 'Active'}</span>
-                  <span className="text-slate-600">DOST Unit {index + 1}</span>
-                </div>
-              ),
-            )}
-          </div>
-        </article>
+      <section className="overflow-hidden rounded-[30px] border border-[#d8e1ee] bg-white shadow-[0_14px_36px_-30px_rgba(15,23,42,0.8)]">
+        <div className="border-b border-[#d8e1ee] px-6 py-5">
+          <h2 className="text-2xl font-black text-[#0a3f8d]">Recent activity</h2>
+        </div>
 
-        <article className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-950">Resource Snapshot</h2>
-          <div className="mt-5 space-y-4">
-            {['Budget', 'Personnel', 'Equipment'].map((item, index) => (
-              <div key={item}>
-                <div className="flex justify-between text-sm">
-                  <span className="font-semibold text-slate-700">{item}</span>
-                  <span className="text-slate-500">{70 + index * 8}%</span>
-                </div>
-                <div className="mt-2 h-2 rounded-full bg-slate-100">
-                  <div
-                    className="h-2 rounded-full bg-[#105c4a]"
-                    style={{ width: `${70 + index * 8}%` }}
-                  />
-                </div>
+        <div className="divide-y divide-[#e5edf6]">
+          {activityItems.map((item) => (
+            <article
+              className="flex flex-col gap-3 px-6 py-5 md:flex-row md:items-center md:justify-between"
+              key={`${item.lead}-${item.time}`}
+            >
+              <p className="text-[17px] text-slate-700">
+                <span className="font-bold text-slate-950">{item.lead} </span>
+                {item.summary}
+              </p>
+
+              <div className="flex items-center gap-4">
+                <span className={cn('rounded-full px-3 py-1 text-sm font-bold', item.statusTone)}>
+                  {item.status}
+                </span>
+                <span className="text-sm text-slate-500">{item.time}</span>
               </div>
-            ))}
-          </div>
-        </article>
+            </article>
+          ))}
+        </div>
       </section>
     </div>
   )

@@ -1,96 +1,75 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { useState } from 'react'
+import { Bell, PanelLeft, Search } from 'lucide-react'
+import { Navigate, Outlet } from 'react-router-dom'
 
+import { AdminSidebar } from '../components/dashboard/AdminSidebar'
+import { ROLE_LABEL, getMockUser } from '../lib/mockAuth'
 import { cn } from '../utils/cn'
 
-const navigationItems = [
-  { label: 'Overview', to: '/dashboard' },
-  { label: 'Projects', to: '/dashboard#projects' },
-  { label: 'Resources', to: '/dashboard#resources' },
-  { label: 'Reports', to: '/dashboard#reports' },
-]
-
 export function DashboardLayout() {
+  const user = getMockUser()
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  if (!user) {
+    return <Navigate replace to="/login" />
+  }
+
   return (
-    <div className="min-h-screen bg-[#f6f8fb] text-slate-900">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-slate-200 bg-white px-5 py-6 lg:block">
-        <div className="flex items-center gap-3">
-          <div className="grid size-10 place-items-center rounded-lg bg-[#105c4a] text-sm font-bold text-white">
-            D
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-slate-500">DOST</p>
-            <h1 className="text-lg font-bold">DPRMS</h1>
-          </div>
-        </div>
+    <div
+      className={cn(
+        'min-h-screen bg-[#eef5fb] text-slate-900 lg:grid',
+        sidebarCollapsed
+          ? 'lg:grid-cols-[84px_minmax(0,1fr)]'
+          : 'lg:grid-cols-[280px_minmax(0,1fr)]',
+      )}
+    >
+      <AdminSidebar collapsed={sidebarCollapsed} user={user} />
 
-        <nav className="mt-10 space-y-1">
-          {navigationItems.map((item) => (
-            <NavLink
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold transition',
-                  isActive
-                    ? 'bg-[#e6f3ef] text-[#105c4a]'
-                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-                )
-              }
-              key={item.label}
-              to={item.to}
+      <div className="min-w-0">
+        <header className="sticky top-0 z-20 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
+          <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
+            <button
+              aria-pressed={sidebarCollapsed}
+              aria-label="Sidebar"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#d8e1ee] bg-white text-[#1d3352] shadow-sm"
+              onClick={() => setSidebarCollapsed((current) => !current)}
+              type="button"
             >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
+              <PanelLeft className="h-5 w-5" />
+            </button>
 
-        <div className="absolute bottom-6 left-5 right-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Capstone System
-          </p>
-          <p className="mt-2 text-sm text-slate-700">
-            Project and resource monitoring workspace.
-          </p>
-        </div>
-      </aside>
+            <label className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <input
+                className="h-11 w-full rounded-2xl border border-[#d8e1ee] bg-[#fbfdff] pl-12 pr-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
+                placeholder="Search projects, MSMEs, equipment..."
+                type="text"
+              />
+            </label>
 
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur sm:px-6 lg:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#105c4a]">
-                DOST Project and Resource Management System
-              </p>
-              <h2 className="mt-1 text-xl font-bold text-slate-950">Dashboard</h2>
-            </div>
+            <button
+              aria-label="Notifications"
+              className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-transparent text-[#1d3352] transition hover:bg-[#f3f8fe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+              type="button"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#ff8a1f]" />
+            </button>
 
-            <div className="flex items-center gap-3">
-              <div className="hidden rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600 sm:block">
-                Admin Workspace
+            <div className="flex items-center gap-3 border-l border-[#e2e8f0] pl-4">
+              <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0f53b7] text-sm font-black text-white">
+                {user.initials}
               </div>
-              <div className="grid size-10 place-items-center rounded-full bg-[#f4c542] text-sm font-bold text-slate-950">
-                UI
+
+              <div className="min-w-0">
+                <p className="truncate text-[15px] font-bold text-slate-900">{user.name}</p>
+                <p className="truncate text-sm text-slate-500">{ROLE_LABEL[user.role]}</p>
               </div>
             </div>
           </div>
-
-          <nav className="mt-4 flex gap-2 overflow-x-auto lg:hidden">
-            {navigationItems.map((item) => (
-              <NavLink
-                className={({ isActive }) =>
-                  cn(
-                    'whitespace-nowrap rounded-lg px-3 py-2 text-sm font-semibold',
-                    isActive ? 'bg-[#e6f3ef] text-[#105c4a]' : 'text-slate-600',
-                  )
-                }
-                key={item.label}
-                to={item.to}
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
         </header>
 
-        <main className="px-4 py-6 sm:px-6 lg:px-8">
+        <main className="px-4 py-6 sm:px-6">
           <Outlet />
         </main>
       </div>

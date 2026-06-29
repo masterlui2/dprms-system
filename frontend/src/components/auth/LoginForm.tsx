@@ -1,27 +1,34 @@
-import { useState, type FormEvent } from 'react'
-import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole } from 'lucide-react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, type FormEvent } from "react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 
-import { DostBrand } from './DostBrand'
+import { ADMIN_USER, isValidAdminLogin, setMockUser } from "../../lib/mockAuth";
+import { DostBrand } from "./DostBrand";
 
 export function LoginForm() {
-  const navigate = useNavigate()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [keepSignedIn, setKeepSignedIn] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
+    event.preventDefault();
 
     if (!email.trim() || !password) {
-      setMessage('Please enter your registered email address and password.')
-      return
+      setMessage("Please enter your registered email address and password.");
+      return;
     }
 
-    setMessage(null)
-    navigate('/dashboard')
+    if (!isValidAdminLogin(email, password)) {
+      setMessage("Invalid email address or password.");
+      return;
+    }
+
+    setMessage(null);
+    setMockUser(ADMIN_USER);
+    navigate("/dashboard");
   }
 
   return (
@@ -44,7 +51,7 @@ export function LoginForm() {
             Welcome back
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Sign in with your registered credentials to continue.
+            Sign in to continue to the DOST admin workspace.
           </p>
         </header>
 
@@ -61,8 +68,8 @@ export function LoginForm() {
               className="mt-2 h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
               id="login-email"
               onChange={(event) => {
-                setEmail(event.target.value)
-                setMessage(null)
+                setEmail(event.target.value);
+                setMessage(null);
               }}
               placeholder="you@example.com"
               type="email"
@@ -81,7 +88,9 @@ export function LoginForm() {
               <button
                 className="text-xs font-bold text-[#0f53b7] hover:underline focus-visible:rounded focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
                 onClick={() =>
-                  setMessage('Please contact your DOST office to recover your account.')
+                  setMessage(
+                    "Please contact your DOST office to recover your account.",
+                  )
                 }
                 type="button"
               >
@@ -95,18 +104,18 @@ export function LoginForm() {
                 className="h-12 w-full rounded-lg border border-slate-300 bg-white px-3.5 pr-12 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
                 id="login-password"
                 onChange={(event) => {
-                  setPassword(event.target.value)
-                  setMessage(null)
+                  setPassword(event.target.value);
+                  setMessage(null);
                 }}
                 placeholder="Enter your password"
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 value={password}
               />
               <button
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute right-2 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
                 onClick={() => setShowPassword((current) => !current)}
-                title={showPassword ? 'Hide password' : 'Show password'}
+                title={showPassword ? "Hide password" : "Show password"}
                 type="button"
               >
                 {showPassword ? (
@@ -149,15 +158,7 @@ export function LoginForm() {
             <ArrowRight className="size-4" />
           </button>
         </form>
-
-        <div className="mt-7 flex items-start gap-2 border-t border-slate-200 pt-5 text-xs leading-5 text-slate-500">
-          <LockKeyhole className="mt-0.5 size-4 shrink-0 text-[#0f53b7]" />
-          <p>
-            Authorized users only. Account access may be recorded for security and
-            audit purposes.
-          </p>
-        </div>
       </div>
     </section>
-  )
+  );
 }
