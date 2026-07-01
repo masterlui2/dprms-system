@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowRight, CheckCircle2, MailCheck, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
+import { areRequiredDocumentsComplete } from '../../data/proposal'
 import { useProposalForm } from '../../hooks/useProposalForm'
 import { Button } from '../ui/button'
 import { Card, CardContent } from '../ui/card'
@@ -29,6 +30,7 @@ export function ProposalForm() {
     updateDocument,
     updateField,
   } = useProposalForm()
+  const requirementsComplete = areRequiredDocumentsComplete(formData)
 
   if (isSubmitted) {
     return (
@@ -145,7 +147,16 @@ export function ProposalForm() {
             </p>
 
             {currentStep < 4 ? (
-              <Button className="h-11" type="submit">
+              <Button
+                className="h-11"
+                disabled={currentStep === 3 && !requirementsComplete}
+                title={
+                  currentStep === 3 && !requirementsComplete
+                    ? 'Upload all required documents to continue.'
+                    : undefined
+                }
+                type="submit"
+              >
                 Continue
                 <ArrowRight className="size-4" />
               </Button>

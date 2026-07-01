@@ -26,10 +26,31 @@ export function useProposalForm() {
     field: K,
     value: ProposalFormData[K],
   ) {
-    setFormData((current) => ({ ...current, [field]: value }))
+    setFormData((current) => {
+      if (field === 'proposalType' && current.proposalType !== value) {
+        return {
+          ...current,
+          [field]: value,
+          projectType: '',
+          targetBeneficiary: '',
+          technologyInnovation: '',
+          expectedOutputs: '',
+        }
+      }
+
+      return { ...current, [field]: value }
+    })
     setErrors((current) => {
       const next = { ...current }
       delete next[field]
+
+      if (field === 'proposalType') {
+        delete next.projectType
+        delete next.targetBeneficiary
+        delete next.technologyInnovation
+        delete next.expectedOutputs
+      }
+
       return next
     })
   }

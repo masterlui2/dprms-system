@@ -60,28 +60,28 @@ export function validateProjectStep(data: ProposalFormData): ProposalFormErrors 
       'Please select a project category.',
     ),
     projectType: required(data.projectType, 'Please select a project type.'),
+    projectDescription: required(
+      data.projectDescription,
+      'Please enter a project description.',
+    ),
+    projectObjectives: required(
+      data.projectObjectives,
+      'Please enter the project objectives.',
+    ),
     technologyInnovation: required(
       data.technologyInnovation,
-      'Please specify the technology or innovation.',
+      data.proposalType === 'SETUP'
+        ? 'Please specify the technology or equipment needed.'
+        : 'Please specify the technology or intervention.',
     ),
     targetBeneficiary: required(
       data.targetBeneficiary,
       'Please select the target beneficiaries.',
     ),
-    equipmentNeeds: required(
-      data.equipmentNeeds,
-      'Please describe the equipment or technology needed.',
+    expectedOutputs: required(
+      data.expectedOutputs,
+      'Please describe the expected outputs.',
     ),
-    totalBusinessAssets:
-      required(data.totalBusinessAssets, 'Please enter the total business assets.') ??
-      (Number(data.totalBusinessAssets) <= 0
-        ? 'Total business assets must be greater than zero.'
-        : undefined),
-    annualNetProfit:
-      required(data.annualNetProfit, 'Please enter the estimated annual net profit.') ??
-      (Number(data.annualNetProfit) < 0
-        ? 'Annual net profit cannot be negative.'
-        : undefined),
   })
 }
 
@@ -90,7 +90,7 @@ export function validateDocumentsStep(data: ProposalFormData): ProposalFormError
 
   getDocumentRequirements(data.proposalType).forEach((document) => {
     if (document.required && !data.documents[document.key]) {
-      errors[`documents.${document.key}`] = `Upload the required ${document.label.toLowerCase()}.`
+      errors[`documents.${document.key}`] = document.validationMessage
     }
   })
 
