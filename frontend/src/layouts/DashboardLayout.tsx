@@ -3,12 +3,15 @@ import { Bell, PanelLeft, Search } from 'lucide-react'
 import { Navigate, Outlet } from 'react-router-dom'
 
 import { AdminSidebar } from '../components/dashboard/AdminSidebar'
+import { NotificationPanel } from '../components/admin/NotificationPanel'
 import { ROLE_LABEL, getMockUser } from '../lib/mockAuth'
 import { cn } from '../utils/cn'
 
 export function DashboardLayout() {
   const user = getMockUser()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
 
   if (!user) {
     return <Navigate replace to="/login" />
@@ -23,16 +26,37 @@ export function DashboardLayout() {
           : 'lg:grid-cols-[280px_minmax(0,1fr)]',
       )}
     >
-      <AdminSidebar collapsed={sidebarCollapsed} user={user} />
+      {mobileSidebarOpen ? (
+        <button
+          aria-label="Close navigation"
+          className="fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-[1px] lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+          type="button"
+        />
+      ) : null}
+
+      <AdminSidebar
+        collapsed={sidebarCollapsed}
+        mobileOpen={mobileSidebarOpen}
+        onClose={() => setMobileSidebarOpen(false)}
+        user={user}
+      />
 
       <div className="min-w-0">
         <header className="sticky top-0 z-20 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
           <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
             <button
+              aria-expanded={mobileSidebarOpen}
               aria-pressed={sidebarCollapsed}
               aria-label="Sidebar"
               className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-[#d8e1ee] bg-white text-[#1d3352] shadow-sm"
-              onClick={() => setSidebarCollapsed((current) => !current)}
+              onClick={() => {
+                if (window.matchMedia('(min-width: 1024px)').matches) {
+                  setSidebarCollapsed((current) => !current)
+                } else {
+                  setMobileSidebarOpen(true)
+                }
+              }}
               type="button"
             >
               <PanelLeft className="h-5 w-5" />
@@ -47,16 +71,25 @@ export function DashboardLayout() {
               />
             </label>
 
-            <button
-              aria-label="Notifications"
-              className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-transparent text-[#1d3352] transition hover:bg-[#f3f8fe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
-              type="button"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#ff8a1f]" />
-            </button>
+            <div className="relative">
+              <button
+                aria-expanded={notificationsOpen}
+                aria-label="Notifications"
+                className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-transparent text-[#1d3352] transition hover:bg-[#f3f8fe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+                onClick={() => setNotificationsOpen((open) => !open)}
+                type="button"
+              >
+                <Bell className="h-5 w-5" />
+                <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#ff8a1f]" />
+              </button>
+              {notificationsOpen ? (
+                <NotificationPanel
+                  onClose={() => setNotificationsOpen(false)}
+                />
+              ) : null}
+            </div>
 
-            <div className="flex items-center gap-3 border-l border-[#e2e8f0] pl-4">
+            <div className="hidden items-center gap-3 border-l border-[#e2e8f0] pl-4 sm:flex">
               <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0f53b7] text-sm font-black text-white">
                 {user.initials}
               </div>

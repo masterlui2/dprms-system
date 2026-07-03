@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, Eye, EyeOff, LockKeyhole } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ADMIN_USER, isValidAdminLogin, setMockUser } from "../../lib/mockAuth";
