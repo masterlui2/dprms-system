@@ -1,18 +1,19 @@
 import { createBrowserRouter } from 'react-router-dom'
 
+import { RoleGate } from '../components/auth/RoleGate'
 import { DashboardLayout } from '../layouts/DashboardLayout'
 import { Landing } from '../pages/Landing'
 import { Login } from '../pages/Login'
 import { NotFound } from '../pages/NotFound'
 import { ProposalSubmission } from '../pages/ProposalSubmission'
-import { AdminDashboard } from '../pages/admin/AdminDashboard'
 import { ApprovalsPage } from '../pages/admin/ApprovalsPage'
 import { BudgetPage } from '../pages/admin/BudgetPage'
 import { InventoryPage } from '../pages/admin/InventoryPage'
 import { MonitoringPage } from '../pages/admin/MonitoringPage'
-import { PredictivePage } from '../pages/admin/PredictivePage'
 import { ReportsPage } from '../pages/admin/ReportsPage'
 import { AuditTrailPage } from '../pages/admin/AuditTrailPage'
+import { DashboardHome } from '../pages/dashboard/DashboardHome'
+import { ProponentWorkspacePage } from '../pages/proponent/ProponentWorkspacePage'
 
 export const router = createBrowserRouter([
   {
@@ -33,35 +34,59 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <AdminDashboard />,
+        element: <DashboardHome />,
       },
       {
         path: 'approvals',
-        element: <ApprovalsPage />,
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <ApprovalsPage />
+          </RoleGate>
+        ),
       },
       {
         path: 'budget',
-        element: <BudgetPage />,
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <BudgetPage />
+          </RoleGate>
+        ),
       },
       {
         path: 'monitoring',
-        element: <MonitoringPage />,
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <MonitoringPage />
+          </RoleGate>
+        ),
       },
       {
         path: 'inventory',
-        element: <InventoryPage />,
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <InventoryPage />
+          </RoleGate>
+        ),
       },
       {
         path: 'reports',
         element: <ReportsPage />,
       },
       {
-        path: 'predictive',
-        element: <PredictivePage />,
+        path: 'proposals',
+        element: (
+          <RoleGate allowedRoles={['proponent']}>
+            <ProponentWorkspacePage />
+          </RoleGate>
+        ),
       },
       {
         path: 'audit',
-        element: <AuditTrailPage />,
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <AuditTrailPage />
+          </RoleGate>
+        ),
       },
     ],
   },

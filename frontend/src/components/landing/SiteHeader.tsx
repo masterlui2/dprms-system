@@ -1,9 +1,24 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
-import { ArrowRight, Menu, Sparkles, X } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  Bell,
+  ChevronDown,
+  LogOut,
+  Menu,
+  Sparkles,
+  UserCircle2,
+  X,
+} from "lucide-react";
 
+import { NotificationPanel } from "../admin/NotificationPanel";
 import logoImage from "../../assets/logo2.png";
 import { navigationItems } from "../../data/landing";
+import {
+  ROLE_LABEL,
+  clearMockUser,
+  getMockUser,
+} from "../../lib/mockAuth";
 
 function TopBar() {
   return (
@@ -38,7 +53,19 @@ function Logo() {
 }
 
 export function SiteHeader() {
+  const navigate = useNavigate();
+  const user = getMockUser();
   const [open, setOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const isProponent = user?.role === "proponent";
+
+  function handleSignOut() {
+    clearMockUser();
+    setAccountOpen(false);
+    setNotificationsOpen(false);
+    navigate("/login");
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-[#d6e9f8] bg-white/90 backdrop-blur-md">
@@ -65,29 +92,164 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden min-w-[210px] items-center justify-end gap-2 lg:flex">
-          <Link
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-[#073b82] transition-colors hover:bg-[#eaf6ff]"
-            to="/login"
-          >
-            Sign In
-          </Link>
-          <Link
-            className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#073b82] to-[#0f6ed6] px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition-transform hover:-translate-y-0.5"
-            to="/login"
-          >
-            Get Started
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          {isProponent ? (
+            <>
+              <div className="relative">
+                <button
+                  aria-expanded={notificationsOpen}
+                  aria-label="Notifications"
+                  className="relative inline-flex size-10 items-center justify-center rounded-lg text-[#073b82] transition hover:bg-[#eaf6ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+                  onClick={() => {
+                    setNotificationsOpen((current) => !current);
+                    setAccountOpen(false);
+                  }}
+                  type="button"
+                >
+                  <Bell className="size-5" />
+                  <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-[#ff8a1f]" />
+                </button>
+                {notificationsOpen ? (
+                  <NotificationPanel
+                    onClose={() => setNotificationsOpen(false)}
+                    role="proponent"
+                  />
+                ) : null}
+              </div>
+
+              <div className="relative">
+                <button
+                  aria-expanded={accountOpen}
+                  aria-label="Account"
+                  className="inline-flex h-10 items-center gap-2 rounded-lg px-2 text-[#073b82] transition hover:bg-[#eaf6ff] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+                  onClick={() => {
+                    setAccountOpen((current) => !current);
+                    setNotificationsOpen(false);
+                  }}
+                  type="button"
+                >
+                  <UserCircle2 className="size-7" />
+                  <ChevronDown className="size-4" />
+                </button>
+
+                {accountOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
+                    <div className="border-b border-slate-200 px-4 py-4">
+                      <p className="truncate text-sm font-black text-slate-900">
+                        {user.name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {ROLE_LABEL[user.role]}
+                      </p>
+                      <p className="mt-2 truncate text-xs text-slate-500">
+                        {user.email}
+                      </p>
+                    </div>
+                    <button
+                      className="flex h-11 w-full items-center gap-2 px-4 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
+                      onClick={handleSignOut}
+                      type="button"
+                    >
+                      <LogOut className="size-4" />
+                      Sign out
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <Link
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-bold text-[#073b82] transition-colors hover:bg-[#eaf6ff]"
+                to="/login"
+              >
+                Sign In
+              </Link>
+              <Link
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-[#073b82] to-[#0f6ed6] px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition-transform hover:-translate-y-0.5"
+                to="/login"
+              >
+                Get Started
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </>
+          )}
         </div>
 
-        <button
-          aria-label="Menu"
-          className="rounded-md p-2 text-[#073b82] transition-colors hover:bg-[#eaf6ff] lg:hidden"
-          onClick={() => setOpen((current) => !current)}
-          type="button"
-        >
-          {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-        </button>
+        <div className="flex items-center gap-1 lg:hidden">
+          {isProponent ? (
+            <>
+              <div className="relative">
+                <button
+                  aria-expanded={notificationsOpen}
+                  aria-label="Notifications"
+                  className="relative inline-flex size-10 items-center justify-center rounded-lg text-[#073b82] transition hover:bg-[#eaf6ff]"
+                  onClick={() => {
+                    setNotificationsOpen((current) => !current);
+                    setAccountOpen(false);
+                  }}
+                  type="button"
+                >
+                  <Bell className="size-5" />
+                  <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-[#ff8a1f]" />
+                </button>
+                {notificationsOpen ? (
+                  <NotificationPanel
+                    onClose={() => setNotificationsOpen(false)}
+                    role="proponent"
+                  />
+                ) : null}
+              </div>
+
+              <div className="relative">
+                <button
+                  aria-expanded={accountOpen}
+                  aria-label="Account"
+                  className="inline-flex size-10 items-center justify-center rounded-lg text-[#073b82] transition hover:bg-[#eaf6ff]"
+                  onClick={() => {
+                    setAccountOpen((current) => !current);
+                    setNotificationsOpen(false);
+                  }}
+                  type="button"
+                >
+                  <UserCircle2 className="size-7" />
+                </button>
+
+                {accountOpen ? (
+                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
+                    <div className="border-b border-slate-200 px-4 py-4">
+                      <p className="truncate text-sm font-black text-slate-900">
+                        {user.name}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {ROLE_LABEL[user.role]}
+                      </p>
+                      <p className="mt-2 truncate text-xs text-slate-500">
+                        {user.email}
+                      </p>
+                    </div>
+                    <button
+                      className="flex h-11 w-full items-center gap-2 px-4 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
+                      onClick={handleSignOut}
+                      type="button"
+                    >
+                      <LogOut className="size-4" />
+                      Sign out
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+
+          <button
+            aria-label="Menu"
+            className="rounded-md p-2 text-[#073b82] transition-colors hover:bg-[#eaf6ff]"
+            onClick={() => setOpen((current) => !current)}
+            type="button"
+          >
+            {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+        </div>
       </div>
 
       {open ? (
@@ -103,14 +265,28 @@ export function SiteHeader() {
                 {item.label}
               </a>
             ))}
-            <Link
-              className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#073b82] px-4 py-3 text-sm font-bold text-white"
-              onClick={() => setOpen(false)}
-              to="/login"
-            >
-              Get Started
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            {isProponent ? (
+              <button
+                className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm font-bold text-[#073b82]"
+                onClick={() => {
+                  setOpen(false);
+                  handleSignOut();
+                }}
+                type="button"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign out
+              </button>
+            ) : (
+              <Link
+                className="mt-2 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#073b82] px-4 py-3 text-sm font-bold text-white"
+                onClick={() => setOpen(false)}
+                to="/login"
+              >
+                Get Started
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
           </nav>
         </div>
       ) : null}

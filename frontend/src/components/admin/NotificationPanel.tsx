@@ -2,53 +2,103 @@ import {
   Bell,
   CheckCheck,
   FileCheck2,
+  FilePenLine,
   TriangleAlert,
+  UserCheck2,
   Wallet,
   X,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 
-const initialNotifications = [
-  {
-    id: 'notification-1',
-    title: 'Proposal ready for review',
-    description: 'PR-2026-041 completed document screening.',
-    time: '8 min ago',
-    read: false,
-    icon: FileCheck2,
-  },
-  {
-    id: 'notification-2',
-    title: 'Budget utilization alert',
-    description: 'Cold Storage has reached 99% utilization.',
-    time: '42 min ago',
-    read: false,
-    icon: Wallet,
-  },
-  {
-    id: 'notification-3',
-    title: 'Compliance report overdue',
-    description: 'P-211 requires an accomplishment report.',
-    time: '2 hrs ago',
-    read: false,
-    icon: TriangleAlert,
-  },
-  {
-    id: 'notification-4',
-    title: 'Proposal approved',
-    description: 'Highland Coffee received final approval.',
-    time: 'Yesterday',
-    read: true,
-    icon: CheckCheck,
-  },
-]
+import type { UserRole } from '../../lib/mockAuth'
+
+const NOTIFICATIONS_BY_ROLE = {
+  admin: [
+    {
+      id: 'notification-1',
+      title: 'Proposal ready for review',
+      description: 'PR-2026-041 completed document screening.',
+      time: '8 min ago',
+      read: false,
+      icon: FileCheck2,
+    },
+    {
+      id: 'notification-2',
+      title: 'Budget utilization alert',
+      description: 'Cold Storage has reached 99% utilization.',
+      time: '42 min ago',
+      read: false,
+      icon: Wallet,
+    },
+    {
+      id: 'notification-3',
+      title: 'Compliance report overdue',
+      description: 'P-211 requires an accomplishment report.',
+      time: '2 hrs ago',
+      read: false,
+      icon: TriangleAlert,
+    },
+    {
+      id: 'notification-4',
+      title: 'Proposal approved',
+      description: 'Highland Coffee received final approval.',
+      time: 'Yesterday',
+      read: true,
+      icon: CheckCheck,
+    },
+  ],
+  proponent: [
+    {
+      id: 'notification-5',
+      title: 'Revision requested',
+      description: 'PR-2026-029 needs an updated quotation attachment.',
+      time: '14 min ago',
+      read: false,
+      icon: FilePenLine,
+    },
+    {
+      id: 'notification-6',
+      title: 'Proposal endorsed',
+      description: 'PR-2026-041 advanced to technical evaluation.',
+      time: '1 hr ago',
+      read: false,
+      icon: UserCheck2,
+    },
+    {
+      id: 'notification-7',
+      title: 'Report deadline reminder',
+      description: 'Your quarterly accomplishment report is due in 4 days.',
+      time: 'Today',
+      read: false,
+      icon: TriangleAlert,
+    },
+    {
+      id: 'notification-8',
+      title: 'Submission received',
+      description: 'Your packaging facility proposal was logged successfully.',
+      time: 'Yesterday',
+      read: true,
+      icon: CheckCheck,
+    },
+  ],
+} satisfies Record<UserRole, Array<{
+  id: string
+  title: string
+  description: string
+  time: string
+  read: boolean
+  icon: LucideIcon
+}>>
 
 export function NotificationPanel({
   onClose,
+  role,
 }: {
   onClose: () => void
+  role: UserRole
 }) {
-  const [notifications, setNotifications] = useState(initialNotifications)
+  const [notifications, setNotifications] = useState(NOTIFICATIONS_BY_ROLE[role])
   const unreadCount = notifications.filter((item) => !item.read).length
 
   return (

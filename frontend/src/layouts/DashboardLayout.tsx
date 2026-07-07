@@ -1,20 +1,26 @@
 import { useState } from 'react'
-import { Bell, PanelLeft, Search } from 'lucide-react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Bell, ChevronDown, PanelLeft, Search, UserCircle2 } from 'lucide-react'
+import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 
 import { AdminSidebar } from '../components/dashboard/AdminSidebar'
 import { NotificationPanel } from '../components/admin/NotificationPanel'
-import { ROLE_LABEL, getMockUser } from '../lib/mockAuth'
+import { ROLE_LABEL, clearMockUser, getMockUser } from '../lib/mockAuth'
 import { cn } from '../utils/cn'
 
 export function DashboardLayout() {
+  const navigate = useNavigate()
   const user = getMockUser()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false)
 
   if (!user) {
     return <Navigate replace to="/login" />
+  }
+
+  if (user.role === 'proponent') {
+    return <Navigate replace to="/" />
   }
 
   return (
@@ -66,7 +72,11 @@ export function DashboardLayout() {
               <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
               <input
                 className="h-11 w-full rounded-2xl border border-[#d8e1ee] bg-[#fbfdff] pl-12 pr-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
-                placeholder="Search projects, MSMEs, equipment..."
+                placeholder={
+                  user.role === 'admin'
+                    ? 'Search projects, MSMEs, equipment...'
+                    : 'Search proposal status, notices, reports...'
+                }
                 type="text"
               />
             </label>
@@ -76,7 +86,10 @@ export function DashboardLayout() {
                 aria-expanded={notificationsOpen}
                 aria-label="Notifications"
                 className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-transparent text-[#1d3352] transition hover:bg-[#f3f8fe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
-                onClick={() => setNotificationsOpen((open) => !open)}
+                onClick={() => {
+                  setNotificationsOpen((open) => !open)
+                  setAccountMenuOpen(false)
+                }}
                 type="button"
               >
                 <Bell className="h-5 w-5" />
@@ -85,19 +98,61 @@ export function DashboardLayout() {
               {notificationsOpen ? (
                 <NotificationPanel
                   onClose={() => setNotificationsOpen(false)}
+                  role={user.role}
                 />
               ) : null}
             </div>
 
-            <div className="hidden items-center gap-3 border-l border-[#e2e8f0] pl-4 sm:flex">
-              <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0f53b7] text-sm font-black text-white">
-                {user.initials}
-              </div>
+            <div className="relative border-l border-[#e2e8f0] pl-4">
+              <button
+                aria-expanded={accountMenuOpen}
+                aria-label="Account"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-transparent px-2 text-[#1d3352] transition hover:bg-[#f3f8fe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+                onClick={() => {
+                  setAccountMenuOpen((open) => !open)
+                  setNotificationsOpen(false)
+                }}
+                type="button"
+              >
+                <UserCircle2 className="h-7 w-7" />
+                <ChevronDown className="hidden h-4 w-4 sm:block" />
+              </button>
 
-              <div className="min-w-0">
-                <p className="truncate text-[15px] font-bold text-slate-900">{user.name}</p>
-                <p className="truncate text-sm text-slate-500">{ROLE_LABEL[user.role]}</p>
-              </div>
+              {accountMenuOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
+                  <div className="border-b border-slate-200 px-4 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0f53b7] text-sm font-black text-white">
+                        {user.initials}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-[15px] font-bold text-slate-900">
+                          {user.name}
+                        </p>
+                        <p className="truncate text-sm text-slate-500">
+                          {ROLE_LABEL[user.role]}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2 px-4 py-4">
+                    <div className="rounded-xl bg-[#f7fbff] px-3 py-3 text-xs text-slate-500">
+                      Signed in as <span className="font-bold text-slate-700">{user.email}</span>
+                    </div>
+                    <button
+                      className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-bold text-[#073b82] transition hover:border-blue-300 hover:bg-blue-50"
+                      onClick={() => {
+                        clearMockUser()
+                        setAccountMenuOpen(false)
+                        navigate('/login')
+                      }}
+                      type="button"
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         </header>

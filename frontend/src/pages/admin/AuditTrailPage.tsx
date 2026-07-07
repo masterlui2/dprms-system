@@ -157,6 +157,7 @@ const columns: DataColumn<AuditRecord>[] = [
   {
     id: 'date',
     header: 'Date & Time',
+    className: 'w-[180px]',
     sortValue: (record) => record.dateValue,
     render: (record) => (
       <span className="whitespace-nowrap text-xs text-slate-600">
@@ -166,58 +167,52 @@ const columns: DataColumn<AuditRecord>[] = [
   },
   {
     id: 'proposal',
-    header: 'Proposal ID',
-    sortValue: (record) => record.proposalId,
-    render: (record) => (
-      <span className="font-mono text-xs text-[#0f53b7]">
-        {record.proposalId}
-      </span>
-    ),
-  },
-  {
-    id: 'title',
-    header: 'Project Title',
+    header: 'Proposal',
+    className: 'w-[34%]',
     sortValue: (record) => record.projectTitle,
     render: (record) => (
-      <span className="font-bold text-slate-900">{record.projectTitle}</span>
+      <div>
+        <p className="font-bold leading-6 text-slate-900">
+          {record.projectTitle}
+        </p>
+        <p className="mt-1 font-mono text-xs text-[#0f53b7]">
+          {record.proposalId}
+        </p>
+        <p className="mt-2 line-clamp-2 max-w-xl text-xs leading-5 text-slate-500">
+          {record.remarks}
+        </p>
+      </div>
     ),
   },
   {
     id: 'user',
-    header: 'User',
+    header: 'Actor',
+    className: 'w-[220px]',
     sortValue: (record) => record.user,
-    render: (record) => record.user,
-  },
-  {
-    id: 'role',
-    header: 'Role',
-    sortValue: (record) => record.role,
     render: (record) => (
-      <span className="text-slate-600">{record.role}</span>
+      <div>
+        <p className="font-semibold text-slate-900">{record.user}</p>
+        <p className="mt-1 text-xs text-slate-500">{record.role}</p>
+      </div>
     ),
   },
   {
     id: 'action',
-    header: 'Action Performed',
+    header: 'Action',
+    className: 'w-[220px]',
     sortValue: (record) => record.action,
-    render: (record) => record.action,
+    render: (record) => (
+      <span className="font-semibold text-slate-800">{record.action}</span>
+    ),
   },
   {
     id: 'status',
     header: 'Status',
+    className: 'w-[150px]',
     sortValue: (record) => record.status,
     render: (record) => (
       <span className={cn('font-bold', statusClass(record.status))}>
         {record.status}
-      </span>
-    ),
-  },
-  {
-    id: 'remarks',
-    header: 'Remarks',
-    render: (record) => (
-      <span className="block max-w-72 text-sm leading-5 text-slate-500">
-        {record.remarks}
       </span>
     ),
   },
@@ -250,7 +245,7 @@ export function AuditTrailPage() {
           emptyDescription="No audit records match the selected role or status."
           emptyTitle="No audit activity found"
           getRowKey={(record) => record.id}
-          searchPlaceholder="Search proposal, project, user, action, or remarks..."
+          searchPlaceholder="Search audit activity..."
           searchText={(record) =>
             `${record.proposalId} ${record.projectTitle} ${record.user} ${record.role} ${record.action} ${record.status} ${record.remarks}`
           }

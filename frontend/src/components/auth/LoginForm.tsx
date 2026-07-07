@@ -2,7 +2,11 @@ import { useState, type FormEvent } from "react";
 import { ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
-import { ADMIN_USER, isValidAdminLogin, setMockUser } from "../../lib/mockAuth";
+import {
+  DEFAULT_REDIRECT_BY_ROLE,
+  authenticateMockUser,
+  setMockUser,
+} from "../../lib/mockAuth";
 import { DostBrand } from "./DostBrand";
 
 export function LoginForm() {
@@ -21,14 +25,16 @@ export function LoginForm() {
       return;
     }
 
-    if (!isValidAdminLogin(email, password)) {
+    const user = authenticateMockUser(email, password);
+
+    if (!user) {
       setMessage("Invalid email address or password.");
       return;
     }
 
     setMessage(null);
-    setMockUser(ADMIN_USER);
-    navigate("/dashboard");
+    setMockUser(user);
+    navigate(DEFAULT_REDIRECT_BY_ROLE[user.role]);
   }
 
   return (
@@ -51,7 +57,8 @@ export function LoginForm() {
             Welcome back
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Sign in to continue to the DOST admin workspace.
+            Sign in to continue to the DOST workspace for administrators and
+            project proponents.
           </p>
         </header>
 

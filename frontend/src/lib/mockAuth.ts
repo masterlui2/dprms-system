@@ -1,4 +1,4 @@
-export type UserRole = "admin";
+export type UserRole = "admin" | "proponent";
 
 export type MockUser = {
   email: string;
@@ -11,6 +11,7 @@ const STORAGE_KEY = "dprms.mock-user";
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin: "System Administrator",
+  proponent: "Project Proponent",
 };
 
 export const ADMIN_USER: MockUser = {
@@ -20,9 +21,60 @@ export const ADMIN_USER: MockUser = {
   role: "admin",
 };
 
-export const ADMIN_CREDENTIALS = {
-  email: "admin",
-  password: "Admin@",
+export const PROPONENT_USER: MockUser = {
+  email: "proponent@dost.gov.ph",
+  initials: "PR",
+  name: "Maria Proponent",
+  role: "proponent",
+};
+
+const MOCK_USERS = [
+  {
+    credentials: {
+      email: "admin",
+      password: "Admin@",
+    },
+    user: ADMIN_USER,
+  },
+  {
+    credentials: {
+      email: "proponent",
+      password: "Proponent@",
+    },
+    user: PROPONENT_USER,
+  },
+];
+
+export const MOCK_CREDENTIAL_HINTS = MOCK_USERS.map(({ credentials, user }) => {
+  return {
+    email: credentials.email,
+    password: credentials.password,
+    role: user.role,
+  };
+});
+
+function normalizeCredentialEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+export function authenticateMockUser(email: string, password: string) {
+  const account = MOCK_USERS.find(({ credentials }) => {
+    return (
+      normalizeCredentialEmail(credentials.email) ===
+        normalizeCredentialEmail(email) && credentials.password === password
+    );
+  });
+
+  return account?.user ?? null;
+}
+
+export function isValidLogin(email: string, password: string) {
+  return Boolean(authenticateMockUser(email, password));
+}
+
+export const DEFAULT_REDIRECT_BY_ROLE: Record<UserRole, string> = {
+  admin: "/dashboard",
+  proponent: "/",
 };
 
 export function getMockUser(): MockUser | null {
@@ -58,11 +110,4 @@ export function clearMockUser() {
   }
 
   window.localStorage.removeItem(STORAGE_KEY);
-}
-
-export function isValidAdminLogin(email: string, password: string) {
-  return (
-    email.trim().toLowerCase() === ADMIN_CREDENTIALS.email.toLowerCase() &&
-    password === ADMIN_CREDENTIALS.password
-  );
 }

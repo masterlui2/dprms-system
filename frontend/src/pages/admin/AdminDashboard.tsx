@@ -1,231 +1,302 @@
-import type { LucideIcon } from 'lucide-react'
+import { useState } from "react";
 import {
-  Activity,
-  ArrowRight,
+  AlertTriangle,
   BarChart3,
   Brain,
-  ClipboardCheck,
-  Clock3,
-  QrCode,
-  TriangleAlert,
-  Wallet,
-} from 'lucide-react'
-import { Link } from 'react-router-dom'
+  CalendarDays,
+  ShieldCheck,
+  TrendingUp,
+} from "lucide-react";
 
-import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
-import { AdminPanel } from '../../components/admin/AdminPanel'
-import { MetricCard } from '../../components/admin/MetricCard'
-import { StatusPill } from '../../components/admin/StatusPill'
-import {
-  equipmentRecords,
-  formatCurrency,
-  projectRecords,
-  proposalRecords,
-} from '../../data/admin'
+import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
+import { AdminPanel } from "../../components/admin/AdminPanel";
+import { MetricCard } from "../../components/admin/MetricCard";
+import { SiteVisitCalendarModal } from "../../components/admin/site-visits/SiteVisitCalendarModal";
+import { StatusPill } from "../../components/admin/StatusPill";
+import { featureImportance, predictions } from "../../data/admin";
+import { cn } from "../../utils/cn";
 
-interface ModuleLink {
-  description: string
-  icon: LucideIcon
-  title: string
-  to: string
-}
-
-const modules: ModuleLink[] = [
+const reminders = [
   {
-    title: 'Approval Workflow',
-    description: 'Review proposals and approval history.',
-    icon: ClipboardCheck,
-    to: '/dashboard/approvals',
+    title: "Quarterly compliance report due",
+    project: "GreenHarvest",
+    when: "In 3 days",
+    tone: "bg-red-500",
   },
   {
-    title: 'Budget Tracking',
-    description: 'Monitor releases and billing compliance.',
-    icon: Wallet,
-    to: '/dashboard/budget',
+    title: "Site visit scheduled",
+    project: "Highland Coffee",
+    when: "Jul 5",
+    tone: "bg-[#0f53b7]",
   },
   {
-    title: 'Project Monitoring',
-    description: 'Track milestones, reports, and site visits.',
-    icon: Activity,
-    to: '/dashboard/monitoring',
+    title: "Equipment turnover activity",
+    project: "Bright Foods",
+    when: "Jul 12",
+    tone: "bg-amber-500",
   },
-  {
-    title: 'QR Code Inventory',
-    description: 'Manage equipment issuance and condition.',
-    icon: QrCode,
-    to: '/dashboard/inventory',
-  },
-  {
-    title: 'Reports & Analytics',
-    description: 'Prepare standardized management reports.',
-    icon: BarChart3,
-    to: '/dashboard/reports',
-  },
-  {
-    title: 'Predictive Analytics',
-    description: 'Review sustainability and renewal insights.',
-    icon: Brain,
-    to: '/dashboard/predictive',
-  },
-]
-
-const recentActivity = [
-  {
-    title: 'Bright Foods submitted a SETUP proposal',
-    detail: 'PR-2026-041 entered document screening.',
-    time: '10 min ago',
-    status: 'For screening',
-  },
-  {
-    title: 'Cold Storage billing alert raised',
-    detail: 'P-211 reached 99% budget utilization.',
-    time: '32 min ago',
-    status: 'Attention',
-  },
-  {
-    title: 'Equipment condition updated',
-    detail: 'EQ-0239 was returned and marked for repair.',
-    time: '1 hr ago',
-    status: 'Recorded',
-  },
-]
+];
 
 export function AdminDashboard() {
-  const activeProjects = projectRecords.filter(
-    (project) => project.status !== 'Completed',
-  ).length
-  const pendingProposals = proposalRecords.filter(
-    (proposal) =>
-      proposal.status === 'Pending' || proposal.status === 'Under review',
-  ).length
-  const allocated = projectRecords.reduce(
-    (total, project) => total + project.budget,
-    0,
-  )
-  const utilized = projectRecords.reduce(
-    (total, project) => total + project.used,
-    0,
-  )
-  const utilization = Math.round((utilized / allocated) * 100)
-  const inventoryAlerts = equipmentRecords.filter(
-    (equipment) => equipment.condition !== 'Good',
-  ).length
+  const [siteVisitCalendarOpen, setSiteVisitCalendarOpen] = useState(false);
+  const expanding = predictions.filter(
+    (prediction) => prediction.growth === "Expanding",
+  ).length;
+  const sustainable = predictions.filter(
+    (prediction) => prediction.sustainability === "Sustainable",
+  ).length;
+  const atRisk = predictions.filter(
+    (prediction) => prediction.recommendation === "At risk",
+  ).length;
+  const renewalRecommended = predictions.filter(
+    (prediction) => prediction.recommendation === "Renewal recommended",
+  ).length;
+  const averageRisk = Math.round(
+    predictions.reduce((total, prediction) => total + prediction.riskScore, 0) /
+      predictions.length,
+  );
+  const chartBars = predictions.map((prediction) => ({
+    label: prediction.enterprise.replace("DOrSU Research Center", "DOrSU"),
+    value: prediction.riskScore,
+  }));
+  const analyticsOverviewPanel = (
+    <AdminPanel
+      description="Quick view of prediction movement and risk spread"
+      title="Analytics overview"
+    >
+      <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            ["Avg. risk", String(averageRisk), "Risk score"],
+            ["Renewals", String(renewalRecommended), "Recommended"],
+            ["At risk", String(atRisk), "Needs action"],
+          ].map(([label, value, helper]) => (
+            <div
+              className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+              key={label}
+            >
+              <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+                {label}
+              </p>
+              <p className="mt-1 text-xl font-black text-[#073b82]">
+                {value}
+              </p>
+              <p className="mt-0.5 truncate text-[11px] text-slate-500">
+                {helper}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-black text-slate-900">
+                Risk distribution
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Lower bars mean stronger renewal readiness.
+              </p>
+            </div>
+            <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0f53b7]">
+              <BarChart3 className="size-4" />
+            </span>
+          </div>
+
+          <div className="mt-3 flex h-24 items-end gap-2">
+            {chartBars.map((bar) => (
+              <div
+                className="flex min-w-0 flex-1 flex-col items-center gap-1.5"
+                key={bar.label}
+              >
+                <div className="flex h-16 w-full items-end rounded-t-lg bg-slate-100 px-1">
+                  <div
+                    className={cn(
+                      "w-full rounded-t-md",
+                      bar.value >= 70
+                        ? "bg-red-500"
+                        : bar.value >= 45
+                          ? "bg-amber-500"
+                          : "bg-[#0f53b7]",
+                    )}
+                    style={{ height: `${bar.value}%` }}
+                  />
+                </div>
+                <p className="w-full truncate text-center text-[10px] font-bold text-slate-500">
+                  {bar.label}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </AdminPanel>
+  );
 
   return (
     <div className="space-y-7">
       <AdminPageHeader
-        description="Monitor proposals, funded projects, resources, and compliance across GIA and SETUP."
-        eyebrow="DOST Davao Oriental"
-        title="Administration Overview"
+        description=""
+        eyebrow="Prediction Analysis"
+        title="Prediction analysis stats"
       />
 
       <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         <MetricCard
-          detail="+3 this quarter"
-          icon={Activity}
-          label="Active Projects"
-          value={String(activeProjects)}
+          detail="Current prediction batch"
+          icon={Brain}
+          label="MSMEs Assessed"
+          value={String(predictions.length)}
         />
         <MetricCard
-          detail="2 require screening today"
-          icon={ClipboardCheck}
-          label="Pending Proposals"
-          tone="orange"
-          value={String(pendingProposals)}
+          detail="Enterprises showing upward momentum"
+          icon={TrendingUp}
+          label="Expanding"
+          tone="sky"
+          value={String(expanding)}
         />
         <MetricCard
-          detail={`${formatCurrency(utilized)} disbursed`}
-          icon={Wallet}
-          label="Budget Utilized"
-          tone="gold"
-          value={`${utilization}%`}
+          detail="Low sustainability risk"
+          icon={ShieldCheck}
+          label="Sustainable"
+          tone="green"
+          value={String(sustainable)}
         />
         <MetricCard
-          detail="Condition or inspection alerts"
-          icon={TriangleAlert}
-          label="Inventory Alerts"
-          tone={inventoryAlerts ? 'red' : 'green'}
-          value={String(inventoryAlerts)}
+          detail="Needs immediate intervention"
+          icon={AlertTriangle}
+          label="At Risk"
+          tone="red"
+          value={String(atRisk)}
         />
       </section>
 
-      <section>
-        <h2 className="mb-4 text-xl font-black text-[#073b82]">Admin modules</h2>
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-          {modules.map((module) => (
-            <Link
-              className="group flex items-center gap-4 rounded-2xl border border-[#d8e1ee] bg-white p-5 shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)] transition hover:-translate-y-0.5 hover:border-blue-300"
-              key={module.to}
-              to={module.to}
-            >
-              <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-blue-50 text-[#0f53b7]">
-                <module.icon className="size-5" />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block font-black text-[#073b82]">
-                  {module.title}
-                </span>
-                <span className="mt-1 block text-sm text-slate-500">
-                  {module.description}
-                </span>
-              </span>
-              <ArrowRight className="size-5 text-slate-400 transition group-hover:translate-x-1 group-hover:text-[#0f53b7]" />
-            </Link>
-          ))}
-        </div>
-      </section>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+        <div className="space-y-5">
+          {analyticsOverviewPanel}
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,0.8fr)]">
-        <AdminPanel title="Recent activity">
-          <div className="divide-y divide-slate-100">
-            {recentActivity.map((item) => (
-              <article
-                className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center"
-                key={item.title}
-              >
-                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
-                  <Clock3 className="size-4" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-slate-900">{item.title}</p>
-                  <p className="mt-0.5 text-sm text-slate-500">{item.detail}</p>
-                </div>
-                <div className="flex items-center gap-3">
+          <AdminPanel title="Prediction snapshot">
+            <div className="divide-y divide-slate-100">
+              {predictions.map((prediction) => (
+                <article
+                  className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center"
+                  key={prediction.projectId}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-900">
+                      {prediction.enterprise}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {prediction.projectId}
+                    </p>
+                  </div>
+                  <div className="flex min-w-[180px] items-center gap-3">
+                    <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className={
+                          prediction.riskScore >= 70
+                            ? "h-full bg-red-500"
+                            : prediction.riskScore >= 45
+                              ? "h-full bg-amber-500"
+                              : "h-full bg-emerald-500"
+                        }
+                        style={{ width: `${prediction.riskScore}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-black text-slate-700">
+                      {prediction.riskScore}
+                    </span>
+                  </div>
                   <StatusPill
                     tone={
-                      item.status === 'Attention'
-                        ? 'danger'
-                        : item.status === 'For screening'
-                          ? 'warning'
-                          : 'neutral'
+                      prediction.recommendation === "Renewal recommended"
+                        ? "success"
+                        : prediction.recommendation === "At risk"
+                          ? "danger"
+                          : "warning"
                     }
                   >
-                    {item.status}
+                    {prediction.recommendation}
                   </StatusPill>
-                  <span className="whitespace-nowrap text-xs text-slate-400">
-                    {item.time}
-                  </span>
-                </div>
-              </article>
-            ))}
-          </div>
-        </AdminPanel>
+                </article>
+              ))}
+            </div>
+          </AdminPanel>
+        </div>
 
-        <AdminPanel title="Needs attention">
-          <div className="space-y-3 p-5">
-            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
-              <p className="font-bold text-red-800">1 overdue compliance report</p>
-              <p className="mt-1 text-sm text-red-700">Cold Storage - P-211</p>
+        <div className="space-y-5">
+          <AdminPanel
+            action={
+              <button
+                aria-label="Open site visit calendar"
+                className="inline-flex size-11 items-center justify-center rounded-xl border border-slate-200 text-[#0f53b7] transition hover:border-blue-300 hover:bg-blue-50"
+                onClick={() => setSiteVisitCalendarOpen(true)}
+                title="Open site visit calendar"
+                type="button"
+              >
+                <CalendarDays className="size-5" />
+              </button>
+            }
+            title="Upcoming reminders"
+          >
+            <ul className="divide-y divide-slate-100">
+              {reminders.map((reminder) => (
+                <li
+                  className="flex items-start gap-4 px-5 py-5"
+                  key={reminder.title}
+                >
+                  <span
+                    className={cn(
+                      "mt-2 size-2.5 shrink-0 rounded-full",
+                      reminder.tone,
+                    )}
+                  />
+                  <div>
+                    <p className="text-base font-black text-slate-900">
+                      {reminder.title}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {reminder.project} - {reminder.when}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </AdminPanel>
+
+          <AdminPanel
+            description="Most influential drivers in the current scoring model"
+            title="Key model signals"
+          >
+            <div className="space-y-5 p-5">
+              {featureImportance.map((feature) => (
+                <div key={feature.label}>
+                  <div className="flex justify-between gap-3 text-sm">
+                    <span className="font-semibold text-slate-700">
+                      {feature.label}
+                    </span>
+                    <span className="font-black text-[#073b82]">
+                      {feature.value}%
+                    </span>
+                  </div>
+                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-[#0f53b7]"
+                      style={{ width: `${feature.value}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="font-bold text-amber-900">2 site visits this week</p>
-              <p className="mt-1 text-sm text-amber-800">
-                Bright Foods and Highland Coffee
-              </p>
-            </div>
-          </div>
-        </AdminPanel>
+          </AdminPanel>
+        </div>
       </div>
+
+      {siteVisitCalendarOpen ? (
+        <SiteVisitCalendarModal
+          onClose={() => setSiteVisitCalendarOpen(false)}
+        />
+      ) : null}
     </div>
-  )
+  );
 }

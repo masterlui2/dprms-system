@@ -34,6 +34,7 @@ interface DataTableProps<T> {
   searchPlaceholder?: string
   searchText: (row: T) => string
   toolbar?: ReactNode
+  variant?: 'default' | 'clean'
 }
 
 export function DataTable<T>({
@@ -48,6 +49,7 @@ export function DataTable<T>({
   searchPlaceholder = 'Search records...',
   searchText,
   toolbar,
+  variant = 'default',
 }: DataTableProps<T>) {
   const rowsPerPageOptions = Array.from(
     new Set([initialRowsPerPage, 5, 10, 20]),
@@ -104,11 +106,21 @@ export function DataTable<T>({
   return (
     <div>
       <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-        <label className="relative block min-w-0 flex-1 lg:max-w-sm">
+        <label
+          className={cn(
+            'relative block min-w-0 flex-1 lg:max-w-sm',
+            variant === 'clean' && 'lg:max-w-md',
+          )}
+        >
           <span className="sr-only">{searchPlaceholder}</span>
           <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
           <input
-            className="h-10 w-full rounded-lg border border-slate-300 bg-white pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
+            className={cn(
+              'w-full border bg-white pl-10 pr-3 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100',
+              variant === 'clean'
+                ? 'h-12 rounded-2xl border-[#cfdced] text-[15px]'
+                : 'h-10 rounded-lg border-slate-300',
+            )}
             onChange={(event) => {
               setQuery(event.target.value)
               setPage(1)
@@ -125,11 +137,22 @@ export function DataTable<T>({
 
       <div className="hidden overflow-hidden xl:block">
         <table className="w-full table-fixed text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-[0.08em] text-slate-500">
+          <thead
+            className={cn(
+              'text-xs text-slate-500',
+              variant === 'clean'
+                ? 'bg-[#f8fbff] text-[#5c7394]'
+                : 'bg-slate-50 uppercase tracking-[0.08em]',
+            )}
+          >
             <tr>
               {columns.map((column) => (
                 <th
-                  className={cn('px-5 py-3 font-black', column.className)}
+                  className={cn(
+                    'px-5 font-black',
+                    variant === 'clean' ? 'py-4 text-sm' : 'py-3',
+                    column.className,
+                  )}
                   key={column.id}
                 >
                   {column.sortValue ? (
@@ -188,7 +211,11 @@ export function DataTable<T>({
                   >
                     {columns.map((column) => (
                       <td
-                        className={cn('px-5 py-4', column.className)}
+                        className={cn(
+                          'px-5',
+                          variant === 'clean' ? 'py-5' : 'py-4',
+                          column.className,
+                        )}
                         key={column.id}
                       >
                         <div className="min-w-0 break-words">
@@ -245,7 +272,12 @@ export function DataTable<T>({
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <div
+        className={cn(
+          'flex flex-col gap-3 border-t border-slate-200 px-5 py-4 sm:flex-row sm:items-center sm:justify-between',
+          variant === 'clean' && 'py-5',
+        )}
+      >
         <div className="flex flex-wrap items-center gap-4">
           <p className="text-xs text-slate-500">
             Showing {firstRow}-{lastRow} of {sorted.length}

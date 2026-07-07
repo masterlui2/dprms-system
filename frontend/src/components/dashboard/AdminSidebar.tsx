@@ -1,9 +1,11 @@
+import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BarChart3,
-  Brain,
+  ChevronDown,
   ClipboardCheck,
+  FilePenLine,
   LayoutDashboard,
   LogOut,
   QrCode,
@@ -23,6 +25,10 @@ type Item = {
   enabled?: boolean;
   icon: LucideIcon;
   roles: Role[];
+  submodules?: Array<{
+    title: string;
+    url: string;
+  }>;
   title: string;
   url: string;
 };
@@ -32,7 +38,7 @@ const ITEMS: Item[] = [
     title: "Overview",
     url: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["admin"],
+    roles: ["admin", "proponent"],
     enabled: true,
   },
   {
@@ -55,6 +61,16 @@ const ITEMS: Item[] = [
     icon: Activity,
     roles: ["admin"],
     enabled: true,
+    submodules: [
+      {
+        title: "GIA Program",
+        url: "/dashboard/monitoring?program=GIA",
+      },
+      {
+        title: "SETUP Program",
+        url: "/dashboard/monitoring?program=SETUP",
+      },
+    ],
   },
   {
     title: "Equipment & QR Codes",
@@ -67,14 +83,14 @@ const ITEMS: Item[] = [
     title: "Reports",
     url: "/dashboard/reports",
     icon: BarChart3,
-    roles: ["admin"],
+    roles: ["admin", "proponent"],
     enabled: true,
   },
   {
-    title: "Decision Support",
-    url: "/dashboard/predictive",
-    icon: Brain,
-    roles: ["admin"],
+    title: "Proposal Workspace",
+    url: "/dashboard/proposals",
+    icon: FilePenLine,
+    roles: ["proponent"],
     enabled: true,
   },
   {
@@ -88,14 +104,18 @@ const ITEMS: Item[] = [
 
 function SidebarItem({
   collapsed,
+  expanded,
   isActive,
   item,
   onNavigate,
+  onToggle,
 }: {
   collapsed: boolean;
+  expanded?: boolean;
   isActive: boolean;
   item: Item;
   onNavigate?: () => void;
+  onToggle?: () => void;
 }) {
   const className = cn(
     "flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition",
@@ -107,10 +127,35 @@ function SidebarItem({
       "cursor-default opacity-55 hover:bg-transparent hover:text-slate-700",
   );
 
+  const hasSubmodules = Boolean(item.submodules?.length);
   const content = (
     <>
       <item.icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span className="truncate">{item.title}</span>}
+      {!collapsed && (
+        <>
+          <span className="min-w-0 flex-1 truncate">{item.title}</span>
+          {hasSubmodules ? (
+            <button
+              aria-expanded={expanded}
+              aria-label={`${expanded ? "Collapse" : "Expand"} ${item.title}`}
+              className="grid size-7 shrink-0 place-items-center rounded-md text-slate-500 transition hover:bg-slate-100 hover:text-[#073b82]"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onToggle?.();
+              }}
+              type="button"
+            >
+              <ChevronDown
+                className={cn(
+                  "size-3.5 transition-transform",
+                  expanded && "rotate-180",
+                )}
+              />
+            </button>
+          ) : null}
+        </>
+      )}
     </>
   );
 
@@ -124,6 +169,33 @@ function SidebarItem({
         type="button"
       >
         {content}
+      </button>
+    );
+  }
+
+  if (hasSubmodules) {
+    return (
+      <button
+        aria-expanded={expanded}
+        className={className}
+        onClick={onToggle}
+        title={item.title}
+        type="button"
+      >
+        <item.icon className="h-4 w-4 shrink-0" />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1 truncate text-left">
+              {item.title}
+            </span>
+            <ChevronDown
+              className={cn(
+                "size-3.5 shrink-0 transition-transform",
+                expanded && "rotate-180",
+              )}
+            />
+          </>
+        )}
       </button>
     );
   }
@@ -153,11 +225,21 @@ export function AdminSidebar({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
+    "/dashboard/monitoring": location.pathname.startsWith("/dashboard/monitoring"),
+  });
   const visible = ITEMS.filter((item) => item.roles.includes(user.role));
   const isActive = (url: string) =>
     url === "/dashboard"
       ? location.pathname === "/dashboard"
       : location.pathname.startsWith(url);
+
+  function toggleModule(url: string) {
+    setExpandedModules((current) => ({
+      ...current,
+      [url]: !current[url],
+    }));
+  }
 
   function handleSignOut() {
     clearMockUser();
@@ -197,7 +279,7 @@ export function AdminSidebar({
                   DOST
                 </span>
                 <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  MSME Portal
+                  {user.role === "admin" ? "Admin Workspace" : "Proponent Workspace"}
                 </span>
               </span>
             )}
@@ -220,15 +302,42 @@ export function AdminSidebar({
           )}
 
           <nav className="space-y-1">
-            {visible.map((item) => (
-              <SidebarItem
-                collapsed={collapsed}
-                isActive={isActive(item.url)}
-                item={item}
-                key={item.url}
-                onNavigate={onClose}
-              />
-            ))}
+            {visible.map((item) => {
+              const expanded = Boolean(expandedModules[item.url]);
+
+              return (
+                <div key={item.url}>
+                  <SidebarItem
+                    collapsed={collapsed}
+                    expanded={expanded}
+                    isActive={isActive(item.url)}
+                    item={item}
+                    onNavigate={onClose}
+                    onToggle={() => toggleModule(item.url)}
+                  />
+
+                  {!collapsed && item.submodules?.length && expanded ? (
+                    <div className="mt-1 space-y-1 pl-9">
+                      {item.submodules.map((submodule) => (
+                        <NavLink
+                          className={cn(
+                            "block rounded-lg border border-[#d8e1ee] bg-white px-4 py-3 text-sm font-black transition",
+                            `${location.pathname}${location.search}` === submodule.url
+                              ? "text-[#073b82] shadow-sm ring-1 ring-[#d7e5f5]"
+                              : "text-[#073b82] shadow-sm hover:border-blue-300 hover:bg-blue-50",
+                          )}
+                          onClick={onClose}
+                          key={submodule.title}
+                          to={submodule.url}
+                        >
+                          {submodule.title}
+                        </NavLink>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
           </nav>
         </div>
 
