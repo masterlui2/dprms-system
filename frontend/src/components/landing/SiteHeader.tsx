@@ -3,7 +3,12 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bell,
+  CalendarDays,
   ChevronDown,
+  ClipboardList,
+  FileCheck2,
+  FileText,
+  HelpCircle,
   LogOut,
   Menu,
   Sparkles,
@@ -15,10 +20,38 @@ import { NotificationPanel } from "../admin/NotificationPanel";
 import logoImage from "../../assets/logo2.png";
 import { navigationItems } from "../../data/landing";
 import {
+  type MockUser,
   ROLE_LABEL,
   clearMockUser,
   getMockUser,
 } from "../../lib/mockAuth";
+
+const proponentModules = [
+  {
+    description: "Create a new assistance request",
+    icon: FileText,
+    label: "Submit proposal",
+    to: "/proposal",
+  },
+  {
+    description: "Track review and revision status",
+    icon: ClipboardList,
+    label: "My proposals",
+    to: "#process",
+  },
+  {
+    description: "Check forms and upload requirements",
+    icon: FileCheck2,
+    label: "Documents",
+    to: "#programs",
+  },
+  {
+    description: "View field validation schedule",
+    icon: CalendarDays,
+    label: "Site visit schedule",
+    to: "#contact",
+  },
+];
 
 function TopBar() {
   return (
@@ -49,6 +82,101 @@ function Logo() {
         src={logoImage}
       />
     </a>
+  );
+}
+
+function AccountDropdown({
+  onNavigate,
+  onSignOut,
+  user,
+}: {
+  onNavigate: () => void;
+  onSignOut: () => void;
+  user: MockUser;
+}) {
+  return (
+    <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
+      <div className="border-b border-slate-100 px-4 py-4">
+        <div className="flex items-center gap-3">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#073b82] text-sm font-black text-white">
+            {user.initials}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black text-slate-900">
+              {user.name}
+            </p>
+            <p className="mt-1 truncate text-xs text-slate-500">
+              {user.email}
+            </p>
+          </div>
+        </div>
+        <div className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-[#0f53b7]">
+          {ROLE_LABEL[user.role]}
+        </div>
+      </div>
+
+      <div className="px-2 py-2">
+        <p className="px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+          My workspace
+        </p>
+        <div className="grid gap-1">
+          {proponentModules.map(({ description, icon: Icon, label, to }) => {
+            const isRoute = to.startsWith("/");
+            const className =
+              "flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[#f3f8fe]";
+            const content = (
+              <>
+                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0f53b7]">
+                  <Icon className="size-4" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-black text-slate-900">
+                    {label}
+                  </span>
+                  <span className="mt-0.5 block truncate text-xs text-slate-500">
+                    {description}
+                  </span>
+                </span>
+              </>
+            );
+
+            return isRoute ? (
+              <Link
+                className={className}
+                key={label}
+                onClick={onNavigate}
+                to={to}
+              >
+                {content}
+              </Link>
+            ) : (
+              <a className={className} href={to} key={label} onClick={onNavigate}>
+                {content}
+              </a>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-1 border-t border-slate-100 px-2 py-2">
+        <a
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
+          href="#contact"
+          onClick={onNavigate}
+        >
+          <HelpCircle className="size-4 text-[#0f53b7]" />
+          Help and support
+        </a>
+        <button
+          className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-red-50 hover:text-red-600"
+          onClick={onSignOut}
+          type="button"
+        >
+          <LogOut className="size-4" />
+          Sign out
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -132,27 +260,11 @@ export function SiteHeader() {
                 </button>
 
                 {accountOpen ? (
-                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
-                    <div className="border-b border-slate-200 px-4 py-4">
-                      <p className="truncate text-sm font-black text-slate-900">
-                        {user.name}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {ROLE_LABEL[user.role]}
-                      </p>
-                      <p className="mt-2 truncate text-xs text-slate-500">
-                        {user.email}
-                      </p>
-                    </div>
-                    <button
-                      className="flex h-11 w-full items-center gap-2 px-4 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
-                      onClick={handleSignOut}
-                      type="button"
-                    >
-                      <LogOut className="size-4" />
-                      Sign out
-                    </button>
-                  </div>
+                  <AccountDropdown
+                    onNavigate={() => setAccountOpen(false)}
+                    onSignOut={handleSignOut}
+                    user={user}
+                  />
                 ) : null}
               </div>
             </>
@@ -215,27 +327,11 @@ export function SiteHeader() {
                 </button>
 
                 {accountOpen ? (
-                  <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
-                    <div className="border-b border-slate-200 px-4 py-4">
-                      <p className="truncate text-sm font-black text-slate-900">
-                        {user.name}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {ROLE_LABEL[user.role]}
-                      </p>
-                      <p className="mt-2 truncate text-xs text-slate-500">
-                        {user.email}
-                      </p>
-                    </div>
-                    <button
-                      className="flex h-11 w-full items-center gap-2 px-4 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
-                      onClick={handleSignOut}
-                      type="button"
-                    >
-                      <LogOut className="size-4" />
-                      Sign out
-                    </button>
-                  </div>
+                  <AccountDropdown
+                    onNavigate={() => setAccountOpen(false)}
+                    onSignOut={handleSignOut}
+                    user={user}
+                  />
                 ) : null}
               </div>
             </>
