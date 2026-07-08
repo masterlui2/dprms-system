@@ -1,4 +1,4 @@
-import { CheckCircle2, Circle, FileCheck2 } from 'lucide-react'
+import { CheckCircle2, Circle, FileCheck2, Upload, XCircle } from 'lucide-react'
 
 import { getDocumentRequirements } from '../../../data/proposal'
 import type {
@@ -6,8 +6,8 @@ import type {
   ProposalFormData,
   ProposalFormErrors,
 } from '../../../types/proposal'
+import { cn } from '../../../utils/cn'
 import { ProposalSectionHeading } from '../ProposalSectionHeading'
-import { UploadCard } from '../UploadCard'
 
 interface DocumentsStepProps {
   data: ProposalFormData
@@ -30,6 +30,7 @@ export function DocumentsStep({
   const progress = requirements.length
     ? Math.round((uploadedCount / requirements.length) * 100)
     : 0
+  const isGia = data.proposalType === 'GIA'
 
   return (
     <div className="space-y-6">
@@ -104,15 +105,174 @@ export function DocumentsStep({
       </div>
 
       <div className="space-y-3">
-        {requirements.map((requirement) => (
-          <UploadCard
-            error={errors[`documents.${requirement.key}`]}
-            file={data.documents[requirement.key]}
-            key={requirement.key}
-            onChange={(file) => onDocumentChange(requirement.key, file)}
-            requirement={requirement}
-          />
-        ))}
+        <div className="hidden overflow-hidden rounded-xl border border-slate-200 bg-white xl:block">
+          <table className="w-full table-fixed text-left text-sm">
+            <thead className="bg-[#f8fbff] text-xs font-black uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="w-[24%] px-4 py-3">Requirement</th>
+                <th className="w-[14%] px-4 py-3">Applies To</th>
+                <th className="w-[14%] px-4 py-3">Status</th>
+                <th className="w-[20%] px-4 py-3">Uploaded File</th>
+                <th className="w-[18%] px-4 py-3">DOST Remarks</th>
+                <th className="w-[10%] px-4 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {requirements.map((requirement) => {
+                const file = data.documents[requirement.key]
+                const error = errors[`documents.${requirement.key}`]
+                const status = file ? 'Uploaded' : 'Missing'
+
+                return (
+                  <tr key={requirement.key}>
+                    <td className="px-4 py-4 align-top">
+                      <p className="font-bold text-slate-900">{requirement.label}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {requirement.description}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 align-top font-semibold text-slate-700">
+                      {isGia ? 'GIA' : 'SETUP'}
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <span
+                        className={cn(
+                          'inline-flex rounded-lg px-2.5 py-1 text-xs font-black',
+                          file
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : 'bg-amber-50 text-amber-800',
+                        )}
+                      >
+                        {status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <span className="break-words text-xs font-semibold text-slate-600">
+                        {file?.name ?? 'No file uploaded'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <p className="text-xs leading-5 text-slate-500">
+                        {error ?? (file ? 'Ready for DOST review after submission.' : 'Upload required document.')}
+                      </p>
+                    </td>
+                    <td className="px-4 py-4 text-right align-top">
+                      <label className="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg border border-blue-200 text-[#0f53b7] transition hover:bg-blue-50" title={file ? 'Replace file' : 'Upload file'}>
+                        <Upload className="size-4" />
+                        <input
+                          accept={requirement.accept}
+                          className="sr-only"
+                          onChange={(event) =>
+                            onDocumentChange(
+                              requirement.key,
+                              event.target.files?.[0] ?? null,
+                            )
+                          }
+                          type="file"
+                        />
+                      </label>
+                      {file ? (
+                        <button
+                          aria-label={`Remove ${requirement.label}`}
+                          className="ml-1 inline-flex size-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                          onClick={() => onDocumentChange(requirement.key, null)}
+                          type="button"
+                        >
+                          <XCircle className="size-4" />
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="space-y-3 xl:hidden">
+          {requirements.map((requirement) => {
+            const file = data.documents[requirement.key]
+            const error = errors[`documents.${requirement.key}`]
+
+            return (
+              <article
+                className="rounded-xl border border-slate-200 bg-white p-4"
+                key={requirement.key}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-slate-900">{requirement.label}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                      {requirement.description}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-lg px-2.5 py-1 text-xs font-black',
+                      file
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-amber-50 text-amber-800',
+                    )}
+                  >
+                    {file ? 'Uploaded' : 'Missing'}
+                  </span>
+                </div>
+                <dl className="mt-4 grid gap-3 text-sm">
+                  <div>
+                    <dt className="text-xs font-black uppercase text-slate-400">
+                      Applies To
+                    </dt>
+                    <dd className="mt-1 font-semibold text-slate-700">
+                      {isGia ? 'GIA' : 'SETUP'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-black uppercase text-slate-400">
+                      Uploaded File
+                    </dt>
+                    <dd className="mt-1 break-words font-semibold text-slate-700">
+                      {file?.name ?? 'No file uploaded'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-black uppercase text-slate-400">
+                      DOST Remarks
+                    </dt>
+                    <dd className="mt-1 text-slate-600">
+                      {error ?? (file ? 'Ready for DOST review after submission.' : 'Upload required document.')}
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-4 flex gap-2">
+                  <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-[#0f53b7] px-3 text-sm font-bold text-white">
+                    <Upload className="size-4" />
+                    {file ? 'Replace' : 'Upload'}
+                    <input
+                      accept={requirement.accept}
+                      className="sr-only"
+                      onChange={(event) =>
+                        onDocumentChange(
+                          requirement.key,
+                          event.target.files?.[0] ?? null,
+                        )
+                      }
+                      type="file"
+                    />
+                  </label>
+                  {file ? (
+                    <button
+                      className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-700"
+                      onClick={() => onDocumentChange(requirement.key, null)}
+                      type="button"
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              </article>
+            )
+          })}
+        </div>
       </div>
     </div>
   )

@@ -1,3 +1,6 @@
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
+
 import { AboutSection } from '../components/landing/AboutSection'
 import { BenefitsSection } from '../components/landing/BenefitsSection'
 import { ContactSection } from '../components/landing/ContactSection'
@@ -9,6 +12,19 @@ import { SiteFooter } from '../components/landing/SiteFooter'
 import { SiteHeader } from '../components/landing/SiteHeader'
 
 export function Landing() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!location.hash) return
+
+    window.requestAnimationFrame(() => {
+      document.querySelector(location.hash)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }, [location.hash])
+
   return (
     <div className="min-h-screen bg-white text-slate-950">
       <SiteHeader />

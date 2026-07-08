@@ -39,6 +39,7 @@ export function ReviewStep({
   const uploadedCount = requirements.filter(
     (requirement) => data.documents[requirement.key],
   ).length
+  const isGia = data.proposalType === 'GIA'
 
   return (
     <div className="space-y-6">
@@ -49,9 +50,49 @@ export function ReviewStep({
       />
 
       <dl className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-1">
-        <SummaryRow label="Enterprise" value={data.organizationName} />
+        <SummaryRow
+          label={isGia ? 'Implementing Agency' : 'Business Name'}
+          value={data.organizationName}
+        />
         <SummaryRow label="Program" value={data.proposalType} />
-        <SummaryRow label="Project Title" value={data.projectTitle} />
+        <SummaryRow
+          label={isGia ? 'Project Title' : 'Project / Business Improvement Title'}
+          value={data.projectTitle}
+        />
+        <SummaryRow
+          label={isGia ? 'Project Leader' : 'Owner / Representative'}
+          value={data.applicantFullName}
+        />
+        {isGia ? (
+          <>
+            <SummaryRow label="Cooperating Agency" value={data.cooperatingAgency} />
+            <SummaryRow
+              label="Site of Implementation"
+              value={data.siteOfImplementation}
+            />
+            <SummaryRow label="Project Duration" value={data.projectDuration} />
+            <SummaryRow label="Expected Outputs / 6Ps" value={data.expectedOutputs} />
+          </>
+        ) : (
+          <>
+            <SummaryRow
+              label="Operational Problem"
+              value={data.currentOperationalProblem}
+            />
+            <SummaryRow
+              label="Technology Assistance"
+              value={data.proposedTechnologyAssistance}
+            />
+            <SummaryRow
+              label="Expected Business Improvement"
+              value={data.expectedBusinessImprovement}
+            />
+          </>
+        )}
+        <SummaryRow
+          label={isGia ? 'Budget Summary' : 'Project Cost / Assistance Amount'}
+          value={data.totalBusinessAssets ? `PHP ${data.totalBusinessAssets}` : ''}
+        />
         <SummaryRow label="Notification Email" value={data.emailAddress} />
         <SummaryRow
           label="Required Documents Uploaded"

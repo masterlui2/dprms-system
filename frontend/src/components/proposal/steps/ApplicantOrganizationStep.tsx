@@ -25,12 +25,18 @@ export function ApplicantOrganizationStep({
   errors,
   onFieldChange,
 }: ApplicantOrganizationStepProps) {
+  const isGia = data.proposalType === 'GIA'
+
   return (
     <div className="space-y-7">
       <ProposalSectionHeading
-        description="Provide your registered enterprise details. All fields marked * are required."
+        description={
+          isGia
+            ? 'Provide the project proponent, implementing agency, and contact details. All fields marked * are required.'
+            : 'Provide your registered enterprise details. All fields marked * are required.'
+        }
         divided={false}
-        title="Tell us about your business"
+        title={isGia ? 'Project proponent profile' : 'Tell us about your business'}
       />
 
       <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2">
@@ -38,19 +44,19 @@ export function ApplicantOrganizationStep({
           autoComplete="organization"
           error={errors.organizationName}
           id="organizationName"
-          label="Enterprise Name"
+          label={isGia ? 'Implementing Agency / Organization' : 'Business Name'}
           onChange={(event) => onFieldChange('organizationName', event.target.value)}
-          placeholder="e.g. Mati Cacao Growers Co-op"
+          placeholder={isGia ? 'e.g. Davao Oriental State University' : 'e.g. Mati Cacao Growers Co-op'}
           required
           value={data.organizationName}
         />
         <SelectField
           error={errors.organizationType}
           id="organizationType"
-          label="Type of Enterprise"
+          label={isGia ? 'Type of Agency / Organization' : 'Type of Enterprise'}
           onChange={(event) => onFieldChange('organizationType', event.target.value)}
           options={organizationTypeOptions}
-          placeholder="Select enterprise type"
+          placeholder={isGia ? 'Select organization type' : 'Select enterprise type'}
           required
           value={data.organizationType}
         />
@@ -58,7 +64,7 @@ export function ApplicantOrganizationStep({
           error={errors.yearEstablished}
           id="yearEstablished"
           inputMode="numeric"
-          label="Year Established"
+          label={isGia ? 'Year Organized / Established' : 'Year Established'}
           max={new Date().getFullYear()}
           min="1900"
           onChange={(event) => onFieldChange('yearEstablished', event.target.value)}
@@ -71,7 +77,7 @@ export function ApplicantOrganizationStep({
           error={errors.employeeCount}
           id="employeeCount"
           inputMode="numeric"
-          label="Number of Employees"
+          label={isGia ? 'Personnel / Members Count' : 'Number of Employees'}
           min="1"
           onChange={(event) => onFieldChange('employeeCount', event.target.value)}
           placeholder="e.g. 12"
@@ -82,7 +88,7 @@ export function ApplicantOrganizationStep({
         <SelectField
           error={errors.industryCategory}
           id="industryCategory"
-          label="Sector / Industry"
+          label={isGia ? 'Project Sector' : 'Sector / Industry'}
           onChange={(event) => onFieldChange('industryCategory', event.target.value)}
           options={industryCategoryOptions}
           placeholder="Select sector or industry"
@@ -103,9 +109,9 @@ export function ApplicantOrganizationStep({
           autoComplete="name"
           error={errors.applicantFullName}
           id="applicantFullName"
-          label="Authorized Representative"
+          label={isGia ? 'Project Leader' : 'Owner / Authorized Representative'}
           onChange={(event) => onFieldChange('applicantFullName', event.target.value)}
-          placeholder="e.g. Juan Dela Cruz"
+          placeholder={isGia ? 'e.g. Dr. Juan Dela Cruz' : 'e.g. Juan Dela Cruz'}
           required
           value={data.applicantFullName}
         />
@@ -113,9 +119,9 @@ export function ApplicantOrganizationStep({
           autoComplete="organization-title"
           error={errors.applicantPosition}
           id="applicantPosition"
-          label="Position"
+          label={isGia ? 'Project Role / Position' : 'Position'}
           onChange={(event) => onFieldChange('applicantPosition', event.target.value)}
-          placeholder="e.g. General Manager"
+          placeholder={isGia ? 'e.g. Project Leader' : 'e.g. General Manager'}
           required
           value={data.applicantPosition}
         />
@@ -146,9 +152,9 @@ export function ApplicantOrganizationStep({
             autoComplete="street-address"
             error={errors.businessAddress}
             id="businessAddress"
-            label="Business Address"
+            label={isGia ? 'Agency / Office Address' : 'Business Address'}
             onChange={(event) => onFieldChange('businessAddress', event.target.value)}
-            placeholder="Purok, Barangay, Municipality"
+            placeholder={isGia ? 'Office, campus, or agency address' : 'Purok, Barangay, Municipality'}
             required
             value={data.businessAddress}
           />

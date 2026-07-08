@@ -9,7 +9,7 @@ const proposalForms = [
     description:
       'Choose this if the proposal is for enterprise technology upgrading, equipment support, process improvement, or product quality improvement.',
     action: 'Start SETUP form',
-    href: '/proposal?type=SETUP',
+    href: '/programs/setup',
     icon: Wrench,
   },
   {
@@ -18,7 +18,7 @@ const proposalForms = [
     description:
       'Choose this for research, community-based projects, capability building, training, or science and technology interventions.',
     action: 'Start GIA form',
-    href: '/proposal?type=GIA',
+    href: '/programs/gia',
     icon: FlaskConical,
   },
 ]

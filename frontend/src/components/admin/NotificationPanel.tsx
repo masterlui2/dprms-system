@@ -48,6 +48,32 @@ const NOTIFICATIONS_BY_ROLE = {
       icon: CheckCheck,
     },
   ],
+  applicant: [
+    {
+      id: 'notification-9',
+      title: 'Application submitted',
+      description: 'Your guest submission is available in the Beneficiary Portal.',
+      time: 'Just now',
+      read: false,
+      icon: CheckCheck,
+    },
+    {
+      id: 'notification-10',
+      title: 'Document validation pending',
+      description: 'DOST will review uploaded requirements and post remarks here.',
+      time: 'Today',
+      read: false,
+      icon: FileCheck2,
+    },
+    {
+      id: 'notification-11',
+      title: 'Portal activated',
+      description: 'You can now track application status and project monitoring updates.',
+      time: 'Today',
+      read: true,
+      icon: UserCheck2,
+    },
+  ],
   proponent: [
     {
       id: 'notification-5',

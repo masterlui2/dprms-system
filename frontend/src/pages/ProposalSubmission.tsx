@@ -1,15 +1,23 @@
 import { LockKeyhole } from 'lucide-react'
+import { Navigate, useParams } from 'react-router-dom'
 
 import { ProposalForm } from '../components/proposal/ProposalForm'
 import { ProposalHeader } from '../components/proposal/ProposalHeader'
 
 export function ProposalSubmission() {
+  const { program = '' } = useParams()
+  const proposalType = program.toUpperCase()
+
+  if (proposalType !== 'GIA' && proposalType !== 'SETUP') {
+    return <Navigate replace to="/programs/setup" />
+  }
+
   return (
     <div className="min-h-screen bg-[#f4f8fc] text-slate-950">
-      <ProposalHeader />
+      <ProposalHeader program={proposalType} />
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <ProposalForm />
+        <ProposalForm program={proposalType} />
 
         <div
           className="mt-7 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-5 text-center text-xs text-slate-500 sm:flex-row sm:text-left"

@@ -106,7 +106,7 @@ export function ProponentDashboard() {
           <div className="space-y-3 p-5">
             <Link
               className="flex items-center justify-between rounded-2xl border border-[#d8e1ee] bg-[#f8fbff] px-4 py-4 font-bold text-[#073b82] transition hover:border-blue-300 hover:bg-blue-50"
-              to="/proposal"
+              to="/programs/setup"
             >
               <span>Open proposal form</span>
               <FilePlus2 className="size-4" />

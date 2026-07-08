@@ -3,13 +3,22 @@ import type { LucideIcon } from "lucide-react";
 import {
   Activity,
   BarChart3,
+  Bell,
+  Brain,
   ChevronDown,
   ClipboardCheck,
+  FileCheck2,
   FilePenLine,
+  FolderKanban,
   LayoutDashboard,
   LogOut,
+  PackageCheck,
   QrCode,
+  ReceiptText,
   ScrollText,
+  ShieldCheck,
+  UserCircle2,
+  Users,
   Wallet,
   X,
 } from "lucide-react";
@@ -33,64 +42,164 @@ type Item = {
   url: string;
 };
 
-const ITEMS: Item[] = [
-  {
-    title: "Overview",
-    url: "/dashboard",
-    icon: LayoutDashboard,
-    roles: ["admin", "proponent"],
-    enabled: true,
-  },
-  {
-    title: "Proposal Reviews",
-    url: "/dashboard/approvals",
-    icon: ClipboardCheck,
-    roles: ["admin"],
-    enabled: true,
-  },
-  {
-    title: "Budget Management",
-    url: "/dashboard/budget",
-    icon: Wallet,
-    roles: ["admin"],
-    enabled: true,
-  },
-  {
-    title: "Project Monitoring",
-    url: "/dashboard/monitoring",
-    icon: Activity,
-    roles: ["admin"],
-    enabled: true,
-  },
-  {
-    title: "Equipment & QR Codes",
-    url: "/dashboard/inventory",
-    icon: QrCode,
-    roles: ["admin"],
-    enabled: true,
-  },
-  {
-    title: "Reports",
-    url: "/dashboard/reports",
-    icon: BarChart3,
-    roles: ["admin", "proponent"],
-    enabled: true,
-  },
-  {
-    title: "Proposal Workspace",
-    url: "/dashboard/proposals",
-    icon: FilePenLine,
-    roles: ["proponent"],
-    enabled: true,
-  },
-  {
-    title: "Audit Trail",
-    url: "/dashboard/audit",
-    icon: ScrollText,
-    roles: ["admin"],
-    enabled: true,
-  },
-];
+function getSidebarItems(user: MockUser): Item[] {
+  if (user.role === "admin") {
+    return [
+      {
+        title: "Dashboard",
+        url: "/dashboard",
+        icon: LayoutDashboard,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Applications",
+        url: "/dashboard/applications",
+        icon: ClipboardCheck,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Document Validation",
+        url: "/dashboard/document-validation",
+        icon: FileCheck2,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Workflow Review",
+        url: "/dashboard/workflow-review",
+        icon: ShieldCheck,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Projects",
+        url: "/dashboard/projects",
+        icon: FolderKanban,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Monitoring & Compliance",
+        url: "/dashboard/monitoring",
+        icon: Activity,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Budget & Finance",
+        url: "/dashboard/budget",
+        icon: Wallet,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "QR Inventory",
+        url: "/dashboard/inventory",
+        icon: QrCode,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Reports",
+        url: "/dashboard/reports",
+        icon: BarChart3,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Decision-Support Analytics",
+        url: "/dashboard/analytics",
+        icon: Brain,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Users & Access",
+        url: "/dashboard/users",
+        icon: Users,
+        roles: ["admin"],
+        enabled: true,
+      },
+      {
+        title: "Audit Trail",
+        url: "/dashboard/audit",
+        icon: ScrollText,
+        roles: ["admin"],
+        enabled: true,
+      },
+    ];
+  }
+
+  const isGia = user.program === "GIA";
+
+  return [
+    {
+      title: "Dashboard",
+      url: "/dashboard",
+      icon: LayoutDashboard,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: isGia ? "My Proposal" : "My Application",
+      url: "/dashboard/my-application",
+      icon: FilePenLine,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: "Documents",
+      url: "/dashboard/documents",
+      icon: FileCheck2,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: "Application Status",
+      url: "/dashboard/application-status",
+      icon: ClipboardCheck,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: "Project Monitoring",
+      url: "/dashboard/project-monitoring",
+      icon: Activity,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: isGia ? "Accomplishment Reports" : "Equipment",
+      url: isGia ? "/dashboard/accomplishment-reports" : "/dashboard/equipment",
+      icon: isGia ? BarChart3 : PackageCheck,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: isGia ? "Disbursement Tracking" : "Repayment / Billing",
+      url: "/dashboard/finance",
+      icon: ReceiptText,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: "Notifications",
+      url: "/dashboard/notifications",
+      icon: Bell,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+    {
+      title: "Profile",
+      url: "/dashboard/profile",
+      icon: UserCircle2,
+      roles: ["applicant", "proponent"],
+      enabled: true,
+    },
+  ];
+}
 
 function SidebarItem({
   collapsed,
@@ -218,7 +327,9 @@ export function AdminSidebar({
   const [expandedModules, setExpandedModules] = useState<Record<string, boolean>>({
     "/dashboard/monitoring": location.pathname.startsWith("/dashboard/monitoring"),
   });
-  const visible = ITEMS.filter((item) => item.roles.includes(user.role));
+  const visible = getSidebarItems(user).filter((item) =>
+    item.roles.includes(user.role),
+  );
   const isActive = (url: string) =>
     url === "/dashboard"
       ? location.pathname === "/dashboard"
@@ -269,7 +380,11 @@ export function AdminSidebar({
                   DOST
                 </span>
                 <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-                  {user.role === "admin" ? "Admin Workspace" : "Proponent Workspace"}
+                  {user.role === "admin"
+                    ? "DPRMS Operations"
+                    : user.program === "GIA"
+                      ? "GIA Project Portal"
+                      : "SETUP Beneficiary Portal"}
                 </span>
               </span>
             )}

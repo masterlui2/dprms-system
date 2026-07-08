@@ -2,8 +2,13 @@ import { ArrowLeft, CircleHelp } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import logoImage from '../../assets/logo2.png'
+import type { ProposalType } from '../../types/proposal'
 
-export function ProposalHeader() {
+export function ProposalHeader({
+  program,
+}: {
+  program: Exclude<ProposalType, ''>
+}) {
   return (
     <header className="border-b border-blue-950 bg-[#073b82] text-white">
       <div className="mx-auto flex min-h-20 max-w-5xl items-center justify-between gap-5 px-4 py-4 sm:px-6">
@@ -18,10 +23,12 @@ export function ProposalHeader() {
           </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-black sm:text-base">
-              DOST-XI Proponent Portal
+              {program === 'GIA' ? 'GIA Project Portal' : 'SETUP Beneficiary Portal'}
             </p>
             <p className="mt-0.5 truncate text-xs text-white/70">
-              Submit your GIA / SETUP project proposal
+              {program === 'GIA'
+                ? 'Submit your Grants-in-Aid project proposal'
+                : 'Submit your SETUP technology assistance request'}
             </p>
           </div>
         </div>

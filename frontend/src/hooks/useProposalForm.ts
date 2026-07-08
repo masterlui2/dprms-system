@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 
 import { initialProposalFormData } from '../data/proposal'
 import { submitProposal } from '../services/proposalService'
+import type { ApplicationRecord } from '../types/application'
 import type {
   ProposalDocumentKey,
   ProposalFieldName,
@@ -13,52 +13,32 @@ import type {
 } from '../types/proposal'
 import { validateEntireProposal } from '../utils/proposalValidation'
 
-const finalStep = 4
+const finalStep = 5
 
-export function useProposalForm() {
-  const [searchParams] = useSearchParams()
-  const requestedType = searchParams.get('type')
-  const initialProposalType: ProposalType =
-    requestedType === 'GIA' || requestedType === 'SETUP' ? requestedType : ''
+export function useProposalForm(program: Exclude<ProposalType, ''>) {
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<ProposalFormData>(() => ({
     ...initialProposalFormData,
-    proposalType: initialProposalType,
+    proposalType: program,
   }))
   const [errors, setErrors] = useState<ProposalFormErrors>({})
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [notification, setNotification] = useState<ProposalNotification | null>(null)
   const [isSubmitted, setIsSubmitted] = useState(false)
+  const [submittedApplication, setSubmittedApplication] =
+    useState<ApplicationRecord | null>(null)
 
   function updateField<K extends ProposalFieldName>(
     field: K,
     value: ProposalFormData[K],
   ) {
     setFormData((current) => {
-      if (field === 'proposalType' && current.proposalType !== value) {
-        return {
-          ...current,
-          [field]: value,
-          projectType: '',
-          targetBeneficiary: '',
-          technologyInnovation: '',
-          expectedOutputs: '',
-        }
-      }
-
       return { ...current, [field]: value }
     })
     setErrors((current) => {
       const next = { ...current }
       delete next[field]
-
-      if (field === 'proposalType') {
-        delete next.projectType
-        delete next.targetBeneficiary
-        delete next.technologyInnovation
-        delete next.expectedOutputs
-      }
 
       return next
     })
@@ -106,13 +86,14 @@ export function useProposalForm() {
     setIsSubmitting(true)
 
     try {
-      await submitProposal(formData)
+      const application = await submitProposal(formData)
+      setSubmittedApplication(application)
       setIsSubmitted(true)
       setIsConfirmationOpen(false)
       setNotification({
         type: 'success',
         title: 'Proposal submitted',
-        message: `A confirmation will be sent to ${formData.emailAddress}.`,
+        message: `Reference ${application.referenceNo} was created for ${formData.emailAddress}.`,
       })
     } catch {
       setIsConfirmationOpen(false)
@@ -139,6 +120,7 @@ export function useProposalForm() {
     notification,
     requestSubmission,
     setIsConfirmationOpen,
+    submittedApplication,
     updateDocument,
     updateField,
   }
