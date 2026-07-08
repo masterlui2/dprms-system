@@ -1,9 +1,9 @@
 export const navigationItems = [
   { label: 'Home', href: '#home' },
-  { label: 'About', href: '#about' },
-  { label: 'Programs', href: '#programs' },
-  { label: 'How It Works', href: '#process' },
-  { label: 'Benefits', href: '#benefits' },
+  { label: 'Proposal Forms', href: '#about' },
+  { label: 'GIA / SETUP', href: '#programs' },
+  { label: 'Process', href: '#process' },
+  { label: 'Services', href: '#benefits' },
   { label: 'FAQ', href: '#faq' },
   { label: 'Contact', href: '#contact' },
 ]
@@ -11,81 +11,74 @@ export const navigationItems = [
 export const portalFeatures = [
   {
     title: 'Centralized Records',
-    description: 'Keep all your project documents and updates in one secure place.',
+    description: 'Keep proposal documents, status updates, and project records in one secure place.',
   },
   {
-    title: 'Real Progress Tracking',
-    description: 'Follow milestones and stay updated on the status of your assistance.',
+    title: 'Program Monitoring',
+    description: 'Track GIA and SETUP proposal review, implementation milestones, and compliance updates.',
   },
   {
-    title: 'Direct Communication',
-    description: 'Stay in touch with DOST staff handling your project at every step.',
+    title: 'Official Communication',
+    description: 'Stay connected with DOST staff handling validation, review, and monitoring activities.',
   },
 ]
 
 export const programCards = [
   {
     label: 'SETUP',
-    title: 'DOST SETUP',
+    title: 'Small Enterprise Technology Upgrading Program',
     description:
-      'Small Enterprise Technology Upgrading Program — technology assistance and equipment support that helps MSMEs improve productivity and product quality.',
+      'Support for qualified enterprises that need equipment upgrading, process improvement, packaging support, and technology-based productivity assistance.',
     tone: 'blue',
   },
   {
     label: 'GIA',
     title: 'DOST Grants-in-Aid',
     description:
-      'Funding support for innovation, research, and community development projects that create real impact for Filipino enterprises and communities.',
-    tone: 'orange',
-  },
-  {
-    label: 'DEVELOPMENT',
-    title: 'MSME Development',
-    description:
-      'Capability-building programs that strengthen productivity, competitiveness, and sustainability across every MSME sector in the country.',
+      'Assistance for research, community-based projects, capability building, training, and science and technology interventions with public benefit.',
     tone: 'orange',
   },
 ]
 
 export const processSteps = [
   {
-    title: 'Check Eligibility',
+    title: 'Choose Program',
     description:
-      'Beneficiaries review basic requirements, business readiness, and the type of technology support needed.',
+      'Select SETUP for enterprise technology upgrading or GIA for research, community, training, and S&T intervention proposals.',
   },
   {
-    title: 'Submit Request',
+    title: 'Submit Proposal',
     description:
-      'MSMEs prepare business details, project objectives, proposed equipment, and supporting documents.',
+      'Complete the official online form and upload the required documents based on the selected DOST program.',
   },
   {
-    title: 'Evaluation and Matching',
+    title: 'Review and Validation',
     description:
-      'DOST teams assess technical fit, resource requirements, expected productivity gains, and implementation readiness.',
+      'DOST reviewers validate documents, assess technical scope, check budget details, and endorse qualified proposals.',
   },
   {
-    title: 'Implementation Monitoring',
+    title: 'Monitor Implementation',
     description:
-      'Approved projects move through milestones, progress checks, resource tracking, and outcome reporting.',
+      'Approved GIA and SETUP projects are monitored through milestones, reports, site visits, and compliance updates.',
   },
 ]
 
 export const benefits = [
   {
-    title: 'Clear application journey',
-    description: 'MSME beneficiaries can understand where they are in the process and what comes next.',
+    title: 'Program-specific guidance',
+    description: 'Applicants can quickly understand whether their proposal belongs under GIA or SETUP before submitting.',
   },
   {
-    title: 'Technology-focused guidance',
-    description: 'Program content highlights practical upgrading areas for production, products, and retail operations.',
+    title: 'Centralized requirements',
+    description: 'Each form guides users through the documents and project details required for the selected program.',
   },
   {
-    title: 'Transparent milestones',
-    description: 'The structure prepares the system for tracking implementation progress and project outcomes.',
+    title: 'Transparent review status',
+    description: 'Submitted proposals can move through document validation, technical review, finance review, and approval.',
   },
   {
-    title: 'Data-ready foundation',
-    description: 'The frontend supports future integration with analytics and prediction services for DPRMS.',
+    title: 'Government-ready monitoring',
+    description: 'The portal is structured for official reporting, implementation tracking, compliance, and audit trails.',
   },
 ]
 
@@ -93,21 +86,21 @@ export const faqs = [
   {
     question: 'Who is this portal for?',
     answer:
-      'This public homepage is for MSME beneficiaries who want to understand DOST technology upgrading support and the monitoring process.',
+      'This portal is for proponents preparing DOST GIA or SETUP proposals, including enterprises, organizations, communities, LGUs, and partner institutions.',
   },
   {
-    question: 'Can beneficiaries submit applications here?',
+    question: 'What is the difference between GIA and SETUP?',
     answer:
-      'The current page is frontend-only. Application and account features can be connected once the Laravel API endpoints are ready.',
+      'SETUP is for enterprise technology upgrading and productivity support. GIA is for research, community-based, training, and science and technology intervention projects.',
   },
   {
-    question: 'What type of enterprises are supported?',
+    question: 'Can proposals be submitted online?',
     answer:
-      'The homepage is structured around manufacturing, product-based, and food and retail enterprises, matching the SETUP-focused hero.',
+      'Yes. Proponents can start the online proposal form and select either GIA or SETUP so the proper fields and document requirements appear.',
   },
   {
-    question: 'Will this connect to prediction features later?',
+    question: 'How are approved projects monitored?',
     answer:
-      'Yes. The organized React structure keeps room for future FastAPI-based prediction and analytics workflows.',
+      'Approved projects can be tracked through milestones, accomplishment reports, budget monitoring, equipment records, and site visit schedules.',
   },
 ]

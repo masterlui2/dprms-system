@@ -2,6 +2,7 @@
 
 namespace App\Services\AuthorizationModule;
 
+use App\Models\Role;
 use App\Models\User;
 use App\Repositories\Contracts\AuthorizationModule\UserRepositoryInterface;
 use App\Services\Contracts\AuthorizationModule\AuthServiceInterface;
@@ -27,10 +28,16 @@ class AuthService implements AuthServiceInterface
             throw new \Exception('Invalid credentials');
         }
 
+        $user->load('role');
         $token = $user->createToken('api-token')->plainTextToken;
+        $primaryRole = $user->role->first();
 
         return [
-            'user' => $user,
+            'user' => [
+                'email' => $user->email,
+                'name' => $user->name,
+                'role' => $primaryRole?->code ?? 'proponent',
+            ],
             'token' => $token,
         ];
     }
@@ -47,6 +54,15 @@ class AuthService implements AuthServiceInterface
     #[Override]
     public function register(array $data): User
     {
-        return $this->userRepository->create($data);
+        $user = $this->userRepository->create($data);
+        $proponentRoleId = Role::query()->where('code', 'proponent')->value('id');
+
+        if ($proponentRoleId) {
+            $user->role()->syncWithoutDetaching([
+                $proponentRoleId => ['assigned_at' => now()],
+            ]);
+        }
+
+        return $user;
     }
 }

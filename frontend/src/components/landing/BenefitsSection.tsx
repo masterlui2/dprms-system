@@ -16,10 +16,10 @@ export function BenefitsSection() {
 
       <div className="relative mx-auto max-w-7xl">
         <SectionHeader
-          eyebrow="Benefits"
+          eyebrow="Portal Services"
           theme="dark"
-          title="Designed to feel useful before a user signs in"
-          description="The public page gives MSME beneficiaries confidence that the system is organized, transparent, and connected to real technology upgrading outcomes."
+          title="Built for official GIA and SETUP transactions"
+          description="The homepage presents the portal as a structured public service for proposal submission, review tracking, document handling, and project monitoring."
         />
 
         <div className="mt-14 grid gap-5 md:grid-cols-2">

@@ -13,16 +13,16 @@ export function FaqSection() {
         <div>
           <SectionHeader
             eyebrow="FAQ"
-            title="Questions MSME beneficiaries usually ask"
-            description="The answers are short and practical so the homepage stays easy to scan."
+            title="Questions proponents usually ask"
+            description="Short guidance for choosing between GIA and SETUP and understanding the online proposal process."
           />
           <Card className="mt-8 hidden border-blue-100 bg-[#f7fbff] lg:block">
             <CardContent className="p-6">
               <HelpCircle className="size-10 text-[#0f53b7]" />
               <p className="mt-4 text-lg font-black text-[#07195f]">Need program details?</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
-                This area can later connect to downloadable requirements,
-                application guides, or regional DOST contact information.
+                This area can connect to official requirements, program
+                guidelines, and regional DOST contact information.
               </p>
             </CardContent>
           </Card>

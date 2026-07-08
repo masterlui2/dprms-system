@@ -28,7 +28,7 @@ import {
 
 const proponentModules = [
   {
-    description: "Create a new assistance request",
+    description: "Create a GIA or SETUP request",
     icon: FileText,
     label: "Submit proposal",
     to: "/proposal",
@@ -74,10 +74,10 @@ function Logo() {
     <a
       className="flex items-center"
       href="#home"
-      aria-label="DOST MSME Monitoring Portal home"
+      aria-label="DOST GIA and SETUP Portal home"
     >
       <img
-        alt="DOST MSME Monitoring Portal"
+        alt="DOST GIA and SETUP Portal"
         className="h-14 w-auto max-w-[240px] object-contain sm:h-20"
         src={logoImage}
       />

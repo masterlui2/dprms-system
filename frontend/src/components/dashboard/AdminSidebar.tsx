@@ -61,16 +61,6 @@ const ITEMS: Item[] = [
     icon: Activity,
     roles: ["admin"],
     enabled: true,
-    submodules: [
-      {
-        title: "GIA Program",
-        url: "/dashboard/monitoring?program=GIA",
-      },
-      {
-        title: "SETUP Program",
-        url: "/dashboard/monitoring?program=SETUP",
-      },
-    ],
   },
   {
     title: "Equipment & QR Codes",

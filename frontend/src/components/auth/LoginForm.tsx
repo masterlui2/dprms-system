@@ -5,8 +5,10 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   DEFAULT_REDIRECT_BY_ROLE,
   authenticateMockUser,
+  setAuthToken,
   setMockUser,
 } from "../../lib/mockAuth";
+import { AuthError, loginWithBackend } from "../../services/authService";
 import { DostBrand } from "./DostBrand";
 
 export function LoginForm() {
@@ -15,9 +17,10 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [keepSignedIn, setKeepSignedIn] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!email.trim() || !password) {
@@ -25,16 +28,33 @@ export function LoginForm() {
       return;
     }
 
-    const user = authenticateMockUser(email, password);
+    setIsSubmitting(true);
 
-    if (!user) {
-      setMessage("Invalid email address or password.");
-      return;
+    try {
+      const { token, user } = await loginWithBackend(email, password);
+
+      setMessage(null);
+      setAuthToken(token);
+      setMockUser(user);
+      navigate(DEFAULT_REDIRECT_BY_ROLE[user.role]);
+    } catch (error) {
+      const mockUser = authenticateMockUser(email, password);
+
+      if (mockUser) {
+        setMessage(null);
+        setMockUser(mockUser);
+        navigate(DEFAULT_REDIRECT_BY_ROLE[mockUser.role]);
+        return;
+      }
+
+      setMessage(
+        error instanceof AuthError
+          ? error.message
+          : "Unable to connect to the authentication server.",
+      );
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setMessage(null);
-    setMockUser(user);
-    navigate(DEFAULT_REDIRECT_BY_ROLE[user.role]);
   }
 
   return (
@@ -63,6 +83,27 @@ export function LoginForm() {
         </header>
 
         <form className="mt-8 space-y-5" noValidate onSubmit={handleSubmit}>
+          <button
+            className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-slate-300 bg-white px-5 text-sm font-black text-slate-700 shadow-sm transition hover:border-blue-200 hover:bg-blue-50"
+            onClick={() =>
+              setMessage("Gmail sign-in is a UI placeholder and is not connected yet.")
+            }
+            type="button"
+          >
+            <span className="grid size-6 place-items-center rounded-full bg-white text-base font-black text-[#4285f4] shadow-sm ring-1 ring-slate-200">
+              G
+            </span>
+            Continue with Gmail
+          </button>
+
+          <div className="flex items-center gap-3">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-bold uppercase tracking-wide text-slate-400">
+              or sign in with email
+            </span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+
           <div>
             <label
               className="text-sm font-bold text-slate-800"
@@ -159,11 +200,19 @@ export function LoginForm() {
 
           <button
             className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0f53b7] px-5 text-sm font-black text-white shadow-lg shadow-blue-900/15 transition hover:bg-[#0b3f8b] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-200"
+            disabled={isSubmitting}
             type="submit"
           >
-            Sign in
+            {isSubmitting ? "Signing in..." : "Sign in"}
             <ArrowRight className="size-4" />
           </button>
+
+          <p className="text-center text-sm text-slate-600">
+            New proponent?{" "}
+            <Link className="font-black text-[#0f53b7] hover:underline" to="/register">
+              Create an account
+            </Link>
+          </p>
         </form>
       </div>
     </section>

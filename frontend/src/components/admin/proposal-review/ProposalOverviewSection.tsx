@@ -9,7 +9,11 @@ import {
   Wallet,
 } from "lucide-react";
 
-import { formatCurrency, type ProposalRecord } from "../../../data/admin";
+import {
+  formatCurrency,
+  getProposalReviewStatus,
+  type ProposalRecord,
+} from "../../../data/admin";
 import { getProponentDetails } from "./proponentDetails";
 
 interface ProposalOverviewSectionProps {
@@ -22,6 +26,7 @@ export function ProposalOverviewSection({
   proposal,
 }: ProposalOverviewSectionProps) {
   const proponent = getProponentDetails(proposal);
+  const reviewStatus = getProposalReviewStatus(proposal);
 
   const summaryCards = [
     {
@@ -186,7 +191,7 @@ export function ProposalOverviewSection({
                   Current status
                 </p>
                 <p className="mt-1 text-sm font-black text-slate-900">
-                  {proposal.status}
+                  {reviewStatus}
                 </p>
               </div>
             </div>

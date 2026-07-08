@@ -14,8 +14,8 @@ export function ProcessSection() {
       <div className="mx-auto max-w-7xl">
         <SectionHeader
           eyebrow="How it works"
-          title="A clear path from interest to monitored implementation"
-          description="The flow mirrors a premium public-service landing page: simple steps, clear labels, and enough structure for later backend integration."
+          title="A clear government workflow from proposal to monitoring"
+          description="The process follows the expected DOST service flow for GIA and SETUP proposals: selection, submission, validation, approval, and implementation monitoring."
         />
 
         <div className="relative mt-14">

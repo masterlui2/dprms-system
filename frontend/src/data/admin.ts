@@ -13,6 +13,15 @@ export interface ProposalRecord {
   title: string
 }
 
+export type ProposalReviewStatus =
+  | 'Submitted'
+  | 'Document Validation'
+  | 'Technical Review'
+  | 'Finance Review'
+  | 'Executive Approval'
+  | 'Approved'
+  | 'Disapproved'
+
 export interface ProjectRecord {
   budget: number
   compliance: 'Compliant' | 'Due soon' | 'Overdue'
@@ -459,6 +468,14 @@ export const predictions: PredictionRecord[] = [
     recommendation: 'Needs intervention',
     riskScore: 57,
   },
+  {
+    projectId: 'P-187',
+    enterprise: 'Tarragona Fruit Growers',
+    growth: 'Stable',
+    sustainability: 'Moderately sustainable',
+    recommendation: 'Needs intervention',
+    riskScore: 49,
+  },
 ]
 
 export const featureImportance = [
@@ -475,4 +492,21 @@ export function formatCurrency(value: number): string {
     currency: 'PHP',
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+export function getProposalReviewStatus(
+  proposal: ProposalRecord,
+): ProposalReviewStatus {
+  if (proposal.status === 'Approved') return 'Approved'
+  if (proposal.status === 'Rejected') return 'Disapproved'
+
+  const stageStatus: Record<ProposalRecord['stage'], ProposalReviewStatus> = {
+    0: 'Submitted',
+    1: 'Document Validation',
+    2: 'Technical Review',
+    3: 'Finance Review',
+    4: 'Executive Approval',
+  }
+
+  return stageStatus[proposal.stage]
 }

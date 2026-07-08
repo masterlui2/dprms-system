@@ -14,15 +14,15 @@ export function LoginBrandPanel() {
 
       <div className="relative z-10 max-w-lg">
         <h1 className="max-w-md text-4xl font-black leading-tight xl:text-5xl">
-          Empowering Filipino enterprises through innovation.
+          Secure access for GIA and SETUP proponents.
         </h1>
         <p className="mt-5 max-w-lg text-base leading-7 text-blue-100">
-          Submit proposals, receive official updates, and manage your DOST-assisted
+          Submit proposals, receive official updates, and manage DOST-assisted
           projects through one secure government portal.
         </p>
         <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-blue-100">
           <ShieldCheck className="size-5 text-[#f4c542]" />
-          Secure access for registered MSME proponents
+          Registered proponents and authorized DOST users only
         </div>
       </div>
 
