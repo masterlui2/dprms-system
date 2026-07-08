@@ -20,6 +20,7 @@ import {
   type Program,
   type ProjectRecord,
 } from "../../data/admin";
+import { getProjects } from "../../services/applicationStore";
 import { cn } from "../../utils/cn";
 
 interface ReportRecord {
@@ -495,6 +496,7 @@ function SiteVisitCalendarModal({ onClose }: { onClose: () => void }) {
 }
 
 export function MonitoringPage() {
+  const createdProjects = getProjects();
   const [selectedProgram, setSelectedProgram] = useState<Program>("GIA");
   const programProjects = projectRecords.filter(
     (project) => project.program === selectedProgram,
@@ -593,6 +595,32 @@ export function MonitoringPage() {
         eyebrow="Project Operations"
         title="Project Monitoring"
       />
+
+      {createdProjects.length > 0 ? (
+        <AdminPanel
+          description="Official project records created from approved frontend applications."
+          title="Created DPRMS projects"
+        >
+          <div className="divide-y divide-slate-100">
+            {createdProjects.map((project) => (
+              <article
+                className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                key={project.id}
+              >
+                <div>
+                  <p className="font-bold text-slate-900">{project.title}</p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {project.id} - {project.beneficiary} - {project.program}
+                  </p>
+                </div>
+                <span className="rounded-lg bg-blue-50 px-3 py-1 text-xs font-black text-[#073b82]">
+                  {project.complianceStatus}
+                </span>
+              </article>
+            ))}
+          </div>
+        </AdminPanel>
+      ) : null}
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard

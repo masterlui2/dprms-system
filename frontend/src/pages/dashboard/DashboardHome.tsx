@@ -5,7 +5,7 @@ import { getMockUser } from "../../lib/mockAuth";
 export function DashboardHome() {
   const user = getMockUser();
 
-  if (user?.role === "proponent") {
+  if (user?.role !== "admin") {
     return <ProponentDashboard />;
   }
 

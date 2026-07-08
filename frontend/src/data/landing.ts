@@ -1,13 +1,3 @@
-export const navigationItems = [
-  { label: 'Home', href: '#home' },
-  { label: 'Proposal Forms', href: '#about' },
-  { label: 'GIA / SETUP', href: '#programs' },
-  { label: 'Process', href: '#process' },
-  { label: 'Services', href: '#benefits' },
-  { label: 'FAQ', href: '#faq' },
-  { label: 'Contact', href: '#contact' },
-]
-
 export const portalFeatures = [
   {
     title: 'Centralized Records',
@@ -97,6 +87,16 @@ export const faqs = [
     question: 'Can proposals be submitted online?',
     answer:
       'Yes. Proponents can start the online proposal form and select either GIA or SETUP so the proper fields and document requirements appear.',
+  },
+  {
+    question: 'Do I need an account before sending my first submission?',
+    answer:
+      'No. You may send the first GIA proposal or SETUP request through the public form. The portal account is activated afterward so you can track updates and remarks.',
+  },
+  {
+    question: 'How do I track my submitted proposal or request?',
+    answer:
+      'After submission, the system shows a reference number. Use the activation step to set your portal password, then sign in through Track Proposal or Sign In.',
   },
   {
     question: 'How are approved projects monitored?',

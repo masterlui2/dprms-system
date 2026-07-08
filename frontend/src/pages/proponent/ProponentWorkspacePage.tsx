@@ -42,7 +42,7 @@ export function ProponentWorkspacePage() {
         action={
           <Link
             className="inline-flex h-11 items-center rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white transition hover:bg-[#0b3f8b]"
-            to="/proposal"
+            to="/programs/setup"
           >
             Start new proposal
           </Link>

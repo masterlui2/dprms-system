@@ -34,6 +34,10 @@ export const router = createBrowserRouter([
     element: <ProposalSubmission />,
   },
   {
+    path: '/apply/:program',
+    element: <ProposalSubmission />,
+  },
+  {
     path: '/dashboard',
     element: <DashboardLayout />,
     children: [
@@ -80,7 +84,7 @@ export const router = createBrowserRouter([
       {
         path: 'proposals',
         element: (
-          <RoleGate allowedRoles={['proponent']}>
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
             <ProponentWorkspacePage />
           </RoleGate>
         ),
