@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Override;
 
 class Proposal extends Model
@@ -32,5 +33,13 @@ class Proposal extends Model
 
     public function user(){
         return $this->belongsTo(User::class, "submitted_by");
+    }
+
+    public function setup_proposal():HasMany{
+        return $this->hasMany(SetupProposal::class);
+    }
+
+    public function gia_proposal():HasMany{
+        return $this->hasMany(GiaProposal::class);
     }
 }

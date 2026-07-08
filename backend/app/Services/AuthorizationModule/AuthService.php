@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Repositories\Contracts\AuthorizationModule\UserRepositoryInterface;
 use App\Services\Contracts\AuthorizationModule\AuthServiceInterface;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 use Override;
 
 class AuthService implements AuthServiceInterface
@@ -37,7 +38,10 @@ class AuthService implements AuthServiceInterface
     #[Override]
     public function logout(User $user): bool
     {
-        return (bool) $user->currentAccessToken()->delete();
+        /** @var PersonalAccessToken|null $token */
+        $token = $user->currentAccessToken();
+
+        return $token?->delete() ?? false;
     }
 
     #[Override]
