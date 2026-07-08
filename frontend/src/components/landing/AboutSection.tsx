@@ -5,16 +5,16 @@ import { Link } from 'react-router-dom'
 const proposalForms = [
   {
     title: 'SETUP Proposal Form',
-    label: 'For MSMEs',
+    label: 'Enterprise upgrading',
     description:
-      'Choose this if your business needs technology upgrading, equipment support, process improvement, or better product quality.',
+      'Choose this if the proposal is for enterprise technology upgrading, equipment support, process improvement, or product quality improvement.',
     action: 'Start SETUP form',
     href: '/proposal?type=SETUP',
     icon: Wrench,
   },
   {
     title: 'GIA Proposal Form',
-    label: 'For projects and communities',
+    label: 'Public benefit projects',
     description:
       'Choose this for research, community-based projects, capability building, training, or science and technology interventions.',
     action: 'Start GIA form',
@@ -42,8 +42,9 @@ export function AboutSection() {
             Select the proposal form that fits your project
           </h2>
           <p className="mx-auto mt-5 max-w-3xl text-lg leading-8 text-slate-600">
-            Pick one form below. SETUP is for MSME technology upgrading, while
-            GIA is for research, community, and science-based development projects.
+            Pick one form below. SETUP is for enterprise technology upgrading,
+            while GIA is for research, community, training, and science-based
+            development projects.
           </p>
         </motion.div>
 
