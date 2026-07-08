@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -22,6 +24,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'is_active',
+        'last_login_at'
     ];
 
     /**
@@ -44,6 +48,28 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'last_login_at' => 'datetime',
+            'is_active' => 'boolean'
         ];
     }
+
+    public function role(): BelongsToMany{
+        return $this->belongsToMany(Role::class, 'user_roles')
+            ->using(UserRole::class)
+            ->withPivot(['assigned_at','assigned_by'])
+            ->withTimestamps();
+    }
+
+    public function auditlog():HasMany{
+        return $this->HasMany(AuditLog::class);
+    }
+
+    public function notification(): HasMany{
+        return $this->HasMany(Notification::class);
+    }
+
+    public function proposal(): HasMany{
+        return $this->HasMany(Proposal::class,"submitted_by");
+    }
+
 }
