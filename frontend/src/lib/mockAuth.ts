@@ -8,6 +8,7 @@ export type MockUser = {
 };
 
 const STORAGE_KEY = "dprms.mock-user";
+const TOKEN_STORAGE_KEY = "dprms.auth-token";
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   admin: "System Administrator",
@@ -104,10 +105,27 @@ export function setMockUser(user: MockUser) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
 }
 
+export function getAuthToken(): string | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
+export function setAuthToken(token: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(TOKEN_STORAGE_KEY, token);
+}
+
 export function clearMockUser() {
   if (typeof window === "undefined") {
     return;
   }
 
   window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(TOKEN_STORAGE_KEY);
 }
