@@ -2,9 +2,11 @@
 
 namespace Database\Seeders;
 
+use App\Models\Role;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -13,11 +15,35 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $adminRole = Role::query()->updateOrCreate(
+            ['code' => 'admin'],
+            [
+                'description' => 'Full system access for DOST administrators.',
+                'name' => 'System Administrator',
+                'program_type' => 'BOTH',
+            ],
+        );
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        Role::query()->updateOrCreate(
+            ['code' => 'proponent'],
+            [
+                'description' => 'Portal access for proposal proponents.',
+                'name' => 'Project Proponent',
+                'program_type' => 'BOTH',
+            ],
+        );
+
+        $admin = User::query()->updateOrCreate(
+            ['email' => 'admin@dost.gov.ph'],
+            [
+                'is_active' => true,
+                'name' => 'DOST Admin',
+                'password' => Hash::make('Admin@'),
+            ],
+        );
+
+        $admin->role()->syncWithoutDetaching([
+            $adminRole->id => ['assigned_at' => now()],
         ]);
     }
 }
