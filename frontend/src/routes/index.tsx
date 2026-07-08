@@ -6,6 +6,7 @@ import { Landing } from '../pages/Landing'
 import { Login } from '../pages/Login'
 import { NotFound } from '../pages/NotFound'
 import { ProposalSubmission } from '../pages/ProposalSubmission'
+import { Register } from '../pages/Register'
 import { ApprovalsPage } from '../pages/admin/ApprovalsPage'
 import { BudgetPage } from '../pages/admin/BudgetPage'
 import { InventoryPage } from '../pages/admin/InventoryPage'
@@ -23,6 +24,10 @@ export const router = createBrowserRouter([
   {
     path: '/login',
     element: <Login />,
+  },
+  {
+    path: '/register',
+    element: <Register />,
   },
   {
     path: '/proposal',

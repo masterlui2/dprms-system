@@ -2,10 +2,12 @@
 
 namespace App\Services\AuthorizationModule;
 
+use App\Models\Role;
 use App\Models\User;
 use App\Repositories\Contracts\AuthorizationModule\UserRepositoryInterface;
 use App\Services\Contracts\AuthorizationModule\AuthServiceInterface;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\PersonalAccessToken;
 use Override;
 
 class AuthService implements AuthServiceInterface
@@ -26,10 +28,16 @@ class AuthService implements AuthServiceInterface
             throw new \Exception('Invalid credentials');
         }
 
+        $user->load('role');
         $token = $user->createToken('api-token')->plainTextToken;
+        $primaryRole = $user->role->first();
 
         return [
-            'user' => $user,
+            'user' => [
+                'email' => $user->email,
+                'name' => $user->name,
+                'role' => $primaryRole?->code ?? 'proponent',
+            ],
             'token' => $token,
         ];
     }
@@ -37,12 +45,28 @@ class AuthService implements AuthServiceInterface
     #[Override]
     public function logout(User $user): bool
     {
-        return (bool) $user->currentAccessToken()->delete();
+        /** @var PersonalAccessToken|null $token */
+        $token = $user->currentAccessToken();
+
+        return $token?->delete() ?? false;
     }
 
     #[Override]
     public function register(array $data): User
     {
-        return $this->userRepository->create($data);
+        $user = $this->userRepository->create($data);
+        $roleId = Role::query()->where('code', $data['role'])->value('id');
+
+        if(! $roleId){
+            throw new \Exception('Invalid role.');
+        }
+
+        $user->role()->syncWithoutDetaching([
+            $roleId => [
+                'assigned_at' => now()
+            ],
+        ]);
+
+        return $user;
     }
 }
