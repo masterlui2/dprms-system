@@ -55,13 +55,17 @@ class AuthService implements AuthServiceInterface
     public function register(array $data): User
     {
         $user = $this->userRepository->create($data);
-        $proponentRoleId = Role::query()->where('code', 'proponent')->value('id');
+        $roleId = Role::query()->where('code', $data['role'])->value('id');
 
-        if ($proponentRoleId) {
-            $user->role()->syncWithoutDetaching([
-                $proponentRoleId => ['assigned_at' => now()],
-            ]);
+        if(! $roleId){
+            throw new \Exception('Invalid role.');
         }
+
+        $user->role()->syncWithoutDetaching([
+            $roleId => [
+                'assigned_at' => now()
+            ],
+        ]);
 
         return $user;
     }
