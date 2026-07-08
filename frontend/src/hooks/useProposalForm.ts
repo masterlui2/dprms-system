@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 import { initialProposalFormData } from '../data/proposal'
 import { submitProposal } from '../services/proposalService'
@@ -8,14 +9,22 @@ import type {
   ProposalFormData,
   ProposalFormErrors,
   ProposalNotification,
+  ProposalType,
 } from '../types/proposal'
 import { validateEntireProposal } from '../utils/proposalValidation'
 
 const finalStep = 4
 
 export function useProposalForm() {
+  const [searchParams] = useSearchParams()
+  const requestedType = searchParams.get('type')
+  const initialProposalType: ProposalType =
+    requestedType === 'GIA' || requestedType === 'SETUP' ? requestedType : ''
   const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState<ProposalFormData>(initialProposalFormData)
+  const [formData, setFormData] = useState<ProposalFormData>(() => ({
+    ...initialProposalFormData,
+    proposalType: initialProposalType,
+  }))
   const [errors, setErrors] = useState<ProposalFormErrors>({})
   const [isConfirmationOpen, setIsConfirmationOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)

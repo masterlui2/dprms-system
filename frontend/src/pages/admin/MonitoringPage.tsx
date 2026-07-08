@@ -9,14 +9,17 @@ import {
   ChevronRight,
   MapPin,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
 
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { AdminPanel } from "../../components/admin/AdminPanel";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
 import { MetricCard } from "../../components/admin/MetricCard";
 import { ModalShell } from "../../components/admin/ModalShell";
-import { projectRecords, type ProjectRecord } from "../../data/admin";
+import {
+  projectRecords,
+  type Program,
+  type ProjectRecord,
+} from "../../data/admin";
 import { cn } from "../../utils/cn";
 
 interface ReportRecord {
@@ -119,6 +122,11 @@ const reportRecords: ReportRecord[] = [
     submitted: "May 28",
     status: "Approved",
   },
+];
+
+const projectProgramTabs: Array<{ label: string; value: Program }> = [
+  { label: "GIA", value: "GIA" },
+  { label: "SETUP Project", value: "SETUP" },
 ];
 
 function projectStatus(project: ProjectRecord): string {
@@ -487,18 +495,13 @@ function SiteVisitCalendarModal({ onClose }: { onClose: () => void }) {
 }
 
 export function MonitoringPage() {
-  const [searchParams] = useSearchParams();
-  const selectedProgram = searchParams.get("program");
-  const programProjects =
-    selectedProgram === "GIA" || selectedProgram === "SETUP"
-      ? projectRecords.filter((project) => project.program === selectedProgram)
-      : projectRecords;
-  const programLabel =
-    selectedProgram === "GIA"
-      ? "GIA Program"
-      : selectedProgram === "SETUP"
-        ? "SETUP Program"
-        : "Project Monitoring";
+  const [selectedProgram, setSelectedProgram] = useState<Program>("GIA");
+  const programProjects = projectRecords.filter(
+    (project) => project.program === selectedProgram,
+  );
+  const selectedProgramLabel =
+    projectProgramTabs.find((tab) => tab.value === selectedProgram)?.label ??
+    "Projects";
   const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(
     null,
   );
@@ -585,14 +588,10 @@ export function MonitoringPage() {
     <div className="space-y-7">
       <AdminPageHeader
         description={
-          selectedProgram === "GIA"
-            ? ""
-            : selectedProgram === "SETUP"
-              ? ""
-              : "Track project progress, accomplishment reports, compliance requirements, and site visits."
+          "Track project progress, accomplishment reports, compliance requirements, and site visits."
         }
         eyebrow="Project Operations"
-        title={programLabel}
+        title="Project Monitoring"
       />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -636,9 +635,34 @@ export function MonitoringPage() {
             getRowKey={(project) => project.id}
             initialRowsPerPage={5}
             onRowClick={setSelectedProject}
-            searchPlaceholder={`Search ${programLabel.toLowerCase()} projects...`}
+            searchPlaceholder={`Search ${selectedProgramLabel.toLowerCase()} projects...`}
             searchText={(project) =>
               `${project.id} ${project.title} ${project.enterprise} ${project.manager} ${project.status} ${project.program}`
+            }
+            toolbar={
+              <div
+                aria-label="Project program filter"
+                className="inline-flex rounded-lg border border-[#d8e1ee] bg-[#f8fbff] p-1"
+                role="tablist"
+              >
+                {projectProgramTabs.map((tab) => (
+                  <button
+                    aria-selected={selectedProgram === tab.value}
+                    className={cn(
+                      "h-8 rounded-md px-3 text-xs font-black transition",
+                      selectedProgram === tab.value
+                        ? "bg-[#0f53b7] text-white shadow-sm"
+                        : "text-[#073b82] hover:bg-white",
+                    )}
+                    key={tab.value}
+                    onClick={() => setSelectedProgram(tab.value)}
+                    role="tab"
+                    type="button"
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
             }
           />
         </AdminPanel>

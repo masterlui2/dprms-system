@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, FileText, RotateCcw, X, XCircle } from "lucide-react";
 
-import type { ProposalRecord } from "../../data/admin";
+import {
+  getProposalReviewStatus,
+  type ProposalRecord,
+} from "../../data/admin";
 import { cn } from "../../utils/cn";
 import { ProposalCommentsSection } from "./proposal-review/ProposalCommentsSection";
 import { ProposalDocumentsSection } from "./proposal-review/ProposalDocumentsSection";
@@ -20,7 +23,7 @@ interface ProposalReviewModalProps {
 
 const reviewTabs: Array<[ReviewSection, string]> = [
   ["overview", "Overview"],
-  ["documents", "Documents"],
+  ["documents", "Document Checklist"],
   ["comments", "Comments"],
 ];
 
@@ -34,6 +37,7 @@ export function ProposalReviewModal({
   const [selectedDocument, setSelectedDocument] =
     useState<SampleDocument | null>(null);
   const documents = getProposalDocuments(proposal.program);
+  const reviewStatus = getProposalReviewStatus(proposal);
 
   useEffect(() => {
     const previousActiveElement = document.activeElement as HTMLElement | null;
@@ -74,16 +78,16 @@ export function ProposalReviewModal({
               <StatusPill tone="info">{proposal.program}</StatusPill>
               <StatusPill
                 tone={
-                  proposal.status === "Approved"
+                  reviewStatus === "Approved"
                     ? "success"
-                    : proposal.status === "Rejected"
+                    : reviewStatus === "Disapproved"
                       ? "danger"
-                      : proposal.status === "Pending"
+                      : reviewStatus === "Document Validation"
                         ? "warning"
                         : "info"
                 }
               >
-                {proposal.status}
+                {reviewStatus}
               </StatusPill>
             </div>
             <h2
@@ -167,7 +171,7 @@ export function ProposalReviewModal({
               type="button"
             >
               <XCircle className="size-4" />
-              Reject
+              Disapprove
             </button>
             <button
               className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 text-sm font-bold text-amber-900 hover:bg-amber-100"
