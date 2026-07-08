@@ -75,4 +75,19 @@ class User extends Authenticatable
         return $this->HasMany(Proposal::class,"submitted_by");
     }
 
+    public function setup_proposal(): HasMany{
+        return $this->hasMany(SetupProposal::class,"tna_encoded_by");
+    }
+
+    public function setup_financial_document(): HasMany{
+        return $this->hasMany(SetupFinancialDocuments::class,"verified_by");
+    }
+
+    public function gia_document(): HasMany{
+        return $this->hasMany(GiaDocument::class,"verified_by");
+    }
+
+    public function proposal_template():HasMany{
+        return $this->hasMany(ProposalTemplate::class,"uploaded_by");
+    }
 }
