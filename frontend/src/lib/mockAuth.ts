@@ -12,6 +12,7 @@ export type MockUser = {
 };
 
 const STORAGE_KEY = "dprms.mock-user";
+const TOKEN_STORAGE_KEY = "dprms.auth-token";
 const ACTIVATED_USERS_KEY = "dprms.mock-activated-users";
 
 export const ROLE_LABEL: Record<UserRole, string> = {

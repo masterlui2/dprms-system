@@ -57,6 +57,12 @@ export function getApplications(): ApplicationRecord[] {
   return readApplications()
 }
 
+export function getApplicationByReference(referenceNo: string) {
+  return readApplications().find(
+    (application) => application.referenceNo === referenceNo,
+  )
+}
+
 export function getProjects(): CreatedProjectRecord[] {
   return readApplications()
     .filter((application) => application.status === 'Approved')

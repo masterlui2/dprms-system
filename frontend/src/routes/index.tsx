@@ -1,7 +1,8 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { Navigate, createBrowserRouter } from 'react-router-dom'
 
 import { RoleGate } from '../components/auth/RoleGate'
 import { DashboardLayout } from '../layouts/DashboardLayout'
+import { ActivateAccount } from '../pages/ActivateAccount'
 import { Landing } from '../pages/Landing'
 import { Login } from '../pages/Login'
 import { NotFound } from '../pages/NotFound'
@@ -14,6 +15,7 @@ import { MonitoringPage } from '../pages/admin/MonitoringPage'
 import { ReportsPage } from '../pages/admin/ReportsPage'
 import { AuditTrailPage } from '../pages/admin/AuditTrailPage'
 import { DashboardHome } from '../pages/dashboard/DashboardHome'
+import { ProponentDashboard } from '../pages/proponent/ProponentDashboard'
 import { ProponentWorkspacePage } from '../pages/proponent/ProponentWorkspacePage'
 
 export const router = createBrowserRouter([
@@ -34,8 +36,16 @@ export const router = createBrowserRouter([
     element: <ProposalSubmission />,
   },
   {
+    path: '/programs/:program',
+    element: <ProposalSubmission />,
+  },
+  {
     path: '/apply/:program',
     element: <ProposalSubmission />,
+  },
+  {
+    path: '/activate/:referenceNo',
+    element: <ActivateAccount />,
   },
   {
     path: '/dashboard',
@@ -44,6 +54,30 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <DashboardHome />,
+      },
+      {
+        path: 'applications',
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <ApprovalsPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'document-validation',
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <ApprovalsPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'workflow-review',
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <ApprovalsPage />
+          </RoleGate>
+        ),
       },
       {
         path: 'approvals',
@@ -58,6 +92,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleGate allowedRoles={['admin']}>
             <BudgetPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'projects',
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <MonitoringPage />
           </RoleGate>
         ),
       },
@@ -82,12 +124,96 @@ export const router = createBrowserRouter([
         element: <ReportsPage />,
       },
       {
+        path: 'analytics',
+        element: (
+          <RoleGate allowedRoles={['admin']}>
+            <ReportsPage />
+          </RoleGate>
+        ),
+      },
+      {
         path: 'proposals',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
             <ProponentWorkspacePage />
           </RoleGate>
         ),
+      },
+      {
+        path: 'my-application',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentWorkspacePage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'documents',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentWorkspacePage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'application-status',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentWorkspacePage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'project-monitoring',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'accomplishment-reports',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'equipment',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'finance',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'notifications',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'profile',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentWorkspacePage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'users',
+        element: <Navigate replace to="/dashboard/audit" />,
       },
       {
         path: 'audit',
