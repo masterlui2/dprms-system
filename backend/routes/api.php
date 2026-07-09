@@ -15,20 +15,20 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::post('/logout',[AuthController::class,'logout']);
 });
 
-Route::middleware('auth:sanctum')->group(function (){
-    Route::post('/proposal-templates',[ProposalTemplateController::class, 'uploadTemplate']);
-    Route::put('/{id}/update-template',[ProposalTemplateController::class, 'updateTemplate']);
-    Route::delete('/{id}/remove', [ProposalTemplateController::class, 'deleteTemplate']);
-    Route::get('/templates-program/{programType}', [ProposalTemplateController::class, 'getTemplatesByProgram']);
-    Route::get('/templates-uploaded/{uploadedBy}',[ProposalTemplateController::class, 'getTemplatesByUploaded']);
+Route::middleware('auth:sanctum')->prefix('proposal-templates')->group(function () {
+    Route::post('/', [ProposalTemplateController::class, 'uploadTemplate']);
+    Route::put('/{template}', [ProposalTemplateController::class, 'updateTemplate']);
+    Route::delete('/{id}', [ProposalTemplateController::class, 'deleteTemplate']);
+    Route::get('/program/{programType}', [ProposalTemplateController::class, 'getTemplatesByProgram']);
+    Route::get('/uploaded-by/{uploadedBy}', [ProposalTemplateController::class, 'getTemplatesByUploaded']);
 });
 
-Route::middleware('auth:sanctum')->group(function (){
+Route::middleware('auth:sanctum')->prefix('proposal')->group(function (){
     Route::post('/submit',[ProposalController::class, 'submit']);
     Route::put('/advance-stage/{id}',[ProposalController::class,'advanceStage']);
     Route::put('/{id}/approve',[ProposalController::class,'approve']);
     Route::put('/{id}/disapprove',[ProposalController::class,'disapprove']);
-    Route::get('/referenceNumber/{referenceNumber}',[ProposalController::class, 'getByReferenceNumber']);
+    Route::get('/reference-number/{referenceNumber}',[ProposalController::class, 'getByReferenceNumber']);
     Route::get('/submitter/{userId}',[ProposalController::class, 'getSubmitterProposals']);
 });
 

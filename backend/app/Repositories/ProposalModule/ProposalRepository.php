@@ -17,7 +17,7 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     #[Override]
     public function findByReferenceNumber(string $referenceNumber): ?Proposal
     {
-        return $this->model->newQuery()->where("reference_reference",$referenceNumber)->first();
+        return $this->model->newQuery()->where("reference_number",$referenceNumber)->first();
     }
 
     #[Override]
@@ -35,7 +35,7 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     #[Override]
     public function updateStatus(int $id, string $status, string $currentStage): bool
     {
-        $user = $this->model->newQuery()->findById($id);
+        $user = $this->model->newQuery()->find($id);
 
         if(! $user){
             return false;
