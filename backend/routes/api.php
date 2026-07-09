@@ -4,12 +4,8 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ProposalController;
 use App\Http\Controllers\ProposalTemplateController;
 use App\Models\DocumentRequirement;
-use App\Models\GiaCoAuthor;
-use App\Models\GiaDocument;
-use App\Models\GiaProposal;
-use App\Models\SetupEquipmentQuotation;
-use App\Models\SetupFinancialDocuments;
-use App\Models\SetupProposal;
+use App\Http\Controllers\GiaProposalController;
+use App\Http\Controllers\SetupProposalController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class,'register']);
@@ -44,19 +40,19 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->group(function (){
-    Route::get('/gia/proposals',[GiaProposal::class,'getGiaProposalDetials']);
-    Route::post('/gia/proposals',[GiaProposal::class,'createGiaProposal']);
-    Route::post('gia/upload-document',[GiaDocument::class,'uploadDocumnet']);
-    Route::post('/gia/author', [GiaCoAuthor::class,'addCoAuthor']);
-    Route::put('/{documentId}/verify-document',[GiaDocument::class,'verifyDocument']);
+    Route::get('/gia/proposals',[GiaProposalController::class,'getGiaProposalDetials']);
+    Route::post('/gia/proposals',[GiaProposalController::class,'createGiaProposal']);
+    Route::post('gia/upload-document',[GiaProposalController::class,'uploadDocumnet']);
+    Route::post('/gia/author', [GiaProposalController::class,'addCoAuthor']);
+    Route::put('/{documentId}/verify-document',[GiaProposalController::class,'verifyDocument']);
 });
 
 Route::middleware('auth:sanctum')->group(function(){
-    Route::post('/setup/proposals',[SetupProposal::class, 'createSetupProposal']);
-    Route::post('/setup/financials',[SetupFinancialDocuments::class, 'uploadFinancialDocument']);
-    Route::post('/setup/equipments',[SetupEquipmentQuotation::class, 'addEquipmentQuotation']);
-    Route::put('/setup/{documentId}/financials',[SetupFinancialDocuments::class,'verifyFinancialDocuments']);
-    Route::get('/setup/proposals',[SetupProposal::class,'getSetupProposalDetails']);
-    Route::get('/setup/financials',[SetupFinancialDocuments::class,'getFinancialDocuments']);
-    Route::get('/setup/equipments',[SetupEquipmentQuotation::class,'getEquipmentQuotations']);
+    Route::post('/setup/proposals',[SetupProposalController::class, 'createSetupProposal']);
+    Route::post('/setup/financials',[SetupProposalController::class, 'uploadFinancialDocument']);
+    Route::post('/setup/equipments',[SetupProposalController::class, 'addEquipmentQuotation']);
+    Route::put('/setup/{documentId}/financials',[SetupProposalController::class,'verifyFinancialDocuments']);
+    Route::get('/setup/proposals',[SetupProposalController::class,'getSetupProposalDetails']);
+    Route::get('/setup/financials',[SetupProposalController::class,'getFinancialDocuments']);
+    Route::get('/setup/equipments',[SetupProposalController::class,'getEquipmentQuotations']);
 });
