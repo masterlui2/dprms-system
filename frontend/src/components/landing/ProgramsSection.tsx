@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getProgramRegistrationUrl } from '../../lib/programAccess'
 
 const programs: Array<{
   accent: string
@@ -24,7 +25,7 @@ const programs: Array<{
     accent: 'bg-[#0f53b7]',
     description:
       'Choose this if you own or manage a business and need equipment, process improvement, packaging support, training, or technology assistance.',
-    detailsTo: '/programs/setup',
+    detailsTo: getProgramRegistrationUrl('SETUP'),
     icon: Wrench,
     items: [
       { icon: Building2, label: 'For MSMEs and enterprises' },
@@ -38,7 +39,7 @@ const programs: Array<{
     accent: 'bg-[#f59e0b]',
     description:
       'Choose this if your school, organization, community group, or local office will submit a project for public benefit, research, training, or community development.',
-    detailsTo: '/programs/gia',
+    detailsTo: getProgramRegistrationUrl('GIA'),
     icon: GraduationCap,
     items: [
       { icon: UsersRound, label: 'For schools, LGUs, organizations, or groups' },

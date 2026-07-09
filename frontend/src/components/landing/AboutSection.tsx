@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { ArrowRight, FlaskConical, Wrench } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getProgramRegistrationUrl } from '../../lib/programAccess'
 
 const proposalForms = [
   {
@@ -9,7 +10,7 @@ const proposalForms = [
     description:
       'Choose this if the proposal is for enterprise technology upgrading, equipment support, process improvement, or product quality improvement.',
     action: 'Start SETUP form',
-    href: '/programs/setup',
+    href: getProgramRegistrationUrl('SETUP'),
     icon: Wrench,
   },
   {
@@ -18,7 +19,7 @@ const proposalForms = [
     description:
       'Choose this for research, community-based projects, capability building, training, or science and technology interventions.',
     action: 'Start GIA form',
-    href: '/programs/gia',
+    href: getProgramRegistrationUrl('GIA'),
     icon: FlaskConical,
   },
 ]

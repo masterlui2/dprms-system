@@ -15,6 +15,10 @@ export type ProjectCategory =
 
 export type ProjectType =
   | ""
+  | "R&D"
+  | "Non-R&D"
+  | "Not yet conducted"
+  | "Conducted by PSTO"
   | "Research and Development"
   | "Community-Based Project"
   | "Science and Technology Intervention"
@@ -43,6 +47,26 @@ export type TargetBeneficiary =
   | "Others";
 
 export type ProposalDocumentKey =
+  | "letterOfIntent"
+  | "endorsementLetter"
+  | "eligibilityChecklist"
+  | "workplan"
+  | "rtecReport"
+  | "setiScorecard"
+  | "gadChecklist"
+  | "moaResolution"
+  | "certificateOfFundsAvailability"
+  | "chedAccreditation"
+  | "dostTrackRecord"
+  | "secCdaDoleRegistration"
+  | "auditedFinancialStatements"
+  | "swornAffidavit"
+  | "secretaryCertificate"
+  | "boardResolution"
+  | "tnaForm01"
+  | "mayorsPermit"
+  | "dtiRegistration"
+  | "notarizedBoardResolution"
   | "registrationCertificate"
   | "businessPermit"
   | "birCertificate"
@@ -68,16 +92,29 @@ export interface ProposalFormData {
   employeeCount: string;
   municipality: string;
   businessAddress: string;
+  cooperatingAgency: string;
+  headOfAgency: string;
+  authorizedRepresentative: string;
+  lineOfBusiness: string;
+  businessType: string;
+  enterpriseSize: string;
   proposalType: ProposalType;
   projectTitle: string;
-  cooperatingAgency: string;
+  scopeOfAssistance: string;
   currentOperationalProblem: string;
+  existingEquipmentUsed: string;
+  processBottlenecks: string;
+  productQualityConcerns: string;
+  productivityConcerns: string;
+  targetImprovement: string;
   expectedBusinessImprovement: string;
   projectCategory: ProjectCategory;
   projectDuration: string;
   projectType: ProjectType;
+  tnaStatus: ProjectType;
   projectDescription: string;
   projectObjectives: string;
+  rationale: string;
   methodology: string;
   personnelInvolved: string;
   proposedTechnologyAssistance: string;
@@ -85,8 +122,16 @@ export interface ProposalFormData {
   technologyInnovation: string;
   targetBeneficiary: TargetBeneficiary;
   expectedOutputs: string;
+  sustainabilityPlan: string;
   workplanSummary: string;
   equipmentNeeds: string;
+  equipmentPurpose: string;
+  supplierFabricator: string;
+  equipmentQuotationAmount: string;
+  quotationCount: string;
+  totalProjectCost: string;
+  requestedAmount: string;
+  budgetSummary: string;
   totalBusinessAssets: string;
   annualNetProfit: string;
   documents: ProposalDocuments;

@@ -1,6 +1,6 @@
 import { CheckCircle2, Circle, FileCheck2, Upload, XCircle } from 'lucide-react'
 
-import { getDocumentRequirements } from '../../../data/proposal'
+import { getVisibleDocumentRequirements } from '../../../data/proposal'
 import type {
   ProposalDocumentKey,
   ProposalFormData,
@@ -20,13 +20,14 @@ export function DocumentsStep({
   errors,
   onDocumentChange,
 }: DocumentsStepProps) {
-  const requirements = getDocumentRequirements(data.proposalType).filter(
-    (requirement) => requirement.required,
-  )
+  const requirements = getVisibleDocumentRequirements(data)
+  const requiredRequirements = requirements
   const uploadedCount = requirements.filter(
     (requirement) => data.documents[requirement.key],
   ).length
-  const remainingCount = requirements.length - uploadedCount
+  const remainingCount = requiredRequirements.filter(
+    (requirement) => !data.documents[requirement.key],
+  ).length
   const progress = requirements.length
     ? Math.round((uploadedCount / requirements.length) * 100)
     : 0
@@ -37,7 +38,11 @@ export function DocumentsStep({
       <ProposalSectionHeading
         description="Upload clear and complete copies of each required document."
         divided={false}
-        title="Upload Supporting Documents"
+        title={
+          isGia
+            ? "GIA Documentary Requirements Upload Form"
+            : "SETUP Financial and Documentary Requirements Upload Form"
+        }
       />
 
       <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 sm:flex-row sm:gap-8">
@@ -67,8 +72,8 @@ export function DocumentsStep({
             </h3>
             <p className="mt-1 text-xs text-slate-500">
               {data.proposalType
-                ? `${requirements.length} documents required for ${data.proposalType}`
-                : 'Select a program in Step 2 to view its requirements.'}
+                ? `${requirements.length} documents required based on your ${data.proposalType} selections`
+                : 'Select a program to view its requirements.'}
             </p>
           </div>
 
@@ -127,12 +132,17 @@ export function DocumentsStep({
                   <tr key={requirement.key}>
                     <td className="px-4 py-4 align-top">
                       <p className="font-bold text-slate-900">{requirement.label}</p>
+                      {!requirement.required ? (
+                        <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                          Based on your selection
+                        </p>
+                      ) : null}
                       <p className="mt-1 text-xs leading-5 text-slate-500">
                         {requirement.description}
                       </p>
                     </td>
                     <td className="px-4 py-4 align-top font-semibold text-slate-700">
-                      {isGia ? 'GIA' : 'SETUP'}
+                      {requirement.appliesTo ?? (isGia ? 'GIA' : 'SETUP')}
                     </td>
                     <td className="px-4 py-4 align-top">
                       <span
@@ -153,7 +163,10 @@ export function DocumentsStep({
                     </td>
                     <td className="px-4 py-4 align-top">
                       <p className="text-xs leading-5 text-slate-500">
-                        {error ?? (file ? 'Ready for DOST review after submission.' : 'Upload required document.')}
+                        {error ??
+                          (file
+                            ? 'Ready for DOST review after submission.'
+                              : 'Upload required document.')}
                       </p>
                     </td>
                     <td className="px-4 py-4 text-right align-top">
@@ -201,7 +214,12 @@ export function DocumentsStep({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-slate-900">{requirement.label}</p>
+                   <p className="font-bold text-slate-900">{requirement.label}</p>
+                    {!requirement.required ? (
+                      <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                        Based on your selection
+                      </p>
+                    ) : null}
                     <p className="mt-1 text-xs leading-5 text-slate-500">
                       {requirement.description}
                     </p>
@@ -223,7 +241,7 @@ export function DocumentsStep({
                       Applies To
                     </dt>
                     <dd className="mt-1 font-semibold text-slate-700">
-                      {isGia ? 'GIA' : 'SETUP'}
+                      {requirement.appliesTo ?? (isGia ? 'GIA' : 'SETUP')}
                     </dd>
                   </div>
                   <div>
@@ -239,7 +257,10 @@ export function DocumentsStep({
                       DOST Remarks
                     </dt>
                     <dd className="mt-1 text-slate-600">
-                      {error ?? (file ? 'Ready for DOST review after submission.' : 'Upload required document.')}
+                      {error ??
+                        (file
+                          ? 'Ready for DOST review after submission.'
+                            : 'Upload required document.')}
                     </dd>
                   </div>
                 </dl>

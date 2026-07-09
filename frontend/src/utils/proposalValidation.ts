@@ -1,4 +1,4 @@
-import { getDocumentRequirements } from '../data/proposal'
+import { getVisibleDocumentRequirements } from '../data/proposal'
 import type { ProposalFormData, ProposalFormErrors } from '../types/proposal'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -6,6 +6,13 @@ const phonePattern = /^(?:\+63|0)\d{10}$/
 
 function required(value: string, message: string): string | undefined {
   return value.trim() ? undefined : message
+}
+
+function positiveAmount(value: string, message: string): string | undefined {
+  return (
+    required(value, message) ??
+    (Number(value) < 1 ? 'Enter an amount greater than zero.' : undefined)
+  )
 }
 
 function compactErrors(
@@ -23,9 +30,13 @@ function compactErrors(
 }
 
 export function validateApplicantStep(data: ProposalFormData): ProposalFormErrors {
-  return compactErrors({
-    applicantFullName: required(data.applicantFullName, 'Enter the applicant or representative name.'),
-    applicantPosition: required(data.applicantPosition, 'Enter the applicant position.'),
+  const sharedErrors = {
+    applicantFullName: required(
+      data.applicantFullName,
+      data.proposalType === 'GIA'
+        ? 'Enter the project leader name.'
+        : 'Enter the owner or representative name.',
+    ),
     emailAddress:
       required(data.emailAddress, 'Enter an email address.') ??
       (!emailPattern.test(data.emailAddress) ? 'Enter a valid email address.' : undefined),
@@ -34,97 +45,91 @@ export function validateApplicantStep(data: ProposalFormData): ProposalFormError
       (!phonePattern.test(data.contactNumber.replace(/[\s-]/g, ''))
         ? 'Use a valid Philippine number, such as 09171234567.'
         : undefined),
-    organizationName: required(data.organizationName, 'Enter the registered organization name.'),
-    organizationType: required(data.organizationType, 'Select an organization type.'),
-    industryCategory: required(data.industryCategory, 'Select an industry category.'),
-    yearEstablished:
-      required(data.yearEstablished, 'Enter the year established.') ??
-      (Number(data.yearEstablished) < 1900 ||
-      Number(data.yearEstablished) > new Date().getFullYear()
-        ? 'Enter a valid four-digit year.'
-        : undefined),
-    employeeCount:
-      required(data.employeeCount, 'Enter the number of employees.') ??
-      (Number(data.employeeCount) < 1 ? 'Enter at least one employee.' : undefined),
-    municipality: required(data.municipality, 'Select a municipality.'),
-    businessAddress: required(data.businessAddress, 'Enter the complete business address.'),
-  })
-}
-
-export function validateProjectStep(data: ProposalFormData): ProposalFormErrors {
-  const sharedErrors = {
-    proposalType: required(data.proposalType, 'Please select a program.'),
-    projectTitle: required(data.projectTitle, 'Project title is required.'),
-    projectCategory: required(
-      data.projectCategory,
-      data.proposalType === 'SETUP'
-        ? 'Please select an industry sector.'
-        : 'Please select a project category.',
+    organizationName: required(
+      data.organizationName,
+      data.proposalType === 'GIA'
+        ? 'Enter the implementing agency.'
+        : 'Enter the business name.',
     ),
-    projectType: required(data.projectType, 'Please select a project type.'),
-    targetBeneficiary: required(
-      data.targetBeneficiary,
-      data.proposalType === 'SETUP'
-        ? 'Please select the business size or entity type.'
-        : 'Please select the target beneficiaries.',
+    businessAddress: required(
+      data.businessAddress,
+      data.proposalType === 'GIA'
+        ? 'Enter the office address.'
+        : 'Enter the business address.',
     ),
   }
 
   if (data.proposalType === 'GIA') {
     return compactErrors({
       ...sharedErrors,
-      cooperatingAgency: required(data.cooperatingAgency, 'Enter the cooperating agency.'),
-      siteOfImplementation: required(
-        data.siteOfImplementation,
-        'Enter the site of implementation.',
-      ),
-      projectDuration: required(data.projectDuration, 'Enter the project duration.'),
-      projectObjectives: required(
-        data.projectObjectives,
-        'Please enter the project objectives.',
-      ),
-      methodology: required(data.methodology, 'Please describe the methodology.'),
-      expectedOutputs: required(
-        data.expectedOutputs,
-        'Please describe the expected outputs or 6Ps.',
-      ),
-      workplanSummary: required(
-        data.workplanSummary,
-        'Please provide a workplan summary.',
-      ),
-      personnelInvolved: required(
-        data.personnelInvolved,
-        'Please list personnel involved.',
+      headOfAgency: required(data.headOfAgency, 'Enter the head of implementing agency.'),
+      authorizedRepresentative: required(
+        data.authorizedRepresentative,
+        'Enter the authorized representative.',
       ),
     })
   }
 
   return compactErrors({
     ...sharedErrors,
-    projectDescription: required(
-      data.projectDescription,
-      'Please enter the business background.',
-    ),
+    municipality: required(data.municipality, 'Select a municipality.'),
+    industryCategory: required(data.industryCategory, 'Select an industry sector.'),
+    lineOfBusiness: required(data.lineOfBusiness, 'Enter the line of business.'),
+    yearEstablished:
+      required(data.yearEstablished, 'Enter years in operation.') ??
+      (Number(data.yearEstablished) < 0 ? 'Enter a valid number of years.' : undefined),
+    businessType: required(data.businessType, 'Select a business type.'),
+    enterpriseSize: required(data.enterpriseSize, 'Select an enterprise size.'),
+  })
+}
+
+export function validateProjectStep(data: ProposalFormData): ProposalFormErrors {
+  if (data.proposalType === 'GIA') {
+    return compactErrors({
+      projectTitle: required(data.projectTitle, 'Project title is required.'),
+      projectType: required(data.projectType, 'Please select R&D or Non-R&D.'),
+      siteOfImplementation: required(
+        data.siteOfImplementation,
+        'Enter the site of implementation.',
+      ),
+      projectDuration: required(data.projectDuration, 'Enter the project duration.'),
+      projectObjectives: required(data.projectObjectives, 'Please enter the project objectives.'),
+      rationale: required(data.rationale, 'Please enter the rationale or justification.'),
+      methodology: required(data.methodology, 'Please describe the methodology.'),
+      expectedOutputs: required(data.expectedOutputs, 'Please describe the expected outputs.'),
+      targetBeneficiary: required(data.targetBeneficiary, 'Please describe the target beneficiaries.'),
+      sustainabilityPlan: required(data.sustainabilityPlan, 'Please provide a sustainability plan.'),
+    })
+  }
+
+  return compactErrors({
+    tnaStatus: required(data.tnaStatus, 'Please select the TNA status.'),
     currentOperationalProblem: required(
       data.currentOperationalProblem,
-      'Please describe the current operational problem.',
+      'Please describe the current production problem.',
     ),
-    proposedTechnologyAssistance: required(
-      data.proposedTechnologyAssistance,
-      'Please describe the proposed technology assistance.',
+    existingEquipmentUsed: required(
+      data.existingEquipmentUsed,
+      'Please list existing equipment used.',
     ),
-    expectedBusinessImprovement: required(
-      data.expectedBusinessImprovement,
-      'Please describe the expected business improvement.',
+    processBottlenecks: required(data.processBottlenecks, 'Please describe process bottlenecks.'),
+    productQualityConcerns: required(
+      data.productQualityConcerns,
+      'Please describe product quality concerns.',
     ),
+    productivityConcerns: required(
+      data.productivityConcerns,
+      'Please describe productivity concerns.',
+    ),
+    targetImprovement: required(data.targetImprovement, 'Please describe the target improvement.'),
   })
 }
 
 export function validateDocumentsStep(data: ProposalFormData): ProposalFormErrors {
   const errors: ProposalFormErrors = {}
 
-  getDocumentRequirements(data.proposalType).forEach((document) => {
-    if (document.required && !data.documents[document.key]) {
+  getVisibleDocumentRequirements(data).forEach((document) => {
+    if (!data.documents[document.key]) {
       errors[`documents.${document.key}`] = document.validationMessage
     }
   })
@@ -135,32 +140,37 @@ export function validateDocumentsStep(data: ProposalFormData): ProposalFormError
 export function validateBudgetEquipmentStep(
   data: ProposalFormData,
 ): ProposalFormErrors {
+  if (data.proposalType === 'GIA') {
+    return compactErrors({
+      totalProjectCost: positiveAmount(data.totalProjectCost, 'Enter the total project cost.'),
+      requestedAmount: positiveAmount(data.requestedAmount, 'Enter the requested amount.'),
+      budgetSummary: required(data.budgetSummary, 'Please provide a budget summary.'),
+      workplanSummary: required(data.workplanSummary, 'Please provide a workplan summary.'),
+      equipmentNeeds: required(data.equipmentNeeds, 'Describe equipment requirements or write N/A.'),
+    })
+  }
+
   return compactErrors({
-    totalBusinessAssets:
-      required(
-        data.totalBusinessAssets,
-        data.proposalType === 'SETUP'
-          ? 'Enter the project cost or assistance amount.'
-          : 'Enter the budget summary amount.',
-      ) ??
-      (Number(data.totalBusinessAssets) < 1
-        ? 'Enter an amount greater than zero.'
-        : undefined),
-    annualNetProfit:
-      required(
-        data.annualNetProfit,
-        data.proposalType === 'SETUP'
-          ? 'Enter the counterpart fund or annual net profit.'
-          : 'Enter the counterpart fund amount, or 0 if not applicable.',
-      ) ??
-      (Number(data.annualNetProfit) < 0
-        ? 'Enter a valid amount.'
-        : undefined),
-    equipmentNeeds: required(
-      data.equipmentNeeds,
-      data.proposalType === 'SETUP'
-        ? 'Describe the requested equipment and expected business improvement.'
-        : 'Describe the equipment or resource requirements.',
+    projectTitle: required(data.projectTitle, 'Proposed project title is required.'),
+    scopeOfAssistance: required(data.scopeOfAssistance, 'Please describe the scope of assistance.'),
+    projectObjectives: required(data.projectObjectives, 'Please enter project objectives.'),
+    expectedOutputs: required(data.expectedOutputs, 'Please describe expected outcomes.'),
+    proposedTechnologyAssistance: required(
+      data.proposedTechnologyAssistance,
+      'Please describe the equipment or technology requested.',
+    ),
+    equipmentPurpose: required(data.equipmentPurpose, 'Please describe the equipment purpose.'),
+    supplierFabricator: required(data.supplierFabricator, 'Enter the supplier or fabricator.'),
+    equipmentQuotationAmount: positiveAmount(
+      data.equipmentQuotationAmount,
+      'Enter the equipment quotation amount.',
+    ),
+    quotationCount:
+      required(data.quotationCount, 'Enter the number of quotations uploaded.') ??
+      (Number(data.quotationCount) < 0 ? 'Enter a valid quotation count.' : undefined),
+    expectedBusinessImprovement: required(
+      data.expectedBusinessImprovement,
+      'Please describe the expected business improvement.',
     ),
   })
 }

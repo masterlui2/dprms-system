@@ -1,4 +1,5 @@
 import type { MockUser } from '../lib/mockAuth'
+import type { ApplicationProgram } from '../types/application'
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
@@ -20,12 +21,10 @@ interface LoginResponse {
 
 interface RegisterPayload {
   email: string
-  mobile_number: string
   name: string
-  organization_name: string
   password: string
   password_confirmation: string
-  proponent_type: string
+  role: 'MSME_PROPONENT' | 'GIA_PROJECT_LEADER'
 }
 
 export class AuthError extends Error {
@@ -42,7 +41,9 @@ function resolveRole(user: BackendUser): MockUser['role'] {
 
   if (
     explicitRole === 'admin' ||
+    explicitRole === 'system_admin' ||
     normalizedRelationRole === 'admin' ||
+    normalizedRelationRole === 'system_admin' ||
     normalizedRelationRole === 'administrator'
   ) {
     return 'admin'
@@ -60,6 +61,15 @@ function getInitials(name: string) {
     .join('')
 
   return initials || 'US'
+}
+
+function resolveProgram(user: BackendUser): ApplicationProgram | undefined {
+  const role = (user.role ?? user.roles?.[0]?.code ?? user.roles?.[0]?.name)?.toUpperCase()
+
+  if (role === 'GIA_PROJECT_LEADER') return 'GIA'
+  if (role === 'MSME_PROPONENT') return 'SETUP'
+
+  return undefined
 }
 
 export async function loginWithBackend(email: string, password: string) {
@@ -82,6 +92,7 @@ export async function loginWithBackend(email: string, password: string) {
     email: backendUser.email,
     initials: getInitials(backendUser.name),
     name: backendUser.name,
+    program: resolveProgram(backendUser),
     role: resolveRole(backendUser),
   }
 

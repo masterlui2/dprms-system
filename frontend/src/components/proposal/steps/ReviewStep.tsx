@@ -1,6 +1,6 @@
-import { MailCheck, ShieldCheck } from 'lucide-react'
+import { CheckCircle2, FileCheck2, MailCheck } from 'lucide-react'
 
-import { getDocumentRequirements } from '../../../data/proposal'
+import { getVisibleDocumentRequirements } from '../../../data/proposal'
 import type {
   ProposalFieldName,
   ProposalFormData,
@@ -17,11 +17,13 @@ interface ReviewStepProps {
   ) => void
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col justify-between gap-1 border-b border-slate-200 py-3 last:border-b-0 sm:flex-row sm:items-center sm:gap-5">
-      <dt className="text-sm text-slate-500">{label}</dt>
-      <dd className="break-words text-sm font-bold text-slate-900 sm:text-right">
+    <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+      <dt className="text-xs font-black uppercase tracking-wide text-slate-400">
+        {label}
+      </dt>
+      <dd className="mt-1 break-words text-sm font-bold text-slate-900">
         {value || 'Not provided'}
       </dd>
     </div>
@@ -33,9 +35,7 @@ export function ReviewStep({
   errors,
   onFieldChange,
 }: ReviewStepProps) {
-  const requirements = getDocumentRequirements(data.proposalType).filter(
-    (requirement) => requirement.required,
-  )
+  const requirements = getVisibleDocumentRequirements(data)
   const uploadedCount = requirements.filter(
     (requirement) => data.documents[requirement.key],
   ).length
@@ -44,61 +44,68 @@ export function ReviewStep({
   return (
     <div className="space-y-6">
       <ProposalSectionHeading
-        description="Double-check your entries. Once submitted, your application enters the DOST review queue."
+        description="Confirm the key details below before submitting."
         divided={false}
-        title="Review and submit"
+        title="Final Review"
       />
 
-      <dl className="rounded-lg border border-slate-200 bg-slate-50 px-5 py-1">
-        <SummaryRow
-          label={isGia ? 'Implementing Agency' : 'Business Name'}
-          value={data.organizationName}
-        />
-        <SummaryRow label="Program" value={data.proposalType} />
-        <SummaryRow
-          label={isGia ? 'Project Title' : 'Project / Business Improvement Title'}
-          value={data.projectTitle}
-        />
-        <SummaryRow
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryItem label="Program" value={data.proposalType} />
+        <SummaryItem
           label={isGia ? 'Project Leader' : 'Owner / Representative'}
           value={data.applicantFullName}
         />
-        {isGia ? (
-          <>
-            <SummaryRow label="Cooperating Agency" value={data.cooperatingAgency} />
-            <SummaryRow
-              label="Site of Implementation"
-              value={data.siteOfImplementation}
-            />
-            <SummaryRow label="Project Duration" value={data.projectDuration} />
-            <SummaryRow label="Expected Outputs / 6Ps" value={data.expectedOutputs} />
-          </>
-        ) : (
-          <>
-            <SummaryRow
-              label="Operational Problem"
-              value={data.currentOperationalProblem}
-            />
-            <SummaryRow
-              label="Technology Assistance"
-              value={data.proposedTechnologyAssistance}
-            />
-            <SummaryRow
-              label="Expected Business Improvement"
-              value={data.expectedBusinessImprovement}
-            />
-          </>
-        )}
-        <SummaryRow
-          label={isGia ? 'Budget Summary' : 'Project Cost / Assistance Amount'}
-          value={data.totalBusinessAssets ? `PHP ${data.totalBusinessAssets}` : ''}
+        <SummaryItem
+          label={isGia ? 'Implementing Agency' : 'Business Name'}
+          value={data.organizationName}
         />
-        <SummaryRow label="Notification Email" value={data.emailAddress} />
-        <SummaryRow
-          label="Required Documents Uploaded"
-          value={`${uploadedCount} of ${requirements.length}`}
+        <SummaryItem
+          label={isGia ? 'Project Title' : 'Proposed Project Title'}
+          value={data.projectTitle}
         />
-      </dl>
+        <SummaryItem
+          label={isGia ? 'Project Type' : 'TNA Status'}
+          value={isGia ? data.projectType : data.tnaStatus}
+        />
+        <SummaryItem
+          label={isGia ? 'Budget Requested' : 'Quotation Amount'}
+          value={
+            isGia
+              ? data.requestedAmount
+                ? `PHP ${data.requestedAmount}`
+                : ''
+              : data.equipmentQuotationAmount
+                ? `PHP ${data.equipmentQuotationAmount}`
+                : ''
+          }
+        />
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+          <MailCheck className="mt-0.5 size-5 shrink-0 text-[#0f53b7]" />
+          <div>
+            <p className="text-xs font-black uppercase text-[#073b82]">
+              Notification Email
+            </p>
+            <p className="mt-1 break-words text-sm font-bold text-slate-800">
+              {data.emailAddress}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <FileCheck2 className="mt-0.5 size-5 shrink-0 text-emerald-700" />
+          <div>
+            <p className="text-xs font-black uppercase text-emerald-800">
+              Documents
+            </p>
+            <p className="mt-1 text-sm font-bold text-slate-800">
+              {uploadedCount} of {requirements.length} uploaded
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div>
         <label
@@ -113,8 +120,8 @@ export function ReviewStep({
             type="checkbox"
           />
           <span className="text-sm leading-6 text-slate-600">
-            I certify that all information provided is true and correct. I understand that
-            false statements may result in disqualification.
+            I reviewed this submission and certify that the information and
+            uploaded documents are true and complete.
             <span aria-hidden="true" className="ml-1 font-bold text-red-600">
               *
             </span>
@@ -127,17 +134,9 @@ export function ReviewStep({
         ) : null}
       </div>
 
-      <div className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-slate-700">
-        <MailCheck className="mt-0.5 size-5 shrink-0 text-[#0f53b7]" />
-        <p>
-          Submission confirmation and proposal status updates will be sent to your registered
-          email address.
-        </p>
-      </div>
-
-      <div className="flex items-start gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-slate-700">
-        <ShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-700" />
-        <p>Your submission is protected and routed directly to authorized DOST evaluators.</p>
+      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600">
+        <CheckCircle2 className="size-5 text-[#0f53b7]" />
+        Submitting will create a reference number and route the request for DOST validation.
       </div>
     </div>
   )

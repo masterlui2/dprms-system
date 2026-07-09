@@ -3,13 +3,14 @@ import { ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
-  DEFAULT_REDIRECT_BY_ROLE,
   authenticateMockUser,
+  getDefaultRedirect,
   setAuthToken,
   setMockUser,
 } from "../../lib/mockAuth";
 import { AuthError, loginWithBackend } from "../../services/authService";
 import { DostBrand } from "./DostBrand";
+import { grantProgramAccess } from "../../lib/programAccess";
 
 export function LoginForm() {
   const navigate = useNavigate();
@@ -35,15 +36,17 @@ export function LoginForm() {
 
       setMessage(null);
       setAuthToken(token);
+      if (user.program) grantProgramAccess(user.program);
       setMockUser(user);
-      navigate(DEFAULT_REDIRECT_BY_ROLE[user.role]);
+      navigate(getDefaultRedirect(user));
     } catch (error) {
       const mockUser = authenticateMockUser(email, password);
 
       if (mockUser) {
         setMessage(null);
+        if (mockUser.program) grantProgramAccess(mockUser.program);
         setMockUser(mockUser);
-        navigate(DEFAULT_REDIRECT_BY_ROLE[mockUser.role]);
+        navigate(getDefaultRedirect(mockUser));
         return;
       }
 

@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(RoleSeeder::class);
+
         $adminRole = Role::query()->updateOrCreate(
             ['code' => 'admin'],
             [

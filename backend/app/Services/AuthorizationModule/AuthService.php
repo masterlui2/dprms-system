@@ -6,7 +6,9 @@ use App\Models\Role;
 use App\Models\User;
 use App\Repositories\Contracts\AuthorizationModule\UserRepositoryInterface;
 use App\Services\Contracts\AuthorizationModule\AuthServiceInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
 use Override;
 
@@ -54,19 +56,27 @@ class AuthService implements AuthServiceInterface
     #[Override]
     public function register(array $data): User
     {
-        $user = $this->userRepository->create($data);
-        $roleId = Role::query()->where('code', $data['role'])->value('id');
+        $role = $data['role'];
+        unset($data['role']);
+
+        $roleId = Role::query()->where('code', $role)->value('id');
 
         if(! $roleId){
-            throw new \Exception('Invalid role.');
+            throw ValidationException::withMessages([
+                'role' => ['The selected account role is not available.'],
+            ]);
         }
 
-        $user->role()->syncWithoutDetaching([
-            $roleId => [
-                'assigned_at' => now()
-            ],
-        ]);
+        return DB::transaction(function () use ($data, $roleId) {
+            $user = $this->userRepository->create($data);
 
-        return $user;
+            $user->role()->syncWithoutDetaching([
+                $roleId => [
+                    'assigned_at' => now()
+                ],
+            ]);
+
+            return $user;
+        });
     }
 }

@@ -132,6 +132,13 @@ export const DEFAULT_REDIRECT_BY_ROLE: Record<UserRole, string> = {
   proponent: "/",
 };
 
+export function getDefaultRedirect(user: MockUser) {
+  if (user.role === "admin") return "/dashboard";
+  if (user.program) return `/programs/${user.program.toLowerCase()}`;
+
+  return DEFAULT_REDIRECT_BY_ROLE[user.role];
+}
+
 function getInitials(name: string) {
   const [first = "B", second = "P"] = name
     .trim()

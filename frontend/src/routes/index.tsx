@@ -6,6 +6,7 @@ import { ActivateAccount } from '../pages/ActivateAccount'
 import { Landing } from '../pages/Landing'
 import { Login } from '../pages/Login'
 import { NotFound } from '../pages/NotFound'
+import { ProgramLanding } from '../pages/ProgramLanding'
 import { ProposalSubmission } from '../pages/ProposalSubmission'
 import { Register } from '../pages/Register'
 import { ApprovalsPage } from '../pages/admin/ApprovalsPage'
@@ -37,7 +38,7 @@ export const router = createBrowserRouter([
   },
   {
     path: '/programs/:program',
-    element: <ProposalSubmission />,
+    element: <ProgramLanding />,
   },
   {
     path: '/apply/:program',
