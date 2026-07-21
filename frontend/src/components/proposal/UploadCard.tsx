@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useRef, useState } from "react";
 import {
   Check,
   CheckCircle2,
@@ -7,24 +7,24 @@ import {
   RefreshCw,
   Trash2,
   Upload,
-} from 'lucide-react'
+} from "lucide-react";
 
-import type { DocumentRequirement } from '../../data/proposal'
-import { cn } from '../../utils/cn'
+import type { DocumentRequirement } from "../../data/proposal";
+import { cn } from "../../utils/cn";
 
-const maximumFileSize = 10 * 1024 * 1024
+const maximumFileSize = 10 * 1024 * 1024;
 
 function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 interface UploadCardProps {
-  error?: string
-  file: File | null
-  onChange: (file: File | null) => void
-  requirement: DocumentRequirement
+  error?: string;
+  file: File | null;
+  onChange: (file: File | null) => void;
+  requirement: DocumentRequirement;
 }
 
 export function UploadCard({
@@ -33,77 +33,115 @@ export function UploadCard({
   onChange,
   requirement,
 }: UploadCardProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const [fileError, setFileError] = useState<string | null>(null)
-  const errorMessage = fileError ?? error
-  const inputId = `document-${requirement.key}`
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const errorMessage = fileError ?? error;
+  const inputId = `document-${requirement.key}`;
 
   function selectFile(selectedFile?: File) {
-    if (!selectedFile) return
+    if (!selectedFile) return;
 
-    const extension = `.${selectedFile.name.split('.').pop()?.toLowerCase()}`
+    const extension = `.${selectedFile.name.split(".").pop()?.toLowerCase()}`;
     const acceptedExtensions = requirement.accept
-      .split(',')
-      .map((accepted) => accepted.trim().toLowerCase())
+      .split(",")
+      .map((accepted) => accepted.trim().toLowerCase());
 
     if (!acceptedExtensions.includes(extension)) {
       setFileError(
-        'This file type is not supported. Choose a PDF, DOCX, XLSX, JPG, or PNG file.',
-      )
-      return
+        "This file type is not supported. Choose a PDF, DOCX, XLSX, JPG, or PNG file.",
+      );
+      return;
     }
 
     if (selectedFile.size > maximumFileSize) {
-      setFileError('This file exceeds the 10 MB maximum size.')
-      return
+      setFileError("This file exceeds the 10 MB maximum size.");
+      return;
     }
 
-    setFileError(null)
-    onChange(selectedFile)
+    setFileError(null);
+    onChange(selectedFile);
   }
 
   function previewFile() {
-    if (!file) return
+    if (!file) return;
 
-    const previewUrl = URL.createObjectURL(file)
-    window.open(previewUrl, '_blank', 'noopener,noreferrer')
-    window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60_000)
+    const previewUrl = URL.createObjectURL(file);
+    window.open(previewUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(previewUrl), 60_000);
   }
 
   function removeFile() {
-    setFileError(null)
-    onChange(null)
+    setFileError(null);
+    onChange(null);
 
     if (inputRef.current) {
-      inputRef.current.value = ''
+      inputRef.current.value = "";
     }
   }
 
   return (
     <div
       className={cn(
-        'rounded-lg border bg-white p-4 transition',
-        errorMessage ? 'border-red-300' : file ? 'border-emerald-300' : 'border-slate-200',
+        "rounded-lg border bg-white p-4 transition",
+        errorMessage
+          ? "border-red-300"
+          : file
+            ? "border-emerald-300"
+            : "border-slate-200",
       )}
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div
           className={cn(
-            'flex size-11 shrink-0 items-center justify-center rounded-lg',
-            file ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-[#0f53b7]',
+            "flex size-11 shrink-0 items-center justify-center rounded-lg",
+            file
+              ? "bg-emerald-50 text-emerald-700"
+              : "bg-blue-50 text-[#0f53b7]",
           )}
         >
-          {file ? <CheckCircle2 className="size-5" /> : <FileText className="size-5" />}
+          {file ? (
+            <CheckCircle2 className="size-5" />
+          ) : (
+            <FileText className="size-5" />
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-slate-900">
-            {requirement.label}
-            <span aria-label="required" className="ml-1 text-red-600">
-              *
-            </span>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-bold text-slate-900">
+                {requirement.label}
+                <span aria-label="required" className="ml-1 text-red-600">
+                  *
+                </span>
+              </p>
+              {!requirement.required ? (
+                <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-slate-400">
+                  Based on your selection
+                </p>
+              ) : null}
+            </div>
+            {file ? (
+              <span
+                aria-label="Upload status: Uploaded"
+                className="inline-flex w-fit rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700"
+              >
+                Uploaded
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            {requirement.description}
           </p>
-          <p className="mt-1 text-xs leading-5 text-slate-500">{requirement.description}</p>
+          <div className="mt-3 flex flex-col gap-1 text-xs text-slate-500 sm:flex-row sm:gap-5">
+            <span>
+              <span className="font-bold text-slate-700">Accepted:</span> PDF,
+              DOCX, XLSX, JPG, PNG
+            </span>
+            <span>
+              <span className="font-bold text-slate-700">Max size:</span> 10 MB
+            </span>
+          </div>
           {file ? (
             <div className="mt-3" aria-live="polite">
               <p className="flex items-center gap-1.5 text-xs font-bold text-emerald-700">
@@ -163,8 +201,8 @@ export function UploadCard({
             className="sr-only"
             id={inputId}
             onChange={(event) => {
-              selectFile(event.target.files?.[0])
-              event.currentTarget.value = ''
+              selectFile(event.target.files?.[0]);
+              event.currentTarget.value = "";
             }}
             ref={inputRef}
             type="file"
@@ -178,5 +216,5 @@ export function UploadCard({
         </p>
       ) : null}
     </div>
-  )
+  );
 }

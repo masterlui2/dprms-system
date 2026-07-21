@@ -46,9 +46,7 @@ export const initialProposalFormData: ProposalFormData = {
   productQualityConcerns: "",
   productivityConcerns: "",
   targetImprovement: "",
-  expectedBusinessImprovement: "",
   projectCategory: "",
-  projectDuration: "",
   projectType: "",
   tnaStatus: "",
   projectDescription: "",
@@ -66,11 +64,6 @@ export const initialProposalFormData: ProposalFormData = {
   equipmentNeeds: "",
   equipmentPurpose: "",
   supplierFabricator: "",
-  equipmentQuotationAmount: "",
-  quotationCount: "",
-  totalProjectCost: "",
-  requestedAmount: "",
-  budgetSummary: "",
   totalBusinessAssets: "",
   annualNetProfit: "",
   documents: {
@@ -98,9 +91,7 @@ export const initialProposalFormData: ProposalFormData = {
     businessPermit: null,
     birCertificate: null,
     projectProposal: null,
-    lineItemBudget: null,
     incomeTaxReturn: null,
-    equipmentQuotations: null,
     supportingDocuments: null,
     setupProposal: null,
     businessProfile: null,
@@ -133,8 +124,9 @@ export const projectCategoryOptions: SelectOption[] = [
 ];
 
 export const giaProjectTypeOptions: SelectOption[] = [
-  { value: "R&D", label: "R&D" },
-  { value: "Non-R&D", label: "Non-R&D" },
+  { value: "Applied Research", label: "Applied Research" },
+  { value: "Basic Research", label: "Basic Research" },
+  { value: "Development Research", label: "Development Research" },
 ];
 
 export const tnaStatusOptions: SelectOption[] = [
@@ -240,15 +232,6 @@ export const giaDocumentRequirements: DocumentRequirement[] = [
     validationMessage: "Please upload the Letter of Intent or Collaboration.",
   },
   {
-    key: "endorsementLetter",
-    label: "PSTO / Division Endorsement Letter",
-    appliesTo: "General GIA",
-    description: "Endorsement letter from the concerned PSTO or Division.",
-    accept: acceptedDocumentFormats,
-    required: true,
-    validationMessage: "Please upload the endorsement letter.",
-  },
-  {
     key: "eligibilityChecklist",
     label: "Project Leader Eligibility Checklist",
     appliesTo: "General GIA",
@@ -259,21 +242,13 @@ export const giaDocumentRequirements: DocumentRequirement[] = [
   },
   {
     key: "projectProposal",
-    label: "R&D / Non-R&D Project Proposal",
+    label: "Complete Project Proposal",
     appliesTo: "General GIA",
-    description: "Complete project proposal matching the selected project type.",
+    description:
+      "Complete project proposal matching the selected project type.",
     accept: acceptedDocumentFormats,
     required: true,
     validationMessage: "Please upload your Project Proposal.",
-  },
-  {
-    key: "lineItemBudget",
-    label: "Line-Item Budget with Counterpart Funds",
-    appliesTo: "General GIA",
-    description: "Detailed budget breakdown including counterpart funds.",
-    accept: acceptedDocumentFormats,
-    required: true,
-    validationMessage: "Please upload the Line-Item Budget.",
   },
   {
     key: "workplan",
@@ -283,33 +258,6 @@ export const giaDocumentRequirements: DocumentRequirement[] = [
     accept: acceptedDocumentFormats,
     required: true,
     validationMessage: "Please upload the workplan.",
-  },
-  {
-    key: "rtecReport",
-    label: "RTEC Report",
-    appliesTo: "General GIA",
-    description: "Regional Technical Evaluation Committee report.",
-    accept: acceptedDocumentFormats,
-    required: true,
-    validationMessage: "Please upload the RTEC Report.",
-  },
-  {
-    key: "setiScorecard",
-    label: "SETI Scorecard",
-    appliesTo: "General GIA",
-    description: "SETI scorecard for proposal assessment.",
-    accept: acceptedDocumentFormats,
-    required: true,
-    validationMessage: "Please upload the SETI Scorecard.",
-  },
-  {
-    key: "gadChecklist",
-    label: "GAD Checklist",
-    appliesTo: "General GIA",
-    description: "Gender and Development checklist.",
-    accept: acceptedDocumentFormats,
-    required: true,
-    validationMessage: "Please upload the GAD Checklist.",
   },
   {
     key: "moaResolution",
@@ -339,19 +287,11 @@ export const giaDocumentRequirements: DocumentRequirement[] = [
     validationMessage: "Please upload the CHED Accreditation.",
   },
   {
-    key: "dostTrackRecord",
-    label: "Certification of Good Track Record with DOST",
-    appliesTo: "Higher Education Institutions",
-    description: "Additional requirement for Higher Education Institutions.",
-    accept: acceptedDocumentFormats,
-    required: false,
-    validationMessage: "Please upload the DOST good track record certification.",
-  },
-  {
     key: "secCdaDoleRegistration",
     label: "SEC / CDA / DOLE Registration and By-Laws",
     appliesTo: "NGO / CSO / Private Sector",
-    description: "Registration and Articles of Incorporation / Cooperation with By-Laws.",
+    description:
+      "Registration and Articles of Incorporation / Cooperation with By-Laws.",
     accept: acceptedDocumentFormats,
     required: false,
     validationMessage: "Please upload registration documents and by-laws.",
@@ -387,7 +327,8 @@ export const giaDocumentRequirements: DocumentRequirement[] = [
     key: "boardResolution",
     label: "Board Resolution",
     appliesTo: "NGO / CSO / Private Sector",
-    description: "Engagement, official representative, and authority to transact with DOST Davao Region.",
+    description:
+      "Engagement, official representative, and authority to transact with DOST Davao Region.",
     accept: acceptedDocumentFormats,
     required: false,
     validationMessage: "Please upload the Board Resolution.",
@@ -404,8 +345,14 @@ export const setupBusinessTypeOptions: SelectOption[] = [
 export const lineOfBusinessOptions: SelectOption[] = [
   { value: "Food Processing", label: "Food Processing" },
   { value: "Agriculture / Aquaculture", label: "Agriculture / Aquaculture" },
-  { value: "Furniture and Wood Products", label: "Furniture and Wood Products" },
-  { value: "Gifts, Decor, and Handicrafts", label: "Gifts, Decor, and Handicrafts" },
+  {
+    value: "Furniture and Wood Products",
+    label: "Furniture and Wood Products",
+  },
+  {
+    value: "Gifts, Decor, and Handicrafts",
+    label: "Gifts, Decor, and Handicrafts",
+  },
   { value: "Metals and Engineering", label: "Metals and Engineering" },
   { value: "Health and Wellness", label: "Health and Wellness" },
   { value: "ICT / Software", label: "ICT / Software" },
@@ -422,15 +369,6 @@ export const setupDocumentRequirements: DocumentRequirement[] = [
     accept: acceptedDocumentFormats,
     required: true,
     validationMessage: "Please upload the Letter of Intent.",
-  },
-  {
-    key: "tnaForm01",
-    label: "Technology Needs Assessment Form 01",
-    appliesTo: "SETUP",
-    description: "Completed TNA Form 01.",
-    accept: acceptedDocumentFormats,
-    required: true,
-    validationMessage: "Please upload the TNA Form 01.",
   },
   {
     key: "setupProposal",
@@ -472,7 +410,8 @@ export const setupDocumentRequirements: DocumentRequirement[] = [
     key: "notarizedBoardResolution",
     label: "Notarized Board Resolution",
     appliesTo: "Corporation / Cooperative",
-    description: "Participation and official signatory authorization for corporations or cooperatives.",
+    description:
+      "Participation and official signatory authorization for corporations or cooperatives.",
     accept: acceptedDocumentFormats,
     required: false,
     validationMessage: "Please upload the notarized Board Resolution.",
@@ -481,20 +420,11 @@ export const setupDocumentRequirements: DocumentRequirement[] = [
     key: "auditedFinancialStatements",
     label: "Audited Financial Statements",
     appliesTo: "Small / Medium / Micro Enterprise",
-    description: "Past three years for small/medium enterprises, or at least one year for micro enterprises.",
+    description:
+      "Past three years for small/medium enterprises, or at least one year for micro enterprises.",
     accept: acceptedDocumentFormats,
     required: true,
     validationMessage: "Please upload audited financial statements.",
-  },
-  {
-    key: "equipmentQuotations",
-    label: "Three Equipment Quotations",
-    appliesTo: "SETUP",
-    description: "Three valid quotations from different suppliers or fabricators for each equipment or technology.",
-    accept: acceptedDocumentFormats,
-    required: true,
-    validationMessage:
-      "Equipment Quotations are required for SETUP applications.",
   },
 ];
 
@@ -512,24 +442,36 @@ function isGiaConditionalRequirementVisible(
 ) {
   if (requirement.required) return true;
 
-  const agencyType = data.cooperatingAgency;
+  const agencyType = data.cooperatingAgency || data.organizationType;
 
-  if (agencyType === "LGU") {
+  if (agencyType === "LGU" || agencyType === "Local Government Unit") {
     return requirement.appliesTo === "LGU / NGO";
   }
 
-  if (agencyType === "NGO / CSO") {
+  if (
+    agencyType === "NGO / CSO" ||
+    agencyType === "Nonprofit Organization"
+  ) {
     return (
       requirement.appliesTo === "LGU / NGO" ||
       requirement.appliesTo === "NGO / CSO / Private Sector"
     );
   }
 
-  if (agencyType === "Higher Education Institution") {
+  if (
+    agencyType === "Higher Education Institution" ||
+    agencyType === "State University or College"
+  ) {
     return requirement.appliesTo === "Higher Education Institutions";
   }
 
-  if (agencyType === "Private Sector") {
+  if (
+    agencyType === "Private Sector" ||
+    agencyType === "Sole Proprietorship" ||
+    agencyType === "Partnership" ||
+    agencyType === "Corporation" ||
+    agencyType === "Cooperative"
+  ) {
     return requirement.appliesTo === "NGO / CSO / Private Sector";
   }
 
@@ -546,7 +488,10 @@ function isSetupConditionalRequirementVisible(
     return requirement.appliesTo === "Sole Proprietorship";
   }
 
-  if (data.businessType === "Corporation" || data.businessType === "Cooperative") {
+  if (
+    data.businessType === "Corporation" ||
+    data.businessType === "Cooperative"
+  ) {
     return requirement.appliesTo === "Corporation / Cooperative";
   }
 
@@ -573,9 +518,7 @@ export function getVisibleDocumentRequirements(
   return [];
 }
 
-export function areRequiredDocumentsComplete(
-  data: ProposalFormData,
-): boolean {
+export function areRequiredDocumentsComplete(data: ProposalFormData): boolean {
   const requirements = getVisibleDocumentRequirements(data);
 
   return (

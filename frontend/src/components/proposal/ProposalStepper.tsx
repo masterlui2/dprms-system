@@ -1,14 +1,11 @@
 import {
-  Building2,
   Check,
   CheckCircle2,
-  ClipboardList,
   FileText,
   Upload,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
-import type { ProposalType } from '../../types/proposal'
 import { cn } from '../../utils/cn'
 
 type StepItem = {
@@ -17,43 +14,26 @@ type StepItem = {
   label: string
 }
 
-function getProposalSteps(program: Exclude<ProposalType, ''>): StepItem[] {
-  if (program === 'GIA') {
-    return [
-      { id: 1, label: 'Applicant / Agency', icon: Building2 },
-      { id: 2, label: 'Project Profile', icon: FileText },
-      { id: 3, label: 'Workplan & Budget', icon: ClipboardList },
-      { id: 4, label: 'Requirements', icon: Upload },
-      { id: 5, label: 'Review', icon: CheckCircle2 },
-    ]
-  }
-
-  return [
-    { id: 1, label: 'Business Profile', icon: Building2 },
-    { id: 2, label: 'TNA', icon: FileText },
-    { id: 3, label: 'Proposal & Equipment', icon: ClipboardList },
-    { id: 4, label: 'Requirements', icon: Upload },
-    { id: 5, label: 'Review', icon: CheckCircle2 },
-  ]
-}
+const proposalSteps: StepItem[] = [
+  { id: 1, label: 'Proposal Information', icon: FileText },
+  { id: 2, label: 'Document Submission', icon: Upload },
+  { id: 3, label: 'Review and Submit', icon: CheckCircle2 },
+]
 
 interface ProposalStepperProps {
   currentStep: number
   onStepChange: (step: number) => void
-  program: Exclude<ProposalType, ''>
 }
 
 export function ProposalStepper({
   currentStep,
   onStepChange,
-  program,
 }: ProposalStepperProps) {
-  const proposalSteps = getProposalSteps(program)
   const progress = (currentStep / proposalSteps.length) * 100
 
   return (
     <nav aria-label="Proposal submission progress">
-      <div className="grid grid-cols-2 gap-y-5 sm:grid-cols-5">
+      <div className="grid grid-cols-1 gap-y-5 sm:grid-cols-3">
         {proposalSteps.map((step, index) => {
           const isActive = currentStep === step.id
           const isComplete = currentStep > step.id
@@ -65,7 +45,7 @@ export function ProposalStepper({
                 <span
                   aria-hidden="true"
                   className={cn(
-                    'absolute left-1/2 top-5 h-0.5 w-full',
+                    'absolute left-1/2 top-5 hidden h-0.5 w-full sm:block',
                     isComplete ? 'bg-emerald-600' : 'bg-slate-200',
                   )}
                 />
@@ -88,7 +68,7 @@ export function ProposalStepper({
 
               <span
                 className={cn(
-                  'mt-2 max-w-20 text-center text-[10px] font-bold leading-4 sm:max-w-none sm:text-xs',
+                  'mt-2 max-w-36 text-center text-xs font-bold leading-4',
                   isActive || isComplete ? 'text-slate-900' : 'text-slate-500',
                 )}
               >

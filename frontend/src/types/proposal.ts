@@ -17,6 +17,9 @@ export type ProjectType =
   | ""
   | "R&D"
   | "Non-R&D"
+  | "Applied Research"
+  | "Basic Research"
+  | "Development Research"
   | "Not yet conducted"
   | "Conducted by PSTO"
   | "Research and Development"
@@ -71,9 +74,7 @@ export type ProposalDocumentKey =
   | "businessPermit"
   | "birCertificate"
   | "projectProposal"
-  | "lineItemBudget"
   | "incomeTaxReturn"
-  | "equipmentQuotations"
   | "supportingDocuments"
   | "setupProposal"
   | "businessProfile";
@@ -107,9 +108,7 @@ export interface ProposalFormData {
   productQualityConcerns: string;
   productivityConcerns: string;
   targetImprovement: string;
-  expectedBusinessImprovement: string;
   projectCategory: ProjectCategory;
-  projectDuration: string;
   projectType: ProjectType;
   tnaStatus: ProjectType;
   projectDescription: string;
@@ -127,11 +126,6 @@ export interface ProposalFormData {
   equipmentNeeds: string;
   equipmentPurpose: string;
   supplierFabricator: string;
-  equipmentQuotationAmount: string;
-  quotationCount: string;
-  totalProjectCost: string;
-  requestedAmount: string;
-  budgetSummary: string;
   totalBusinessAssets: string;
   annualNetProfit: string;
   documents: ProposalDocuments;
