@@ -22,8 +22,8 @@ class ProposalController extends Controller
         ],201);
     }
 
-    public function advanceStage(AdvanceStageRequest $request, Proposal $proposal){
-        $updated = $this->proposalService->advanceStage($proposal->id(),$request->validated()['status'],$request->validated()['stage']);
+    public function advanceStage(AdvanceStageRequest $request, int $id){
+        $updated = $this->proposalService->advanceStage($id,$request->validated()['status'],$request->validated()['stage']);
 
         return response()->json([
             'message' => 'Proposal Status Updated',
@@ -31,15 +31,15 @@ class ProposalController extends Controller
         ],200);
     }
 
-    public function approve(Proposal $proposal, ProposalApproveRequest $request){
-        $this->proposalService->approve($proposal->id(),$request->validated());
+    public function approve(int $id, ProposalApproveRequest $request){
+        $this->proposalService->approve($id,$request->validated()['remarks'] ?? null);
         return response()->json([
             'message' => 'Proposal was Approved',
         ],200);
     }
 
-    public function disapprove(Proposal $proposal, ProposalDisapproveRequest $request){
-        $this->proposalService->approve($proposal->id(),$request->validated());
+    public function disapprove(int $id, ProposalDisapproveRequest $request){
+        $this->proposalService->approve($id,$request->validated());
         return response()->json([
             'message' => 'Proposal was Disapproved',
         ],200);

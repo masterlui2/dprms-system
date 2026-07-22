@@ -12,7 +12,7 @@ class StoreProposalTemplateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -24,7 +24,7 @@ class StoreProposalTemplateRequest extends FormRequest
     {
         return [
             'program_type' => 'required|in:SETUP,GIA',
-            'title' => 'required|string|max:255',
+            'template_name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'file' => 'required|file|mimes:pdf,doc,docx|max:10240',
         ];

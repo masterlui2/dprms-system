@@ -32,7 +32,7 @@ class BaseRepository implements BaseRepositoryInterface{
     #[Override]
     public function update(int $id, array $data): bool
     {
-        $model = $this->model->newQuery()->findById($id);
+        $model = $this->findById($id);
         if(! $model){
             return false;
         }
@@ -43,12 +43,12 @@ class BaseRepository implements BaseRepositoryInterface{
     #[Override]
     public function delete(int $id): bool
     {
-        $model = $this->model->newQuery()->findById($id);
+        $model = $this->findById($id);
         if(! $model){
             return false;
         }
 
-        return $model->model->delete($id);
+        return $model->delete();
     }
 
 }

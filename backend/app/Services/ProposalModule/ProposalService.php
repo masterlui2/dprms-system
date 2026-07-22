@@ -5,17 +5,28 @@ namespace App\Services\ProposalModule;
 use App\Models\Proposal;
 use App\Repositories\Contracts\ProposalModule\ProposalRepositoryInterface;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
+use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
 use Override;
 
 class ProposalService implements ProposalServiceInterface{
 
-    public function __construct(protected ProposalRepositoryInterface $proposalRepository){}
+    public function __construct(protected ProposalRepositoryInterface $proposalRepository,protected ReferenceNumberGeneratorServiceInterface $referenceNumberGeneratorService){}
 
     #[Override]
     public function submit(array $data): Proposal
     {
-        return $this->proposalRepository->create($data);
+        return $this->proposalRepository->create([
+            'submitted_by' => Auth::id(),
+            'program_type' => $data['program_type'],
+            'reference_number' => $this->referenceNumberGeneratorService->generate($data['program_type']),
+            'title' => $data['title'],
+            'status' => 'SUBMITTED',
+            'current_stage' => 'Submission',
+            'submitted_at' => now(),
+            'remarks' => $data['remarks'] ?? null,
+        ]);
     }
 
     #[Override]

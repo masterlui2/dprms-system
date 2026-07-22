@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Override;
 
-class ProposalTemplateRequirementRepository extends BaseRepository implements ProposalTemplateRepositoryInterface{
+class ProposalTemplateRepository extends BaseRepository implements ProposalTemplateRepositoryInterface{
     #[Override]
     public function __construct(ProposalTemplate $model)
     {

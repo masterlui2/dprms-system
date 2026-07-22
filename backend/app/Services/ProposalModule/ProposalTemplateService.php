@@ -6,6 +6,7 @@ use App\Models\ProposalTemplate;
 use App\Repositories\Contracts\ProposalModule\ProposalTemplateRepositoryInterface;
 use App\Services\Contracts\ProposalModule\ProposalTemplateServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
 use Override;
 
 class ProposalTemplateService implements ProposalTemplateServiceInterface{
@@ -30,7 +31,20 @@ class ProposalTemplateService implements ProposalTemplateServiceInterface{
     #[Override]
     public function uploadTemplate(array $data): ProposalTemplate
     {
-        return $this->proposalTemplateRepository->create($data);
+        $file = $data['file'];
+
+        return $this->proposalTemplateRepository->create([
+            'uploaded_by' => Auth::id(),
+            'program_type' => $data['program_type'],
+            'template_name' => $data['template_name'],
+            'description' => $data['description'] ?? null,
+            'file_name' => $file->getClientOriginalName(),
+            'file_path' => $file->store('proposal-template'),
+            'file_size' => $file->getSize(),
+            'mime_type' => $file->getMimeType()
+        ]);
+
+
     }
 
     #[Override]
