@@ -1,0 +1,88 @@
+import type {
+  BusinessRegistrationEntry,
+  BusinessRegistrationOffice,
+  SetupProposalData,
+} from '../types/setupProposal'
+
+export const businessRegistrationOffices: BusinessRegistrationOffice[] = [
+  'DTI',
+  'SEC',
+  'CDA',
+  'LGU',
+  'Others',
+]
+
+export function createEmptyBusinessRegistrations(): BusinessRegistrationEntry[] {
+  return businessRegistrationOffices.map((office) => ({
+    dateOfRegistration: '',
+    office,
+    otherOfficeName: '',
+    registrationNumber: '',
+    selected: false,
+  }))
+}
+
+export const setupIndustryCategories = [
+  'Food Processing',
+  'Beverage Manufacturing',
+  'Textile Manufacturing',
+  'Wearing Apparel Manufacturing',
+  'Leather and Related Products Manufacturing',
+  'Wood and Products of Wood and Cork Manufacturing',
+  'Paper and Paper Products Manufacturing',
+  'Crop and Animal Production, Hunting, and Related Service Activities',
+  'Forestry and Logging',
+  'Fishing and Agriculture',
+  'Chemicals and Chemical Products Manufacturing',
+  'Basic Pharmaceutical Products and Pharmaceutical Preparations Manufacturing',
+  'Rubber and Plastic Products Manufacturing',
+  'Non-metallic Mineral Products Manufacturing',
+  'Fabricated Metal Products Manufacturing',
+  'Machinery and Equipment, Not Elsewhere Classified (NEC) Manufacturing',
+  'Other Transport Equipment Manufacturing',
+  'Furniture Manufacturing',
+  'Information and Communications Technology',
+  'Other Regional Priority Industry Approved by the Regional Development Council',
+  'Agriculture, Marine and Aquatic Resources',
+  'Furniture and Wood Products',
+  'Metals and Engineering',
+  'Health and Wellness Products',
+  'Manufacturing',
+  'Packaging and Labeling',
+  'Construction Materials',
+]
+
+export const emptySetupProposal: SetupProposalData = {
+  projectTitle: '',
+  generalObjective: '',
+  specificObjectives: '',
+  projectBackground: '',
+  businessName: '',
+  businessAddress: '',
+  contactPerson: '',
+  contactNumber: '',
+  emailAddress: '',
+  yearEstablished: '',
+  organizationType: '',
+  businessSize: '',
+  numberOfEmployees: '',
+  businessRegistrations: createEmptyBusinessRegistrations(),
+  businessIndustry: '',
+  productsServices: '',
+  enterpriseBackground: '',
+  organizationalStructure: '',
+  ownerKeyPersonnel: '',
+  skillsExpertise: '',
+  plantLocation: '',
+  rawMaterials: '',
+  currentProductionProcess: '',
+  existingProblems: '',
+  proposedTechnologyIntervention: '',
+  expectedOutputs: '',
+  targetMarket: '',
+  competitors: '',
+  marketingStrategy: '',
+  distributionChannel: '',
+  annualSales: '',
+  existingFundingSource: '',
+}

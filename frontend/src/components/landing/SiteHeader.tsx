@@ -4,10 +4,18 @@ import {
   ArrowRight,
   Bell,
   ChevronDown,
+  ClipboardCheck,
+  FileCheck2,
+  FilePenLine,
   HelpCircle,
+  LayoutDashboard,
   LogOut,
   Menu,
+  PackageCheck,
+  ReceiptText,
+  User,
   UserCircle2,
+  Activity,
   X,
 } from "lucide-react";
 
@@ -20,12 +28,22 @@ import {
   getMockUser,
 } from "../../lib/mockAuth";
 
-function getNavigationItems(pathname: string) {
+function getProgramHomePath(pathname: string, user?: MockUser | null) {
+  if (pathname.startsWith("/programs/gia")) return "/programs/gia";
+  if (pathname.startsWith("/programs/setup")) return "/programs/setup";
+  if (user?.program === "GIA") return "/programs/gia";
+  if (user?.program === "SETUP") return "/programs/setup";
+
+  return "/";
+}
+
+function getNavigationItems(pathname: string, user?: MockUser | null) {
+  const homeHref = getProgramHomePath(pathname, user);
   const isProgramPage =
-    pathname === "/programs/gia" || pathname === "/programs/setup";
+    pathname.startsWith("/programs/gia") || pathname.startsWith("/programs/setup");
 
   return [
-    { label: "Home", href: "/" },
+    { label: "Home", href: homeHref },
     { label: "Programs", href: "/#programs" },
     {
       label: "How to Apply",
@@ -56,11 +74,11 @@ function TopBar() {
   );
 }
 
-function Logo() {
+function Logo({ homeHref }: { homeHref: string }) {
   return (
     <Link
       className="flex min-w-0 items-center gap-3"
-      to="/"
+      to={homeHref}
       aria-label="DOST GIA and SETUP Portal home"
     >
       <img
@@ -82,19 +100,29 @@ function Logo() {
 
 function AccountDropdown({
   onNavigate,
-  onOpenNotifications,
   onSignOut,
   user,
 }: {
   onNavigate: () => void;
-  onOpenNotifications: () => void;
   onSignOut: () => void;
   user: MockUser;
 }) {
   const programLabel = user.program ? `${user.program} Portal` : "DOST Portal";
+  const isProponent = user.role === "proponent" || user.role === "applicant";
+  const moduleItems = [
+    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
+    { icon: FilePenLine, label: "My Proposals", to: "/dashboard/my-application" },
+    { icon: FileCheck2, label: "Documentary Requirements", to: "/dashboard/documents" },
+    { icon: ClipboardCheck, label: "Application Status", to: "/dashboard/application-status" },
+    { icon: Activity, label: "Project Monitoring", to: "/dashboard/project-monitoring" },
+    { icon: PackageCheck, label: "Equipment", to: "/dashboard/equipment" },
+    { icon: ReceiptText, label: "Repayment / Billing", to: "/dashboard/finance" },
+    { icon: Bell, label: "Notifications", to: "/dashboard/notifications" },
+    { icon: User, label: "Profile", to: "/dashboard/profile" },
+  ];
 
   return (
-    <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(380px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
+    <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-2xl">
       <div className="border-b border-slate-100 px-4 py-4">
         <div className="flex items-center gap-3">
           <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#073b82] text-sm font-black text-white">
@@ -128,47 +156,41 @@ function AccountDropdown({
         </div>
       </div>
 
-      <div className="px-2 py-2">
-        <p className="px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
-          My account
-        </p>
-        <div className="grid gap-1">
+      {isProponent ? (
+        <div className="px-2 py-2">
+          <p className="px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+            Modules
+          </p>
+          <div className="grid gap-1">
+            {moduleItems.map((item) => {
+              const Icon = item.icon;
+
+              return (
+                <Link
+                  className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
+                  key={item.to}
+                  onClick={onNavigate}
+                  to={item.to}
+                >
+                  <Icon className="size-4 text-[#0f53b7]" />
+                  <span>{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="px-2 py-2">
           <Link
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[#f3f8fe]"
+            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
             onClick={onNavigate}
             to="/dashboard"
           >
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#073b82] text-white">
-              <UserCircle2 className="size-4" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-black text-slate-900">
-                My Account
-              </span>
-              <span className="mt-0.5 block truncate text-xs text-slate-500">
-                Open your portal dashboard
-              </span>
-            </span>
+            <LayoutDashboard className="size-4 text-[#0f53b7]" />
+            Dashboard
           </Link>
-          <button
-            className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-left transition hover:bg-[#f3f8fe]"
-            onClick={onOpenNotifications}
-            type="button"
-          >
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0f53b7]">
-              <Bell className="size-4" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-black text-slate-900">
-                Notifications
-              </span>
-              <span className="mt-0.5 block truncate text-xs text-slate-500">
-                View official account notices
-              </span>
-            </span>
-          </button>
         </div>
-      </div>
+      )}
 
       <div className="grid gap-1 border-t border-slate-100 px-2 py-2">
         <Link
@@ -200,7 +222,8 @@ export function SiteHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const isProponent = user?.role === "proponent" || user?.role === "applicant";
-  const navigationItems = getNavigationItems(location.pathname);
+  const homeHref = getProgramHomePath(location.pathname, user);
+  const navigationItems = getNavigationItems(location.pathname, user);
 
   function handleSignOut() {
     clearMockUser();
@@ -213,6 +236,9 @@ export function SiteHeader() {
     const [targetPath, targetHash] = href.split("#");
 
     if (href === "/") return location.pathname === "/" && !location.hash;
+    if (href === "/programs/gia" || href === "/programs/setup") {
+      return location.pathname.startsWith(href) && !targetHash;
+    }
     if (href === "/#programs" && location.pathname.startsWith("/programs")) {
       return true;
     }
@@ -231,7 +257,7 @@ export function SiteHeader() {
 
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3 sm:px-6 lg:px-8">
         <div className="min-w-[120px] xl:min-w-[360px]">
-          <Logo />
+          <Logo homeHref={homeHref} />
         </div>
 
         <nav
@@ -296,10 +322,6 @@ export function SiteHeader() {
                 {accountOpen ? (
                   <AccountDropdown
                     onNavigate={() => setAccountOpen(false)}
-                    onOpenNotifications={() => {
-                      setAccountOpen(false);
-                      setNotificationsOpen(true);
-                    }}
                     onSignOut={handleSignOut}
                     user={user}
                   />
@@ -360,10 +382,6 @@ export function SiteHeader() {
                 {accountOpen ? (
                   <AccountDropdown
                     onNavigate={() => setAccountOpen(false)}
-                    onOpenNotifications={() => {
-                      setAccountOpen(false);
-                      setNotificationsOpen(true);
-                    }}
                     onSignOut={handleSignOut}
                     user={user}
                   />

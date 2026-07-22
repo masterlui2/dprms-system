@@ -11,7 +11,7 @@ export interface ApplicationRecord {
   program: ApplicationProgram
   projectTitle: string
   referenceNo: string
-  status: 'Submitted' | 'Under review' | 'Approved'
+  status: 'Submitted' | 'Draft Submitted' | 'Under review' | 'Approved' | 'Returned for Revision'
 }
 
 export interface CreatedProjectRecord {

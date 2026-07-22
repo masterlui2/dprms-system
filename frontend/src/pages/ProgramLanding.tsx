@@ -102,7 +102,7 @@ const programContent: Record<ApplicationProgram, ProgramContent> = {
   SETUP: {
     accent: "bg-[#0f53b7]",
     applicantLabel: "For MSMEs and enterprise proponents",
-    applyTo: "/apply/setup",
+    applyTo: "/programs/setup/register",
     benefits: [
       {
         description:
@@ -137,12 +137,12 @@ const programContent: Record<ApplicationProgram, ProgramContent> = {
       {
         title: "Document the request",
         description:
-          "Gather quotations, financial documents, proposed equipment details, and required permits.",
+          "Complete one simplified online form covering the enterprise, operations, market, and proposed intervention.",
       },
       {
-        title: "Submit for assessment",
+        title: "Upload requirements",
         description:
-          "Send the SETUP application for document validation, technical review, and field assessment.",
+          "After submission, use the separate dashboard checklist to upload supporting documents.",
       },
       {
         title: "Monitor assistance",
@@ -151,11 +151,11 @@ const programContent: Record<ApplicationProgram, ProgramContent> = {
       },
     ],
     requirements: [
-      "SETUP proposal or technology needs assessment details",
-      "Business registration and enterprise profile",
-      "Equipment quotations or supplier specifications",
-      "Financial documents required for assessment",
-      "Permits, photos, and other supporting files",
+      "Basic enterprise and contact information",
+      "Current operations and technology needs",
+      "Management and marketing information",
+      "Annual sales and employee count",
+      "Supporting files are uploaded separately after submission",
     ],
     title: "SETUP Enterprise Support Homepage",
   },
@@ -209,7 +209,9 @@ export function ProgramLanding() {
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#f4c542] px-5 text-sm font-black text-[#073b82] shadow-2xl shadow-blue-950/25 transition hover:bg-[#ffd45f]"
                   to={content.applyTo}
                 >
-                  Start application
+                  {normalizedProgram === "SETUP"
+                    ? "Register Proposal"
+                    : "Submit Proposal"}
                   <ArrowRight className="size-4" />
                 </Link>
                 <a
@@ -348,14 +350,16 @@ export function ProgramLanding() {
                   Ready to continue?
                 </p>
                 <p className="mt-2 text-xl font-black">
-                  Proceed to the official {normalizedProgram} application form.
+                  {normalizedProgram === "SETUP"
+                    ? "Register your SETUP proposal using the online form."
+                    : `Proceed to the official ${normalizedProgram} application form.`}
                 </p>
               </div>
               <Link
                 className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#f4c542] px-5 text-sm font-black text-[#073b82] transition hover:bg-[#ffd45f] sm:mt-0"
                 to={content.applyTo}
               >
-                Continue
+                {normalizedProgram === "SETUP" ? "Register Proposal" : "Continue"}
                 <ArrowRight className="size-4" />
               </Link>
             </div>

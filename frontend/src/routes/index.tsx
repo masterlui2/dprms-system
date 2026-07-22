@@ -9,6 +9,7 @@ import { NotFound } from '../pages/NotFound'
 import { ProgramLanding } from '../pages/ProgramLanding'
 import { ProposalSubmission } from '../pages/ProposalSubmission'
 import { Register } from '../pages/Register'
+import { SetupProposalRegistration } from '../pages/SetupProposalRegistration'
 import { ApprovalsPage } from '../pages/admin/ApprovalsPage'
 import { BudgetPage } from '../pages/admin/BudgetPage'
 import { InventoryPage } from '../pages/admin/InventoryPage'
@@ -18,6 +19,9 @@ import { AuditTrailPage } from '../pages/admin/AuditTrailPage'
 import { DashboardHome } from '../pages/dashboard/DashboardHome'
 import { ProponentDashboard } from '../pages/proponent/ProponentDashboard'
 import { ProponentWorkspacePage } from '../pages/proponent/ProponentWorkspacePage'
+import { MyProposalsPage } from '../pages/proponent/MyProposalsPage'
+import { DocumentaryRequirementsPage } from '../pages/proponent/DocumentaryRequirementsPage'
+import { ApplicationStatusPage } from '../pages/proponent/ApplicationStatusPage'
 
 export const router = createBrowserRouter([
   {
@@ -35,6 +39,10 @@ export const router = createBrowserRouter([
   {
     path: '/proposal',
     element: <ProposalSubmission />,
+  },
+  {
+    path: '/programs/setup/register',
+    element: <SetupProposalRegistration />,
   },
   {
     path: '/programs/:program',
@@ -136,7 +144,7 @@ export const router = createBrowserRouter([
         path: 'proposals',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
-            <ProponentWorkspacePage />
+            <MyProposalsPage />
           </RoleGate>
         ),
       },
@@ -144,7 +152,7 @@ export const router = createBrowserRouter([
         path: 'my-application',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
-            <ProponentWorkspacePage />
+            <MyProposalsPage />
           </RoleGate>
         ),
       },
@@ -152,7 +160,7 @@ export const router = createBrowserRouter([
         path: 'documents',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
-            <ProponentWorkspacePage />
+            <DocumentaryRequirementsPage />
           </RoleGate>
         ),
       },
@@ -160,7 +168,7 @@ export const router = createBrowserRouter([
         path: 'application-status',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
-            <ProponentWorkspacePage />
+            <ApplicationStatusPage />
           </RoleGate>
         ),
       },

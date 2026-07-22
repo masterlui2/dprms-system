@@ -19,6 +19,7 @@ const programs: Array<{
   icon: LucideIcon
   items: Array<{ icon: LucideIcon; label: string }>
   label: string
+  linkLabel: string
   title: string
 }> = [
   {
@@ -33,6 +34,7 @@ const programs: Array<{
       { icon: FileText, label: 'Business profile and quotations are usually needed' },
     ],
     label: 'SETUP',
+    linkLabel: 'Register SETUP Proposal',
     title: 'Business technology assistance',
   },
   {
@@ -47,6 +49,7 @@ const programs: Array<{
       { icon: FileText, label: 'Project proposal, budget, and endorsements are usually needed' },
     ],
     label: 'GIA',
+    linkLabel: 'View GIA Details',
     title: 'Project proposal support',
   },
 ]
@@ -132,7 +135,7 @@ function ProgramCard({
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#d8e1ee] px-4 text-sm font-black text-[#073b82] transition hover:border-blue-300 hover:bg-blue-50"
             to={program.detailsTo}
           >
-            View {program.label} details
+            {program.linkLabel}
             <ArrowRight className="size-4" />
           </Link>
         </div>

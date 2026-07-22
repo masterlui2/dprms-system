@@ -104,14 +104,14 @@ function getSidebarItems(user: MockUser): Item[] {
       enabled: true,
     },
     {
-      title: isGia ? "My Proposal" : "My Application",
+      title: isGia ? "My Proposal" : "My Proposals",
       url: "/dashboard/my-application",
       icon: FilePenLine,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
-      title: "Documents",
+      title: "Documentary Requirements",
       url: "/dashboard/documents",
       icon: FileCheck2,
       roles: ["applicant", "proponent"],

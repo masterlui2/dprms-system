@@ -27,6 +27,23 @@ function writeApplications(applications: ApplicationRecord[]) {
   window.localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications))
 }
 
+export function saveApplication(application: ApplicationRecord) {
+  const existing = readApplications().filter((item) => item.id !== application.id)
+  writeApplications([application, ...existing])
+}
+
+export function updateApplicationStatus(
+  referenceNo: string,
+  status: ApplicationRecord['status'],
+) {
+  const applications = readApplications()
+  const application = applications.find((item) => item.referenceNo === referenceNo)
+  if (!application || application.status === 'Approved' || application.status === 'Returned for Revision') return
+  writeApplications(
+    applications.map((item) => item.referenceNo === referenceNo ? { ...item, status } : item),
+  )
+}
+
 function createReferenceNo(program: ApplicationRecord['program']) {
   const suffix = Math.floor(1000 + Math.random() * 9000)
   return `${program}-${new Date().getFullYear()}-${suffix}`

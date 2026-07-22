@@ -11,12 +11,21 @@ import { ProposalStepper } from './ProposalStepper'
 import { DocumentsStep } from './steps/DocumentsStep'
 import { ProposalInformationStep } from './steps/ProposalInformationStep'
 import { ReviewStep } from './steps/ReviewStep'
+import { SetupProposalForm } from './SetupProposalForm'
 
 export function ProposalForm({
   program,
 }: {
   program: Exclude<ProposalType, ''>
 }) {
+  if (program === 'SETUP') {
+    return <SetupProposalForm />
+  }
+
+  return <GiaProposalForm program={program} />
+}
+
+function GiaProposalForm({ program }: { program: Exclude<ProposalType, ''> }) {
   const {
     confirmSubmission,
     continueToNextStep,

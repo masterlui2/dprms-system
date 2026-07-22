@@ -23,7 +23,7 @@ export function HeroSection() {
             className="inline-flex h-11 items-center justify-center rounded-lg border border-white/70 bg-white px-5 text-sm font-black text-[#073b82] shadow-2xl shadow-blue-900/20 ring-4 ring-white/30 transition hover:-translate-y-0.5 hover:bg-blue-50 sm:h-14 sm:rounded-xl sm:px-7 sm:text-base"
             to={getProgramRegistrationUrl("SETUP")}
           >
-            Submit SETUP Application
+            Register SETUP Proposal
           </Link>
         </div>
       </div>

@@ -12,11 +12,15 @@ export function ProposalSubmission() {
     return <Navigate replace to="/programs/setup" />
   }
 
+  if (proposalType === 'SETUP') {
+    return <Navigate replace to="/programs/setup/register" />
+  }
+
   return (
     <div className="min-h-screen bg-[#f4f8fc] text-slate-950">
       <ProposalHeader program={proposalType} />
 
-      <main className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
         <ProposalForm program={proposalType} />
 
         <div

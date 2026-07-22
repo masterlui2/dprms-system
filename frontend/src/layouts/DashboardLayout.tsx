@@ -4,6 +4,7 @@ import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
 
 import { AdminSidebar } from '../components/dashboard/AdminSidebar'
 import { NotificationPanel } from '../components/admin/NotificationPanel'
+import { SiteHeader } from '../components/landing/SiteHeader'
 import { ROLE_LABEL, clearMockUser, getMockUser } from '../lib/mockAuth'
 import { cn } from '../utils/cn'
 
@@ -17,6 +18,17 @@ export function DashboardLayout() {
 
   if (!user) {
     return <Navigate replace to="/login" />
+  }
+
+  if (user.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-[#f4f8fc] text-slate-950">
+        <SiteHeader />
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <Outlet />
+        </main>
+      </div>
+    )
   }
 
   return (
