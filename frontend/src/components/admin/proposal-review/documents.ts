@@ -17,7 +17,7 @@ const setupDocuments: SampleDocument[] = [
     updated: "Jun 24, 2026",
   },
   {
-    title: "DTI / SEC / CDA Registration",
+    title: "DTI / SEC Registration",
     name: "Business_Registration.pdf",
     size: "840 KB",
     pages: 3,

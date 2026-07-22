@@ -15,7 +15,6 @@ import { emptySetupProposal, setupIndustryCategories } from '../../data/setupPro
 import { getMockUser } from '../../lib/mockAuth'
 import { getSetupDraft, saveSetupDraft, submitSetupProposal } from '../../services/setupProposalStore'
 import type {
-  BusinessRegistrationOffice,
   SetupProposalData,
   SetupProposalErrors,
   SetupProposalField,
@@ -30,7 +29,7 @@ const requiredFields: Array<keyof SetupProposalData> = [
   'projectTitle', 'generalObjective', 'specificObjectives', 'projectBackground',
   'businessName', 'businessAddress', 'contactPerson', 'contactNumber', 'emailAddress',
   'yearEstablished', 'organizationType', 'businessSize', 'numberOfEmployees',
-  'businessRegistrations', 'businessIndustry', 'productsServices', 'enterpriseBackground',
+  'businessIndustry', 'productsServices', 'enterpriseBackground',
 ]
 
 const fieldLabels: Partial<Record<keyof SetupProposalData, string>> = {
@@ -40,30 +39,17 @@ const fieldLabels: Partial<Record<keyof SetupProposalData, string>> = {
   contactPerson: 'Contact person', contactNumber: 'Contact number', emailAddress: 'Email address',
   yearEstablished: 'Year established', organizationType: 'Organization type',
   businessSize: 'Business size', numberOfEmployees: 'Number of employees',
-  businessRegistrations: 'Business registration', businessIndustry: 'Business industry',
+  businessIndustry: 'Business industry',
   productsServices: 'Products / services', enterpriseBackground: 'Enterprise background',
 }
 
 function validate(data: SetupProposalData) {
   const errors: SetupProposalErrors = {}
   for (const field of requiredFields) {
-    if (field === 'businessRegistrations') continue
-
     const value = data[field]
     if (Array.isArray(value) ? value.length === 0 : !String(value).trim()) {
       errors[field] = `${fieldLabels[field] ?? 'This field'} is required.`
     }
-  }
-  const selectedRegistrations = data.businessRegistrations.filter((registration) => registration.selected)
-  const incompleteRegistration = selectedRegistrations.some((registration) =>
-    !registration.registrationNumber.trim()
-    || !registration.dateOfRegistration
-    || (registration.office === 'Others' && !registration.otherOfficeName.trim()),
-  )
-  if (!selectedRegistrations.length) {
-    errors.businessRegistrations = 'Select at least one registration office.'
-  } else if (incompleteRegistration) {
-    errors.businessRegistrations = 'Complete the registration number and date for every selected office.'
   }
   if (data.emailAddress && !/^\S+@\S+\.\S+$/.test(data.emailAddress)) {
     errors.emailAddress = 'Enter a valid email address.'
@@ -83,7 +69,6 @@ function validate(data: SetupProposalData) {
 
 function Section({
   children,
-  description,
   icon: Icon,
   id,
   title,
@@ -100,7 +85,6 @@ function Section({
         <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0f53b7]"><Icon className="size-5" /></span>
         <span className="min-w-0 flex-1">
           <span className="block text-base font-black text-[#073b82] sm:text-lg">{title}</span>
-          <span className="mt-0.5 block text-xs font-medium text-slate-500 sm:text-sm">{description}</span>
         </span>
         <ChevronDown className="size-5 shrink-0 text-slate-400 transition group-open:rotate-180" />
       </summary>
@@ -175,15 +159,6 @@ export function SetupProposalForm() {
 
   const completedRequired = useMemo(
     () => requiredFields.filter((field) => {
-      if (field === 'businessRegistrations') {
-        const selected = data.businessRegistrations.filter((registration) => registration.selected)
-        return selected.length > 0 && selected.every((registration) =>
-          registration.registrationNumber.trim()
-          && registration.dateOfRegistration
-          && (registration.office !== 'Others' || registration.otherOfficeName.trim()),
-        )
-      }
-
       const value = data[field]
       return Array.isArray(value) ? value.length > 0 : Boolean(String(value).trim())
     }).length,
@@ -196,7 +171,7 @@ export function SetupProposalForm() {
     setErrors((current) => ({ ...current, [field]: undefined }))
   }
 
-  function input(field: Exclude<SetupProposalField, 'businessRegistrations'>, options?: { type?: string; placeholder?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'] }) {
+  function input(field: SetupProposalField, options?: { type?: string; placeholder?: string; inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'] }) {
     const value = data[field] as string
     return (
       <input
@@ -213,7 +188,7 @@ export function SetupProposalForm() {
     )
   }
 
-  function textarea(field: Exclude<SetupProposalField, 'businessRegistrations'>, placeholder: string) {
+  function textarea(field: SetupProposalField, placeholder: string) {
     return (
       <textarea
         aria-describedby={errors[field] ? `${field}-error` : undefined}
@@ -225,15 +200,6 @@ export function SetupProposalForm() {
         value={data[field] as string}
       />
     )
-  }
-
-  function updateRegistration(
-    office: BusinessRegistrationOffice,
-    patch: Partial<SetupProposalData['businessRegistrations'][number]>,
-  ) {
-    update('businessRegistrations', data.businessRegistrations.map((registration) =>
-      registration.office === office ? { ...registration, ...patch } : registration,
-    ))
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -269,7 +235,6 @@ export function SetupProposalForm() {
           <div className="max-w-2xl">
             <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0f53b7]">SETUP Form 001 - Online Proposal Registration</p>
             <h1 className="mt-2 text-2xl font-black tracking-tight text-[#073b82] sm:text-3xl">Register SETUP Proposal</h1>
-            <p className="mt-3 text-sm leading-6 text-slate-600">Complete the simplified online form based on the official SETUP proposal format. Supporting documents will be uploaded separately after submission.</p>
           </div>
           <div className="shrink-0 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 sm:w-44">
             <div className="flex items-center justify-between text-xs font-bold"><span className="text-slate-500">Form progress</span><span className="text-[#0f53b7]">{completion}%</span></div>
@@ -336,66 +301,6 @@ export function SetupProposalForm() {
           </OfficialRow>
           <OfficialRow error={errors.numberOfEmployees} id="numberOfEmployees" label="Number of Employees">
             {input('numberOfEmployees', { type: 'number', placeholder: 'Total employees' })}
-          </OfficialRow>
-          <OfficialRow error={errors.businessRegistrations} help="Select the office, then enter the registration number and date." id="businessRegistrations" label="Registration">
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full min-w-[680px] border-collapse text-sm">
-                <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                  <tr>
-                    <th className="w-[32%] border-b border-r border-slate-200 px-3 py-2 text-left font-black">Office</th>
-                    <th className="w-[34%] border-b border-r border-slate-200 px-3 py-2 text-left font-black">Registration Number</th>
-                    <th className="w-[34%] border-b border-slate-200 px-3 py-2 text-left font-black">Date of Registration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.businessRegistrations.map((registration) => (
-                    <tr className={cn('border-b border-slate-200 last:border-b-0', registration.selected && 'bg-blue-50/40')} key={registration.office}>
-                      <td className="border-r border-slate-200 px-3 py-2 align-top">
-                        <label className="flex min-h-10 cursor-pointer items-center gap-3 font-semibold text-slate-800">
-                          <input
-                            checked={registration.selected}
-                            className="size-4 accent-[#0f53b7]"
-                            onChange={(event) => updateRegistration(registration.office, { selected: event.target.checked })}
-                            type="checkbox"
-                          />
-                          <span>{registration.office === 'Others' ? 'Others, please specify' : registration.office}</span>
-                        </label>
-                        {registration.office === 'Others' ? (
-                          <input
-                            aria-label="Other registration office"
-                            className={cn(inputClass, 'mt-2 min-h-10 disabled:bg-slate-100')}
-                            disabled={!registration.selected}
-                            onChange={(event) => updateRegistration('Others', { otherOfficeName: event.target.value })}
-                            placeholder="Specify office"
-                            value={registration.otherOfficeName}
-                          />
-                        ) : null}
-                      </td>
-                      <td className="border-r border-slate-200 px-3 py-2 align-top">
-                        <input
-                          aria-label={`${registration.office} registration number`}
-                          className={cn(inputClass, 'min-h-10 disabled:bg-slate-100')}
-                          disabled={!registration.selected}
-                          onChange={(event) => updateRegistration(registration.office, { registrationNumber: event.target.value })}
-                          placeholder={registration.selected ? 'Enter number' : 'Select office first'}
-                          value={registration.registrationNumber}
-                        />
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        <input
-                          aria-label={`${registration.office} date of registration`}
-                          className={cn(inputClass, 'min-h-10 disabled:bg-slate-100')}
-                          disabled={!registration.selected}
-                          onChange={(event) => updateRegistration(registration.office, { dateOfRegistration: event.target.value })}
-                          type="date"
-                          value={registration.dateOfRegistration}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </OfficialRow>
           <OfficialRow error={errors.businessIndustry} help="Search or choose the closest SETUP category." id="businessIndustry" label="Business Activities">
             <input className={cn(inputClass, errors.businessIndustry && 'border-red-500')} list="setup-industries" id="businessIndustry" onChange={(event) => update('businessIndustry', event.target.value)} placeholder="Search or select an industry" value={data.businessIndustry} />

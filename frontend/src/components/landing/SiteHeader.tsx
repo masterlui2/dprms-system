@@ -1,11 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Bell,
   ChevronDown,
-  ClipboardCheck,
-  FileCheck2,
   FilePenLine,
   HelpCircle,
   LayoutDashboard,
@@ -14,19 +12,17 @@ import {
   PackageCheck,
   ReceiptText,
   User,
-  UserCircle2,
   Activity,
   X,
 } from "lucide-react";
 
 import { NotificationPanel } from "../admin/NotificationPanel";
 import logoImage from "../../assets/logo2.png";
+import { type MockUser, clearMockUser, getMockUser } from "../../lib/mockAuth";
 import {
-  type MockUser,
-  ROLE_LABEL,
-  clearMockUser,
-  getMockUser,
-} from "../../lib/mockAuth";
+  getProponentProfile,
+  PROFILE_UPDATED_EVENT,
+} from "../../services/profileStore";
 
 function getProgramHomePath(pathname: string, user?: MockUser | null) {
   if (pathname.startsWith("/programs/gia")) return "/programs/gia";
@@ -39,19 +35,19 @@ function getProgramHomePath(pathname: string, user?: MockUser | null) {
 
 function getNavigationItems(pathname: string, user?: MockUser | null) {
   const homeHref = getProgramHomePath(pathname, user);
-  const isProgramPage =
-    pathname.startsWith("/programs/gia") || pathname.startsWith("/programs/setup");
+  const isProgramContext =
+    homeHref === "/programs/gia" || homeHref === "/programs/setup";
 
   return [
     { label: "Home", href: homeHref },
     { label: "Programs", href: "/#programs" },
     {
       label: "How to Apply",
-      href: isProgramPage ? `${pathname}#process` : "/#process",
+      href: isProgramContext ? `${homeHref}#process` : "/#process",
     },
     {
       label: "Requirements",
-      href: isProgramPage ? `${pathname}#requirements` : "/#programs",
+      href: isProgramContext ? `${homeHref}#requirements` : "/#requirements",
     },
     { label: "Track Proposal", href: "/login" },
     { label: "FAQs", href: "/#faq" },
@@ -90,11 +86,30 @@ function Logo({ homeHref }: { homeHref: string }) {
         <span className="block text-sm font-black text-[#073b82]">
           DOST Davao Oriental Project Portal
         </span>
-        <span className="mt-0.5 block text-xs font-semibold text-slate-500">
-          For GIA and SETUP Programs
-        </span>
       </span>
     </Link>
+  );
+}
+
+function UserAvatar({
+  className,
+  initials,
+  photoDataUrl,
+}: {
+  className: string;
+  initials: string;
+  photoDataUrl?: string;
+}) {
+  return (
+    <span
+      className={`grid shrink-0 place-items-center overflow-hidden rounded-full bg-[#073b82] font-black text-white ${className}`}
+    >
+      {photoDataUrl ? (
+        <img alt="" className="h-full w-full object-cover" src={photoDataUrl} />
+      ) : (
+        initials
+      )}
+    </span>
   );
 }
 
@@ -107,16 +122,26 @@ function AccountDropdown({
   onSignOut: () => void;
   user: MockUser;
 }) {
-  const programLabel = user.program ? `${user.program} Portal` : "DOST Portal";
   const isProponent = user.role === "proponent" || user.role === "applicant";
+  const profile = getProponentProfile(user);
   const moduleItems = [
     { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
-    { icon: FilePenLine, label: "My Proposals", to: "/dashboard/my-application" },
-    { icon: FileCheck2, label: "Documentary Requirements", to: "/dashboard/documents" },
-    { icon: ClipboardCheck, label: "Application Status", to: "/dashboard/application-status" },
-    { icon: Activity, label: "Project Monitoring", to: "/dashboard/project-monitoring" },
+    {
+      icon: FilePenLine,
+      label: "My Proposals",
+      to: "/dashboard/my-application",
+    },
+    {
+      icon: Activity,
+      label: "Project Monitoring",
+      to: "/dashboard/project-monitoring",
+    },
     { icon: PackageCheck, label: "Equipment", to: "/dashboard/equipment" },
-    { icon: ReceiptText, label: "Repayment / Billing", to: "/dashboard/finance" },
+    {
+      icon: ReceiptText,
+      label: "Repayment / Billing",
+      to: "/dashboard/finance",
+    },
     { icon: Bell, label: "Notifications", to: "/dashboard/notifications" },
     { icon: User, label: "Profile", to: "/dashboard/profile" },
   ];
@@ -125,42 +150,23 @@ function AccountDropdown({
     <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(420px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-2xl">
       <div className="border-b border-slate-100 px-4 py-4">
         <div className="flex items-center gap-3">
-          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[#073b82] text-sm font-black text-white">
-            {user.initials}
-          </span>
+          <UserAvatar
+            className="size-11 text-sm"
+            initials={user.initials}
+            photoDataUrl={profile.photoDataUrl}
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black text-slate-900">
-              {user.name}
+              {profile.fullName}
             </p>
-            <p className="mt-1 truncate text-xs text-slate-500">
-              {user.email}
-            </p>
-          </div>
-        </div>
-        <div className="mt-3 inline-flex rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-[#0f53b7]">
-          {ROLE_LABEL[user.role]}
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-          <div className="rounded-lg border border-slate-100 bg-[#f8fbff] px-3 py-2">
-            <p className="font-black text-slate-900">{programLabel}</p>
-            <p className="mt-0.5 text-slate-500">Workspace</p>
-          </div>
-          <div className="rounded-lg border border-slate-100 bg-[#f8fbff] px-3 py-2">
-            <p className="font-black text-slate-900">
-              {user.applicationReference ?? "Active"}
-            </p>
-            <p className="mt-0.5 text-slate-500">
-              {user.applicationReference ? "Reference" : "Session"}
-            </p>
+            <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>
           </div>
         </div>
       </div>
 
       {isProponent ? (
         <div className="px-2 py-2">
-          <p className="px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
-            Modules
-          </p>
+          <p className="px-3 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400"></p>
           <div className="grid gap-1">
             {moduleItems.map((item) => {
               const Icon = item.icon;
@@ -221,9 +227,18 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [profileRevision, setProfileRevision] = useState(0);
   const isProponent = user?.role === "proponent" || user?.role === "applicant";
+  const profile = user ? getProponentProfile(user) : null;
   const homeHref = getProgramHomePath(location.pathname, user);
   const navigationItems = getNavigationItems(location.pathname, user);
+
+  useEffect(() => {
+    const refreshProfile = () => setProfileRevision((current) => current + 1);
+    window.addEventListener(PROFILE_UPDATED_EVENT, refreshProfile);
+    return () =>
+      window.removeEventListener(PROFILE_UPDATED_EVENT, refreshProfile);
+  }, []);
 
   function handleSignOut() {
     clearMockUser();
@@ -235,20 +250,12 @@ export function SiteHeader() {
   function isActive(href: string) {
     const [targetPath, targetHash] = href.split("#");
 
-    if (href === "/") return location.pathname === "/" && !location.hash;
-    if (href === "/programs/gia" || href === "/programs/setup") {
-      return location.pathname.startsWith(href) && !targetHash;
-    }
-    if (href === "/#programs" && location.pathname.startsWith("/programs")) {
-      return true;
-    }
     if (targetHash) {
       return (
-        location.pathname === targetPath &&
-        location.hash === `#${targetHash}`
+        location.pathname === targetPath && location.hash === `#${targetHash}`
       );
     }
-    return location.pathname === targetPath;
+    return location.pathname === targetPath && !location.hash;
   }
 
   return (
@@ -315,12 +322,17 @@ export function SiteHeader() {
                   }}
                   type="button"
                 >
-                  <UserCircle2 className="size-7" />
+                  <UserAvatar
+                    className="size-8 text-[11px]"
+                    initials={user.initials}
+                    photoDataUrl={profile?.photoDataUrl}
+                  />
                   <ChevronDown className="size-4" />
                 </button>
 
                 {accountOpen ? (
                   <AccountDropdown
+                    key={profileRevision}
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
                     user={user}
@@ -376,11 +388,16 @@ export function SiteHeader() {
                   }}
                   type="button"
                 >
-                  <UserCircle2 className="size-7" />
+                  <UserAvatar
+                    className="size-8 text-[11px]"
+                    initials={user.initials}
+                    photoDataUrl={profile?.photoDataUrl}
+                  />
                 </button>
 
                 {accountOpen ? (
                   <AccountDropdown
+                    key={profileRevision}
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
                     user={user}

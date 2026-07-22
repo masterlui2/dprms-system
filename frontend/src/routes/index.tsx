@@ -10,6 +10,7 @@ import { ProgramLanding } from '../pages/ProgramLanding'
 import { ProposalSubmission } from '../pages/ProposalSubmission'
 import { Register } from '../pages/Register'
 import { SetupProposalRegistration } from '../pages/SetupProposalRegistration'
+import { GiaProposalRegistration } from '../pages/GiaProposalRegistration'
 import { ApprovalsPage } from '../pages/admin/ApprovalsPage'
 import { BudgetPage } from '../pages/admin/BudgetPage'
 import { InventoryPage } from '../pages/admin/InventoryPage'
@@ -18,10 +19,10 @@ import { ReportsPage } from '../pages/admin/ReportsPage'
 import { AuditTrailPage } from '../pages/admin/AuditTrailPage'
 import { DashboardHome } from '../pages/dashboard/DashboardHome'
 import { ProponentDashboard } from '../pages/proponent/ProponentDashboard'
-import { ProponentWorkspacePage } from '../pages/proponent/ProponentWorkspacePage'
 import { MyProposalsPage } from '../pages/proponent/MyProposalsPage'
 import { DocumentaryRequirementsPage } from '../pages/proponent/DocumentaryRequirementsPage'
 import { ApplicationStatusPage } from '../pages/proponent/ApplicationStatusPage'
+import { ProfilePage } from '../pages/proponent/ProfilePage'
 
 export const router = createBrowserRouter([
   {
@@ -43,6 +44,10 @@ export const router = createBrowserRouter([
   {
     path: '/programs/setup/register',
     element: <SetupProposalRegistration />,
+  },
+  {
+    path: '/programs/gia/register',
+    element: <GiaProposalRegistration />,
   },
   {
     path: '/programs/:program',
@@ -216,7 +221,7 @@ export const router = createBrowserRouter([
         path: 'profile',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
-            <ProponentWorkspacePage />
+            <ProfilePage />
           </RoleGate>
         ),
       },

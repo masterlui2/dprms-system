@@ -60,6 +60,7 @@ export function ProgramsSection() {
       className="scroll-mt-32 border-y border-[#d8e5f2] bg-[#eef5fb] px-4 py-16 sm:px-6 lg:px-8"
       id="programs"
     >
+      <span className="block scroll-mt-32" id="requirements" />
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:items-end">
           <div>

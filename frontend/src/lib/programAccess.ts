@@ -33,7 +33,7 @@ export function grantProgramAccess(program: ApplicationProgram) {
 
 export function getProgramRegistrationUrl(program: ApplicationProgram) {
   const slug = program.toLowerCase()
-  const target = program === 'SETUP' ? `/programs/${slug}/register` : `/programs/${slug}`
+  const target = `/programs/${slug}/register`
   const redirect = encodeURIComponent(target)
 
   return `/register?program=${slug}&redirect=${redirect}`

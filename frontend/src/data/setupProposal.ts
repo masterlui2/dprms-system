@@ -1,26 +1,4 @@
-import type {
-  BusinessRegistrationEntry,
-  BusinessRegistrationOffice,
-  SetupProposalData,
-} from '../types/setupProposal'
-
-export const businessRegistrationOffices: BusinessRegistrationOffice[] = [
-  'DTI',
-  'SEC',
-  'CDA',
-  'LGU',
-  'Others',
-]
-
-export function createEmptyBusinessRegistrations(): BusinessRegistrationEntry[] {
-  return businessRegistrationOffices.map((office) => ({
-    dateOfRegistration: '',
-    office,
-    otherOfficeName: '',
-    registrationNumber: '',
-    selected: false,
-  }))
-}
+import type { SetupProposalData } from '../types/setupProposal'
 
 export const setupIndustryCategories = [
   'Food Processing',
@@ -66,7 +44,6 @@ export const emptySetupProposal: SetupProposalData = {
   organizationType: '',
   businessSize: '',
   numberOfEmployees: '',
-  businessRegistrations: createEmptyBusinessRegistrations(),
   businessIndustry: '',
   productsServices: '',
   enterpriseBackground: '',

@@ -7,16 +7,6 @@ export type OrganizationType =
 
 export type BusinessSize = '' | 'Micro' | 'Small' | 'Medium'
 
-export type BusinessRegistrationOffice = 'DTI' | 'SEC' | 'CDA' | 'LGU' | 'Others'
-
-export interface BusinessRegistrationEntry {
-  dateOfRegistration: string
-  office: BusinessRegistrationOffice
-  otherOfficeName: string
-  registrationNumber: string
-  selected: boolean
-}
-
 export interface SetupProposalData {
   projectTitle: string
   generalObjective: string
@@ -31,7 +21,6 @@ export interface SetupProposalData {
   organizationType: OrganizationType
   businessSize: BusinessSize
   numberOfEmployees: string
-  businessRegistrations: BusinessRegistrationEntry[]
   businessIndustry: string
   productsServices: string
   enterpriseBackground: string

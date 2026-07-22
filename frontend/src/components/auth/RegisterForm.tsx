@@ -60,8 +60,7 @@ function getSafeRedirect(value: string | null, program: ApplicationProgram | nul
   if (!value || !program) return null;
 
   const expectedPath = `/programs/${program.toLowerCase()}`;
-  const expectedTarget =
-    program === "SETUP" ? `${expectedPath}/register` : expectedPath;
+  const expectedTarget = `${expectedPath}/register`;
 
   return value === expectedPath || value === expectedTarget ? value : expectedTarget;
 }

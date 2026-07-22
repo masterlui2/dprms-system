@@ -42,7 +42,7 @@ const programContent: Record<ApplicationProgram, ProgramContent> = {
   GIA: {
     accent: "bg-[#f59e0b]",
     applicantLabel: "For communities, schools, LGUs, and partner organizations",
-    applyTo: "/apply/gia",
+    applyTo: "/programs/gia/register",
     benefits: [
       {
         description:
@@ -75,14 +75,14 @@ const programContent: Record<ApplicationProgram, ProgramContent> = {
           "Check that the proposal addresses a public need through science, technology, training, research, or community intervention.",
       },
       {
-        title: "Prepare attachments",
+        title: "Register the proposal",
         description:
-          "Organize the project proposal, line-item budget, endorsements, profiles, and supporting documents.",
+          "Complete one simplified online form for the proponent, project, implementation approach, and expected results.",
       },
       {
-        title: "Submit for review",
+        title: "Upload final documents",
         description:
-          "Send the GIA proposal through the portal so evaluators can validate scope, documents, and budget.",
+          "After submission, upload the checklist generated for Private Sector, Higher Education, or Barangay LGU proponents.",
       },
       {
         title: "Track implementation",
@@ -91,11 +91,11 @@ const programContent: Record<ApplicationProgram, ProgramContent> = {
       },
     ],
     requirements: [
-      "Complete GIA project proposal",
-      "Line-item budget and work plan",
-      "Endorsement or authorization from the organization",
-      "Proponent profile and partner details",
-      "Supporting technical documents, if applicable",
+      "Proponent category and organization information",
+      "Project leader and contact details",
+      "Project summary, rationale, and objectives",
+      "Implementation approach and expected outputs",
+      "Supporting files are uploaded separately after submission",
     ],
     title: "GIA Project Support Homepage",
   },
