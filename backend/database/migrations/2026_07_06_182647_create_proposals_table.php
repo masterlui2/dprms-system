@@ -14,10 +14,12 @@ return new class extends Migration
         Schema::create('proposals', function (Blueprint $table) {
             $table->id();
             $table->foreignId("submitted_by")->constrained("users")->onDelete("set null");
+            $table->foreignId("focal_id")->nullable()->constrained("users")->restrictOnDelete();
+            $table->foreignId("reviewed_by")->nullable()->constrained("users")->restrictOnDelete();
             $table->enum("program_type",['SETUP','GIA']);
             $table->string("reference_number",100)->unique();
             $table->string("title",500);
-            $table->enum("status",["DRAFT","SUBMITTED","UNDER_VALIDATION","ENDORSED_TO_PMO","UNDER_SCREENING","ENDORSED_TO_RTEC","UNDER_EVALUATION","ENDORSED_TO_DIRECTOR","APPROVED","DISAPPROVED","RETURNED"]);
+            $table->enum("status",["DRAFT","SUBMITTED","UNDER_VALIDATION","ENDORSED_TO_FOCAL","UNDER_SCREENING","ENDORSED_TO_DIRECTOR","UNDER_EVALUATION","APPROVED","DISAPPROVED","RETURNED"]);
             $table->string("current_stage",100);
             $table->timestamp("submitted_at")->nullable();
             $table->timestamp("approved_at")->nullable();

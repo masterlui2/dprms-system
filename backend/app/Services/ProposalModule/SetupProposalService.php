@@ -23,6 +23,15 @@ class SetupProposalService implements SetupProposalServiceInterface{
     #[Override]
     public function createSetupProposal(array $data): SetupProposal
     {
+        $addressParts = array_map('trim', explode(',', $data['business_address']));
+
+        [$busAdd, $cityMun, $province, $region] = array_pad($addressParts, 4, null);
+
+        $data['business_address'] = $busAdd;
+        $data['city_municipality'] = $cityMun;
+        $data['province'] = $province;
+        $data['region'] = $region;
+
         return $this->setupProposalRepository->create($data);
     }
 
