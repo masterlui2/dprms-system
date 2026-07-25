@@ -26,9 +26,7 @@ class SubmitSetupProposalRequest extends FormRequest
             'enterprise_size' => 'required|in:MICRO,SMALL,MEDIUM',
             'years_in_operation' => 'required|integer|min:0',
             'business_address' => 'required|string',
-
-            // The generated PDF from the frontend
-            'file' => 'required|file|mimes:pdf|max:10240',
+            'form_snapshot' => 'required|array',
         ];
     }
 }

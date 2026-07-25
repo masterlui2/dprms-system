@@ -186,7 +186,7 @@ export function SetupProposalForm({ onDraftChange }: SetupProposalFormProps = {}
     )
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     const nextErrors = validate(data)
     setErrors(nextErrors)
@@ -196,8 +196,15 @@ export function SetupProposalForm({ onDraftChange }: SetupProposalFormProps = {}
       return
     }
     submitted.current = true
-    const application = submitSetupProposal(data)
-    navigate('/dashboard', { replace: true, state: { submittedReference: application.referenceNo } })
+    try {
+      const application = await submitSetupProposal(data)
+      navigate('/dashboard', { replace: true, state: { submittedReference: application.referenceNo } })
+    } catch (error) {
+      submitted.current = false
+      setIsSubmitting(false)
+      // TODO: surface this via your NotificationToast/error UI instead of console
+      console.error('Setup proposal submission failed:', error)
+    }
   }
 
   const radioGroup = (field: 'organizationType' | 'businessSize', values: string[]) => (
