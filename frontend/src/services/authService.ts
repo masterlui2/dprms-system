@@ -1,8 +1,7 @@
+import axios, {AxiosError } from 'axios'
+import api, { ensureCsrfCookie } from '../lib/axios'
 import type { MockUser } from '../lib/mockAuth'
 import type { ApplicationProgram } from '../types/application'
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
 
 interface BackendUser {
   email: string
@@ -25,6 +24,11 @@ interface RegisterPayload {
   password: string
   password_confirmation: string
   role: 'MSME_PROPONENT' | 'GIA_PROJECT_LEADER'
+}
+
+interface ValidationErrorPayload {
+  errors?: Record<string, string[]>
+  message?: string
 }
 
 export class AuthError extends Error {
@@ -73,70 +77,64 @@ function resolveProgram(user: BackendUser): ApplicationProgram | undefined {
 }
 
 export async function loginWithBackend(email: string, password: string) {
-  const response = await fetch(`${API_BASE_URL}/login`, {
-    body: JSON.stringify({ email, password }),
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    method: 'POST',
-  })
-
-  if (!response.ok) {
+  try {
+    await ensureCsrfCookie()
+    const response = await api.post<LoginResponse>('/login', {
+      email,
+      password,
+    })
+ 
+    const backendUser = response.data.data.user
+    const user: MockUser = {
+      email: backendUser.email,
+      initials: getInitials(backendUser.name),
+      name: backendUser.name,
+      program: resolveProgram(backendUser),
+      role: resolveRole(backendUser),
+    }
+ 
+    return {
+      token: response.data.data.token,
+      user,
+    }
+  } catch (error) {
+    // Any non-2xx (401, 422, 500, etc.) lands here as an AxiosError.
     throw new AuthError()
-  }
-
-  const payload = (await response.json()) as LoginResponse
-  const backendUser = payload.data.user
-  const user: MockUser = {
-    email: backendUser.email,
-    initials: getInitials(backendUser.name),
-    name: backendUser.name,
-    program: resolveProgram(backendUser),
-    role: resolveRole(backendUser),
-  }
-
-  return {
-    token: payload.data.token,
-    user,
   }
 }
 
 export async function registerWithBackend(payload: RegisterPayload) {
-  const response = await fetch(`${API_BASE_URL}/register`, {
-    body: JSON.stringify(payload),
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    method: 'POST',
-  })
-
-  if (!response.ok) {
-    if (response.status === 422) {
-      const errorPayload = await response.json().catch(() => null)
-      const firstError = errorPayload?.errors
-        ? Object.values(errorPayload.errors)[0]
-        : null
-      const message = Array.isArray(firstError)
-        ? firstError[0]
-        : 'Please review the registration details.'
-
-      throw new AuthError(message)
+  try {
+    await ensureCsrfCookie()
+    const response = await api.post('/register', payload)
+    return response.data
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ValidationErrorPayload>
+ 
+      if (axiosError.response?.status === 422) {
+        const errors = axiosError.response.data?.errors
+        const firstError = errors ? Object.values(errors)[0] : null
+        const message = Array.isArray(firstError)
+          ? firstError[0]
+          : 'Please review the registration details.'
+ 
+        throw new AuthError(message)
+      }
     }
-
+ 
     throw new AuthError('Registration failed. Please try again.')
   }
-
-  return response.json()
 }
 
 export async function logoutFromBackend(token: string) {
-  await fetch(`${API_BASE_URL}/logout`, {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
+  await api.post(
+    '/logout',
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-    method: 'POST',
-  })
+  )
 }
