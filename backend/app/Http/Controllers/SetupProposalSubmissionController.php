@@ -21,10 +21,7 @@ class SetupProposalSubmissionController extends Controller
 
    public function store(SubmitSetupProposalRequest $request)
     {
-        $data = $request->validated();
-        $data['file'] = $request->file('file');
-
-        $result = $this->submissionService->submit($data);
+        $result = $this->submissionService->submit($request->validated());
 
         return response()->json([
             'message' => 'Setup Proposal Submitted Successfully',

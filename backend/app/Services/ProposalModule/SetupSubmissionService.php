@@ -7,11 +7,12 @@ use App\Services\Contracts\ProposalModule\DocumentsServiceInterface;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\SetupProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\SetupSubmissionServiceInterface;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Override;
 
 class SetupSubmissionService implements SetupSubmissionServiceInterface{
-    public function __construct(protected ProposalServiceInterface $proposalService, protected SetupProposalServiceInterface $setupProposalService, protected DocumentsServiceInterface $documentsService)
+    public function __construct(protected ProposalServiceInterface $proposalService, protected SetupProposalServiceInterface $setupProposalService, protected DocumentsServiceInterface $documentsService, protected SetupProposalPdfService $pdfService)
     {
     }
 
@@ -34,10 +35,16 @@ class SetupSubmissionService implements SetupSubmissionServiceInterface{
                 ->where('applicable_program', 'SETUP')
                 ->first();
 
+            if (! $documentType) {
+                throw new \RuntimeException('SETUP proposal DocumentType (set_number=PROPOSAL) is not seeded.');
+            }
+
+            $file = $this->buildProposalPdfUploadedFile($data);
+
             $document = $this->documentsService->uploadDocuments([
                 'proposal_id' => $proposal->id,
                 'document_type_id' => $documentType->id, // hardcoded for now
-                'file' => $data['file'],
+                'file' => $file,
             ]);
 
             return [
@@ -46,5 +53,21 @@ class SetupSubmissionService implements SetupSubmissionServiceInterface{
                 'document' => $document,
             ];
         });
+    }
+
+    protected function buildProposalPdfUploadedFile(array $data): UploadedFile
+    {
+        $pdfBinary = $this->pdfService->generate($data['form_snapshot']);
+
+        $tempPath = tempnam(sys_get_temp_dir(), 'setup_proposal_');
+        file_put_contents($tempPath, $pdfBinary);
+
+        $fileName = 'setup-proposal-' . now()->format('Ymd-His') . '.pdf';
+
+        // `true` here puts UploadedFile in "test mode" so it accepts a file
+        // that wasn't created via a real HTTP upload (is_uploaded_file check
+        // is skipped). This is the standard way to fabricate an UploadedFile
+        // from generated content in Laravel.
+        return new UploadedFile($tempPath, $fileName, 'application/pdf', null, true);
     }
 }
