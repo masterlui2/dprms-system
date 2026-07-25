@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import App from './App'
+import 'sweetalert2/dist/sweetalert2.min.css'
 import './index.css'
 
 const rootElement = document.getElementById('root')

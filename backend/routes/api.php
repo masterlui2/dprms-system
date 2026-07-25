@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\ProposalController;
 use App\Http\Controllers\ProposalTemplateController;
 use App\Models\DocumentRequirement;
@@ -36,10 +38,12 @@ Route::middleware('auth:sanctum')->prefix('proposal')->group(function (){
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/requirements/{program}',[DocumentRequirement::class, 'getRequirementsByProgram']);
-    Route::post('/requirements',[DocumentRequirement::class, 'createRequirement']);
-    Route::put('/{id}/requirements',[DocumentRequirement::class, 'updateRequirement']);
-    Route::delete('/{id}/requirements',[DocumentRequirement::class, 'deleteRequirement']);
+    Route::get('document-types', [DocumentTypeController::class, 'index']);
+
+    Route::get('proposals/{proposalId}/documents', [DocumentController::class, 'index']);
+    Route::post('documents', [DocumentController::class, 'store']);
+    Route::delete('documents/{document}', [DocumentController::class, 'destroy']);
+    Route::get('documents/{document}/download', [DocumentController::class, 'show']);
 });
 
 Route::middleware('auth:sanctum')->group(function (){

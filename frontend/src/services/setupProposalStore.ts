@@ -169,8 +169,7 @@ export async function submitSetupProposal(data: SetupProposalData): Promise<Appl
 }
 
 export function getSetupProposal(referenceNo: string) {
-  return readDetails()[referenceNo]
-    ?? (referenceNo === SAMPLE_SETUP_REFERENCE ? sampleSetupProposal : null)
+  return readDetails()[referenceNo] ?? null
 }
 
 export function getSetupApplications() {

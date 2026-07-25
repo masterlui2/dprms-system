@@ -2,7 +2,6 @@ import type { MockUser } from '../lib/mockAuth'
 import { getApplications } from './applicationStore'
 import { getGiaProposal } from './giaProposalStore'
 import { getSetupProposal } from './setupProposalStore'
-import { isSampleSetupApplication } from '../data/sampleSetupProposal'
 
 export const PROFILE_UPDATED_EVENT = 'dprms:profile-updated'
 
@@ -39,9 +38,7 @@ function getRelatedApplication(user: MockUser) {
     user.applicationReference
       ? application.referenceNo === user.applicationReference
       : application.contactEmail.toLowerCase() === user.email.toLowerCase()
-  )) ?? (user.program === 'SETUP'
-    ? applications.find((application) => isSampleSetupApplication(application.referenceNo))
-    : undefined)
+  ))
 }
 
 export function getProponentProfile(user: MockUser): ProponentProfile {
@@ -60,7 +57,7 @@ export function getProponentProfile(user: MockUser): ProponentProfile {
     organizationName: proposal?.businessName ?? giaProposal?.organizationName ?? application?.organizationName ?? '',
     organizationType: proposal?.organizationType ?? giaProposal?.proponentCategory ?? '',
     photoDataUrl: '',
-    position: giaProposal?.position ?? (isSampleSetupApplication(application?.referenceNo ?? '') ? 'Cooperative Chairperson' : ''),
+    position: giaProposal?.position ?? '',
     program: user.program ?? application?.program ?? '',
   }
 

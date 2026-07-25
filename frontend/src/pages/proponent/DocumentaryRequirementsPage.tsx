@@ -3,7 +3,7 @@ import {
   ArrowRight,
   Building2,
   Check,
-  CheckCircle2,
+  Download,
   Eye,
   FileCheck2,
   FileText,
@@ -15,10 +15,13 @@ import {
   Trash2,
   UserRoundCheck,
 } from "lucide-react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 
+import Swal from "sweetalert2";
 import { ProposalProgress } from "../../components/proponent/ProposalProgress";
-import { isSampleSetupApplication } from "../../data/sampleSetupProposal";
+import { InitialReviewStageCard } from "../../components/proponent/InitialReviewStageCard";
+import { SetupProposalForm } from "../../components/proposal/SetupProposalForm";
+import { GiaProposalForm } from "../../components/proposal/GiaProposalForm";
 import { getMockUser } from "../../lib/mockAuth";
 import {
   deleteDocument,
@@ -33,10 +36,20 @@ import {
 } from "../../services/documentStore";
 import {
   getApplications,
+  saveApplication,
   updateApplicationStatus,
 } from "../../services/applicationStore";
-import { getGiaProposal } from "../../services/giaProposalStore";
-import { getSetupProposal } from "../../services/setupProposalStore";
+import type { ApplicationRecord } from "../../types/application";
+import {
+  getGiaDraft,
+  getGiaProposal,
+} from "../../services/giaProposalStore";
+import {
+  getSetupDraft,
+  getSetupProposal,
+} from "../../services/setupProposalStore";
+import type { GiaProposalData } from "../../types/giaProposal";
+import type { SetupProposalData } from "../../types/setupProposal";
 import { cn } from "../../utils/cn";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
@@ -45,9 +58,8 @@ const groupOrder: RequirementGroup[] = [
   "Business Documents",
   "Corporation / Cooperative Documents",
   "Financial Documents",
-  "Additional Documents",
   "GIA Core Documents",
-  "Category-specific Documents",
+  "Additional Documents",
 ];
 
 const statusClasses: Record<VerificationStatus, string> = {
@@ -58,31 +70,12 @@ const statusClasses: Record<VerificationStatus, string> = {
   "Needs Revision": "bg-red-50 text-red-700",
 };
 
-const compactNotes: Partial<Record<string, string>> = {
-  "recent-mayors-permit": "Must show the firm’s line of business.",
-  "three-equipment-quotations":
-    "Upload one PDF containing all three quotations.",
-  "manufacturing-space-lease": "Only if the manufacturing space is rented.",
-  "government-id-approved-signatory": "Include three specimen signatures.",
-  "gia-private-registration": "Include the registration, articles, and by-laws.",
-  "gia-private-financial-statements": "Submit the past three years.",
-  "gia-private-board-resolution": "Must identify the authorized representative.",
-  "gia-barangay-official-bond": "The amount must cover the grant.",
-  "gia-barangay-project-track-record": "Upload when previous projects are available.",
-};
-
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function formatUploadDate(value?: string) {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
+
 
 function GroupIcon({ group }: { group: RequirementGroup }) {
   if (group === "Business Documents") return <Building2 className="size-5" />;
@@ -93,13 +86,17 @@ function GroupIcon({ group }: { group: RequirementGroup }) {
   return <UserRoundCheck className="size-5" />;
 }
 
-export function DocumentaryRequirementsPage() {
+export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | 'GIA' } = {}) {
   const user = getMockUser();
-  const registrationPath =
-    user?.program === "GIA"
-      ? "/programs/gia/register"
-      : "/programs/setup/register";
-  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+
+  const activeProgram: 'SETUP' | 'GIA' = useMemo(() => {
+    if (program) return program;
+    if (location.pathname.includes('/gia')) return 'GIA';
+    if (location.pathname.includes('/setup')) return 'SETUP';
+    return (user?.program as 'SETUP' | 'GIA') || 'SETUP';
+  }, [program, location.pathname, user?.program]);
   const [documents, setDocuments] = useState<Record<string, StoredDocument>>(
     {},
   );
@@ -114,42 +111,72 @@ export function DocumentaryRequirementsPage() {
 
   const applications = useMemo(() => {
     const allApplications = getApplications();
-    const accountApplications = allApplications.filter((application) =>
+    const filtered = allApplications.filter((application) =>
       user?.applicationReference
         ? application.referenceNo === user.applicationReference
         : !user?.email ||
           application.contactEmail.toLowerCase() === user.email.toLowerCase(),
     );
-
-    if (accountApplications.length || user?.program !== "SETUP")
-      return accountApplications;
-    return allApplications.filter((application) =>
-      isSampleSetupApplication(application.referenceNo),
-    );
-  }, [user?.applicationReference, user?.email, user?.program]);
+    const matching = filtered.filter((app) => app.program === activeProgram);
+    if (matching.length) return matching;
+    if (filtered.length) return filtered;
+    return allApplications;
+  }, [user?.applicationReference, user?.email, activeProgram]);
 
   const requestedReference = searchParams.get("proposal");
-  const activeApplication =
+  const baseApplication =
     applications.find((item) => item.referenceNo === requestedReference) ??
     applications[0];
-  const setupProposal =
-    activeApplication?.program === "SETUP"
-      ? getSetupProposal(activeApplication.referenceNo)
-      : null;
-  const giaProposal =
-    activeApplication?.program === "GIA"
-      ? getGiaProposal(activeApplication.referenceNo)
-      : null;
+
+  const activeApplication: ApplicationRecord = useMemo(() => {
+    if (baseApplication && baseApplication.program === activeProgram) {
+      return baseApplication;
+    }
+    return {
+      id: `${activeProgram.toLowerCase()}-app-1`,
+      applicantName: user?.name ?? "Proponent Representative",
+      referenceNo: `${activeProgram}-2026-0001`,
+      projectTitle:
+        activeProgram === "GIA"
+          ? "Community Empowerment & Technology Transfer Project"
+          : "Enterprise Technology Upgrading Project",
+      organizationName: user?.name
+        ? `${user.name} Organization`
+        : "DOST Proponent Enterprise",
+      program: activeProgram,
+      status: "Draft Submitted",
+      submittedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      contactName: user?.name ?? "Proponent Representative",
+      contactEmail: user?.email ?? "proponent@example.com",
+      contactNumber: "09171234567",
+    };
+  }, [baseApplication, activeProgram, user]);
+
+  const [liveSetupProposal, setLiveSetupProposal] = useState<SetupProposalData | null>(null);
+  const [liveGiaProposal, setLiveGiaProposal] = useState<GiaProposalData | null>(null);
+
+  useEffect(() => {
+    if (!activeApplication) return;
+    if (activeApplication.program === "SETUP") {
+      setLiveSetupProposal(getSetupDraft() ?? getSetupProposal(activeApplication.referenceNo));
+    } else {
+      setLiveGiaProposal(getGiaDraft() ?? getGiaProposal(activeApplication.referenceNo));
+    }
+  }, [activeApplication]);
+
   const requirements = useMemo(
     () =>
       activeApplication
         ? getDocumentaryRequirements(
             activeApplication.program,
-            setupProposal?.organizationType,
-            giaProposal?.proponentCategory,
+            liveSetupProposal?.organizationType,
+            liveGiaProposal?.proponentCategory,
+            liveSetupProposal?.businessSize,
           )
         : [],
-    [activeApplication, giaProposal?.proponentCategory, setupProposal?.organizationType],
+    [activeApplication, liveGiaProposal?.proponentCategory, liveSetupProposal?.businessSize, liveSetupProposal?.organizationType],
   );
 
   useEffect(() => {
@@ -160,21 +187,53 @@ export function DocumentaryRequirementsPage() {
     setQuery("");
   }, [activeApplication]);
 
-  const requiredRequirements = requirements.filter(
-    (requirement) => requirement.required,
+  const requiredRequirements = useMemo(
+    () => requirements.filter((item) => item.required),
+    [requirements],
   );
   const completedRequiredCount = requiredRequirements.filter(
     (requirement) => documents[requirement.id],
   ).length;
-  const uploadedCount = requirements.filter(
-    (requirement) => documents[requirement.id],
-  ).length;
+
+  const overallProgressPercent = useMemo(() => {
+    if (!activeApplication) return 0;
+    let formFilled = 0;
+    let formTotal = 0;
+
+    if (activeApplication.program === "SETUP") {
+      if (liveSetupProposal) {
+        const requiredFields: (keyof SetupProposalData)[] = [
+          'projectTitle', 'businessName', 'businessAddress', 'contactPerson',
+          'contactNumber', 'emailAddress', 'organizationType', 'businessSize',
+          'businessIndustry', 'productsServices', 'existingProblems', 'proposedTechnologyIntervention'
+        ];
+        formTotal = requiredFields.length;
+        formFilled = requiredFields.filter(f => {
+          const v = liveSetupProposal[f];
+          return Array.isArray(v) ? v.length > 0 : Boolean(String(v ?? '').trim());
+        }).length;
+      }
+    } else {
+      if (liveGiaProposal) {
+        const requiredFields: (keyof GiaProposalData)[] = [
+          'proponentCategory', 'organizationName', 'officeAddress', 'projectLeader',
+          'contactNumber', 'emailAddress', 'projectTitle', 'projectSummary', 'generalObjective'
+        ];
+        formTotal = requiredFields.length;
+        formFilled = requiredFields.filter(f => Boolean(String(liveGiaProposal[f] ?? '').trim())).length;
+      }
+    }
+
+    const docsTotal = requiredRequirements.length;
+    const docsFilled = completedRequiredCount;
+    const total = formTotal + docsTotal;
+
+    if (total === 0) return 0;
+    return Math.min(100, Math.round(((formFilled + docsFilled) / total) * 100));
+  }, [activeApplication, liveSetupProposal, liveGiaProposal, requiredRequirements.length, completedRequiredCount]);
   const requiredComplete =
     requiredRequirements.length > 0 &&
     completedRequiredCount === requiredRequirements.length;
-  const progressPercent = requiredRequirements.length
-    ? Math.round((completedRequiredCount / requiredRequirements.length) * 100)
-    : 0;
   const normalizedQuery = query.trim().toLowerCase();
   const visibleRequirements = requirements.filter(
     (requirement) =>
@@ -241,96 +300,92 @@ export function DocumentaryRequirementsPage() {
     setMessage("File deleted. You can upload a replacement at any time.");
   }
 
-  function focusNextMissing() {
-    const nextRequirement = requiredRequirements.find(
-      (requirement) => !documents[requirement.id],
-    );
-    if (!nextRequirement) return;
-    document
-      .getElementById(`requirement-${nextRequirement.id}`)
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-  }
+  const handleStartApplication = (programType: "SETUP" | "GIA") => {
+    const referenceNo = `${programType}-${new Date().getFullYear()}-${Math.floor(
+      1000 + Math.random() * 9000,
+    )}`;
+    const newApp: ApplicationRecord = {
+      applicantName: user?.name || "Proponent User",
+      contactEmail: user?.email || "proponent@dost.gov.ph",
+      createdAt: new Date().toISOString(),
+      id: crypto.randomUUID(),
+      organizationName: "",
+      program: programType,
+      projectTitle:
+        programType === "SETUP"
+          ? "SETUP Technology Transfer & Upgrade Proposal"
+          : "GIA Research & Community Innovation Project",
+      referenceNo,
+      status: "Draft Submitted",
+    };
+    saveApplication(newApp);
+    window.location.reload();
+  };
 
   return (
     <div className="space-y-7 pb-4">
+
       <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0f53b7]">
-            Application Stage
+            {activeProgram === "GIA" ? "GIA Proposal Workspace" : "SETUP Application Workspace"}
           </p>
           <h1 className="mt-2 text-3xl font-black tracking-tight text-[#073b82] sm:text-4xl">
-            Supporting Documents
+            {activeProgram === "GIA" ? "My Proposal" : "My Application"}
           </h1>
         </div>
-        {activeApplication ? (
-          <span className="inline-flex w-fit rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-[#0f53b7]">
-            {activeApplication.program}{" "}
-            {isSampleSetupApplication(activeApplication.referenceNo)
-              ? "sample application"
-              : "application"}
-          </span>
-        ) : null}
       </header>
 
       {!activeApplication ? (
-        <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center shadow-sm">
-          <FileCheck2 className="mx-auto size-11 text-slate-300" />
-          <h2 className="mt-4 text-lg font-black text-slate-800">
-            Submit a proposal first
+        <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm sm:p-12">
+          <FileCheck2 className="mx-auto size-12 text-[#0f53b7]" />
+          <h2 className="mt-4 text-xl font-black text-slate-900">
+            No Active {activeProgram} Application
           </h2>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-            Supporting document uploads become available after proposal
-            submission.
+          <p className="mx-auto mt-2 max-w-md text-xs leading-6 text-slate-500">
+            You do not have an active proposal application. Click below to start your online proposal and document submission.
           </p>
-          <Link
-            className="mt-5 inline-flex h-11 items-center rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white"
-            to={registrationPath}
-          >
-            Register Proposal
-          </Link>
+          <div className="mt-6 flex items-center justify-center">
+            <button
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-xs font-bold text-white shadow-sm transition hover:bg-[#0d479e]"
+              onClick={() => handleStartApplication(activeProgram)}
+              type="button"
+            >
+              {activeProgram === "SETUP" ? "Submit SETUP Application" : "Submit GIA Proposal"}
+            </button>
+          </div>
         </div>
       ) : (
         <>
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-7">
-            <div className="flex flex-col gap-5 border-b border-slate-100 pb-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-mono text-xs font-bold text-[#0f53b7]">
-                    {activeApplication.referenceNo}
-                  </p>
-                  {isSampleSetupApplication(activeApplication.referenceNo) ? (
-                    <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-amber-700">
-                      Sample data
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div className="min-w-[280px] flex-1">
+                <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
+                  <span className="text-base font-black text-[#073b82]">
+                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application — {activeApplication.status === "Draft Submitted" ? "Stage 1: Proposal & Documents" : "Stage 2: DOST Initial Review"}
+                  </span>
+                  {activeApplication.status === "Draft Submitted" ? (
+                    <span className="font-mono text-xs font-bold text-[#0f53b7]">{overallProgressPercent}% Overall Progress</span>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                      ✓ Submitted
                     </span>
-                  ) : null}
+                  )}
                 </div>
-                <h2 className="mt-1 truncate text-lg font-black text-slate-900">
-                  {activeApplication.projectTitle}
-                </h2>
+                {activeApplication.status === "Draft Submitted" ? (
+                  <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/60">
+                    <div
+                      className="h-full rounded-full bg-[#0f53b7] transition-all duration-300"
+                      style={{ width: `${overallProgressPercent}%` }}
+                    />
+                  </div>
+                ) : null}
               </div>
-              {applications.length > 1 ? (
-                <label className="block w-full max-w-md text-xs font-bold text-slate-600">
-                  Select proposal
-                  <select
-                    className="mt-2 h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-800 outline-none focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
-                    onChange={(event) =>
-                      setSearchParams({ proposal: event.target.value })
-                    }
-                    value={activeApplication.referenceNo}
-                  >
-                    {applications.map((application) => (
-                      <option
-                        key={application.id}
-                        value={application.referenceNo}
-                      >
-                        {application.referenceNo} — {application.projectTitle}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              {activeApplication.status === "Draft Submitted" ? (
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0">
+                  <Check className="size-3.5 text-emerald-600" />
+                  <span>Draft saved</span>
+                </div>
               ) : null}
             </div>
             <div className="pt-6">
@@ -342,51 +397,42 @@ export function DocumentaryRequirementsPage() {
             </div>
           </section>
 
-          {requirements.length ? (
+          {/* Stage 2+ Review / DOST Initial Review Stage View */}
+          {activeApplication.status !== "Draft Submitted" ? (
+            <InitialReviewStageCard application={activeApplication} />
+          ) : (
             <>
-              <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-6">
-                <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)] lg:items-center">
-                  <div>
-                    <div className="flex items-center justify-between gap-4 text-sm font-bold text-slate-700">
-                      <span>Required upload progress</span>
-                      <span className="text-[#0f53b7]">
-                        {completedRequiredCount} of{" "}
-                        {requiredRequirements.length} complete
-                      </span>
-                    </div>
-                    <div
-                      className="mt-3 h-3 overflow-hidden rounded-full bg-slate-100"
-                      role="progressbar"
-                      aria-label="Required supporting documents uploaded"
-                      aria-valuemax={100}
-                      aria-valuemin={0}
-                      aria-valuenow={progressPercent}
-                    >
-                      <div
-                        className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-slate-500">
-                      {uploadedCount} file{uploadedCount === 1 ? "" : "s"}{" "}
-                      uploaded · PDF, DOCX, JPG or PNG · Maximum 2 MB
-                    </p>
-                  </div>
-                  <label className="relative block">
-                    <span className="sr-only">
-                      Search supporting document checklist
-                    </span>
-                    <Search className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                    <input
-                      className="h-12 w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:bg-white focus:ring-4 focus:ring-blue-100"
-                      onChange={(event) => setQuery(event.target.value)}
-                      placeholder="Search the checklist"
-                      type="search"
-                      value={query}
-                    />
-                  </label>
-                </div>
+              {/* Stage 1: Continuous Single Page Layout (Proposal Form + Attached Documents) */}
+              <section className="space-y-6">
+                {activeApplication.program === "GIA" ? (
+                  <GiaProposalForm onDraftChange={setLiveGiaProposal} />
+                ) : (
+                  <SetupProposalForm onDraftChange={setLiveSetupProposal} />
+                )}
               </section>
+
+          {/* Attached Documents Section (Lower Page Divider) */}
+          {requirements.length ? (
+            <div className="mt-8 space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 pt-6">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">Attached Documentary Requirements</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Upload required supporting documents to accompany your proposal submission.</p>
+                </div>
+                <label className="relative block w-full sm:w-72">
+                  <span className="sr-only">
+                    Search supporting document checklist
+                  </span>
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:bg-white focus:ring-4 focus:ring-blue-100"
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search required documents..."
+                    type="search"
+                    value={query}
+                  />
+                </label>
+              </div>
 
               {message ? (
                 <div
@@ -437,19 +483,24 @@ export function DocumentaryRequirementsPage() {
                         </div>
                         {group === "Corporation / Cooperative Documents" ? (
                           <span className="w-fit rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-bold text-indigo-700">
-                            Required for {setupProposal?.organizationType}
+                            Required for Corporations / Cooperatives
                           </span>
                         ) : null}
-                        {group === "Category-specific Documents" ? (
+                        {group === "Additional Documents" && activeProgram === "GIA" && liveGiaProposal?.proponentCategory ? (
                           <span className="w-fit rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">
-                            Required for {giaProposal?.proponentCategory}
+                            Required for {liveGiaProposal.proponentCategory}
                           </span>
                         ) : null}
                       </div>
 
-                      <div className="hidden grid-cols-[minmax(0,1.7fr)_170px_minmax(310px,1fr)] gap-5 border-y border-slate-100 bg-white px-6 py-3 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 lg:grid">
+                      {group === "Financial Documents" ? (
+                        <div className="border-t border-blue-100 bg-blue-50/70 px-5 py-3 text-xs leading-5 text-[#073b82] sm:px-6">
+                          <span className="font-bold">Official Requirement Note:</span> Financial Statements for the past three (3) years for Small and Medium enterprises and at least one (1) year for microenterprises together with notarized Sworn Statement from the proponent that all information provided are correct and true.
+                        </div>
+                      ) : null}
+
+                      <div className="hidden grid-cols-[minmax(0,1.7fr)_minmax(310px,1fr)] gap-5 border-y border-slate-100 bg-white px-6 py-3 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 lg:grid">
                         <span>Document name</span>
-                        <span>Upload date</span>
                         <span>Verification and actions</span>
                       </div>
 
@@ -463,13 +514,16 @@ export function DocumentaryRequirementsPage() {
                             draggingRequirement === requirement.id;
                           const isUploading =
                             uploadingRequirement === requirement.id;
+                          const isMissingRequired = !storedDocument && requirement.required;
 
                           return (
                             <article
                               className={cn(
-                                "grid gap-4 px-5 py-5 transition sm:px-6 lg:grid-cols-[minmax(0,1.7fr)_170px_minmax(310px,1fr)] lg:items-center lg:gap-5",
+                                "grid gap-4 px-5 py-5 transition sm:px-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(310px,1fr)] lg:items-center lg:gap-5",
                                 isDragging &&
                                   "bg-blue-50 ring-2 ring-inset ring-[#0f53b7]",
+                                isMissingRequired &&
+                                  "bg-red-50/40 border-l-4 border-l-red-500",
                               )}
                               id={`requirement-${requirement.id}`}
                               key={requirement.id}
@@ -500,7 +554,9 @@ export function DocumentaryRequirementsPage() {
                                     "mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border-2",
                                     storedDocument
                                       ? "border-emerald-500 bg-emerald-500 text-white"
-                                      : "border-slate-200 text-slate-300",
+                                      : isMissingRequired
+                                        ? "border-red-400 bg-red-50 text-red-500"
+                                        : "border-slate-200 text-slate-300",
                                   )}
                                 >
                                   {storedDocument ? (
@@ -514,7 +570,7 @@ export function DocumentaryRequirementsPage() {
                                     {requirement.title}
                                     {requirement.required ? (
                                       <span
-                                        className="ml-1 text-red-600"
+                                        className="ml-1 text-red-600 font-extrabold"
                                         aria-label="required"
                                       >
                                         *
@@ -525,9 +581,13 @@ export function DocumentaryRequirementsPage() {
                                       </span>
                                     )}
                                   </h3>
-                                  {compactNotes[requirement.id] ? (
+                                  {requirement.instructions ? (
                                     <p className="mt-1 text-xs leading-5 text-slate-500">
-                                      {compactNotes[requirement.id]}
+                                      {requirement.instructions}
+                                    </p>
+                                  ) : requirement.description ? (
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">
+                                      {requirement.description}
                                     </p>
                                   ) : null}
                                   {storedDocument ? (
@@ -542,34 +602,34 @@ export function DocumentaryRequirementsPage() {
                                 </div>
                               </div>
 
-                              <div>
-                                <p className="text-[11px] font-black uppercase tracking-[0.08em] text-slate-400 lg:hidden">
-                                  Upload date
-                                </p>
-                                <p
-                                  className={cn(
-                                    "mt-1 text-xs font-semibold lg:mt-0",
-                                    storedDocument
-                                      ? "text-slate-700"
-                                      : "text-slate-400",
-                                  )}
-                                >
-                                  {formatUploadDate(storedDocument?.uploadedAt)}
-                                </p>
-                              </div>
-
                               <div className="space-y-3">
-                                <span
-                                  className={cn(
-                                    "inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold",
-                                    statusClasses[status],
-                                  )}
-                                >
-                                  {status === "Not Uploaded"
-                                    ? "Pending"
-                                    : status}
-                                </span>
+                                {isMissingRequired ? (
+                                  <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-700 border border-red-200">
+                                    Required — Not Uploaded
+                                  </span>
+                                ) : status !== "Not Uploaded" && status !== "Uploaded" ? (
+                                  <span
+                                    className={cn(
+                                      "inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold",
+                                      statusClasses[status],
+                                    )}
+                                  >
+                                    {status}
+                                  </span>
+                                ) : null}
                                 <div className="flex flex-wrap gap-2">
+                                  {requirement.templateUrl ? (
+                                    <a
+                                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-[#0f53b7] transition hover:bg-blue-100"
+                                      download
+                                      href={requirement.templateUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                    >
+                                      <Download className="size-3.5" />
+                                      Download Template
+                                    </a>
+                                  ) : null}
                                   <label
                                     className={cn(
                                       "inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white transition hover:bg-[#0b3f8b]",
@@ -656,58 +716,77 @@ export function DocumentaryRequirementsPage() {
                 ) : null}
               </div>
 
-              <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={cn(
-                      "grid size-10 shrink-0 place-items-center rounded-full",
-                      requiredComplete
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-blue-50 text-[#0f53b7]",
-                    )}
-                  >
-                    {requiredComplete ? (
-                      <CheckCircle2 className="size-5" />
-                    ) : (
-                      <FileUp className="size-5" />
-                    )}
-                  </span>
-                  <div>
-                    <p className="text-sm font-black text-slate-900">
-                      {requiredComplete
-                        ? "Final document upload complete"
-                        : `${requiredRequirements.length - completedRequiredCount} document${requiredRequirements.length - completedRequiredCount === 1 ? "" : "s"} still needed`}
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {requiredComplete
-                        ? "Your application is ready for DOST initial review."
-                        : "Complete the checklist for final submission."}
-                    </p>
-                  </div>
-                </div>
-                {requiredComplete ? (
-                  <Link
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white"
-                    to="/dashboard/application-status"
-                  >
-                    View Application Status
-                    <ArrowRight className="size-4" />
-                  </Link>
-                ) : (
-                  <button
-                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white"
-                    onClick={focusNextMissing}
-                    type="button"
-                  >
-                    Submit Documents
-                    <FileUp className="size-4" />
-                  </button>
-                )}
+              <div className="flex justify-end pt-4 pb-8">
+                <button
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md hover:bg-[#0d479e] transition hover:shadow-lg"
+                  onClick={() => {
+                    if (!activeApplication) return;
+                    const missingRequiredDocs = requiredRequirements.filter(
+                      (req) => !documents[req.id]
+                    );
+
+                    if (missingRequiredDocs.length > 0 || !requiredComplete) {
+                      const firstMissing = missingRequiredDocs[0];
+                      const missingTitles = missingRequiredDocs.map((d) => d.title).join(", ");
+                      setMessage(`⚠️ Cannot submit application. Please upload the following required document${missingRequiredDocs.length === 1 ? '' : 's'}: ${missingTitles}`);
+                      
+                      if (firstMissing) {
+                        const targetEl = document.getElementById(`requirement-${firstMissing.id}`);
+                        if (targetEl) {
+                          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                          return;
+                        }
+                      }
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      return;
+                    }
+                    const updatedApp: ApplicationRecord = {
+                      ...activeApplication,
+                      status: "Under review",
+                    };
+                    saveApplication(updatedApp);
+                    updateApplicationStatus(activeApplication.referenceNo, "Under review");
+                    Swal.fire({
+                      title: "Application Submitted Successfully!",
+                      html: `
+                        <div style="font-family: sans-serif; text-align: center;" class="space-y-3">
+                          <p style="font-size: 13px; color: #475569; margin-top: 8px;">
+                            Your application (<strong style="font-family: monospace; color: #0f53b7;">${activeApplication.referenceNo}</strong>) has been officially submitted to DOST PSTO.
+                          </p>
+                          <div style="background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 16px; padding: 16px; text-align: left; margin-top: 14px;">
+                            <p style="font-size: 12px; font-weight: 700; color: #073b82; margin: 0 0 4px 0;">
+                              Stage 2 Active: DOST Initial Review
+                            </p>
+                            <p style="font-size: 11px; color: #475569; margin: 0; line-height: 1.5;">
+                              ${
+                                activeApplication.program === "SETUP"
+                                  ? "Your application is scheduled for a Technology Needs Assessment (TNA) site visit by DOST PSTO."
+                                  : "Your GIA proposal is currently under technical review by the DOST evaluation committee."
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      `,
+                      icon: "success",
+                      showConfirmButton: false,
+                      timer: 1600,
+                      timerProgressBar: true,
+                    }).then(() => {
+                      window.location.reload();
+                    });
+                  }}
+                  type="button"
+                >
+                  Submit Application
+                  <ArrowRight className="size-4" />
+                </button>
               </div>
-            </>
+            </div>
           ) : null}
         </>
       )}
+    </>
+  )}
     </div>
   );
 }

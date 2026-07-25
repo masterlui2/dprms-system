@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Eye, Filter, MessageSquare } from "lucide-react";
+import { Eye, Filter, Check } from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { AdminPanel } from "../../components/admin/AdminPanel";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
@@ -8,60 +8,66 @@ import {
   type ReviewSection,
 } from "../../components/admin/ProposalReviewModal";
 import {
-  formatCurrency,
-  getProposalReviewStatus,
   proposalRecords,
   type ProposalRecord,
-  type ProposalReviewStatus,
 } from "../../data/admin";
 import { cn } from "../../utils/cn";
-
-const statusFilters: Array<"All" | ProposalReviewStatus> = [
-  "All",
-  "Submitted",
-  "Document Validation",
-  "Technical Review",
-  "Finance Review",
-  "Executive Approval",
-  "Approved",
-  "Disapproved",
-];
+import { getApplications } from "../../services/applicationStore";
 
 const programFilters = [
-  { label: "All programs", value: "all" },
-  { label: "GIA", value: "GIA" },
-  { label: "SETUP", value: "SETUP" },
+  { label: "All Programs", value: "all" },
+  { label: "SETUP Program", value: "SETUP" },
+  { label: "GIA Program", value: "GIA" },
 ];
 
-function proposalStatusClass(status: ProposalReviewStatus): string {
-  if (status === "Approved") return "text-emerald-700";
-  if (status === "Disapproved") return "text-red-600";
-  if (status === "Submitted") return "text-slate-600";
-  if (status === "Document Validation") return "text-amber-700";
-  return "text-[#0f53b7]";
-}
-
 export function ApprovalsPage() {
-  const [statusFilter, setStatusFilter] =
-    useState<(typeof statusFilters)[number]>("All");
   const [program, setProgram] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [review, setReview] = useState<{
     proposal: ProposalRecord;
     section: ReviewSection;
   } | null>(null);
-  const activeFilterCount =
-    (statusFilter === "All" ? 0 : 1) + (program === "all" ? 0 : 1);
-  const filteredProposals = proposalRecords.filter(
-    (proposal) => {
-      const reviewStatus = getProposalReviewStatus(proposal);
 
-      return (
-        (statusFilter === "All" || reviewStatus === statusFilter) &&
-        (program === "all" || proposal.program === program)
-      );
-    },
-  );
+  const applications = getApplications();
+  const applicationProposals: ProposalRecord[] = applications.map((app) => {
+    let stage: 0 | 1 | 2 | 3 | 4 = 1;
+    if (app.status === 'Submitted' || app.status === 'Draft Submitted') stage = 0;
+    else if (app.status === 'Under review') stage = 1;
+    else if (app.status === 'Technical evaluation') stage = 2;
+    else if (app.status === 'In Process' || app.status === 'Executive Approval') stage = 3;
+    else if (app.status === 'Approved') stage = 4;
+
+    let status: 'Pending' | 'Under review' | 'Approved' | 'Rejected' = 'Under review';
+    if (app.status === 'Approved') status = 'Approved';
+    else if (app.status === 'Returned for Revision') status = 'Rejected';
+    else if (stage === 0) status = 'Pending';
+
+    return {
+      amount: 1500000,
+      completeness: 100,
+      id: app.referenceNo,
+      organization: app.organizationName,
+      organizationType: app.program === 'GIA' ? 'HEI / SUC / LGU Proponent' : 'MSME Enterprise (Private Sector)',
+      proponentName: app.applicantName || 'Maria Proponent',
+      proponentRole: app.program === 'GIA' ? 'Project Leader / Researcher' : 'Authorized Enterprise Representative',
+      program: app.program,
+      reviewer: app.program === 'GIA' ? 'CEST Focal Officer' : 'SSCP Focal Officer',
+      stage,
+      status,
+      submitted: new Date(app.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      title: app.projectTitle,
+    };
+  });
+
+  // Combine live submitted applications with mock proposals (avoid duplicates by id)
+  const combinedProposals = [
+    ...applicationProposals,
+    ...proposalRecords.filter((p) => !applicationProposals.some((ap) => ap.id === p.id)),
+  ];
+
+  const filteredProposals = combinedProposals.filter((proposal) => {
+    return program === "all" || proposal.program === program;
+  });
 
   function openReview(proposal: ProposalRecord, section: ReviewSection) {
     setReview({ proposal, section });
@@ -70,23 +76,48 @@ export function ApprovalsPage() {
   const columns: DataColumn<ProposalRecord>[] = [
     {
       id: "id",
-      header: "ID",
+      header: "Application Ref",
       sortValue: (proposal) => proposal.id,
       render: (proposal) => (
-        <span className="font-mono text-xs text-slate-500">{proposal.id}</span>
+        <span className="font-mono text-xs font-bold text-[#0f53b7]">{proposal.id}</span>
       ),
     },
     {
-      id: "applicant",
-      header: "Applicant",
-      sortValue: (proposal) => proposal.organization,
+      id: "proponent",
+      header: "Submitting Proponent",
+      sortValue: (proposal) => proposal.proponentName ?? proposal.organization,
       render: (proposal) => (
         <div>
-          <p className="font-bold text-slate-900">{proposal.organization}</p>
-          <p className="mt-1 max-w-52 truncate text-xs text-slate-500">
-            {proposal.title}
+          <p className="font-bold text-slate-900">
+            {proposal.proponentName ?? "Maria Proponent"}
+          </p>
+          <p className="mt-0.5 text-xs text-slate-500 font-medium">
+            {proposal.proponentRole ?? "Authorized Representative"}
           </p>
         </div>
+      ),
+    },
+    {
+      id: "organization",
+      header: "Firm / Office & Category",
+      sortValue: (proposal) => proposal.organization,
+      render: (proposal) => (
+        <div className="space-y-1">
+          <p className="font-bold text-slate-900 text-xs sm:text-sm">{proposal.organization}</p>
+          <span className="inline-flex rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-extrabold text-[#073b82] border border-blue-100">
+            {proposal.organizationType ?? (proposal.program === "SETUP" ? "Cooperative (Private Sector)" : "HEI / SUC")}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: "title",
+      header: "Project Title",
+      sortValue: (proposal) => proposal.title,
+      render: (proposal) => (
+        <p className="max-w-xs font-semibold text-xs leading-snug text-slate-800">
+          {proposal.title}
+        </p>
       ),
     },
     {
@@ -94,77 +125,37 @@ export function ApprovalsPage() {
       header: "Program",
       sortValue: (proposal) => proposal.program,
       render: (proposal) => (
-        <span className="font-semibold text-slate-700">{proposal.program}</span>
-      ),
-    },
-    {
-      id: "amount",
-      header: "Amount",
-      sortValue: (proposal) => proposal.amount,
-      render: (proposal) => (
-        <span className="whitespace-nowrap font-semibold tabular-nums text-slate-800">
-          {formatCurrency(proposal.amount)}
+        <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-[#073b82] ring-1 ring-slate-200">
+          {proposal.program}
         </span>
       ),
     },
     {
       id: "submitted",
-      header: "Submitted",
+      header: "Date Received",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
-        <span className="whitespace-nowrap text-slate-600">
+        <span className="whitespace-nowrap text-xs font-medium text-slate-600">
           {proposal.submitted}
         </span>
       ),
-    },
-    {
-      id: "status",
-      header: "Review Status",
-      sortValue: (proposal) => getProposalReviewStatus(proposal),
-      render: (proposal) => {
-        const reviewStatus = getProposalReviewStatus(proposal);
-
-        return (
-          <span
-            className={cn(
-              "inline-flex rounded-lg bg-slate-50 px-2.5 py-1 text-xs font-black",
-              proposalStatusClass(reviewStatus),
-            )}
-          >
-            {reviewStatus}
-          </span>
-        );
-      },
     },
     {
       id: "action",
       header: "Action",
       className: "text-right whitespace-nowrap",
       render: (proposal) => (
-        <div className="flex justify-end gap-1">
+        <div className="flex justify-end">
           <button
-            aria-label={`Review ${proposal.id}`}
-            className="inline-flex size-8 items-center justify-center rounded-lg text-[#0f53b7] transition hover:bg-blue-50"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0b3f8b] transition hover:shadow-md"
             onClick={(event) => {
               event.stopPropagation();
               openReview(proposal, "overview");
             }}
-            title="Review proposal"
             type="button"
           >
-            <Eye className="size-4" />
-          </button>
-          <button
-            aria-label={`Comment on ${proposal.id}`}
-            className="inline-flex size-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-blue-50 hover:text-[#0f53b7]"
-            onClick={(event) => {
-              event.stopPropagation();
-              openReview(proposal, "comments");
-            }}
-            title="Reviewer comment"
-            type="button"
-          >
-            <MessageSquare className="size-4" />
+            <Eye className="size-3.5" />
+            Review Application
           </button>
         </div>
       ),
@@ -174,121 +165,70 @@ export function ApprovalsPage() {
   return (
     <div className="space-y-7">
       <AdminPageHeader
-        description=""
-        eyebrow="Proposal Management"
-        title="Proposal Reviews"
+        description="View and cater incoming proposal submissions from SETUP and GIA program applicants."
+        eyebrow="Application Intake"
+        title="Incoming Applications"
       />
 
       <AdminPanel
-        description={`${filteredProposals.length} proposals match the selected review filters.`}
-        title="Proposal review queue"
+        description={`${filteredProposals.length} applications received across GIA and SETUP programs.`}
+        title="Applications Received"
       >
         <DataTable
           columns={columns}
           data={filteredProposals}
-          emptyDescription="No proposals match the selected status or program."
-          emptyTitle="No proposals to review"
+          emptyDescription="No applications match the selected filter."
+          emptyTitle="No applications found"
           getRowKey={(proposal) => proposal.id}
           onRowClick={(proposal) => openReview(proposal, "overview")}
-          searchPlaceholder="Search proposal ID, title, applicant, or reviewer..."
+          searchPlaceholder="Search application ref, proponent, office, or project title..."
           searchText={(proposal) =>
-            `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.program} ${proposal.reviewer} ${getProposalReviewStatus(proposal)}`
+            `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.proponentName ?? ''} ${proposal.organizationType ?? ''} ${proposal.program}`
           }
           toolbar={
             <div className="relative">
               <button
                 aria-expanded={filtersOpen}
-                aria-label="Filter proposals"
-                className="relative inline-flex size-10 items-center justify-center rounded-lg border border-[#d8e1ee] bg-white text-[#073b82] shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                aria-label="Filter by Program"
+                className="relative inline-flex items-center gap-2 rounded-xl border border-[#d8e1ee] bg-white px-3.5 py-2 text-xs font-bold text-[#073b82] shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
                 onClick={() => setFiltersOpen((open) => !open)}
-                title="Filter proposals"
                 type="button"
               >
-                <Filter className="size-4" />
-                {activeFilterCount > 0 ? (
-                  <span className="absolute -right-1 -top-1 grid size-5 place-items-center rounded-full bg-[#f4c542] text-[11px] font-black text-[#073b82]">
-                    {activeFilterCount}
-                  </span>
-                ) : null}
+                <Filter className="size-3.5" />
+                <span>{program === "all" ? "Filter Program" : program}</span>
               </button>
 
               {filtersOpen ? (
-                <div className="absolute right-0 top-12 z-30 w-[320px] overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-xl shadow-slate-900/10">
-                  <div className="border-b border-slate-100 px-4 py-3">
-                    <p className="text-sm font-black text-[#073b82]">
-                      Filter proposals
-                    </p>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      Narrow the review queue by status or program.
+                <div className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-xl shadow-slate-900/10">
+                  <div className="border-b border-slate-100 px-4 py-2.5">
+                    <p className="text-xs font-black text-[#073b82]">
+                      Filter by Program
                     </p>
                   </div>
 
-                  <div className="p-3">
-                    <p className="px-1 pb-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                      Review status
-                    </p>
-                    <div className="grid gap-1">
-                      {statusFilters.map((item) => (
-                        <button
-                          className={cn(
-                            "flex min-h-9 items-center justify-between gap-3 rounded-lg px-3 text-left text-sm font-bold transition",
-                            statusFilter === item
-                              ? "bg-blue-50 text-[#073b82]"
-                              : "text-slate-600 hover:bg-slate-50",
-                          )}
-                          key={item}
-                          onClick={() => setStatusFilter(item)}
-                          type="button"
-                        >
-                          <span>{item}</span>
-                          {statusFilter === item ? (
-                            <Check className="size-4" />
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="border-t border-slate-100 p-3">
-                    <p className="px-1 pb-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                      Program
-                    </p>
-                    <div className="grid gap-1">
-                      {programFilters.map((item) => (
-                        <button
-                          className={cn(
-                            "flex h-9 items-center justify-between gap-3 rounded-lg px-3 text-left text-sm font-bold transition",
-                            program === item.value
-                              ? "bg-blue-50 text-[#073b82]"
-                              : "text-slate-600 hover:bg-slate-50",
-                          )}
-                          key={item.value}
-                          onClick={() => setProgram(item.value)}
-                          type="button"
-                        >
-                          <span>{item.label}</span>
-                          {program === item.value ? (
-                            <Check className="size-4" />
-                          ) : null}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {activeFilterCount > 0 ? (
-                    <div className="border-t border-slate-100 bg-slate-50 px-3 py-3">
+                  <div className="p-2 space-y-1">
+                    {programFilters.map((item) => (
                       <button
-                        className="h-9 w-full rounded-lg text-sm font-black text-[#073b82] transition hover:bg-white"
+                        className={cn(
+                          "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold transition",
+                          program === item.value
+                            ? "bg-blue-50 text-[#073b82]"
+                            : "text-slate-600 hover:bg-slate-50",
+                        )}
+                        key={item.value}
                         onClick={() => {
-                          setStatusFilter("All");
-                          setProgram("all");
+                          setProgram(item.value);
+                          setFiltersOpen(false);
                         }}
                         type="button"
                       >
-                        Clear filters
+                        <span>{item.label}</span>
+                        {program === item.value ? (
+                          <Check className="size-3.5 text-[#0f53b7]" />
+                        ) : null}
                       </button>
-                    </div>
-                  ) : null}
+                    ))}
+                  </div>
                 </div>
               ) : null}
             </div>

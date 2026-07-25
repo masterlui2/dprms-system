@@ -5,38 +5,83 @@ import type { SampleDocument } from "./types";
 
 interface ProposalDocumentsSectionProps {
   documents: SampleDocument[];
+  dostFormsCompleted?: boolean;
+  onFulfillDostForms?: () => void;
   onSelectDocument: (document: SampleDocument) => void;
   selectedDocument: SampleDocument | null;
 }
 
 export function ProposalDocumentsSection({
   documents,
+  dostFormsCompleted = false,
+  onFulfillDostForms,
   onSelectDocument,
   selectedDocument,
 }: ProposalDocumentsSectionProps) {
-  const checklist = documents.map((document, index) => ({
+  const proponentChecklist = documents.map((document, index) => ({
     document,
     note:
       index === documents.length - 1
         ? "For content review during technical assessment."
         : "File received and ready for validation.",
     status: index === documents.length - 1 ? "For review" : "Validated",
+    type: "proponent" as const,
   }));
+
+  const dostInternalForms: Array<{ document: SampleDocument; note: string; status: "Validated" | "For review"; type: "dost" }> = [
+    {
+      document: {
+        name: "PSTO_Initial_Assessment_Report.pdf",
+        pages: 3,
+        size: "1.8 MB",
+        title: "DOST PSTO Initial Assessment & Evaluation Form",
+        updated: dostFormsCompleted ? "Just now" : "Pending Staff Upload",
+      },
+      note: "PSTO Focal / Staff technical recommendation form.",
+      status: dostFormsCompleted ? "Validated" : "For review",
+      type: "dost",
+    },
+    {
+      document: {
+        name: "Site_Verification_and_Equipment_Audit.pdf",
+        pages: 2,
+        size: "1.2 MB",
+        title: "Field Site Inspection & Verification Checklist",
+        updated: dostFormsCompleted ? "Just now" : "Pending Staff Upload",
+      },
+      note: "Internal verification report filled by DOST project personnel.",
+      status: dostFormsCompleted ? "Validated" : "For review",
+      type: "dost",
+    },
+  ];
+
+  const combinedChecklist = [...proponentChecklist, ...dostInternalForms];
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.3fr)]">
       <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-200 px-4 py-3">
-          <h3 className="flex items-center gap-2 font-black text-[#073b82]">
-            <FileCheck2 className="size-4" />
-            Document checklist
-          </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="flex items-center gap-2 font-black text-[#073b82]">
+              <FileCheck2 className="size-4" />
+              Document checklist & DOST Internal Forms
+            </h3>
+            {!dostFormsCompleted && onFulfillDostForms && (
+              <button
+                className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0f53b7] hover:bg-blue-100"
+                onClick={onFulfillDostForms}
+                type="button"
+              >
+                + Fulfill DOST Staff Forms
+              </button>
+            )}
+          </div>
           <p className="mt-1 text-xs text-slate-500">
-            Validate completeness and select a file to inspect its preview.
+            Validate completeness and inspect submitted documents & internal DOST evaluation forms.
           </p>
         </div>
         <div className="divide-y divide-slate-100">
-          {checklist.map(({ document, note, status }) => (
+          {combinedChecklist.map(({ document, note, status }) => (
             <button
               className={cn(
                 "flex w-full items-start gap-3 px-4 py-3 text-left transition hover:bg-blue-50",

@@ -2,7 +2,6 @@ import { ClipboardCheck } from 'lucide-react'
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { ProposalProgress } from '../../components/proponent/ProposalProgress'
-import { isSampleSetupApplication } from '../../data/sampleSetupProposal'
 import { getMockUser } from '../../lib/mockAuth'
 import { getDocumentaryRequirements, getDocuments } from '../../services/documentStore'
 import { getApplications } from '../../services/applicationStore'
@@ -14,9 +13,7 @@ export function ApplicationStatusPage() {
   const applications = getApplications()
   const application = applications.find((item) =>
     user?.applicationReference ? item.referenceNo === user.applicationReference : item.contactEmail.toLowerCase() === user?.email.toLowerCase(),
-  ) ?? (user?.program === 'SETUP'
-    ? applications.find((item) => isSampleSetupApplication(item.referenceNo))
-    : undefined)
+  )
   const documents = application ? getDocuments(application.referenceNo) : {}
   const setupProposal = application?.program === 'SETUP' ? getSetupProposal(application.referenceNo) : null
   const giaProposal = application?.program === 'GIA' ? getGiaProposal(application.referenceNo) : null

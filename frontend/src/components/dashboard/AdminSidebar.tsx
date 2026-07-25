@@ -94,67 +94,68 @@ function getSidebarItems(user: MockUser): Item[] {
   }
 
   const isGia = user.program === "GIA";
+  const programPrefix = isGia ? "/gia" : "/setup";
 
   return [
     {
       title: "Dashboard",
-      url: "/dashboard",
+      url: `${programPrefix}/dashboard`,
       icon: LayoutDashboard,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
-      title: isGia ? "My Proposal" : "My Proposals",
-      url: "/dashboard/my-application",
+      title: isGia ? "My Proposal" : "My Application",
+      url: isGia ? `${programPrefix}/dashboard/my-proposal` : `${programPrefix}/dashboard/my-application`,
       icon: FilePenLine,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
       title: "Documentary Requirements",
-      url: "/dashboard/documents",
+      url: `${programPrefix}/dashboard/documents`,
       icon: FileCheck2,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
       title: "Application Status",
-      url: "/dashboard/application-status",
+      url: `${programPrefix}/dashboard/application-status`,
       icon: ClipboardCheck,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
       title: "Project Monitoring",
-      url: "/dashboard/project-monitoring",
+      url: `${programPrefix}/dashboard/project-monitoring`,
       icon: Activity,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
       title: isGia ? "Accomplishment Reports" : "Equipment",
-      url: isGia ? "/dashboard/accomplishment-reports" : "/dashboard/equipment",
+      url: isGia ? `${programPrefix}/dashboard/accomplishment-reports` : `${programPrefix}/dashboard/equipment`,
       icon: isGia ? BarChart3 : PackageCheck,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
       title: isGia ? "Disbursement Tracking" : "Repayment / Billing",
-      url: "/dashboard/finance",
+      url: `${programPrefix}/dashboard/finance`,
       icon: ReceiptText,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
       title: "Notifications",
-      url: "/dashboard/notifications",
+      url: `${programPrefix}/dashboard/notifications`,
       icon: Bell,
       roles: ["applicant", "proponent"],
       enabled: true,
     },
     {
       title: "Profile",
-      url: "/dashboard/profile",
+      url: `${programPrefix}/dashboard/profile`,
       icon: UserCircle2,
       roles: ["applicant", "proponent"],
       enabled: true,

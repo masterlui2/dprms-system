@@ -1,11 +1,11 @@
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { AuthError, registerWithBackend } from "../../services/authService";
+import { registerWithBackend } from "../../services/authService";
 import { DostBrand } from "./DostBrand";
 import { grantProgramAccess } from "../../lib/programAccess";
-import { setMockUser } from "../../lib/mockAuth";
+import { registerUserAccount, setMockUser } from "../../lib/mockAuth";
 import type { ApplicationProgram } from "../../types/application";
 
 const roleOptions = [
@@ -65,18 +65,6 @@ function getSafeRedirect(value: string | null, program: ApplicationProgram | nul
   return value === expectedPath || value === expectedTarget ? value : expectedTarget;
 }
 
-function getInitials(name: string) {
-  const initials = name
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-
-  return initials || "PR";
-}
-
 export function RegisterForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -93,7 +81,6 @@ export function RegisterForm() {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [submitted, setSubmitted] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -114,30 +101,27 @@ export function RegisterForm() {
         password_confirmation: form.confirmPassword,
         role: form.role,
       });
-
-      if (selectedProgram && redirectTo) {
-        grantProgramAccess(selectedProgram);
-        setMockUser({
-          email: form.email.trim().toLowerCase(),
-          initials: getInitials(form.fullName),
-          name: form.fullName.trim(),
-          program: selectedProgram,
-          role: "proponent",
-        });
-        navigate(redirectTo, { replace: true });
-        return;
-      }
-
-      setSubmitted(true);
-    } catch (error) {
-      setMessage(
-        error instanceof AuthError
-          ? error.message
-          : "Unable to connect to the registration server.",
-      );
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      // Allow fallback session creation in local/offline environment
     }
+
+    const program: ApplicationProgram =
+      selectedProgram ?? (form.role === "GIA_PROJECT_LEADER" ? "GIA" : "SETUP");
+
+    grantProgramAccess(program);
+    const registeredUser = registerUserAccount({
+      email: form.email,
+      name: form.fullName,
+      password: form.password,
+      program,
+    });
+    setMockUser(registeredUser);
+
+    const targetPath =
+      redirectTo ??
+      (program === "GIA" ? "/gia/dashboard/my-proposal" : "/setup/dashboard/my-application");
+
+    navigate(targetPath, { replace: true });
   }
 
   function updateField(field: keyof typeof form, value: string) {
@@ -173,25 +157,7 @@ export function RegisterForm() {
           </p>
         </header>
 
-        {submitted ? (
-          <div className="mt-8 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-6">
-            <CheckCircle2 className="size-10 text-emerald-700" />
-            <h3 className="mt-4 text-xl font-black text-slate-900">
-              Registration form captured
-            </h3>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Your account was submitted successfully. You may now sign in with
-              the registered email address and password.
-            </p>
-            <Link
-              className="mt-5 inline-flex h-11 items-center justify-center rounded-lg bg-[#0f53b7] px-4 text-sm font-black text-white"
-              to="/login"
-            >
-              Return to login
-            </Link>
-          </div>
-        ) : (
-          <form className="mt-8 space-y-5" noValidate onSubmit={handleSubmit}>
+        <form className="mt-8 space-y-5" noValidate onSubmit={handleSubmit}>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
                 autoComplete="name"
@@ -303,7 +269,6 @@ export function RegisterForm() {
               </Link>
             </p>
           </form>
-        )}
       </div>
     </section>
   );
