@@ -148,6 +148,45 @@ function getInitials(name: string) {
   return `${first[0] ?? "B"}${second[0] ?? first[1] ?? "P"}`.toUpperCase();
 }
 
+export function registerUserAccount({
+  email,
+  name,
+  password,
+  program,
+}: {
+  email: string;
+  name: string;
+  password: string;
+  program: ApplicationProgram;
+}): MockUser {
+  const user: MockUser = {
+    email: email.trim().toLowerCase(),
+    initials: getInitials(name),
+    name: name.trim(),
+    program,
+    role: "proponent",
+  };
+
+  const accounts = getActivatedAccounts().filter(
+    (account) =>
+      normalizeCredentialEmail(account.credentials.email) !==
+      normalizeCredentialEmail(email),
+  );
+
+  saveActivatedAccounts([
+    {
+      credentials: {
+        email: email.trim().toLowerCase(),
+        password,
+      },
+      user,
+    },
+    ...accounts,
+  ]);
+
+  return user;
+}
+
 export function activateApplicantAccount({
   application,
   email,

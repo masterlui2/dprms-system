@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, FileText, RotateCcw, X, XCircle } from "lucide-react";
+import { Check, FileCheck2, FileText, Send, UserCheck, X } from "lucide-react";
 
-import {
-  getProposalReviewStatus,
-  type ProposalRecord,
-} from "../../data/admin";
+import type { ProposalRecord } from "../../data/admin";
+import { updateApplicationStatus } from "../../services/applicationStore";
 import { cn } from "../../utils/cn";
 import { ProposalCommentsSection } from "./proposal-review/ProposalCommentsSection";
 import { ProposalDocumentsSection } from "./proposal-review/ProposalDocumentsSection";
@@ -23,21 +21,35 @@ interface ProposalReviewModalProps {
 
 const reviewTabs: Array<[ReviewSection, string]> = [
   ["overview", "Overview"],
-  ["documents", "Document Checklist"],
+  ["documents", "Document Checklist & DOST Internal Forms"],
   ["comments", "Comments"],
 ];
 
 export function ProposalReviewModal({
   initialSection = "overview",
   onClose,
-  proposal,
+  proposal: initialProposal,
 }: ProposalReviewModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const [proposal, setProposal] = useState<ProposalRecord>(initialProposal);
   const [section, setSection] = useState<ReviewSection>(initialSection);
-  const [selectedDocument, setSelectedDocument] =
-    useState<SampleDocument | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<SampleDocument | null>(null);
+  const [dostFormsCompleted, setDostFormsCompleted] = useState(false);
+  const [workflowStage, setWorkflowStage] = useState<'initial_review' | 'in_process' | 'endorsed' | 'approved'>(() => {
+    if (initialProposal.status === 'Approved' || initialProposal.stage === 4) return 'approved';
+    if (initialProposal.stage === 3) return 'endorsed';
+    if (initialProposal.stage === 2) return 'in_process';
+    return 'initial_review';
+  });
+
   const documents = getProposalDocuments(proposal.program);
-  const reviewStatus = getProposalReviewStatus(proposal);
+  const reviewStatus = workflowStage === 'approved'
+    ? 'Approved'
+    : workflowStage === 'endorsed'
+    ? 'Executive Approval'
+    : workflowStage === 'in_process'
+    ? 'In Process'
+    : 'Document Validation';
 
   useEffect(() => {
     const previousActiveElement = document.activeElement as HTMLElement | null;
@@ -57,6 +69,28 @@ export function ProposalReviewModal({
       previousActiveElement?.focus();
     };
   }, [onClose]);
+
+  function handlePassToStaff() {
+    updateApplicationStatus(proposal.id, 'In Process');
+    setWorkflowStage('in_process');
+    setProposal((prev) => ({ ...prev, stage: 2, status: 'Under review' }));
+  }
+
+  function handleFulfillForms() {
+    setDostFormsCompleted(true);
+  }
+
+  function handleEndorseToDirector() {
+    updateApplicationStatus(proposal.id, 'Executive Approval');
+    setWorkflowStage('endorsed');
+    setProposal((prev) => ({ ...prev, stage: 3, status: 'Under review' }));
+  }
+
+  function handleApproveProposal() {
+    updateApplicationStatus(proposal.id, 'Approved');
+    setWorkflowStage('approved');
+    setProposal((prev) => ({ ...prev, stage: 4, status: 'Approved' }));
+  }
 
   return (
     <div
@@ -80,11 +114,9 @@ export function ProposalReviewModal({
                 tone={
                   reviewStatus === "Approved"
                     ? "success"
-                    : reviewStatus === "Disapproved"
-                      ? "danger"
-                      : reviewStatus === "Document Validation"
-                        ? "warning"
-                        : "info"
+                    : reviewStatus === "In Process" || reviewStatus === "Document Validation"
+                      ? "warning"
+                      : "info"
                 }
               >
                 {reviewStatus}
@@ -117,7 +149,7 @@ export function ProposalReviewModal({
         >
           {reviewTabs.map(([value, label]) => {
             const tabLabel =
-              value === "documents" ? `${label} (${documents.length})` : label;
+              value === "documents" ? `${label} (${documents.length + 2})` : label;
 
             return (
               <button
@@ -149,6 +181,8 @@ export function ProposalReviewModal({
           {section === "documents" ? (
             <ProposalDocumentsSection
               documents={documents}
+              dostFormsCompleted={dostFormsCompleted}
+              onFulfillDostForms={handleFulfillForms}
               onSelectDocument={setSelectedDocument}
               selectedDocument={selectedDocument}
             />
@@ -165,28 +199,60 @@ export function ProposalReviewModal({
           >
             Close review
           </button>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-red-600 hover:bg-red-50"
-              type="button"
-            >
-              <XCircle className="size-4" />
-              Disapprove
-            </button>
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 text-sm font-bold text-amber-900 hover:bg-amber-100"
-              type="button"
-            >
-              <RotateCcw className="size-4" />
-              Return for revision
-            </button>
-            <button
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white hover:bg-emerald-700"
-              type="button"
-            >
-              <Check className="size-4" />
-              Approve and endorse
-            </button>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {workflowStage === 'initial_review' && (
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0f53b7] px-4 text-sm font-bold text-white transition hover:bg-[#0b3f8b]"
+                onClick={handlePassToStaff}
+                type="button"
+              >
+                <Send className="size-4" />
+                Pass to Project Staff (In Process)
+              </button>
+            )}
+
+            {workflowStage === 'in_process' && (
+              <>
+                <button
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-bold text-[#073b82] transition hover:bg-blue-100"
+                  onClick={handleFulfillForms}
+                  type="button"
+                >
+                  <FileCheck2 className="size-4" />
+                  {dostFormsCompleted ? 'Internal DOST Forms Uploaded' : 'Fulfill Internal DOST Forms'}
+                </button>
+                <button
+                  className={cn(
+                    "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-white transition",
+                    dostFormsCompleted ? "bg-[#0f53b7] hover:bg-[#0b3f8b]" : "bg-slate-400 cursor-not-allowed"
+                  )}
+                  disabled={!dostFormsCompleted}
+                  onClick={handleEndorseToDirector}
+                  type="button"
+                >
+                  <UserCheck className="size-4" />
+                  Endorse to Provincial Director
+                </button>
+              </>
+            )}
+
+            {workflowStage === 'endorsed' && (
+              <button
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white transition hover:bg-emerald-700"
+                onClick={handleApproveProposal}
+                type="button"
+              >
+                <Check className="size-4" />
+                Provincial Director Approval
+              </button>
+            )}
+
+            {workflowStage === 'approved' && (
+              <span className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700">
+                <Check className="size-4" /> Approved & Endorsed by Provincial Director
+              </span>
+            )}
           </div>
         </footer>
       </div>

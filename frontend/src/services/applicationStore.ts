@@ -3,7 +3,6 @@ import type {
   ApplicationRecord,
   CreatedProjectRecord,
 } from '../types/application'
-import { sampleSetupApplication } from '../data/sampleSetupProposal'
 
 const APPLICATIONS_KEY = 'dprms.mock-applications'
 
@@ -12,16 +11,13 @@ function readApplications(): ApplicationRecord[] {
 
   const rawApplications = window.localStorage.getItem(APPLICATIONS_KEY)
 
-  if (!rawApplications) return [sampleSetupApplication]
+  if (!rawApplications) return []
 
   try {
-    const applications = JSON.parse(rawApplications) as ApplicationRecord[]
-    return applications.some((application) => application.id === sampleSetupApplication.id)
-      ? applications
-      : [...applications, sampleSetupApplication]
+    return JSON.parse(rawApplications) as ApplicationRecord[]
   } catch {
     window.localStorage.removeItem(APPLICATIONS_KEY)
-    return [sampleSetupApplication]
+    return []
   }
 }
 
@@ -42,7 +38,7 @@ export function updateApplicationStatus(
 ) {
   const applications = readApplications()
   const application = applications.find((item) => item.referenceNo === referenceNo)
-  if (!application || application.status === 'Approved' || application.status === 'Returned for Revision') return
+  if (!application) return
   writeApplications(
     applications.map((item) => item.referenceNo === referenceNo ? { ...item, status } : item),
   )

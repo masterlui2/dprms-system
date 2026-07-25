@@ -123,27 +123,29 @@ function AccountDropdown({
   user: MockUser;
 }) {
   const isProponent = user.role === "proponent" || user.role === "applicant";
+  const isGia = user.program === "GIA";
+  const programPrefix = isGia ? "/gia" : "/setup";
   const profile = getProponentProfile(user);
   const moduleItems = [
-    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
+    { icon: LayoutDashboard, label: "Dashboard", to: `${programPrefix}/dashboard` },
     {
       icon: FilePenLine,
-      label: "My Proposals",
-      to: "/dashboard/my-application",
+      label: isGia ? "My Proposal" : "My Application",
+      to: isGia ? "/gia/dashboard/my-proposal" : "/setup/dashboard/my-application",
     },
     {
       icon: Activity,
       label: "Project Monitoring",
-      to: "/dashboard/project-monitoring",
+      to: `${programPrefix}/dashboard/project-monitoring`,
     },
-    { icon: PackageCheck, label: "Equipment", to: "/dashboard/equipment" },
+    { icon: PackageCheck, label: isGia ? "Accomplishment Reports" : "Equipment", to: isGia ? `${programPrefix}/dashboard/accomplishment-reports` : `${programPrefix}/dashboard/equipment` },
     {
       icon: ReceiptText,
-      label: "Repayment / Billing",
-      to: "/dashboard/finance",
+      label: isGia ? "Disbursement Tracking" : "Repayment / Billing",
+      to: `${programPrefix}/dashboard/finance`,
     },
-    { icon: Bell, label: "Notifications", to: "/dashboard/notifications" },
-    { icon: User, label: "Profile", to: "/dashboard/profile" },
+    { icon: Bell, label: "Notifications", to: `${programPrefix}/dashboard/notifications` },
+    { icon: User, label: "Profile", to: `${programPrefix}/dashboard/profile` },
   ];
 
   return (

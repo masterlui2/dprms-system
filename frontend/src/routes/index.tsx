@@ -9,8 +9,6 @@ import { NotFound } from '../pages/NotFound'
 import { ProgramLanding } from '../pages/ProgramLanding'
 import { ProposalSubmission } from '../pages/ProposalSubmission'
 import { Register } from '../pages/Register'
-import { SetupProposalRegistration } from '../pages/SetupProposalRegistration'
-import { GiaProposalRegistration } from '../pages/GiaProposalRegistration'
 import { ApprovalsPage } from '../pages/admin/ApprovalsPage'
 import { BudgetPage } from '../pages/admin/BudgetPage'
 import { InventoryPage } from '../pages/admin/InventoryPage'
@@ -19,7 +17,8 @@ import { ReportsPage } from '../pages/admin/ReportsPage'
 import { AuditTrailPage } from '../pages/admin/AuditTrailPage'
 import { DashboardHome } from '../pages/dashboard/DashboardHome'
 import { ProponentDashboard } from '../pages/proponent/ProponentDashboard'
-import { MyProposalsPage } from '../pages/proponent/MyProposalsPage'
+import { MyApplicationPage } from '../pages/proponent/MyApplicationPage'
+import { MyProposalPage } from '../pages/proponent/MyProposalPage'
 import { DocumentaryRequirementsPage } from '../pages/proponent/DocumentaryRequirementsPage'
 import { ApplicationStatusPage } from '../pages/proponent/ApplicationStatusPage'
 import { ProfilePage } from '../pages/proponent/ProfilePage'
@@ -43,11 +42,11 @@ export const router = createBrowserRouter([
   },
   {
     path: '/programs/setup/register',
-    element: <SetupProposalRegistration />,
+    element: <ProposalSubmission />,
   },
   {
     path: '/programs/gia/register',
-    element: <GiaProposalRegistration />,
+    element: <ProposalSubmission />,
   },
   {
     path: '/programs/:program',
@@ -60,6 +59,196 @@ export const router = createBrowserRouter([
   {
     path: '/activate/:referenceNo',
     element: <ActivateAccount />,
+  },
+  /* SETUP Routes */
+  {
+    path: '/setup',
+    element: <DashboardLayout />,
+    children: [
+      {
+        path: 'dashboard',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/my-application',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <MyApplicationPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'my-application',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <MyApplicationPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/documents',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <DocumentaryRequirementsPage program="SETUP" />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/application-status',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ApplicationStatusPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/project-monitoring',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/equipment',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/finance',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/notifications',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/profile',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProfilePage />
+          </RoleGate>
+        ),
+      },
+    ],
+  },
+  /* GIA Routes */
+  {
+    path: '/gia',
+    element: <DashboardLayout />,
+    children: [
+      {
+        path: 'dashboard',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/my-proposal',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <MyProposalPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'my-proposal',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <MyProposalPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/my-application',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <MyProposalPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'my-application',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <MyProposalPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/documents',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <DocumentaryRequirementsPage program="GIA" />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/application-status',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ApplicationStatusPage />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/project-monitoring',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/accomplishment-reports',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/finance',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/notifications',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProponentDashboard />
+          </RoleGate>
+        ),
+      },
+      {
+        path: 'dashboard/profile',
+        element: (
+          <RoleGate allowedRoles={['applicant', 'proponent']}>
+            <ProfilePage />
+          </RoleGate>
+        ),
+      },
+    ],
   },
   {
     path: '/dashboard',
@@ -149,7 +338,7 @@ export const router = createBrowserRouter([
         path: 'proposals',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
-            <MyProposalsPage />
+            <MyProposalPage />
           </RoleGate>
         ),
       },
@@ -157,7 +346,7 @@ export const router = createBrowserRouter([
         path: 'my-application',
         element: (
           <RoleGate allowedRoles={['applicant', 'proponent']}>
-            <MyProposalsPage />
+            <MyApplicationPage />
           </RoleGate>
         ),
       },

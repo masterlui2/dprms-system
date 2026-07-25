@@ -16,6 +16,8 @@ export interface ApplicationRecord {
     | 'Draft Submitted'
     | 'Under review'
     | 'Technical evaluation'
+    | 'In Process'
+    | 'Executive Approval'
     | 'Approved'
     | 'Returned for Revision'
 }

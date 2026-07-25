@@ -1,7 +1,6 @@
 import type { ApplicationRecord } from '../types/application'
 import type { SetupProposalData } from '../types/setupProposal'
 import { getApplications, saveApplication } from './applicationStore'
-import { SAMPLE_SETUP_REFERENCE, sampleSetupProposal } from '../data/sampleSetupProposal'
 
 const DRAFT_KEY = 'dprms.setup-proposal-draft'
 const PROPOSALS_KEY = 'dprms.setup-proposal-details'
@@ -65,8 +64,7 @@ export function submitSetupProposal(data: SetupProposalData): ApplicationRecord 
 }
 
 export function getSetupProposal(referenceNo: string) {
-  return readDetails()[referenceNo]
-    ?? (referenceNo === SAMPLE_SETUP_REFERENCE ? sampleSetupProposal : null)
+  return readDetails()[referenceNo] ?? null
 }
 
 export function getSetupApplications() {
