@@ -6,6 +6,7 @@ use App\Http\Controllers\ProposalTemplateController;
 use App\Models\DocumentRequirement;
 use App\Http\Controllers\GiaProposalController;
 use App\Http\Controllers\SetupProposalController;
+use App\Http\Controllers\SetupProposalSubmissionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class,'register']);
@@ -16,6 +17,7 @@ Route::middleware('auth:sanctum')->group(function(){
 });
 
 Route::middleware('auth:sanctum')->prefix('proposal-templates')->group(function () {
+
     Route::post('/', [ProposalTemplateController::class, 'uploadTemplate']);
     Route::put('/{template}', [ProposalTemplateController::class, 'updateTemplate']);
     Route::delete('/{id}', [ProposalTemplateController::class, 'deleteTemplate']);
@@ -24,6 +26,7 @@ Route::middleware('auth:sanctum')->prefix('proposal-templates')->group(function 
 });
 
 Route::middleware('auth:sanctum')->prefix('proposal')->group(function (){
+    Route::post('/setup', [SetupProposalSubmissionController::class, 'store']);
     Route::post('/submit',[ProposalController::class, 'submit']);
     Route::put('/advance-stage/{id}',[ProposalController::class,'advanceStage']);
     Route::put('/{id}/approve',[ProposalController::class,'approve']);

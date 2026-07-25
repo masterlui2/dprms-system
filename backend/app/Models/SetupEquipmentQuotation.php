@@ -21,9 +21,6 @@ class SetupEquipmentQuotation extends Model
         'file_path'
     ];
 
-    protected function casts(){
-    }
-
     public function setup_proposal():BelongsTo{
         return $this->belongsTo(SetupProposal::class);
     }

@@ -12,26 +12,14 @@ class SetupProposal extends Model
         'proposal_id',
         'business_name',
         'business_type',
-        'dti_sec_number',
         'industry_sector',
         'enterprise_size',
         'years_in_operation',
         'business_address',
         'region',
         'province',
-        'city_minicipality',
-        'annual_revenue',
-        'tna_encoded_at',
-        'tna_encoded_by',
-        'lgu_permit_number',
-        'letter_of_intent_path'
+        'city_municipality',
     ];
-
-    protected function casts(){
-        return [
-            'tna_encoded_at' => 'datetime',
-        ];
-    }
 
     public function proposal():BelongsTo{
         return $this->belongsTo(Proposal::class);

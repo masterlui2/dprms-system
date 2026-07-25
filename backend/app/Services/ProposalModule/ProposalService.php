@@ -23,7 +23,6 @@ class ProposalService implements ProposalServiceInterface{
             'reference_number' => $this->referenceNumberGeneratorService->generate($data['program_type']),
             'title' => $data['title'],
             'status' => 'SUBMITTED',
-            'current_stage' => 'Submission',
             'submitted_at' => now(),
             'remarks' => $data['remarks'] ?? null,
         ]);

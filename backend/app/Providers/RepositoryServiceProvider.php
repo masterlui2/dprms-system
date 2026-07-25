@@ -13,6 +13,7 @@ use App\Repositories\Contracts\AuthorizationModule\RoleRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\UserRoleRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\AuditLogRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\DocumentRequirementRepositoryInterface;
+use App\Repositories\Contracts\ProposalModule\DocumentsRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\GiaCoAuthorRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\GiaDocumentRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\GiaProposalRepositoryInterface;
@@ -22,6 +23,7 @@ use App\Repositories\Contracts\ProposalModule\SetupEquipmentQuotationRepositoryI
 use App\Repositories\Contracts\ProposalModule\SetupFinancialDocumentRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\SetupProposalRepositoryInterface;
 use App\Repositories\ProposalModule\DocumentRequirementRepository;
+use App\Repositories\ProposalModule\DocumentsRepository;
 use App\Repositories\ProposalModule\GiaCoAuthorRepository;
 use App\Repositories\ProposalModule\GiaDocumentRepository;
 use App\Repositories\ProposalModule\GiaProposalRepository;
@@ -53,6 +55,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(GiaCoAuthorRepositoryInterface::class, GiaCoAuthorRepository::class);
         $this->app->bind(GiaDocumentRepositoryInterface::class, GiaDocumentRepository::class);
         $this->app->bind(GiaProposalRepositoryInterface::class, GiaProposalRepository::class);
+        $this->app->bind(DocumentsRepositoryInterface::class, DocumentsRepository::class);
     }
 
     /**

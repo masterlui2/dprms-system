@@ -21,7 +21,8 @@ class GiaDocument extends Model
         'updated_at'
     ];
 
-    protected function casts(){[
+    protected function casts(){
+        return [
             'is_verified' => 'boolean',
             'verified_at' => 'datetime',
             'updated_at' => 'datetime'
