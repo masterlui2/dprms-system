@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   Building2,
@@ -21,14 +21,21 @@ import Swal from "sweetalert2";
 import { ProposalProgress } from "../../components/proponent/ProposalProgress";
 import { InitialReviewStageCard } from "../../components/proponent/InitialReviewStageCard";
 import { SetupProposalForm } from "../../components/proposal/SetupProposalForm";
+import type { SetupProposalFormHandle } from "../../components/proposal/SetupProposalForm";
 import { GiaProposalForm } from "../../components/proposal/GiaProposalForm";
 import { getMockUser } from "../../lib/mockAuth";
 import {
   deleteDocument,
+  deleteDocumentRecord,
+  documentRecordToStoredDocument,
+  fetchDocumentBlobUrl,
+  fetchProposalDocuments,
+  fetchSetupDocumentaryRequirements,
   fileToStoredDocument,
   getDocumentaryRequirements,
   getDocuments,
   saveDocument,
+  uploadDocument,
   type DocumentaryRequirement,
   type RequirementGroup,
   type StoredDocument,
@@ -39,21 +46,28 @@ import {
   saveApplication,
   updateApplicationStatus,
 } from "../../services/applicationStore";
+import { getSetupProposalId, submitSetupProposal } from "../../services/setupProposalStore";
 import type { ApplicationRecord } from "../../types/application";
 import {
   getGiaDraft,
   getGiaProposal,
 } from "../../services/giaProposalStore";
-import {
-  getSetupDraft,
-  getSetupProposal,
-} from "../../services/setupProposalStore";
 import type { GiaProposalData } from "../../types/giaProposal";
 import type { SetupProposalData } from "../../types/setupProposal";
 import { cn } from "../../utils/cn";
 
+console.count("DocumentaryRequirementsPage render")
+
+// GIA still uses the old local-only stub (documentStore's fileToStoredDocument
+// / saveDocument), so its looser limits stay as-is for now.
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 const ACCEPTED_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png"];
+
+// SETUP goes through the real API now — StoreDocumentRequest only accepts
+// PDF up to 10MB (mimes:pdf|max:10240), so the UI has to match or every
+// non-PDF / oversized upload will 422 after passing the client-side check.
+const SETUP_MAX_FILE_SIZE = 10 * 1024 * 1024;
+const SETUP_ACCEPTED_EXTENSIONS = ["pdf"];
 const groupOrder: RequirementGroup[] = [
   "Business Documents",
   "Corporation / Cooperative Documents",
@@ -64,6 +78,7 @@ const groupOrder: RequirementGroup[] = [
 
 const statusClasses: Record<VerificationStatus, string> = {
   "Not Uploaded": "bg-slate-100 text-slate-600",
+  "Pending Upload": "bg-slate-100 text-slate-600",
   Uploaded: "bg-blue-50 text-[#0f53b7]",
   "Under Review": "bg-amber-50 text-amber-700",
   Approved: "bg-emerald-50 text-emerald-700",
@@ -73,6 +88,15 @@ const statusClasses: Record<VerificationStatus, string> = {
 function formatSize(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function extractUploadErrorMessage(error: unknown, isSetup: boolean): string {
+  const response = (error as { response?: { status?: number; data?: { errors?: Record<string, string[]> } } })?.response;
+  if (isSetup && response?.status === 422 && response.data?.errors) {
+    const backendMessage = Object.values(response.data.errors).flat().join(" ");
+    if (backendMessage) return backendMessage;
+  }
+  return "The file could not be saved. Please try a smaller file.";
 }
 
 
@@ -108,6 +132,18 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  // Numeric backend proposals.id for the active SETUP application, resolved
+  // below (from activeApplication.proposalId, falling back to a lookup by
+  // referenceNo). Needed for every real /documents call — StoreDocumentRequest
+  // requires proposal_id, not the local referenceNo string.
+  const [activeProposalId, setActiveProposalId] = useState<number | null>(null);
+  // Files picked before the proposal exists on the backend, keyed by
+  // document_type_id. There's no proposal_id to upload against yet, so
+  // these sit here until "Submit Application" creates the proposal and
+  // uploads them in one pass.
+  const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
+  const setupFormRef = useRef<SetupProposalFormHandle>(null);
+  const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
 
   const applications = useMemo(() => {
     const allApplications = getApplications();
@@ -152,47 +188,135 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       contactEmail: user?.email ?? "proponent@example.com",
       contactNumber: "09171234567",
     };
-  }, [baseApplication, activeProgram, user]);
+  }, [baseApplication, activeProgram, user?.name, user?.email]);
 
   const [liveSetupProposal, setLiveSetupProposal] = useState<SetupProposalData | null>(null);
   const [liveGiaProposal, setLiveGiaProposal] = useState<GiaProposalData | null>(null);
 
   useEffect(() => {
     if (!activeApplication) return;
-    if (activeApplication.program === "SETUP") {
-      setLiveSetupProposal(getSetupDraft() ?? getSetupProposal(activeApplication.referenceNo));
-    } else {
+    if (activeApplication.program !== "SETUP") {
       setLiveGiaProposal(getGiaDraft() ?? getGiaProposal(activeApplication.referenceNo));
     }
-  }, [activeApplication]);
+    // SETUP's liveSetupProposal is populated by SetupProposalForm's onDraftChange.
+  }, [activeApplication?.referenceNo, activeApplication?.program]);
 
-  const requirements = useMemo(
-    () =>
-      activeApplication
-        ? getDocumentaryRequirements(
-            activeApplication.program,
-            liveSetupProposal?.organizationType,
-            liveGiaProposal?.proponentCategory,
-            liveSetupProposal?.businessSize,
-          )
-        : [],
-    [activeApplication, liveGiaProposal?.proponentCategory, liveSetupProposal?.businessSize, liveSetupProposal?.organizationType],
-  );
+  const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([]);
+  // Tracks the params of the most recently *issued* SETUP fetch, and a
+  // monotonically increasing id so we can ignore stale/duplicate requests.
+  const setupFetchRef = useRef<{ key: string; requestId: number }>({
+    key: "",
+    requestId: 0,
+  });
 
   useEffect(() => {
-    setDocuments(
-      activeApplication ? getDocuments(activeApplication.referenceNo) : {},
-    );
+    if (!activeApplication) {
+      setRequirements([]);
+      return;
+    }
+    if (activeApplication.program === "SETUP") {
+      const key = `${activeApplication.referenceNo}|${liveSetupProposal?.organizationType ?? ""}|${liveSetupProposal?.businessSize ?? ""}`;
+      // Same reference + org type + business size as the in-flight/last
+      // request — skip. This is what was firing the request repeatedly
+      // (and hammering /api/document-types) whenever liveSetupProposal
+      // changed identity without its relevant fields actually changing.
+      if (setupFetchRef.current.key === key) return;
+      setupFetchRef.current.key = key;
+      const requestId = ++setupFetchRef.current.requestId;
+
+      fetchSetupDocumentaryRequirements(
+        liveSetupProposal?.organizationType,
+        liveSetupProposal?.businessSize,
+      )
+        .then((records) => {
+          // Only apply the response if this is still the latest request —
+          // prevents an older, slower response from clobbering a newer one.
+          if (setupFetchRef.current.requestId === requestId) {
+            setRequirements(records);
+          }
+        })
+        .catch(() => {
+          // Don't blank out a document list the user is already seeing
+          // just because one fetch (possibly stale) failed. Only clear
+          // if we don't have anything on screen yet.
+          if (setupFetchRef.current.requestId === requestId) {
+            setRequirements((current) => (current.length ? current : []));
+          }
+        });
+      return;
+    }
+    setupFetchRef.current = { key: "", requestId: setupFetchRef.current.requestId };
+    setRequirements(getDocumentaryRequirements(liveGiaProposal?.proponentCategory));
+  }, [
+    activeApplication?.referenceNo,
+    activeApplication?.program,
+    liveGiaProposal?.proponentCategory,
+    liveSetupProposal?.businessSize,
+    liveSetupProposal?.organizationType,
+  ]);
+
+  useEffect(() => {
     setMessage(null);
     setQuery("");
-  }, [activeApplication]);
+
+    if (!activeApplication) {
+      setDocuments({});
+      setActiveProposalId(null);
+      return;
+    }
+
+    if (activeApplication.program !== "SETUP") {
+      setActiveProposalId(null);
+      setDocuments(getDocuments(activeApplication.referenceNo));
+      return;
+    }
+
+    let cancelled = false;
+    setDocuments({});
+
+    (async () => {
+      const proposalId =
+        activeApplication.proposalId ??
+        (await getSetupProposalId(activeApplication.referenceNo));
+
+      if (cancelled) return;
+
+      if (!proposalId) {
+        // This application only exists locally / hasn't synced with the
+        // backend (e.g. the synthetic fallback record built above when no
+        // matching submitted application is found). Nothing to fetch.
+        setActiveProposalId(null);
+        return;
+      }
+
+      setActiveProposalId(proposalId);
+      try {
+        const records = await fetchProposalDocuments(proposalId);
+        if (!cancelled) setDocuments(records);
+      } catch {
+        if (!cancelled) {
+          setMessage(
+            "Could not load your uploaded documents. Please refresh the page.",
+          );
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeApplication?.referenceNo,
+    activeApplication?.program,
+    activeApplication?.proposalId,
+  ]);
 
   const requiredRequirements = useMemo(
     () => requirements.filter((item) => item.required),
     [requirements],
   );
   const completedRequiredCount = requiredRequirements.filter(
-    (requirement) => documents[requirement.id],
+    (requirement) => documents[requirement.id] || pendingFiles[requirement.id],
   ).length;
 
   const overallProgressPercent = useMemo(() => {
@@ -245,28 +369,77 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
 
   async function handleFile(requirement: DocumentaryRequirement, file?: File) {
     if (!activeApplication || !file) return;
+    const isSetup = activeApplication.program === "SETUP";
+    const acceptedExtensions = isSetup
+      ? SETUP_ACCEPTED_EXTENSIONS
+      : ACCEPTED_EXTENSIONS;
+    const maxFileSize = isSetup ? SETUP_MAX_FILE_SIZE : MAX_FILE_SIZE;
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
 
-    if (!ACCEPTED_EXTENSIONS.includes(extension)) {
-      setMessage("Please upload a PDF, DOC, DOCX, JPG, or PNG file.");
+    if (!acceptedExtensions.includes(extension)) {
+      setMessage(
+        isSetup
+          ? "Please upload a PDF file."
+          : "Please upload a PDF, DOC, DOCX, JPG, or PNG file.",
+      );
       return;
     }
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > maxFileSize) {
       setMessage(
-        "The selected file is larger than 2 MB. Please upload a smaller file.",
+        `The selected file is larger than ${formatSize(maxFileSize)}. Please upload a smaller file.`,
       );
       return;
     }
 
     setUploadingRequirement(requirement.id);
     try {
-      const storedDocument = await fileToStoredDocument(file);
-      saveDocument(
-        activeApplication.referenceNo,
-        requirement.id,
-        storedDocument,
-      );
-      const nextDocuments = getDocuments(activeApplication.referenceNo);
+      let nextDocuments: Record<string, StoredDocument>;
+
+      if (isSetup) {
+        if (!activeProposalId) {
+          // No backend proposal yet — hold the file locally and upload it
+          // as part of "Submit Application" instead of hitting /documents
+          // now (there's no proposal_id to attach it to).
+          setPendingFiles((current) => ({
+            ...current,
+            [requirement.id]: file,
+          }));
+          setMessage(
+            `${file.name} attached. It will be uploaded when you submit the application.`,
+          );
+          return;
+        }
+        // A proposal already exists (e.g. retrying a document that failed
+        // to upload during a previous submit attempt) — upload it now.
+        // documents has a unique constraint on (proposal_id, document_type_id)
+        // and the backend always INSERTs — so replacing a file means
+        // deleting the existing one first, or the upload will fail.
+        const existing = documents[requirement.id];
+        if (existing?.backendId) {
+          await deleteDocumentRecord(existing.backendId);
+        }
+        const stored = await uploadDocument(
+          activeProposalId,
+          requirement.id,
+          file,
+        );
+        nextDocuments = { ...documents, [requirement.id]: stored };
+        setPendingFiles((current) => {
+          if (!(requirement.id in current)) return current;
+          const next = { ...current };
+          delete next[requirement.id];
+          return next;
+        });
+      } else {
+        const storedDocument = await fileToStoredDocument(file);
+        saveDocument(
+          activeApplication.referenceNo,
+          requirement.id,
+          storedDocument,
+        );
+        nextDocuments = getDocuments(activeApplication.referenceNo);
+      }
+
       setDocuments(nextDocuments);
       const allRequiredUploaded =
         requiredRequirements.length > 0 &&
@@ -280,24 +453,193 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       } else {
         setMessage(`${file.name} uploaded successfully.`);
       }
-    } catch {
-      setMessage("The file could not be saved. Please try a smaller file.");
+    } catch (error) {
+      setMessage(extractUploadErrorMessage(error, isSetup));
     } finally {
       setUploadingRequirement(null);
       setDraggingRequirement(null);
     }
   }
 
-  function remove(requirement: DocumentaryRequirement) {
+  async function remove(requirement: DocumentaryRequirement) {
     if (!activeApplication) return;
     if (!window.confirm(`Delete the uploaded file for “${requirement.title}”?`))
       return;
+
+    if (activeApplication.program === "SETUP") {
+      const existing = documents[requirement.id];
+      if (!existing?.backendId) {
+        // Nothing on the backend yet — this is (at most) a pending local
+        // file. Just drop it.
+        setPendingFiles((current) => {
+          if (!(requirement.id in current)) return current;
+          const next = { ...current };
+          delete next[requirement.id];
+          return next;
+        });
+        setMessage("File removed.");
+        return;
+      }
+      try {
+        await deleteDocumentRecord(existing.backendId);
+        const next = { ...documents };
+        delete next[requirement.id];
+        setDocuments(next);
+        if (requirement.required) {
+          updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
+        }
+        setMessage("File deleted. You can upload a replacement at any time.");
+      } catch {
+        setMessage("Could not delete the file. Please try again.");
+      }
+      return;
+    }
 
     deleteDocument(activeApplication.referenceNo, requirement.id);
     setDocuments(getDocuments(activeApplication.referenceNo));
     if (requirement.required)
       updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
     setMessage("File deleted. You can upload a replacement at any time.");
+  }
+
+  function viewPendingFile(file: File) {
+    const blobUrl = URL.createObjectURL(file);
+    window.open(blobUrl, "_blank", "noopener,noreferrer");
+    // Best-effort cleanup — the new tab has already grabbed the resource
+    // by the time this fires.
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+  }
+
+  async function viewDocument(storedDocument: StoredDocument) {
+    if (storedDocument.backendId) {
+      try {
+        const blobUrl = await fetchDocumentBlobUrl(storedDocument.backendId);
+        window.open(blobUrl, "_blank", "noopener,noreferrer");
+      } catch {
+        setMessage("Could not open the file. Please try again.");
+      }
+      return;
+    }
+    window.open(storedDocument.dataUrl, "_blank", "noopener,noreferrer");
+  }
+
+  function showSubmittedDialog(app: ApplicationRecord) {
+    Swal.fire({
+      title: "Application Submitted Successfully!",
+      html: `
+        <div style="font-family: sans-serif; text-align: center;" class="space-y-3">
+          <p style="font-size: 13px; color: #475569; margin-top: 8px;">
+            Your application (<strong style="font-family: monospace; color: #0f53b7;">${app.referenceNo}</strong>) has been officially submitted to DOST PSTO.
+          </p>
+          <div style="background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 16px; padding: 16px; text-align: left; margin-top: 14px;">
+            <p style="font-size: 12px; font-weight: 700; color: #073b82; margin: 0 0 4px 0;">
+              Stage 2 Active: DOST Initial Review
+            </p>
+            <p style="font-size: 11px; color: #475569; margin: 0; line-height: 1.5;">
+              ${
+                app.program === "SETUP"
+                  ? "Your application is scheduled for a Technology Needs Assessment (TNA) site visit by DOST PSTO."
+                  : "Your GIA proposal is currently under technical review by the DOST evaluation committee."
+              }
+            </p>
+          </div>
+        </div>
+      `,
+      icon: "success",
+      showConfirmButton: false,
+      timer: 1600,
+      timerProgressBar: true,
+    }).then(() => {
+      window.location.reload();
+    });
+  }
+
+  function scrollToMissingRequirement(missingRequiredDocs: DocumentaryRequirement[]) {
+    const missingTitles = missingRequiredDocs.map((d) => d.title).join(", ");
+    setMessage(
+      `⚠️ Cannot submit application. Please upload the following required document${missingRequiredDocs.length === 1 ? "" : "s"}: ${missingTitles}`,
+    );
+    const firstMissing = missingRequiredDocs[0];
+    if (firstMissing) {
+      const targetEl = document.getElementById(`requirement-${firstMissing.id}`);
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  /**
+   * SETUP only. GIA keeps its previous local-only submit (below, inline in
+   * the button) since it's out of scope for this pass.
+   *
+   * One click, one request: submitSetupProposal() now sends the proposal
+   * fields AND every file in `pendingFiles` together in a single multipart
+   * POST. The backend creates the Proposal, the SetupProposal row, the
+   * auto-generated Form 001 PDF, and every supporting document inside one
+   * DB transaction — either all of it is created, or (validation failure,
+   * a bad file, anything) none of it is. There's no partial
+   * "proposal exists but some documents are missing" state to recover
+   * from, so unlike before there's nothing to retry piecemeal on failure —
+   * the whole submission just needs to be tried again.
+   *
+   * If a proposal already exists (activeProposalId set — e.g. the
+   * applicant is revisiting after a previous successful submit, or an
+   * older proposal created before this flow existed), there's nothing left
+   * to submit; any remaining pending files just go through the normal
+   * per-document upload control instead.
+   */
+  async function handleSubmitSetupApplication() {
+    if (!activeApplication) return;
+
+    const proposalData = setupFormRef.current?.validate();
+    if (!proposalData) return;
+
+    const missingRequiredDocs = requiredRequirements.filter(
+      (req) => !documents[req.id] && !pendingFiles[req.id],
+    );
+    if (missingRequiredDocs.length > 0) {
+      scrollToMissingRequirement(missingRequiredDocs);
+      return;
+    }
+
+    setIsSubmittingApplication(true);
+    setMessage(null);
+    try {
+      let proposalId = activeProposalId;
+      let application = activeApplication;
+
+      if (!proposalId) {
+        const result = await submitSetupProposal(proposalData, pendingFiles);
+        application = result.application;
+        proposalId = application.proposalId ?? null;
+        setActiveProposalId(proposalId);
+
+        const nextDocuments: Record<string, StoredDocument> = {};
+        for (const record of result.documents) {
+          nextDocuments[String(record.document_type_id)] = documentRecordToStoredDocument(record);
+        }
+        setDocuments(nextDocuments);
+        setPendingFiles({});
+      }
+
+      if (!proposalId) {
+        setMessage(
+          "Your proposal could not be created on the server. Please try submitting again.",
+        );
+        return;
+      }
+
+      const updatedApp: ApplicationRecord = { ...application, status: "Under review" };
+      saveApplication(updatedApp);
+      updateApplicationStatus(application.referenceNo, "Under review");
+      showSubmittedDialog(updatedApp);
+    } catch (error) {
+      setMessage(extractUploadErrorMessage(error, true));
+    } finally {
+      setIsSubmittingApplication(false);
+    }
   }
 
   const handleStartApplication = (programType: "SETUP" | "GIA") => {
@@ -407,7 +749,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                 {activeApplication.program === "GIA" ? (
                   <GiaProposalForm onDraftChange={setLiveGiaProposal} />
                 ) : (
-                  <SetupProposalForm onDraftChange={setLiveSetupProposal} />
+                  <SetupProposalForm ref={setupFormRef} onDraftChange={setLiveSetupProposal} />
                 )}
               </section>
 
@@ -507,14 +849,21 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                       <div className="divide-y divide-slate-100">
                         {groupRequirements.map((requirement) => {
                           const storedDocument = documents[requirement.id];
-                          const status: VerificationStatus =
-                            storedDocument?.verificationStatus ??
-                            "Not Uploaded";
+                          const pendingFile = storedDocument
+                            ? undefined
+                            : pendingFiles[requirement.id];
+                          const status: VerificationStatus = storedDocument
+                            ? storedDocument.verificationStatus
+                            : pendingFile
+                              ? "Pending Upload"
+                              : "Not Uploaded";
                           const isDragging =
                             draggingRequirement === requirement.id;
                           const isUploading =
                             uploadingRequirement === requirement.id;
-                          const isMissingRequired = !storedDocument && requirement.required;
+                          const isMissingRequired =
+                            !storedDocument && !pendingFile && requirement.required;
+                          const hasFile = Boolean(storedDocument || pendingFile);
 
                           return (
                             <article
@@ -552,14 +901,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                 <span
                                   className={cn(
                                     "mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border-2",
-                                    storedDocument
+                                    hasFile
                                       ? "border-emerald-500 bg-emerald-500 text-white"
                                       : isMissingRequired
                                         ? "border-red-400 bg-red-50 text-red-500"
                                         : "border-slate-200 text-slate-300",
                                   )}
                                 >
-                                  {storedDocument ? (
+                                  {hasFile ? (
                                     <Check className="size-4" strokeWidth={3} />
                                   ) : (
                                     <FileText className="size-3.5" />
@@ -597,6 +946,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                     >
                                       {storedDocument.fileName} ·{" "}
                                       {formatSize(storedDocument.fileSize)}
+                                    </p>
+                                  ) : pendingFile ? (
+                                    <p
+                                      className="mt-2 truncate text-xs font-semibold text-slate-600"
+                                      title={pendingFile.name}
+                                    >
+                                      {pendingFile.name} ·{" "}
+                                      {formatSize(pendingFile.size)} · attached, not yet submitted
                                     </p>
                                   ) : null}
                                 </div>
@@ -639,18 +996,22 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                   >
                                     {isUploading ? (
                                       <LoaderCircle className="size-3.5 animate-spin" />
-                                    ) : storedDocument ? (
+                                    ) : hasFile ? (
                                       <RefreshCw className="size-3.5" />
                                     ) : (
                                       <FileUp className="size-3.5" />
                                     )}
                                     {isUploading
                                       ? "Uploading"
-                                      : storedDocument
+                                      : hasFile
                                         ? "Replace File"
                                         : "Upload"}
                                     <input
-                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                      accept={
+                                        activeApplication.program === "SETUP"
+                                          ? ".pdf"
+                                          : ".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                                      }
                                       className="sr-only"
                                       disabled={isUploading}
                                       onChange={(event) => {
@@ -663,16 +1024,16 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                       type="file"
                                     />
                                   </label>
-                                  {storedDocument ? (
+                                  {hasFile ? (
                                     <>
                                       <button
                                         className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
                                         onClick={() =>
-                                          window.open(
-                                            storedDocument.dataUrl,
-                                            "_blank",
-                                            "noopener,noreferrer",
-                                          )
+                                          storedDocument
+                                            ? void viewDocument(storedDocument)
+                                            : pendingFile
+                                              ? viewPendingFile(pendingFile)
+                                              : undefined
                                         }
                                         type="button"
                                       >
@@ -681,7 +1042,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                       </button>
                                       <button
                                         className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-100 px-3 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                                        onClick={() => remove(requirement)}
+                                        onClick={() => void remove(requirement)}
                                         type="button"
                                       >
                                         <Trash2 className="size-3.5" />
@@ -718,26 +1079,23 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
 
               <div className="flex justify-end pt-4 pb-8">
                 <button
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md hover:bg-[#0d479e] transition hover:shadow-lg"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#0d479e] hover:shadow-lg disabled:pointer-events-none disabled:opacity-70"
+                  disabled={isSubmittingApplication}
                   onClick={() => {
                     if (!activeApplication) return;
+
+                    if (activeApplication.program === "SETUP") {
+                      void handleSubmitSetupApplication();
+                      return;
+                    }
+
+                    // GIA: unchanged local-only submit (still out of scope
+                    // for the backend migration).
                     const missingRequiredDocs = requiredRequirements.filter(
                       (req) => !documents[req.id]
                     );
-
                     if (missingRequiredDocs.length > 0 || !requiredComplete) {
-                      const firstMissing = missingRequiredDocs[0];
-                      const missingTitles = missingRequiredDocs.map((d) => d.title).join(", ");
-                      setMessage(`⚠️ Cannot submit application. Please upload the following required document${missingRequiredDocs.length === 1 ? '' : 's'}: ${missingTitles}`);
-                      
-                      if (firstMissing) {
-                        const targetEl = document.getElementById(`requirement-${firstMissing.id}`);
-                        if (targetEl) {
-                          targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                          return;
-                        }
-                      }
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                      scrollToMissingRequirement(missingRequiredDocs);
                       return;
                     }
                     const updatedApp: ApplicationRecord = {
@@ -746,39 +1104,15 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                     };
                     saveApplication(updatedApp);
                     updateApplicationStatus(activeApplication.referenceNo, "Under review");
-                    Swal.fire({
-                      title: "Application Submitted Successfully!",
-                      html: `
-                        <div style="font-family: sans-serif; text-align: center;" class="space-y-3">
-                          <p style="font-size: 13px; color: #475569; margin-top: 8px;">
-                            Your application (<strong style="font-family: monospace; color: #0f53b7;">${activeApplication.referenceNo}</strong>) has been officially submitted to DOST PSTO.
-                          </p>
-                          <div style="background-color: #eff6ff; border: 1px solid #dbeafe; border-radius: 16px; padding: 16px; text-align: left; margin-top: 14px;">
-                            <p style="font-size: 12px; font-weight: 700; color: #073b82; margin: 0 0 4px 0;">
-                              Stage 2 Active: DOST Initial Review
-                            </p>
-                            <p style="font-size: 11px; color: #475569; margin: 0; line-height: 1.5;">
-                              ${
-                                activeApplication.program === "SETUP"
-                                  ? "Your application is scheduled for a Technology Needs Assessment (TNA) site visit by DOST PSTO."
-                                  : "Your GIA proposal is currently under technical review by the DOST evaluation committee."
-                              }
-                            </p>
-                          </div>
-                        </div>
-                      `,
-                      icon: "success",
-                      showConfirmButton: false,
-                      timer: 1600,
-                      timerProgressBar: true,
-                    }).then(() => {
-                      window.location.reload();
-                    });
+                    showSubmittedDialog(updatedApp);
                   }}
                   type="button"
                 >
-                  Submit Application
-                  <ArrowRight className="size-4" />
+                  {isSubmittingApplication ? (
+                    <LoaderCircle className="size-4 animate-spin" />
+                  ) : null}
+                  {isSubmittingApplication ? "Submitting" : "Submit Application"}
+                  {isSubmittingApplication ? null : <ArrowRight className="size-4" />}
                 </button>
               </div>
             </div>

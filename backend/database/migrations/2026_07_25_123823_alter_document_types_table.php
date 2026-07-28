@@ -14,6 +14,9 @@ return new class extends Migration
             $table->json('applicable_business_types')->nullable()->after('applicable_program');
             $table->json('applicable_gia_categories')->nullable()->after('applicable_business_types');
             $table->boolean('is_applicant_visible')->default(true)->after('is_required');
+            $table->text('instructions')->nullable()->after('description');
+            $table->string('template_url', 500)->nullable()->after('instructions');
+            $table->json('applicable_business_sizes')->nullable()->after('applicable_business_types');
         });
 
         Schema::table('documents', function (Blueprint $table) {
@@ -30,6 +33,9 @@ return new class extends Migration
                 'applicable_business_types',
                 'applicable_gia_categories',
                 'is_applicant_visible',
+                'instructions',
+                'template_url',
+                'applicable_business_sizes'
             ]);
         });
 

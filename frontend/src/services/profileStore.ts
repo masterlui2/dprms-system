@@ -41,10 +41,10 @@ function getRelatedApplication(user: MockUser) {
   ))
 }
 
-export function getProponentProfile(user: MockUser): ProponentProfile {
+export async function getProponentProfile(user: MockUser): Promise<ProponentProfile> {
   const application = getRelatedApplication(user)
   const proposal = application?.program === 'SETUP'
-    ? getSetupProposal(application.referenceNo)
+    ? await getSetupProposal(application.referenceNo)
     : null
   const giaProposal = application?.program === 'GIA'
     ? getGiaProposal(application.referenceNo)

@@ -38,5 +38,7 @@ class DocumentController extends Controller
     public function show(Document $document){
         abort_unless($document->uploaded_by === Auth::id(),403);
         abort_unless(Storage::exists($document->file_path),404);
+
+        return Storage::download($document->file_path, $document->file_name);
     }
 }

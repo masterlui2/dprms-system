@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Activity,
   ArrowRight,
@@ -20,10 +20,14 @@ import { MetricCard } from '../../components/admin/MetricCard'
 import { ProposalProgress } from '../../components/proponent/ProposalProgress'
 import { StatusPill } from '../../components/admin/StatusPill'
 import { getMockUser } from '../../lib/mockAuth'
-import { getDocumentaryRequirements, getDocuments } from '../../services/documentStore'
+import {
+  fetchSetupDocumentaryRequirements,
+  getDocumentaryRequirements,
+  getDocuments,
+  type DocumentaryRequirement,
+} from '../../services/documentStore'
 import { getApplications } from '../../services/applicationStore'
 import { getGiaProposal } from '../../services/giaProposalStore'
-import { getSetupProposal } from '../../services/setupProposalStore'
 
 type TabType = 'overview' | 'monitoring' | 'equipment' | 'repayment' | 'notifications'
 
@@ -40,11 +44,27 @@ export function ProponentDashboard() {
   )
 
   const documents = application ? getDocuments(application.referenceNo) : {}
-  const setupProposal = application?.program === 'SETUP' ? getSetupProposal(application.referenceNo) : null
   const giaProposal = application?.program === 'GIA' ? getGiaProposal(application.referenceNo) : null
-  const requirements = application
-    ? getDocumentaryRequirements(application.program, setupProposal?.organizationType, giaProposal?.proponentCategory)
-    : []
+
+  const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([])
+
+  useEffect(() => {
+    if (!application) {
+      setRequirements([])
+      return
+    }
+    if (application.program === 'SETUP') {
+      let cancelled = false
+      // Same limitation as ApplicationStatusPage.tsx: no organizationType/businessSize
+      // source here yet, so this is the unfiltered SETUP checklist.
+      fetchSetupDocumentaryRequirements()
+        .then((records) => { if (!cancelled) setRequirements(records) })
+        .catch(() => { if (!cancelled) setRequirements([]) })
+      return () => { cancelled = true }
+    }
+    setRequirements(getDocumentaryRequirements(giaProposal?.proponentCategory))
+  }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory])
+
   const requiredRequirements = requirements.filter((req) => req.required)
   const uploadedCount = requirements.filter((req) => documents[req.id]).length
   const documentsComplete =

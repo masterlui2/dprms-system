@@ -22,6 +22,7 @@ import { type MockUser, clearMockUser, getMockUser } from "../../lib/mockAuth";
 import {
   getProponentProfile,
   PROFILE_UPDATED_EVENT,
+  type ProponentProfile,
 } from "../../services/profileStore";
 
 function getProgramHomePath(pathname: string, user?: MockUser | null) {
@@ -116,16 +117,18 @@ function UserAvatar({
 function AccountDropdown({
   onNavigate,
   onSignOut,
+  profile,
   user,
 }: {
   onNavigate: () => void;
   onSignOut: () => void;
+  profile: ProponentProfile | null;
   user: MockUser;
 }) {
   const isProponent = user.role === "proponent" || user.role === "applicant";
   const isGia = user.program === "GIA";
   const programPrefix = isGia ? "/gia" : "/setup";
-  const profile = getProponentProfile(user);
+  const displayName = profile?.fullName || user.name;
   const moduleItems = [
     { icon: LayoutDashboard, label: "Dashboard", to: `${programPrefix}/dashboard` },
     {
@@ -155,11 +158,11 @@ function AccountDropdown({
           <UserAvatar
             className="size-11 text-sm"
             initials={user.initials}
-            photoDataUrl={profile.photoDataUrl}
+            photoDataUrl={profile?.photoDataUrl}
           />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black text-slate-900">
-              {profile.fullName}
+              {displayName}
             </p>
             <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>
           </div>
@@ -231,9 +234,33 @@ export function SiteHeader() {
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileRevision, setProfileRevision] = useState(0);
   const isProponent = user?.role === "proponent" || user?.role === "applicant";
-  const profile = user ? getProponentProfile(user) : null;
+  const [profile, setProfile] = useState<ProponentProfile | null>(null);
   const homeHref = getProgramHomePath(location.pathname, user);
   const navigationItems = getNavigationItems(location.pathname, user);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+    getProponentProfile(user).then((result) => {
+      if (!cancelled) setProfile(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // NOTE: depends on user?.email (a primitive), not the `user` object
+    // itself. getMockUser() re-parses localStorage on every call and
+    // returns a brand-new object reference each time, even when nothing
+    // has actually changed. Using `user` directly here made React treat
+    // the dependency as "changed" on every single render, which re-ran
+    // this effect every time, which called setProfile on resolve, which
+    // triggered a re-render, which called getMockUser() again... an
+    // infinite effect loop that froze the tab (see the "SiteHeader.tsx:251"
+    // stack trace investigation). Do not swap this back to `user` without
+    // also fixing getMockUser() to return a stable/memoized reference.
+  }, [user?.email, profileRevision]);
 
   useEffect(() => {
     const refreshProfile = () => setProfileRevision((current) => current + 1);
@@ -337,6 +364,7 @@ export function SiteHeader() {
                     key={profileRevision}
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
+                    profile={profile}
                     user={user}
                   />
                 ) : null}
@@ -402,6 +430,7 @@ export function SiteHeader() {
                     key={profileRevision}
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
+                    profile={profile}
                     user={user}
                   />
                 ) : null}

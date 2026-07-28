@@ -1,12 +1,17 @@
+import { useEffect, useState } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { ProposalProgress } from '../../components/proponent/ProposalProgress'
 import { getMockUser } from '../../lib/mockAuth'
-import { getDocumentaryRequirements, getDocuments } from '../../services/documentStore'
+import {
+  fetchSetupDocumentaryRequirements,
+  getDocumentaryRequirements,
+  getDocuments,
+  type DocumentaryRequirement,
+} from '../../services/documentStore'
 import { getApplications } from '../../services/applicationStore'
 import { getGiaProposal } from '../../services/giaProposalStore'
-import { getSetupProposal } from '../../services/setupProposalStore'
 
 export function ApplicationStatusPage() {
   const user = getMockUser()
@@ -15,9 +20,28 @@ export function ApplicationStatusPage() {
     user?.applicationReference ? item.referenceNo === user.applicationReference : item.contactEmail.toLowerCase() === user?.email.toLowerCase(),
   )
   const documents = application ? getDocuments(application.referenceNo) : {}
-  const setupProposal = application?.program === 'SETUP' ? getSetupProposal(application.referenceNo) : null
   const giaProposal = application?.program === 'GIA' ? getGiaProposal(application.referenceNo) : null
-  const requirements = application ? getDocumentaryRequirements(application.program, setupProposal?.organizationType, giaProposal?.proponentCategory) : []
+
+  const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([])
+
+  useEffect(() => {
+    if (!application) {
+      setRequirements([])
+      return
+    }
+    if (application.program === 'SETUP') {
+      let cancelled = false
+      // Note: no organizationType/businessSize filter available here yet, so this
+      // returns the unfiltered SETUP checklist. Wire this up to a real proposal
+      // lookup once one exists.
+      fetchSetupDocumentaryRequirements()
+        .then((records) => { if (!cancelled) setRequirements(records) })
+        .catch(() => { if (!cancelled) setRequirements([]) })
+      return () => { cancelled = true }
+    }
+    setRequirements(getDocumentaryRequirements(giaProposal?.proponentCategory))
+  }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory])
+
   const requiredRequirements = requirements.filter((item) => item.required)
   const complete = requiredRequirements.length > 0 && requiredRequirements.every((item) => documents[item.id])
 

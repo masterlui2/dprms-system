@@ -9,12 +9,12 @@ class DocumentTypeController extends Controller
 {
     public function index(Request $request)
     {
-        $program = $request->query('program'); // SETUP | GIA
-        $businessType = $request->query('business_type'); // SOLE-PROPRIETORSHIP | PARTNERSHIP | CORPORATION | COOPERATIVE
+        $program = $request->query('program');
+        $businessType = $request->query('business_type');
+        $businessSize = $request->query('business_size');
         $giaCategory = $request->query('gia_category');
 
-        $query = DocumentType::query()
-            ->where('is_applicant_visible', true);
+        $query = DocumentType::query()->where('is_applicant_visible', true);
 
         if ($program) {
             $query->where(fn ($q) => $q
@@ -25,6 +25,10 @@ class DocumentTypeController extends Controller
         $query->where(fn ($q) => $q
             ->whereNull('applicable_business_types')
             ->when($businessType, fn ($q2) => $q2->orWhereJsonContains('applicable_business_types', $businessType)));
+
+        $query->where(fn ($q) => $q
+            ->whereNull('applicable_business_sizes')
+            ->when($businessSize, fn ($q2) => $q2->orWhereJsonContains('applicable_business_sizes', $businessSize)));
 
         $query->where(fn ($q) => $q
             ->whereNull('applicable_gia_categories')

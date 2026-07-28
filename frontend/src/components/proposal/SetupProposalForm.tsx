@@ -1,14 +1,13 @@
-import { useEffect, useState, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useState, useRef } from 'react'
 import {
   Building2,
   Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 
 import { emptySetupProposal, setupIndustryCategories } from '../../data/setupProposal'
 import { getMockUser } from '../../lib/mockAuth'
-import { getSetupDraft, saveSetupDraft, submitSetupProposal } from '../../services/setupProposalStore'
+import { getSetupDraft, saveSetupDraft } from '../../services/setupProposalStore'
 import type {
   SetupProposalData,
   SetupProposalErrors,
@@ -124,31 +123,55 @@ interface SetupProposalFormProps {
   onDraftChange?: (draft: SetupProposalData) => void
 }
 
-export function SetupProposalForm({ onDraftChange }: SetupProposalFormProps = {}) {
-  const navigate = useNavigate()
+/**
+ * Imperative handle exposed to the parent page. The parent drives the
+ * actual submit-to-backend flow (proposal creation + document uploads, in
+ * that order) — this component's job is only to own its own field state
+ * and validation. `validate()` runs the same checks the form used to run
+ * on its own onSubmit, surfaces errors/scrolls exactly as before, and
+ * returns the current data if valid or `null` if not (caller should stop).
+ */
+export interface SetupProposalFormHandle {
+  validate: () => SetupProposalData | null
+}
+
+export const SetupProposalForm = forwardRef<SetupProposalFormHandle, SetupProposalFormProps>(
+  function SetupProposalForm({ onDraftChange }, ref) {
   const user = getMockUser()
   const [data, setData] = useState<SetupProposalData>(() => {
     const draft = getSetupDraft()
     return draft ?? { ...emptySetupProposal, emailAddress: user?.email ?? '', contactPerson: user?.name ?? '' }
   })
   const [errors, setErrors] = useState<SetupProposalErrors>({})
-  const firstRender = useRef(true)
   const submitted = useRef(false)
+  // Always holds the latest keystroke, even between debounce ticks — used
+  // so an unmount mid-typing doesn't lose anything, without forcing a save
+  // on every single keystroke the way the old cleanup did.
+  const latestData = useRef(data)
+  latestData.current = data
 
+  // Push the draft up to the parent (and persist it) only after typing
+  // pauses, instead of on every keystroke. Doing this on every keystroke
+  // was forcing the whole parent page (including the full documents list)
+  // to re-render per character typed, which is what was making the form
+  // feel like it hangs.
   useEffect(() => {
-    onDraftChange?.(data)
-    if (firstRender.current) {
-      firstRender.current = false
-      return
-    }
     const timer = window.setTimeout(() => {
+      onDraftChange?.(data)
       saveSetupDraft(data)
-    }, 650)
+    }, 400)
     return () => {
       window.clearTimeout(timer)
-      if (!submitted.current) saveSetupDraft(data)
     }
-  }, [data])
+  }, [data, onDraftChange])
+
+  // Save whatever the user last typed if they navigate away before the
+  // debounce above has a chance to fire. Runs once, only on unmount.
+  useEffect(() => {
+    return () => {
+      if (!submitted.current) saveSetupDraft(latestData.current)
+    }
+  }, [])
 
   function update<K extends SetupProposalField>(field: K, value: SetupProposalData[K]) {
     setData((current) => ({ ...current, [field]: value }))
@@ -186,26 +209,22 @@ export function SetupProposalForm({ onDraftChange }: SetupProposalFormProps = {}
     )
   }
 
-  async function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    const nextErrors = validate(data)
-    setErrors(nextErrors)
-    const firstError = requiredFields.find((field) => nextErrors[field])
-    if (firstError) {
-      window.setTimeout(() => document.getElementById(firstError)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
-      return
-    }
-    submitted.current = true
-    try {
-      const application = await submitSetupProposal(data)
-      navigate('/dashboard', { replace: true, state: { submittedReference: application.referenceNo } })
-    } catch (error) {
-      submitted.current = false
-      setIsSubmitting(false)
-      // TODO: surface this via your NotificationToast/error UI instead of console
-      console.error('Setup proposal submission failed:', error)
-    }
-  }
+  useImperativeHandle(ref, () => ({
+    validate: () => {
+      const nextErrors = validate(data)
+      setErrors(nextErrors)
+      const firstError = requiredFields.find((field) => nextErrors[field])
+      if (firstError) {
+        window.setTimeout(() => document.getElementById(firstError)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
+        return null
+      }
+      // Marks the draft as "handed off" so the unmount-save effect below
+      // doesn't overwrite what the parent is about to submit with a stale
+      // localStorage draft on the reload that follows a successful submit.
+      submitted.current = true
+      return data
+    },
+  }), [data])
 
   const radioGroup = (field: 'organizationType' | 'businessSize', values: string[]) => (
     <div className="grid gap-2 sm:grid-cols-2" id={field}>
@@ -219,7 +238,7 @@ export function SetupProposalForm({ onDraftChange }: SetupProposalFormProps = {}
   )
 
   return (
-    <form className="space-y-5" noValidate onSubmit={handleSubmit}>
+    <div className="space-y-5">
 
       {Object.keys(errors).length > 0 ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">Please complete the highlighted fields before submitting.</div> : null}
 
@@ -293,6 +312,6 @@ export function SetupProposalForm({ onDraftChange }: SetupProposalFormProps = {}
         </div>
       </Section>
 
-    </form>
+    </div>
   )
-}
+})

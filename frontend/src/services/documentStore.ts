@@ -1,15 +1,31 @@
-import type { ApplicationProgram } from '../types/application'
+import api from '../lib/axios'
 import type { GiaProponentCategory } from '../types/giaProposal'
 import type { BusinessSize, OrganizationType } from '../types/setupProposal'
+import {
+  getDocumentTypes,
+  ORGANIZATION_TYPE_TO_BUSINESS_TYPE,
+  BUSINESS_SIZE_TO_ENTERPRISE_SIZE,
+  type DocumentTypeRecord,
+} from './setupProposalStore'
 
 export type VerificationStatus =
   | 'Not Uploaded'
+  // Local-only: file has been attached in the browser but the proposal
+  // hasn't been submitted to the backend yet, so there's nothing to upload
+  // to /documents against (no proposal_id exists yet). Cleared once the
+  // submit flow uploads it and swaps it for a real StoredDocument.
+  | 'Pending Upload'
   | 'Uploaded'
   | 'Under Review'
   | 'Approved'
   | 'Needs Revision'
 
 export interface StoredDocument {
+  /**
+   * Present only for documents backed by the real /documents API (SETUP).
+   * GIA documents are still local-only (localStorage) and won't have this.
+   */
+  backendId?: number
   dataUrl: string
   fileName: string
   fileSize: number
@@ -38,172 +54,162 @@ export interface DocumentaryRequirement {
   title: string
 }
 
-export const setupDocumentaryRequirements: DocumentaryRequirement[] = [
-  {
-    id: 'recent-mayors-permit',
-    title: "Recent Mayor's Permit",
-    description: "Indicating the firm's line of business.",
-    group: 'Business Documents',
-    instructions: "Upload a clear scanned copy of your valid Mayor's/Business Permit indicating the firm's line of business.",
-    required: true,
-  },
-  {
-    id: 'dti-registration-certificate',
-    title: 'DTI Registration',
-    description: 'DTI registration for sole proprietorship.',
-    group: 'Business Documents',
-    instructions: 'Upload Department of Trade and Industry (DTI) Certificate of Business Name Registration for sole proprietorship.',
-    organizationTypes: ['Sole Proprietorship'],
-    required: true,
-  },
-  {
-    id: 'bir-registration',
-    title: 'BIR Registration',
-    description: 'Bureau of Internal Revenue Certificate of Registration (Form 2303).',
-    group: 'Business Documents',
-    instructions: 'Upload official BIR Certificate of Registration (Form 2303).',
-    required: true,
-  },
-  {
-    id: 'blank-official-receipt',
-    title: 'Photocopy of Blank Official Receipt',
-    description: 'Provide a clear scanned copy or photo of a blank official receipt.',
-    group: 'Business Documents',
-    instructions: 'Upload a clear scanned copy or photo of a sample blank official receipt.',
-    required: true,
-  },
-  {
-    id: 'three-equipment-quotations',
-    title: '3 Valid Equipment Quotations',
-    description: 'From 3 different suppliers, originally signed with preference to the lowest bidder.',
-    group: 'Business Documents',
-    instructions: 'Obtain 3 valid equipment quotations from 3 different suppliers, originally signed with preference to the lowest bidder. Combine into a single PDF.',
-    required: true,
-  },
-  {
-    id: 'manufacturing-space-lease',
-    title: 'Lease Contract for Rented Manufacturing Space or Equivalent',
-    description: 'Required if manufacturing space is rented.',
-    group: 'Business Documents',
-    instructions: 'Lease contract for rented manufacturing space or equivalent (if space is rented).',
-    required: false,
-  },
+export function mapDocumentTypeToRequirement(record: DocumentTypeRecord): DocumentaryRequirement {
+  return {
+    id: String(record.id),
+    title: record.name,
+    description: record.description ?? '',
+    group: (record.group ?? 'Additional Documents') as RequirementGroup,
+    instructions: record.instructions ?? undefined,
+    required: record.is_required,
+    templateUrl: record.template_url ?? undefined,
+  }
+}
 
-  /* For Corporations / Cooperatives */
-  {
-    id: 'notarized-board-resolution',
-    title: 'Notarized Board Resolution',
-    description: 'Authorizing the availment of assistance & designating the approved signatory for the funding assistance.',
-    group: 'Corporation / Cooperative Documents',
-    instructions: 'Notarized Board Resolution authorizing the availment of assistance & designating the approved signatory for the funding assistance. (Required for Corporations & Cooperatives)',
-    organizationTypes: ['Corporation', 'Cooperative'],
-    required: true,
-  },
-  {
-    id: 'sec-cda-registration',
-    title: 'SEC or CDA Registration',
-    description: 'Certificate of SEC Registration (Corporation/Partnership) or CDA Registration (Cooperative).',
-    group: 'Corporation / Cooperative Documents',
-    instructions: 'Upload SEC or CDA Registration Certificate. (Required for Corporations & Cooperatives)',
-    organizationTypes: ['Corporation', 'Cooperative', 'Partnership'],
-    required: true,
-  },
-  {
-    id: 'articles-of-incorporation-cooperation',
-    title: 'Articles of Incorporation / Cooperation',
-    description: 'Official Articles of Incorporation or Articles of Cooperation with By-Laws.',
-    group: 'Corporation / Cooperative Documents',
-    instructions: 'Upload Articles of Incorporation / Cooperation. (Required for Corporations & Cooperatives)',
-    organizationTypes: ['Corporation', 'Cooperative'],
-    required: true,
-  },
-  {
-    id: 'secretarys-certificate',
-    title: "Secretary's Certificate of Incumbent Officers",
-    description: 'Certified list of incumbent corporate or cooperative officers.',
-    group: 'Corporation / Cooperative Documents',
-    instructions: "Upload Secretary's certificate of incumbent officers. (Required for Corporations & Cooperatives)",
-    organizationTypes: ['Corporation', 'Cooperative'],
-    required: true,
-  },
+export async function fetchSetupDocumentaryRequirements(
+  organizationType?: OrganizationType,
+  businessSize?: BusinessSize,
+): Promise<DocumentaryRequirement[]> {
+  const records = await getDocumentTypes({
+    program: 'SETUP',
+    businessType: organizationType
+      ? ORGANIZATION_TYPE_TO_BUSINESS_TYPE[organizationType as Exclude<OrganizationType, ''>]
+      : undefined,
+    businessSize: businessSize
+      ? BUSINESS_SIZE_TO_ENTERPRISE_SIZE[businessSize as Exclude<BusinessSize, ''>]
+      : undefined,
+  })
+  return records.map(mapDocumentTypeToRequirement)
+}
 
-  /* Financial Statements */
-  {
-    id: 'statement-financial-position',
-    title: 'Statement of Financial Position',
-    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
-    group: 'Financial Documents',
-    instructions: 'Audited Statement of Financial Position (Balance Sheet) together with notarized Sworn Statement that all information provided are correct and true.',
-    required: true,
-  },
-  {
-    id: 'statement-financial-operations',
-    title: 'Statement of Financial Operation',
-    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
-    group: 'Financial Documents',
-    instructions: 'Audited Statement of Financial Operation (Income Statement) together with notarized Sworn Statement.',
-    required: true,
-  },
-  {
-    id: 'statement-cash-flows',
-    title: 'Statement of Financial Cash Flows',
-    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
-    group: 'Financial Documents',
-    instructions: 'Statement of Financial Cash Flows together with notarized Sworn Statement.',
-    required: true,
-  },
-  {
-    id: 'statement-owner-equity',
-    title: "Statement of Changes in Owner's Equity",
-    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
-    group: 'Financial Documents',
-    instructions: "Statement of Changes in Owner's Equity together with notarized Sworn Statement.",
-    required: true,
-  },
-  {
-    id: 'notes-financial-statements',
-    title: 'Notes to Financial Statements',
-    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
-    group: 'Financial Documents',
-    instructions: 'Notes to Financial Statements accompanying audited financial statements.',
-    required: true,
-  },
+// ---------------------------------------------------------------------------
+// SETUP documents: backed by the real /documents API (Document model).
+// GIA documents further below are still local-only (localStorage) — out of
+// scope for this pass, kept exactly as they were.
+// ---------------------------------------------------------------------------
 
-  /* Additional Documents / SET 2 */
-  {
-    id: 'letter-intent-setup',
-    title: 'Letter of Intent for SETUP Assistance',
-    description: 'Stating commitment to refund the assistance and cover the insurance cost of equipment.',
-    group: 'Additional Documents',
-    instructions: 'Letter of Intent for SETUP Assistance, stating commitment to refund the assistance and cover the insurance cost of equipment.',
-    required: true,
-    templateUrl: '/templates/SETUP_Letter_of_Intent_Template.docx',
-  },
-  {
-    id: 'biodata-approved-signatory',
-    title: 'Bio-data of the Approved Signatory',
-    description: 'Curriculum Vitae / Bio-data of the approved signatory.',
-    group: 'Additional Documents',
-    instructions: 'Upload Bio-data / CV of the approved signatory.',
-    required: true,
-  },
-  {
-    id: 'government-id-approved-signatory',
-    title: 'Photocopy of Valid Government-issued ID of the Approved Signatory',
-    description: 'Must include 3 specimen signatures.',
-    group: 'Additional Documents',
-    instructions: 'Photocopy of valid government-issued ID of the approved signatory with 3 specimen signatures.',
-    required: true,
-  },
-  {
-    id: 'barangay-residence-certificate',
-    title: 'Barangay Certification of Permanent Residence',
-    description: 'Barangay certification of permanent residence of the approved signatory.',
-    group: 'Additional Documents',
-    instructions: 'Upload Barangay certification of permanent residence of the approved signatory.',
-    required: true,
-  },
-]
+export interface DocumentApiRecord {
+  id: number
+  proposal_id: number
+  document_type_id: number
+  uploaded_by: number
+  reviewed_by: number | null
+  file_name: string
+  file_path: string
+  file_size: number | null
+  mime_type: string | null
+  // Backend enum (see documents table migration): no "under review" state
+  // exists server-side today, so 'pending' is mapped to 'Uploaded' below —
+  // not to 'Under Review', which nothing currently sets.
+  status: 'pending' | 'approved' | 'returned_for_revision'
+  remarks: string | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+function mapDocumentStatus(status: DocumentApiRecord['status']): VerificationStatus {
+  switch (status) {
+    case 'approved':
+      return 'Approved'
+    case 'returned_for_revision':
+      return 'Needs Revision'
+    case 'pending':
+    default:
+      return 'Uploaded'
+  }
+}
+
+export function documentRecordToStoredDocument(record: DocumentApiRecord): StoredDocument {
+  return {
+    backendId: record.id,
+    // No local data URL for server-stored files — view goes through
+    // fetchDocumentBlobUrl() instead, resolved on demand.
+    dataUrl: '',
+    fileName: record.file_name,
+    fileSize: record.file_size ?? 0,
+    fileType: record.mime_type ?? 'application/pdf',
+    uploadedAt: record.created_at,
+    verificationStatus: mapDocumentStatus(record.status),
+  }
+}
+
+interface DocumentIndexResponse {
+  data: DocumentApiRecord[]
+}
+
+/**
+ * Fetches all documents already uploaded for a proposal via
+ * GET /proposals/{proposalId}/documents (DocumentController::index),
+ * keyed by document_type_id (which is what DocumentaryRequirement.id is
+ * for SETUP records — see mapDocumentTypeToRequirement above).
+ */
+export async function fetchProposalDocuments(
+  proposalId: number,
+): Promise<Record<string, StoredDocument>> {
+  const response = await api.get<DocumentIndexResponse>(`/proposals/${proposalId}/documents`)
+  const byRequirement: Record<string, StoredDocument> = {}
+  for (const record of response.data.data) {
+    byRequirement[String(record.document_type_id)] = documentRecordToStoredDocument(record)
+  }
+  return byRequirement
+}
+
+/**
+ * Uploads a document via POST /documents (DocumentController::store).
+ *
+ * IMPORTANT: `documents` has a unique constraint on (proposal_id,
+ * document_type_id), and the backend always INSERTs (there's no upsert
+ * route wired). Callers replacing an existing file for the same
+ * requirement MUST delete the old document first via deleteDocumentRecord,
+ * or this will fail with a DB constraint error.
+ *
+ * IMPORTANT: the `api` axios instance sets a default
+ * 'Content-Type: application/json' header. That has to be explicitly
+ * cleared here — otherwise the browser won't attach the multipart
+ * boundary for the FormData body, and Laravel will fail to parse the file.
+ */
+export async function uploadDocument(
+  proposalId: number,
+  documentTypeId: string,
+  file: File,
+): Promise<StoredDocument> {
+  const formData = new FormData()
+  formData.append('proposal_id', String(proposalId))
+  formData.append('document_type_id', documentTypeId)
+  formData.append('file', file)
+
+  const response = await api.post<{ data: DocumentApiRecord }>('/documents', formData, {
+    headers: { 'Content-Type': undefined },
+  })
+  return documentRecordToStoredDocument(response.data.data)
+}
+
+/** Deletes a document via DELETE /documents/{document}. */
+export async function deleteDocumentRecord(documentId: number): Promise<void> {
+  await api.delete(`/documents/${documentId}`)
+}
+
+/**
+ * Fetches a document's file as a blob URL for viewing, via
+ * GET /documents/{document}/download (DocumentController::show).
+ *
+ * NOTE: as of this writing, DocumentController::show() checks the file
+ * exists but never actually streams it back — it needs a
+ * `return Storage::download(...)` added, or this will resolve with an
+ * empty/invalid blob. See the accompanying DocumentController.php fix.
+ *
+ * Uses api.get with responseType 'blob' (rather than a plain <a href>)
+ * because the download route requires auth:sanctum — a bare browser
+ * navigation wouldn't carry the Bearer token header the axios interceptor
+ * attaches.
+ */
+export async function fetchDocumentBlobUrl(documentId: number): Promise<string> {
+  const response = await api.get(`/documents/${documentId}/download`, {
+    responseType: 'blob',
+  })
+  return URL.createObjectURL(response.data as Blob)
+}
 
 export const giaDocumentaryRequirements: DocumentaryRequirement[] = [
   {
@@ -288,29 +294,14 @@ export const giaDocumentaryRequirements: DocumentaryRequirement[] = [
   },
 ]
 
-export function getDocumentaryRequirements(
-  program: ApplicationProgram,
-  organizationType?: OrganizationType,
-  giaCategory?: GiaProponentCategory,
-  businessSize?: BusinessSize,
-) {
-  const requirements = program === 'SETUP'
-    ? setupDocumentaryRequirements
-    : giaDocumentaryRequirements
-
-  return requirements.filter((requirement) => {
-    if (requirement.organizationTypes && requirement.organizationTypes.length > 0) {
-      if (!organizationType || !requirement.organizationTypes.includes(organizationType as Exclude<OrganizationType, ''>)) {
-        return false
-      }
-    }
+/**
+ * GIA-only. SETUP requirements now come from the backend via
+ * fetchSetupDocumentaryRequirements() (see documentStore.ts / DocumentTypeController).
+ */
+export function getDocumentaryRequirements(giaCategory?: GiaProponentCategory) {
+  return giaDocumentaryRequirements.filter((requirement) => {
     if (requirement.giaCategories && requirement.giaCategories.length > 0) {
       if (!giaCategory || !requirement.giaCategories.includes(giaCategory as Exclude<GiaProponentCategory, ''>)) {
-        return false
-      }
-    }
-    if (requirement.businessSizes && requirement.businessSizes.length > 0) {
-      if (businessSize && !requirement.businessSizes.includes(businessSize as Exclude<BusinessSize, ''>)) {
         return false
       }
     }
