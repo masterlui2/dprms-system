@@ -247,7 +247,7 @@ export function NotificationPanel({
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+      <div className="flex items-center justify-end border-t border-slate-200 px-4 py-3">
         <button
           className="text-xs font-bold text-[#0f53b7] hover:underline"
           onClick={() =>
@@ -258,12 +258,6 @@ export function NotificationPanel({
           type="button"
         >
           Mark all as read
-        </button>
-        <button
-          className="text-xs font-bold text-slate-600 hover:text-[#0f53b7]"
-          type="button"
-        >
-          View all notifications
         </button>
       </div>
     </aside>

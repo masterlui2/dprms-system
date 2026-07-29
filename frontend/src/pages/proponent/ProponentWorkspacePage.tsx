@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { AdminPanel } from "../../components/admin/AdminPanel";
-import { StatusPill } from "../../components/admin/StatusPill";
 
 const checklist = [
   "Business profile and enterprise registration",
@@ -87,7 +86,6 @@ export function ProponentWorkspacePage() {
                 </div>
               </article>
             ))}
-            <StatusPill tone="info">Notifications stay available in the header while signed in.</StatusPill>
           </div>
         </AdminPanel>
       </div>

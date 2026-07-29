@@ -5,23 +5,29 @@ import type { SampleDocument } from "./types";
 
 interface ProposalDocumentsSectionProps {
   documents: SampleDocument[];
+  mode?: "approval" | "review";
   onSelectDocument: (document: SampleDocument) => void;
   selectedDocument: SampleDocument | null;
 }
 
 export function ProposalDocumentsSection({
   documents,
+  mode = "review",
   onSelectDocument,
   selectedDocument,
 }: ProposalDocumentsSectionProps) {
   const checklist = documents.map((document, index) => ({
     document,
-    note:
-      index === documents.length - 1
+    note: mode === "approval"
+      ? "Completed package item."
+      : index === documents.length - 1
         ? "For content review during technical assessment."
         : "File received and ready for validation.",
-    status: index === documents.length - 1 ? "For review" : "Validated",
+    status: mode === "approval"
+      ? "Complete"
+      : index === documents.length - 1 ? "For review" : "Validated",
   }));
+  const isApproval = mode === "approval";
 
   return (
     <div className="grid gap-5 lg:grid-cols-[minmax(320px,0.8fr)_minmax(0,1.3fr)]">
@@ -29,10 +35,10 @@ export function ProposalDocumentsSection({
         <div className="border-b border-slate-200 px-4 py-3">
           <h3 className="flex items-center gap-2 font-black text-[#073b82]">
             <FileCheck2 className="size-4" />
-            Document checklist
+            {isApproval ? "Completed documents" : "Document checklist"}
           </h3>
           <p className="mt-1 text-xs text-slate-500">
-            Validate completeness and select a file to inspect its preview.
+            {isApproval ? "Review the completed package before deciding." : "Validate completeness and select a file to inspect its preview."}
           </p>
         </div>
         <div className="divide-y divide-slate-100">
@@ -49,12 +55,12 @@ export function ProposalDocumentsSection({
               <span
                 className={cn(
                   "mt-0.5 grid size-9 shrink-0 place-items-center rounded-lg",
-                  status === "Validated"
+                  status === "Validated" || status === "Complete"
                     ? "bg-emerald-50 text-emerald-700"
                     : "bg-amber-50 text-amber-700",
                 )}
               >
-                {status === "Validated" ? (
+                {status === "Validated" || status === "Complete" ? (
                   <CheckCircle2 className="size-4" />
                 ) : (
                   <Clock3 className="size-4" />
@@ -68,7 +74,7 @@ export function ProposalDocumentsSection({
                   <span
                     className={cn(
                       "rounded-md px-2 py-0.5 text-[11px] font-black",
-                      status === "Validated"
+                      status === "Validated" || status === "Complete"
                         ? "bg-emerald-50 text-emerald-700"
                         : "bg-amber-50 text-amber-700",
                     )}

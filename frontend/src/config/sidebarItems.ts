@@ -52,7 +52,7 @@ const item = (
 export const sidebarItems: SidebarItem[] = [
   item("dashboard", "Dashboard", LayoutDashboard, "/dashboard"),
 
-  item("applications", "Applications", FilePenLine, "/dashboard/applications"),
+  item("applications", "Data Entry", FilePenLine, "/dashboard/applications"),
   item(
     "projectManagement",
     "Project Monitoring",
@@ -67,20 +67,20 @@ export const sidebarItems: SidebarItem[] = [
   ),
   item(
     "equipmentTracking",
-    "Equipment Tracking",
+    "Equipment & QR",
     PackageCheck,
     "/dashboard/equipment-tracking",
   ),
   item(
     "repaymentMonitoring",
-    "Repayment Monitoring",
+    "Finance Records",
     ReceiptText,
     "/dashboard/repayment-monitoring",
   ),
 
   item(
     "applicationReview",
-    "Application Review",
+    "Review",
     ClipboardCheck,
     "/dashboard/application-review",
   ),
@@ -92,26 +92,13 @@ export const sidebarItems: SidebarItem[] = [
   ),
   item(
     "projectMonitoring",
-    "Project Monitoring",
+    "Monitoring",
     Activity,
     "/dashboard/project-monitoring",
   ),
   item(
-    "quarterlyReports",
-    "Quarterly Reports",
-    BarChart3,
-    "/dashboard/quarterly-reports",
-  ),
-  item(
-    "aiRiskPrediction",
-    "AI Risk Prediction",
-    Brain,
-    "/dashboard/ai-risk-prediction",
-  ),
-
-  item(
     "executiveApproval",
-    "Executive Approval",
+    "Final Approval",
     ShieldCheck,
     "/dashboard/executive-approval",
   ),
@@ -122,9 +109,8 @@ export const sidebarItems: SidebarItem[] = [
     Activity,
     "/dashboard/regional-monitoring",
   ),
-  item("aiAnalytics", "AI Analytics", Brain, "/dashboard/ai-analytics"),
+  item("aiAnalytics", "AI Risk Reports", Brain, "/dashboard/ai-analytics"),
   item("reports", "Reports", BarChart3, "/dashboard/reports"),
-  item("notifications", "Notifications", Bell, "/dashboard/notifications"),
 
   item("userManagement", "User Management", Users, "/dashboard/users"),
   item("roleManagement", "Role Management", ShieldCheck, "/dashboard/roles"),
@@ -178,26 +164,21 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   project_staff: [
     "dashboard",
     "applications",
-    "projectManagement",
-    "budgetManagement",
     "equipmentTracking",
-    "repaymentMonitoring",
+    "projectManagement",
     "reports",
-    "notifications",
   ],
   focal: [
     "dashboard",
     "applicationReview",
-    "technicalEvaluation",
     "projectMonitoring",
-    "quarterlyReports",
-    "aiRiskPrediction",
+    "repaymentMonitoring",
     "reports",
-    "notifications",
   ],
   provincial_director: [
     "dashboard",
     "executiveApproval",
+    "repaymentMonitoring",
     "projects",
     "reports",
   ],

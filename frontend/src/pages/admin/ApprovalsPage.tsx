@@ -7,6 +7,7 @@ import {
   ProposalReviewModal,
   type ReviewSection,
 } from "../../components/admin/ProposalReviewModal";
+import { ROLES } from "../../config/permissions";
 import {
   formatCurrency,
   getProposalReviewStatus,
@@ -14,6 +15,7 @@ import {
   type ProposalRecord,
   type ProposalReviewStatus,
 } from "../../data/admin";
+import { getMockUser } from "../../lib/mockAuth";
 import { cn } from "../../utils/cn";
 
 const statusFilters: Array<"All" | ProposalReviewStatus> = [
@@ -42,6 +44,8 @@ function proposalStatusClass(status: ProposalReviewStatus): string {
 }
 
 export function ApprovalsPage() {
+  const user = getMockUser();
+  const isProvincialDirector = user?.role === ROLES.PROVINCIAL_DIRECTOR;
   const [statusFilter, setStatusFilter] =
     useState<(typeof statusFilters)[number]>("All");
   const [program, setProgram] = useState("all");
@@ -52,16 +56,17 @@ export function ApprovalsPage() {
   } | null>(null);
   const activeFilterCount =
     (statusFilter === "All" ? 0 : 1) + (program === "all" ? 0 : 1);
-  const filteredProposals = proposalRecords.filter(
-    (proposal) => {
-      const reviewStatus = getProposalReviewStatus(proposal);
+  const filteredProposals = proposalRecords.filter((proposal) => {
+    const reviewStatus = getProposalReviewStatus(proposal);
+    const readyForDirector =
+      !isProvincialDirector || proposal.completeness === 100;
 
-      return (
-        (statusFilter === "All" || reviewStatus === statusFilter) &&
-        (program === "all" || proposal.program === program)
-      );
-    },
-  );
+    return (
+      readyForDirector &&
+      (statusFilter === "All" || reviewStatus === statusFilter) &&
+      (program === "all" || proposal.program === program)
+    );
+  });
 
   function openReview(proposal: ProposalRecord, section: ReviewSection) {
     setReview({ proposal, section });
@@ -175,8 +180,8 @@ export function ApprovalsPage() {
     <div className="space-y-7">
       <AdminPageHeader
         description=""
-        eyebrow="Proposal Management"
-        title="Proposal Reviews"
+        eyebrow={isProvincialDirector ? "Approval" : "Proposal Management"}
+        title={isProvincialDirector ? "Project Approvals" : "Proposal Reviews"}
       />
 
       <AdminPanel

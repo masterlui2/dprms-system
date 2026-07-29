@@ -27,19 +27,27 @@ export const ADMIN_USER: MockUser = {
 export const PROPONENT_USER: MockUser = {
   email: "proponent@dost.gov.ph",
   initials: "PR",
-  name: "Maria Proponent",
+  name: "Maria SETUP Proponent",
   program: "SETUP",
   role: ROLES.PROPONENT,
 };
 
+export const GIA_PROPONENT_USER: MockUser = {
+  email: "gia.proponent@dost.gov.ph",
+  initials: "GP",
+  name: "Gina GIA Project Leader",
+  program: "GIA",
+  role: ROLES.PROPONENT,
+};
+
 const STAFF_USER: MockUser = {
-  email: 'staff@dost.gov.ph', initials: 'PS', name: 'Paolo Staff', role: ROLES.PROJECT_STAFF,
+  email: 'staff@dost.gov.ph', initials: 'PS', name: 'Paolo Staff Encoder', role: ROLES.PROJECT_STAFF,
 };
 const FOCAL_USER: MockUser = {
-  email: 'focal@dost.gov.ph', initials: 'FR', name: 'Faith Reviewer', role: ROLES.FOCAL,
+  email: 'focal@dost.gov.ph', initials: 'FR', name: 'Faith Focal Evaluator', role: ROLES.FOCAL,
 };
 const DIRECTOR_USER: MockUser = {
-  email: 'director@dost.gov.ph', initials: 'PD', name: 'Pat Director', role: ROLES.PROVINCIAL_DIRECTOR,
+  email: 'director@dost.gov.ph', initials: 'PD', name: 'Pat Director Approver', role: ROLES.PROVINCIAL_DIRECTOR,
 };
 const RPMO_USER: MockUser = {
   email: 'rpmo@dost.gov.ph', initials: 'RV', name: 'Rico Regional', role: ROLES.RPMO,
@@ -59,6 +67,20 @@ const MOCK_USERS = [
       password: "Dprms@123",
     },
     user: PROPONENT_USER,
+  },
+  {
+    credentials: {
+      email: "setup.proponent@dost.gov.ph",
+      password: "Dprms@123",
+    },
+    user: PROPONENT_USER,
+  },
+  {
+    credentials: {
+      email: "gia.proponent@dost.gov.ph",
+      password: "Dprms@123",
+    },
+    user: GIA_PROPONENT_USER,
   },
   { credentials: { email: 'staff@dost.gov.ph', password: 'Dprms@123' }, user: STAFF_USER },
   { credentials: { email: 'focal@dost.gov.ph', password: 'Dprms@123' }, user: FOCAL_USER },
@@ -153,8 +175,9 @@ export const DEFAULT_REDIRECT_BY_ROLE: Record<UserRole, string> = {
 };
 
 export function getDefaultRedirect(user: MockUser) {
-  if (user.role === ROLES.PROPONENT && user.program) {
-    return `/programs/${user.program.toLowerCase()}`;
+  if (user.role === ROLES.PROPONENT) {
+    const program = user.program ?? "SETUP";
+    return `/programs/${program.toLowerCase()}`;
   }
 
   return DEFAULT_REDIRECT_BY_ROLE[user.role];

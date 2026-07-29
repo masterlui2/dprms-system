@@ -17,10 +17,10 @@ export const ALL_ROLES: UserRole[] = Object.values(ROLES)
 
 export const ROLE_LABEL: Record<UserRole, string> = {
   [ROLES.SYSTEM_ADMIN]: 'System Administrator',
-  [ROLES.PROJECT_STAFF]: 'Project Staff',
-  [ROLES.FOCAL]: 'Focal (Reviewer)',
-  [ROLES.PROVINCIAL_DIRECTOR]: 'Provincial Director',
-  [ROLES.RPMO]: 'RPMO (Regional Viewer)',
+  [ROLES.PROJECT_STAFF]: 'Project Staff / Encoder',
+  [ROLES.FOCAL]: 'Focal / Evaluator',
+  [ROLES.PROVINCIAL_DIRECTOR]: 'Provincial Director / Approver',
+  [ROLES.RPMO]: 'RPMO / Regional Viewer',
   [ROLES.PROPONENT]: 'Proponent / Beneficiary',
 }
 
@@ -37,18 +37,17 @@ export const modulePermissions = {
   equipmentAssigned: [ROLES.PROPONENT],
   quarterlyReports: [ROLES.PROPONENT, ROLES.FOCAL],
   documents: [ROLES.PROPONENT],
-  notifications: [ROLES.PROPONENT, ROLES.PROJECT_STAFF, ROLES.FOCAL],
   profile: [ROLES.PROPONENT],
   projectManagement: [ROLES.PROJECT_STAFF],
-  budgetManagement: [ROLES.PROJECT_STAFF],
+  budgetManagement: [],
   equipmentTracking: [ROLES.PROJECT_STAFF],
-  repaymentMonitoring: [ROLES.PROJECT_STAFF],
+  repaymentMonitoring: [ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR],
   documentManagement: [ROLES.PROJECT_STAFF],
   reports: [ROLES.PROJECT_STAFF, ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   applicationReview: [ROLES.FOCAL],
-  technicalEvaluation: [ROLES.FOCAL],
+  technicalEvaluation: [],
   projectMonitoring: [ROLES.FOCAL],
-  aiRiskPrediction: [ROLES.FOCAL],
+  aiRiskPrediction: [],
   executiveApproval: [ROLES.PROVINCIAL_DIRECTOR],
   projects: [ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   regionalMonitoring: [ROLES.RPMO],
@@ -79,9 +78,15 @@ export function normalizeUserRole(role?: string): UserRole {
       return ROLES.SYSTEM_ADMIN
     case 'PROJECT_STAFF':
     case 'PSTO_STAFF':
+    case 'CEST_PROJECT_STAFF':
+    case 'SSCP_PROJECT_STAFF':
+    case 'SSCP PROJECT STAFF':
       return ROLES.PROJECT_STAFF
     case 'FOCAL':
     case 'FOCAL_REVIEWER':
+    case 'SETUP_FOCAL':
+    case 'CEST_FOCAL':
+    case 'SSCP_FOCAL':
     case 'TECHNICAL_PANEL_REVIEWER':
       return ROLES.FOCAL
     case 'PROVINCIAL_DIRECTOR':

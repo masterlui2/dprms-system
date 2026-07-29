@@ -66,7 +66,6 @@ export const router = createBrowserRouter([
       { path: 'accomplishment-reports', element: protect('quarterlyReports', <ReportsPage />) },
       { path: 'quarterly-reports', element: protect('quarterlyReports', <ReportsPage />) },
       { path: 'documents', element: protect('documents', <DocumentaryRequirementsPage />) },
-      { path: 'notifications', element: protect('notifications', <ModuleWorkspace title="Notifications" description="Review updates and role-specific DPRMS alerts." />) },
       { path: 'profile', element: protect('profile', <ProfilePage />) },
 
       { path: 'project-management', element: protect('projectManagement', <MonitoringPage />) },

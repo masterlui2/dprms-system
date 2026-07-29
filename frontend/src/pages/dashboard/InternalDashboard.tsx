@@ -48,68 +48,68 @@ function dashboardContent(role: UserRole): {
   switch (role) {
     case ROLES.PROJECT_STAFF:
       return {
-        eyebrow: 'Operations overview',
+        eyebrow: 'Uploader / Encoder',
         title: 'Project staff dashboard',
-        description: 'Work through pending applications, internal documents, payment verification, and equipment inspections.',
+        description: 'Encode applications, upload internal DOST documents, and update basic tracker statuses.',
         cards: [
-          { label: 'Pending Applications', value: String(pendingApplications), detail: 'Ready for staff processing', icon: ClipboardCheck },
-          { label: 'Internal Documents', value: '4', detail: 'Awaiting validation', icon: FileClock, tone: 'orange' },
-          { label: 'Payment Verification', value: '3', detail: 'Official receipts to review', icon: Landmark, tone: 'sky' },
-          { label: 'Inspection Due', value: String(inspectionDue), detail: 'Equipment needs inspection', icon: Wrench, tone: 'red' },
+          { label: 'Data Entry', value: String(pendingApplications), detail: 'Applications for encoding', icon: ClipboardCheck },
+          { label: 'Internal Uploads', value: '4', detail: 'MOA, TNA, inspection reports', icon: FileClock, tone: 'orange' },
+          { label: 'Tracker Updates', value: '3', detail: 'Basic status changes', icon: Landmark, tone: 'sky' },
+          { label: 'Equipment & QR', value: String(inspectionDue), detail: 'Assets needing updates', icon: Wrench, tone: 'red' },
         ],
         attention: [
-          { title: 'Bright Foods Cooperative', detail: 'TNA and inspection report are still required.', tone: 'warning' },
-          { title: 'GreenHarvest Producers', detail: 'Payment proof is awaiting verification.', tone: 'info' },
-          { title: 'Equipment registry', detail: `${inspectionDue} assets need an updated inspection record.`, tone: 'danger' },
+          { title: 'Bright Foods Cooperative', detail: 'Signed MOA and inspection report are ready to upload.', tone: 'warning' },
+          { title: 'GreenHarvest Producers', detail: 'Tracker status needs an update.', tone: 'info' },
+          { title: 'Equipment registry', detail: `${inspectionDue} assets need QR or inspection updates.`, tone: 'danger' },
         ],
-        recent: ['New SETUP application received', 'Inspection report uploaded for Cold Storage', 'Payment verification was assigned to you'],
+        recent: ['New SETUP application encoded', 'Inspection report uploaded', 'Equipment status updated'],
       }
     case ROLES.FOCAL:
       return {
-        eyebrow: 'Review queue',
-        title: 'Focal reviewer dashboard',
-        description: 'Prioritize technical reviews, returned applications, and projects needing intervention.',
+        eyebrow: 'Reviewer / Evaluator',
+        title: 'Focal dashboard',
+        description: 'Review proposals, view internal documents, upload TNA records, monitor projects, and check reports.',
         cards: [
-          { label: 'Pending Reviews', value: String(pendingApplications), detail: 'Applications in your queue', icon: ClipboardCheck },
-          { label: 'Returned Applications', value: '2', detail: 'Waiting for proponent updates', icon: FileClock, tone: 'orange' },
-          { label: 'AI Risk Alerts', value: String(highRisk), detail: 'Projects with high-risk signals', icon: AlertTriangle, tone: 'red' },
-          { label: 'Needs Intervention', value: String(atRiskProjects), detail: 'Active projects to monitor', icon: Activity, tone: 'sky' },
+          { label: 'For Review', value: String(pendingApplications), detail: 'Uploaded PDFs to evaluate', icon: ClipboardCheck },
+          { label: 'Returned', value: '2', detail: 'Waiting for revision', icon: FileClock, tone: 'orange' },
+          { label: 'Reports', value: String(highRisk), detail: 'Risk items included', icon: AlertTriangle, tone: 'red' },
+          { label: 'Monitoring', value: String(atRiskProjects), detail: 'Projects needing action', icon: Activity, tone: 'sky' },
         ],
         attention: [
-          { title: 'Cacao Processing Line Modernization', detail: 'Technical recommendation is due this week.', tone: 'warning' },
-          { title: 'Cold Storage Facility Upgrade', detail: 'AI risk score requires a monitoring recommendation.', tone: 'danger' },
-          { title: 'Community Water Quality Monitoring', detail: 'Proponent submitted revisions for review.', tone: 'info' },
+          { title: 'Cacao Processing Line Modernization', detail: 'Recommendation is due this week.', tone: 'warning' },
+          { title: 'Cold Storage Facility Upgrade', detail: 'Risk item is available in reports.', tone: 'danger' },
+          { title: 'Community Water Quality Monitoring', detail: 'Revised PDF is ready for evaluation.', tone: 'info' },
         ],
-        recent: ['Technical evaluation completed for PR-2026-040', 'Revision request sent to a SETUP proponent', 'New AI risk alert added to the review queue'],
+        recent: ['Proposal approved for endorsement', 'TNA uploaded', 'Risk report reviewed'],
       }
     case ROLES.PROVINCIAL_DIRECTOR:
       return {
-        eyebrow: 'Executive overview',
+        eyebrow: 'Approver',
         title: 'Provincial director dashboard',
-        description: 'Review executive decisions, recently approved projects, and key provincial performance indicators.',
+        description: 'Review focal recommendations and make final project decisions.',
         cards: [
-          { label: 'Executive Decisions', value: '3', detail: 'Awaiting final decision', icon: ShieldCheck },
-          { label: 'Recently Approved', value: String(proposalRecords.filter((proposal) => proposal.status === 'Approved').length), detail: 'Projects approved this period', icon: CheckCircle2, tone: 'green' },
-          { label: 'Active Projects', value: String(projectRecords.filter((project) => project.status === 'Active').length), detail: 'Under provincial monitoring', icon: Activity, tone: 'sky' },
-          { label: 'Projects at Risk', value: String(atRiskProjects), detail: 'Require executive visibility', icon: AlertTriangle, tone: 'red' },
+          { label: 'Final Decisions', value: '3', detail: 'Awaiting action', icon: ShieldCheck },
+          { label: 'Approved', value: String(proposalRecords.filter((proposal) => proposal.status === 'Approved').length), detail: 'Approved this period', icon: CheckCircle2, tone: 'green' },
+          { label: 'Finance Records', value: '3', detail: 'For review', icon: Landmark, tone: 'sky' },
+          { label: 'Terminate Review', value: String(atRiskProjects), detail: 'Projects flagged for decision', icon: AlertTriangle, tone: 'red' },
         ],
         attention: [
-          { title: 'Precision Coffee Roasting System', detail: 'Executive approval package is ready for decision.', tone: 'warning' },
-          { title: 'Cold Storage Facility Upgrade', detail: 'Risk status changed to at risk.', tone: 'danger' },
-          { title: 'Provincial portfolio', detail: 'Monthly project performance report is available.', tone: 'info' },
+          { title: 'Precision Coffee Roasting System', detail: 'Focal recommendation is ready.', tone: 'warning' },
+          { title: 'Cold Storage Facility Upgrade', detail: 'Termination review requested.', tone: 'danger' },
+          { title: 'Provincial portfolio', detail: 'Latest report is available.', tone: 'info' },
         ],
-        recent: ['One project was approved', 'Executive decision package added', 'Provincial monitoring report published'],
+        recent: ['Project approved', 'Decision package opened', 'Report viewed'],
       }
     case ROLES.RPMO:
       return {
-        eyebrow: 'Regional monitoring',
+        eyebrow: 'Regional Viewer',
         title: 'RPMO regional dashboard',
         description: 'Read-only regional performance, funding, and AI risk indicators for informed monitoring.',
         cards: [
-          { label: 'Active Projects', value: String(projectRecords.filter((project) => project.status === 'Active').length), detail: 'Across the regional portfolio', icon: Activity },
-          { label: 'Total Funding', value: '₱8.7M', detail: 'Current monitored portfolio', icon: Landmark, tone: 'sky' },
-          { label: 'AI Risk Summary', value: String(highRisk), detail: 'Projects with elevated risk', icon: AlertTriangle, tone: 'red' },
-          { label: 'Provinces Reporting', value: '5 / 5', detail: 'Current reporting coverage', icon: BarChart3, tone: 'green' },
+          { label: 'Active Projects', value: String(projectRecords.filter((project) => project.status === 'Active').length), detail: 'Province-wide portfolio', icon: Activity },
+          { label: 'Funds Released', value: 'PHP 8.7M', detail: 'Current portfolio', icon: Landmark, tone: 'sky' },
+          { label: 'AI Risk Reports', value: String(highRisk), detail: 'Elevated risk projects', icon: AlertTriangle, tone: 'red' },
+          { label: 'Reporting', value: '5 / 5', detail: 'Province coverage', icon: BarChart3, tone: 'green' },
         ],
         attention: [
           { title: 'Regional risk summary', detail: `${highRisk} projects have elevated AI risk signals.`, tone: 'danger' },
@@ -178,3 +178,4 @@ export function InternalDashboard({ role }: { role: UserRole }) {
     </div>
   )
 }
+
