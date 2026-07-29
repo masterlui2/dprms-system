@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # DPRMS
 
 DOST Project and Resource Management System monorepo.
@@ -58,6 +57,21 @@ cd frontend
 npm run build
 npm run lint
 ```
-=======
-# dprms-system
->>>>>>> 4156807a196d6483fbc76e1dc91a38bb8d7e79f0
+
+## Demo role accounts
+
+Run the Laravel seeders to create one local account for each DPRMS role:
+
+```bash
+cd backend
+php artisan db:seed
+```
+
+All demo accounts use `Dprms@123`:
+
+- `admin@dost.gov.ph` — System Administrator
+- `staff@dost.gov.ph` — Project Staff
+- `focal@dost.gov.ph` — Focal (Reviewer)
+- `director@dost.gov.ph` — Provincial Director
+- `rpmo@dost.gov.ph` — RPMO (Regional Viewer)
+- `proponent@dost.gov.ph` — Proponent / Beneficiary

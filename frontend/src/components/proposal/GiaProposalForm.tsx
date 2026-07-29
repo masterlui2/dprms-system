@@ -10,7 +10,6 @@ import {
   Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 
 import {
   emptyGiaProposal,
@@ -32,6 +31,8 @@ import type {
 } from '../../types/giaProposal'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/button'
+import { ProposalSubmissionSuccess } from './ProposalSubmissionSuccess'
+import type { ApplicationRecord } from '../../types/application'
 
 const inputClass = 'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100'
 
@@ -137,7 +138,6 @@ function Field({
 }
 
 export function GiaProposalForm() {
-  const navigate = useNavigate()
   const user = getMockUser()
   const [data, setData] = useState<GiaProposalData>(() => getGiaDraft() ?? {
     ...emptyGiaProposal,
@@ -148,6 +148,7 @@ export function GiaProposalForm() {
   const [saveState, setSaveState] = useState<'saving' | 'saved'>('saved')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submittedApplication, setSubmittedApplication] = useState<ApplicationRecord | null>(null)
   const firstRender = useRef(true)
   const submitted = useRef(false)
 
@@ -230,7 +231,18 @@ export function GiaProposalForm() {
     setIsSubmitting(true)
     submitted.current = true
     const application = submitGiaProposal(data)
-    navigate('/dashboard', { replace: true, state: { submittedReference: application.referenceNo } })
+    setSubmittedApplication(application)
+    setIsSubmitting(false)
+  }
+
+  if (submittedApplication) {
+    return (
+      <ProposalSubmissionSuccess
+        email={submittedApplication.contactEmail}
+        program="GIA"
+        referenceNo={submittedApplication.referenceNo}
+      />
+    )
   }
 
   return (

@@ -9,7 +9,6 @@ import {
   Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 
 import { emptySetupProposal, setupIndustryCategories } from '../../data/setupProposal'
 import { getMockUser } from '../../lib/mockAuth'
@@ -21,6 +20,8 @@ import type {
 } from '../../types/setupProposal'
 import { cn } from '../../utils/cn'
 import { Button } from '../ui/button'
+import { ProposalSubmissionSuccess } from './ProposalSubmissionSuccess'
+import type { ApplicationRecord } from '../../types/application'
 
 const sectionClass = 'scroll-mt-32 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm'
 const inputClass = 'min-h-11 w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100'
@@ -127,7 +128,6 @@ function OfficialRow({
 }
 
 export function SetupProposalForm() {
-  const navigate = useNavigate()
   const user = getMockUser()
   const [data, setData] = useState<SetupProposalData>(() => {
     const draft = getSetupDraft()
@@ -137,6 +137,7 @@ export function SetupProposalForm() {
   const [saveState, setSaveState] = useState<'saving' | 'saved'>('saved')
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submittedApplication, setSubmittedApplication] = useState<ApplicationRecord | null>(null)
   const firstRender = useRef(true)
   const submitted = useRef(false)
 
@@ -214,7 +215,8 @@ export function SetupProposalForm() {
     setIsSubmitting(true)
     submitted.current = true
     const application = submitSetupProposal(data)
-    navigate('/dashboard', { replace: true, state: { submittedReference: application.referenceNo } })
+    setSubmittedApplication(application)
+    setIsSubmitting(false)
   }
 
   const radioGroup = (field: 'organizationType' | 'businessSize', values: string[]) => (
@@ -227,6 +229,16 @@ export function SetupProposalForm() {
       ))}
     </div>
   )
+
+  if (submittedApplication) {
+    return (
+      <ProposalSubmissionSuccess
+        email={submittedApplication.contactEmail}
+        program="SETUP"
+        referenceNo={submittedApplication.referenceNo}
+      />
+    )
+  }
 
   return (
     <form className="space-y-5" noValidate onSubmit={handleSubmit}>

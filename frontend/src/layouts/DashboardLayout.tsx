@@ -5,7 +5,8 @@ import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
 import { AdminSidebar } from '../components/dashboard/AdminSidebar'
 import { NotificationPanel } from '../components/admin/NotificationPanel'
 import { SiteHeader } from '../components/landing/SiteHeader'
-import { ROLE_LABEL, clearMockUser, getMockUser } from '../lib/mockAuth'
+import { ROLE_LABEL, ROLES } from '../config/permissions'
+import { clearMockUser, getMockUser } from '../lib/mockAuth'
 import { cn } from '../utils/cn'
 
 export function DashboardLayout() {
@@ -20,7 +21,9 @@ export function DashboardLayout() {
     return <Navigate replace to="/login" />
   }
 
-  if (user.role !== 'admin') {
+  // The beneficiary portal keeps its existing header-based experience.
+  // The AdminSidebar is reserved for internal DPRMS roles.
+  if (user.role === ROLES.PROPONENT) {
     return (
       <div className="min-h-screen bg-[#f4f8fc] text-slate-950">
         <SiteHeader />
@@ -81,7 +84,7 @@ export function DashboardLayout() {
               <input
                 className="h-11 w-full rounded-2xl border border-[#d8e1ee] bg-[#fbfdff] pl-12 pr-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
                 placeholder={
-                  user.role === 'admin'
+                  user.role === ROLES.SYSTEM_ADMIN
                     ? 'Search projects, MSMEs, equipment...'
                     : 'Search proposal status, notices, reports...'
                 }

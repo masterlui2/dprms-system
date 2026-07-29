@@ -3,10 +3,13 @@ import { ArrowRight, ChevronLeft, ChevronRight, FilePlus2, FolderOpen } from 'lu
 import { Link } from 'react-router-dom'
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
+import { AdminPanel } from '../../components/admin/AdminPanel'
 import { StatusPill } from '../../components/admin/StatusPill'
+import { ProposalProgress } from '../../components/proponent/ProposalProgress'
 import { isSampleSetupApplication } from '../../data/sampleSetupProposal'
 import { getMockUser } from '../../lib/mockAuth'
 import { getApplications } from '../../services/applicationStore'
+import { getDocuments } from '../../services/documentStore'
 
 const ROWS_PER_PAGE = 5
 
@@ -49,6 +52,9 @@ export function MyProposalsPage() {
   const activePage = Math.min(currentPage, totalPages)
   const firstRowIndex = (activePage - 1) * ROWS_PER_PAGE
   const visibleApplications = applications.slice(firstRowIndex, firstRowIndex + ROWS_PER_PAGE)
+  const workspaceApplication = applications[0]
+  const workspaceDocuments = workspaceApplication ? getDocuments(workspaceApplication.referenceNo) : {}
+  const uploadedDocumentCount = Object.keys(workspaceDocuments).length
 
   return (
     <div className="space-y-7">
@@ -60,7 +66,30 @@ export function MyProposalsPage() {
       />
 
       {applications.length ? (
-        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <>
+          {workspaceApplication ? (
+            <AdminPanel description="A single view of the current application, its requirements, status, and activity." title="Application workspace">
+              <div className="border-b border-slate-100 px-5 py-5 sm:px-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-[#0f53b7]">Current application</p>
+                    <h2 className="mt-2 text-xl font-black text-slate-900">{workspaceApplication.projectTitle}</h2>
+                    <p className="mt-1 font-mono text-xs font-semibold text-slate-500">{workspaceApplication.referenceNo}</p>
+                  </div>
+                  <StatusPill tone={statusTone(workspaceApplication.status)}>{displayStatus(workspaceApplication.status)}</StatusPill>
+                </div>
+                <div className="mt-6"><ProposalProgress application={workspaceApplication} compact documentsComplete={uploadedDocumentCount > 0} /></div>
+              </div>
+              <div className="grid divide-y divide-slate-100 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-4">
+                <div className="p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Applicant information</p><p className="mt-2 font-bold text-slate-900">{workspaceApplication.applicantName}</p><p className="mt-1 break-all text-sm text-slate-500">{workspaceApplication.contactEmail}</p></div>
+                <div className="p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Project information</p><p className="mt-2 font-bold text-slate-900">{workspaceApplication.program} proposal</p><p className="mt-1 text-sm text-slate-500">Submitted {new Intl.DateTimeFormat('en-PH', { dateStyle: 'medium' }).format(new Date(workspaceApplication.createdAt))}</p></div>
+                <div className="p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Submitted requirements</p><p className="mt-2 font-bold text-slate-900">{uploadedDocumentCount} file{uploadedDocumentCount === 1 ? '' : 's'} uploaded</p><Link className="mt-2 inline-flex text-sm font-bold text-[#0f53b7] hover:underline" to={`/dashboard/documents?proposal=${encodeURIComponent(workspaceApplication.referenceNo)}`}>Open requirements</Link></div>
+                <div className="p-5"><p className="text-xs font-black uppercase tracking-wide text-slate-400">Review & activity</p><p className="mt-2 font-bold text-slate-900">{workspaceApplication.status === 'Returned for Revision' ? 'Revision requested' : 'No new reviewer comments'}</p><p className="mt-1 text-sm text-slate-500">Updates and review history appear here as DOST processes the application.</p></div>
+              </div>
+            </AdminPanel>
+          ) : null}
+
+          <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
             <div>
               <h2 className="font-black text-slate-900">Proposal List</h2>
@@ -140,7 +169,8 @@ export function MyProposalsPage() {
               </button>
             </nav>
           </div>
-        </section>
+          </section>
+        </>
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
           <FolderOpen className="mx-auto size-10 text-slate-300" />

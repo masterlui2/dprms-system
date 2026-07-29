@@ -3,6 +3,7 @@ import {
   CheckCheck,
   FileCheck2,
   FilePenLine,
+  ShieldCheck,
   TriangleAlert,
   UserCheck2,
   Wallet,
@@ -12,9 +13,10 @@ import type { LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 
 import type { UserRole } from '../../lib/mockAuth'
+import { ROLES } from '../../config/permissions'
 
 const NOTIFICATIONS_BY_ROLE = {
-  admin: [
+  [ROLES.SYSTEM_ADMIN]: [
     {
       id: 'notification-1',
       title: 'Proposal ready for review',
@@ -48,7 +50,7 @@ const NOTIFICATIONS_BY_ROLE = {
       icon: CheckCheck,
     },
   ],
-  applicant: [
+  [ROLES.PROJECT_STAFF]: [
     {
       id: 'notification-9',
       title: 'Application submitted',
@@ -74,7 +76,61 @@ const NOTIFICATIONS_BY_ROLE = {
       icon: UserCheck2,
     },
   ],
-  proponent: [
+  [ROLES.FOCAL]: [
+    {
+      id: 'notification-5',
+      title: 'Revision requested',
+      description: 'PR-2026-029 needs an updated quotation attachment.',
+      time: '14 min ago',
+      read: false,
+      icon: FilePenLine,
+    },
+    {
+      id: 'notification-6',
+      title: 'Proposal endorsed',
+      description: 'PR-2026-041 advanced to technical evaluation.',
+      time: '1 hr ago',
+      read: false,
+      icon: UserCheck2,
+    },
+    {
+      id: 'notification-7',
+      title: 'Report deadline reminder',
+      description: 'Your quarterly accomplishment report is due in 4 days.',
+      time: 'Today',
+      read: false,
+      icon: TriangleAlert,
+    },
+    {
+      id: 'notification-8',
+      title: 'Submission received',
+      description: 'Your packaging facility proposal was logged successfully.',
+      time: 'Yesterday',
+      read: true,
+      icon: CheckCheck,
+    },
+  ],
+  [ROLES.PROVINCIAL_DIRECTOR]: [
+    {
+      id: 'notification-director-1',
+      title: 'Executive approval pending',
+      description: 'Two endorsed projects are awaiting an executive decision.',
+      time: 'Today',
+      read: false,
+      icon: ShieldCheck,
+    },
+  ],
+  [ROLES.RPMO]: [
+    {
+      id: 'notification-rpmo-1',
+      title: 'Regional report published',
+      description: 'The latest regional monitoring report is ready for viewing.',
+      time: 'Today',
+      read: false,
+      icon: FileCheck2,
+    },
+  ],
+  [ROLES.PROPONENT]: [
     {
       id: 'notification-5',
       title: 'Revision requested',

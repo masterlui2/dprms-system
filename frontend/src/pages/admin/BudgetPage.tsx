@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   AlertTriangle,
   Download,
@@ -350,13 +351,21 @@ function RecentTransactionsModal({ onClose }: { onClose: () => void }) {
 }
 
 export function BudgetPage() {
+  const location = useLocation()
   const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(null)
   const [recentTransactionsOpen, setRecentTransactionsOpen] = useState(false)
-  const totalAllocated = projectRecords.reduce(
+  const isRepaymentMonitoring = location.pathname.endsWith('/repayment-monitoring')
+  const visibleProjects = isRepaymentMonitoring
+    ? projectRecords.filter((project) => project.program === 'SETUP')
+    : projectRecords
+  const visibleAllocationColumns = isRepaymentMonitoring
+    ? allocationColumns.filter((column) => column.id !== 'program')
+    : allocationColumns
+  const totalAllocated = visibleProjects.reduce(
     (total, project) => total + project.budget,
     0,
   )
-  const totalUsed = projectRecords.reduce(
+  const totalUsed = visibleProjects.reduce(
     (total, project) => total + project.used,
     0,
   )
@@ -386,8 +395,8 @@ export function BudgetPage() {
           </div>
         }
         description="Monitor disbursements, billing compliance, payment schedules, and auditable financial records."
-        eyebrow="Financial Management"
-        title="Budget Management"
+        eyebrow={isRepaymentMonitoring ? 'SETUP Repayment Monitoring' : 'Financial Management'}
+        title={isRepaymentMonitoring ? 'Repayment Monitoring' : 'Budget Management'}
       />
 
       <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
@@ -432,11 +441,11 @@ export function BudgetPage() {
             <History className="size-4" />
           </button>
         }
-        title="Project allocations"
+        title={isRepaymentMonitoring ? 'SETUP repayment ledger' : 'Project allocations'}
       >
         <DataTable
-          columns={allocationColumns}
-          data={projectRecords}
+          columns={visibleAllocationColumns}
+          data={visibleProjects}
           getRowKey={(project) => project.id}
           initialRowsPerPage={5}
           onRowClick={setSelectedProject}

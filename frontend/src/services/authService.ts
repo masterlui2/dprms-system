@@ -2,6 +2,7 @@ import axios, {AxiosError } from 'axios'
 import api, { ensureCsrfCookie } from '../lib/axios'
 import type { MockUser } from '../lib/mockAuth'
 import type { ApplicationProgram } from '../types/application'
+import { normalizeUserRole } from '../config/permissions'
 
 interface BackendUser {
   email: string
@@ -39,21 +40,8 @@ export class AuthError extends Error {
 }
 
 function resolveRole(user: BackendUser): MockUser['role'] {
-  const explicitRole = user.role?.toLowerCase()
   const relationRole = user.roles?.[0]?.code ?? user.roles?.[0]?.name
-  const normalizedRelationRole = relationRole?.toLowerCase()
-
-  if (
-    explicitRole === 'admin' ||
-    explicitRole === 'system_admin' ||
-    normalizedRelationRole === 'admin' ||
-    normalizedRelationRole === 'system_admin' ||
-    normalizedRelationRole === 'administrator'
-  ) {
-    return 'admin'
-  }
-
-  return 'proponent'
+  return normalizeUserRole(user.role ?? relationRole)
 }
 
 function getInitials(name: string) {

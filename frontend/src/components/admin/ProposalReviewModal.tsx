@@ -8,6 +8,7 @@ import {
 import { cn } from "../../utils/cn";
 import { ProposalCommentsSection } from "./proposal-review/ProposalCommentsSection";
 import { ProposalDocumentsSection } from "./proposal-review/ProposalDocumentsSection";
+import { InternalDocumentsSection } from './proposal-review/InternalDocumentsSection'
 import { ProposalOverviewSection } from "./proposal-review/ProposalOverviewSection";
 import { getProposalDocuments } from "./proposal-review/documents";
 import type { ReviewSection, SampleDocument } from "./proposal-review/types";
@@ -24,6 +25,7 @@ interface ProposalReviewModalProps {
 const reviewTabs: Array<[ReviewSection, string]> = [
   ["overview", "Overview"],
   ["documents", "Document Checklist"],
+  ["internalDocuments", "Internal Documents"],
   ["comments", "Comments"],
 ];
 
@@ -153,6 +155,8 @@ export function ProposalReviewModal({
               selectedDocument={selectedDocument}
             />
           ) : null}
+
+          {section === 'internalDocuments' ? <InternalDocumentsSection /> : null}
 
           {section === "comments" ? <ProposalCommentsSection /> : null}
         </div>

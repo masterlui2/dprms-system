@@ -1,4 +1,4 @@
-import { Bell, CheckCircle2, FileCheck2, FilePlus2, FolderKanban } from 'lucide-react'
+import { Bell, CalendarDays, CheckCircle2, FileCheck2, FilePlus2, FolderKanban, MessageSquare, Wallet } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
@@ -36,6 +36,23 @@ export function ProponentDashboard() {
     && requiredRequirements.every((requirement) => latestDocuments[requirement.id])
   const registrationPath = user?.program === 'GIA' ? '/programs/gia/register' : '/programs/setup/register'
   const submittedReference = (location.state as { submittedReference?: string } | null)?.submittedReference
+  const needsRequirements = Boolean(latest) && !documentsComplete
+  const nextAction = !latest
+    ? 'Start your proposal registration'
+    : needsRequirements
+      ? 'Upload your remaining supporting requirements'
+      : latest.status === 'Returned for Revision'
+        ? 'Review the requested revisions'
+        : latest.status === 'Approved'
+          ? 'Review your active project updates'
+          : 'DOST is reviewing your submission'
+  const nextActionDetail = !latest
+    ? 'Complete one online proposal form to begin the DOST review process.'
+    : needsRequirements
+      ? `${requiredRequirements.filter((item) => !latestDocuments[item.id]).length} required document${requiredRequirements.filter((item) => !latestDocuments[item.id]).length === 1 ? '' : 's'} still need attention.`
+      : latest.status === 'Approved'
+        ? 'Your project is approved and ready for monitoring updates.'
+        : 'You will receive a notification when the application stage changes.'
 
   return (
     <div className="space-y-7">
@@ -60,6 +77,36 @@ export function ProponentDashboard() {
         <MetricCard detail="Completed DOST decisions" icon={CheckCircle2} label="Approved" tone="green" value={String(applications.filter((item) => item.status === 'Approved').length)} />
       </section>
 
+      <section className="grid gap-5 lg:grid-cols-3">
+        <AdminPanel title="Current action">
+          <div className="p-5">
+            <p className="font-black text-slate-900">{nextAction}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{nextActionDetail}</p>
+            <Link className="mt-4 inline-flex h-10 items-center justify-center rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white" to={latest && needsRequirements ? `/dashboard/documents?proposal=${latest.referenceNo}` : registrationPath}>
+              {latest && needsRequirements ? 'Open requirements' : latest ? 'View proposal status' : 'Register proposal'}
+            </Link>
+          </div>
+        </AdminPanel>
+        <AdminPanel title="Upcoming deadline">
+          <div className="flex gap-3 p-5">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700"><CalendarDays className="size-5" /></span>
+            <div>
+              <p className="font-bold text-slate-900">{needsRequirements ? 'Complete supporting requirements' : latest?.status === 'Approved' ? 'Next project milestone update' : 'DOST review update'}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">{needsRequirements ? 'Submit the remaining files within 5 working days to avoid a review delay.' : latest?.status === 'Approved' ? 'Your next progress update is due in the current reporting cycle.' : 'No action is required while DOST completes this stage.'}</p>
+            </div>
+          </div>
+        </AdminPanel>
+        <AdminPanel title="Latest notification">
+          <div className="flex gap-3 p-5">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]"><MessageSquare className="size-5" /></span>
+            <div>
+              <p className="font-bold text-slate-900">{latest ? `Update for ${latest.referenceNo}` : 'Welcome to DPRMS'}</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">{latest ? `Your proposal is currently ${latest.status === 'Draft Submitted' ? 'waiting for supporting documents' : latest.status.toLowerCase()}.` : 'Register a proposal to receive application and project updates here.'}</p>
+            </div>
+          </div>
+        </AdminPanel>
+      </section>
+
       {latest ? (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-6 flex flex-col gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
@@ -68,6 +115,16 @@ export function ProponentDashboard() {
           </div>
           <ProposalProgress application={latest} documentsComplete={documentsComplete} compact />
         </section>
+      ) : null}
+
+      {latest?.status === 'Approved' ? (
+        <AdminPanel description="A concise view of your approved project." title="Project summary">
+          <div className="grid gap-4 p-5 sm:grid-cols-3">
+            <div className="rounded-xl bg-blue-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-[#0f53b7]">Project status</p><p className="mt-2 font-black text-slate-900">Active monitoring</p></div>
+            <div className="rounded-xl bg-emerald-50 p-4"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">Equipment</p><p className="mt-2 font-black text-slate-900">Assigned records available</p></div>
+            <div className="rounded-xl bg-amber-50 p-4"><Wallet className="size-4 text-amber-700" /><p className="mt-2 text-xs font-black uppercase tracking-wide text-amber-700">{latest.program === 'SETUP' ? 'Repayment ledger' : 'Milestone reports'}</p><p className="mt-2 font-black text-slate-900">View current updates</p></div>
+          </div>
+        </AdminPanel>
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,0.65fr)]">

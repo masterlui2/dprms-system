@@ -122,7 +122,7 @@ function AccountDropdown({
   onSignOut: () => void;
   user: MockUser;
 }) {
-  const isProponent = user.role === "proponent" || user.role === "applicant";
+  const isProponent = user.role === "proponent";
   const profile = getProponentProfile(user);
   const moduleItems = [
     { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
@@ -131,17 +131,15 @@ function AccountDropdown({
       label: "My Proposals",
       to: "/dashboard/my-application",
     },
-    {
-      icon: Activity,
-      label: "Project Monitoring",
-      to: "/dashboard/project-monitoring",
-    },
+
     { icon: PackageCheck, label: "Equipment", to: "/dashboard/equipment" },
-    {
-      icon: ReceiptText,
-      label: "Repayment / Billing",
-      to: "/dashboard/finance",
-    },
+    user.program === "GIA"
+      ? { icon: Activity, label: "Milestones", to: "/dashboard/milestones" }
+      : {
+          icon: ReceiptText,
+          label: "Repayment / Billing",
+          to: "/dashboard/finance",
+        },
     { icon: Bell, label: "Notifications", to: "/dashboard/notifications" },
     { icon: User, label: "Profile", to: "/dashboard/profile" },
   ];
@@ -228,7 +226,7 @@ export function SiteHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileRevision, setProfileRevision] = useState(0);
-  const isProponent = user?.role === "proponent" || user?.role === "applicant";
+  const isProponent = user?.role === "proponent";
   const profile = user ? getProponentProfile(user) : null;
   const homeHref = getProgramHomePath(location.pathname, user);
   const navigationItems = getNavigationItems(location.pathname, user);
