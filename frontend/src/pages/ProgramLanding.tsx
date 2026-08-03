@@ -210,7 +210,7 @@ export function ProgramLanding() {
                   to={content.applyTo}
                 >
                   {normalizedProgram === "SETUP"
-                    ? "Register Proposal"
+                    ? "Submit Application"
                     : "Submit Proposal"}
                   <ArrowRight className="size-4" />
                 </Link>
@@ -359,7 +359,7 @@ export function ProgramLanding() {
                 className="mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-[#f4c542] px-5 text-sm font-black text-[#073b82] transition hover:bg-[#ffd45f] sm:mt-0"
                 to={content.applyTo}
               >
-                {normalizedProgram === "SETUP" ? "Register Proposal" : "Continue"}
+                {normalizedProgram === "SETUP" ? "Submit Application" : "Submit Proposal"}
                 <ArrowRight className="size-4" />
               </Link>
             </div>

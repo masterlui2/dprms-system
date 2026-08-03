@@ -1,27 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useState, useRef } from 'react'
 import {
   Building2,
-  Check,
-  ChevronDown,
-  LoaderCircle,
-  Save,
-  Send,
   Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 import { emptySetupProposal, setupIndustryCategories } from '../../data/setupProposal'
 import { getMockUser } from '../../lib/mockAuth'
-import { getSetupDraft, saveSetupDraft, submitSetupProposal } from '../../services/setupProposalStore'
+import { getSetupDraft, saveSetupDraft } from '../../services/setupProposalStore'
 import type {
   SetupProposalData,
   SetupProposalErrors,
   SetupProposalField,
 } from '../../types/setupProposal'
 import { cn } from '../../utils/cn'
-import { Button } from '../ui/button'
-import { ProposalSubmissionSuccess } from './ProposalSubmissionSuccess'
-import type { ApplicationRecord } from '../../types/application'
 
 const sectionClass = 'scroll-mt-32 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm'
 const inputClass = 'min-h-11 w-full rounded-md border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100'
@@ -81,16 +73,17 @@ function Section({
   title: string
 }) {
   return (
-    <details className={cn(sectionClass, 'group')} id={id} open>
-      <summary className="flex cursor-pointer list-none items-center gap-4 px-5 py-5 sm:px-6 [&::-webkit-details-marker]:hidden">
-        <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0f53b7]"><Icon className="size-5" /></span>
+    <div className={sectionClass} id={id}>
+      <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
+        <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0f53b7]">
+          <Icon className="size-5" />
+        </span>
         <span className="min-w-0 flex-1">
           <span className="block text-base font-black text-[#073b82] sm:text-lg">{title}</span>
         </span>
-        <ChevronDown className="size-5 shrink-0 text-slate-400 transition group-open:rotate-180" />
-      </summary>
+      </div>
       <div className="border-t border-slate-100 px-5 py-6 sm:px-6">{children}</div>
-    </details>
+    </div>
   )
 }
 
@@ -100,7 +93,6 @@ function OfficialRow({
   help,
   id,
   label,
-  required = true,
 }: {
   children: React.ReactNode
   error?: string
@@ -116,7 +108,7 @@ function OfficialRow({
         htmlFor={id}
       >
         {label}
-        {required ? <span className="ml-1 text-red-600">*</span> : null}
+        {error ? <span className="ml-1 text-red-600 font-bold">*</span> : null}
         {help ? <span className="mt-1 block text-xs font-medium leading-4 text-slate-500">{help}</span> : null}
       </label>
       <div className="px-3 py-3">
@@ -127,45 +119,59 @@ function OfficialRow({
   )
 }
 
-export function SetupProposalForm() {
+interface SetupProposalFormProps {
+  onDraftChange?: (draft: SetupProposalData) => void
+}
+
+/**
+ * Imperative handle exposed to the parent page. The parent drives the
+ * actual submit-to-backend flow (proposal creation + document uploads, in
+ * that order) — this component's job is only to own its own field state
+ * and validation. `validate()` runs the same checks the form used to run
+ * on its own onSubmit, surfaces errors/scrolls exactly as before, and
+ * returns the current data if valid or `null` if not (caller should stop).
+ */
+export interface SetupProposalFormHandle {
+  validate: () => SetupProposalData | null
+}
+
+export const SetupProposalForm = forwardRef<SetupProposalFormHandle, SetupProposalFormProps>(
+  function SetupProposalForm({ onDraftChange }, ref) {
   const user = getMockUser()
   const [data, setData] = useState<SetupProposalData>(() => {
     const draft = getSetupDraft()
     return draft ?? { ...emptySetupProposal, emailAddress: user?.email ?? '', contactPerson: user?.name ?? '' }
   })
   const [errors, setErrors] = useState<SetupProposalErrors>({})
-  const [saveState, setSaveState] = useState<'saving' | 'saved'>('saved')
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submittedApplication, setSubmittedApplication] = useState<ApplicationRecord | null>(null)
-  const firstRender = useRef(true)
   const submitted = useRef(false)
+  // Always holds the latest keystroke, even between debounce ticks — used
+  // so an unmount mid-typing doesn't lose anything, without forcing a save
+  // on every single keystroke the way the old cleanup did.
+  const latestData = useRef(data)
+  latestData.current = data
 
+  // Push the draft up to the parent (and persist it) only after typing
+  // pauses, instead of on every keystroke. Doing this on every keystroke
+  // was forcing the whole parent page (including the full documents list)
+  // to re-render per character typed, which is what was making the form
+  // feel like it hangs.
   useEffect(() => {
-    if (firstRender.current) {
-      firstRender.current = false
-      return
-    }
-    setSaveState('saving')
     const timer = window.setTimeout(() => {
+      onDraftChange?.(data)
       saveSetupDraft(data)
-      setLastSaved(new Date())
-      setSaveState('saved')
-    }, 650)
+    }, 400)
     return () => {
       window.clearTimeout(timer)
-      if (!submitted.current) saveSetupDraft(data)
     }
-  }, [data])
+  }, [data, onDraftChange])
 
-  const completedRequired = useMemo(
-    () => requiredFields.filter((field) => {
-      const value = data[field]
-      return Array.isArray(value) ? value.length > 0 : Boolean(String(value).trim())
-    }).length,
-    [data],
-  )
-  const completion = Math.round((completedRequired / requiredFields.length) * 100)
+  // Save whatever the user last typed if they navigate away before the
+  // debounce above has a chance to fire. Runs once, only on unmount.
+  useEffect(() => {
+    return () => {
+      if (!submitted.current) saveSetupDraft(latestData.current)
+    }
+  }, [])
 
   function update<K extends SetupProposalField>(field: K, value: SetupProposalData[K]) {
     setData((current) => ({ ...current, [field]: value }))
@@ -203,21 +209,22 @@ export function SetupProposalForm() {
     )
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    const nextErrors = validate(data)
-    setErrors(nextErrors)
-    const firstError = requiredFields.find((field) => nextErrors[field])
-    if (firstError) {
-      window.setTimeout(() => document.getElementById(firstError)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
-      return
-    }
-    setIsSubmitting(true)
-    submitted.current = true
-    const application = submitSetupProposal(data)
-    setSubmittedApplication(application)
-    setIsSubmitting(false)
-  }
+  useImperativeHandle(ref, () => ({
+    validate: () => {
+      const nextErrors = validate(data)
+      setErrors(nextErrors)
+      const firstError = requiredFields.find((field) => nextErrors[field])
+      if (firstError) {
+        window.setTimeout(() => document.getElementById(firstError)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
+        return null
+      }
+      // Marks the draft as "handed off" so the unmount-save effect below
+      // doesn't overwrite what the parent is about to submit with a stale
+      // localStorage draft on the reload that follows a successful submit.
+      submitted.current = true
+      return data
+    },
+  }), [data])
 
   const radioGroup = (field: 'organizationType' | 'businessSize', values: string[]) => (
     <div className="grid gap-2 sm:grid-cols-2" id={field}>
@@ -230,30 +237,8 @@ export function SetupProposalForm() {
     </div>
   )
 
-  if (submittedApplication) {
-    return (
-      <ProposalSubmissionSuccess
-        email={submittedApplication.contactEmail}
-        program="SETUP"
-        referenceNo={submittedApplication.referenceNo}
-      />
-    )
-  }
-
   return (
-    <form className="space-y-5" noValidate onSubmit={handleSubmit}>
-      <div className="rounded-lg border border-blue-100 bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="max-w-2xl">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-[#0f53b7]">SETUP Form 001 - Online Proposal Registration</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-[#073b82] sm:text-3xl">Register SETUP Proposal</h1>
-          </div>
-          <div className="shrink-0 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 sm:w-44">
-            <div className="flex items-center justify-between text-xs font-bold"><span className="text-slate-500">Form progress</span><span className="text-[#0f53b7]">{completion}%</span></div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-[#0f53b7] transition-all" style={{ width: `${completion}%` }} /></div>
-          </div>
-        </div>
-      </div>
+    <div className="space-y-5">
 
       {Object.keys(errors).length > 0 ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">Please complete the highlighted fields before submitting.</div> : null}
 
@@ -327,14 +312,6 @@ export function SetupProposalForm() {
         </div>
       </Section>
 
-      <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex sm:items-center sm:justify-between sm:gap-4 sm:p-5">
-        
-          <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500">
-            {saveState === 'saving' ? <LoaderCircle className="size-4 animate-spin text-[#0f53b7]" /> : lastSaved ? <Check className="size-4 text-emerald-600" /> : <Save className="size-4 text-slate-400" />}
-            <span className="truncate">{saveState === 'saving' ? 'Saving draft…' : lastSaved ? `Draft saved at ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Draft auto-save is on'}</span>
-          </div>
-          <Button className="h-12 shrink-0 rounded-lg px-5 sm:px-7" disabled={isSubmitting} type="submit"><Send className="size-4" /><span>{isSubmitting ? 'Submitting…' : 'Submit Proposal'}</span></Button>
-      </div>
-    </form>
+    </div>
   )
-}
+})

@@ -3,8 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreDocumentRequest;
+use App\Models\Document;
 use App\Services\Contracts\ProposalModule\DocumentsServiceInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentController extends Controller
 {
@@ -18,5 +21,24 @@ class DocumentController extends Controller
             'message' => 'Upload Success',
             'data' => $data,
         ],201);
+    }
+
+    public function index(int $proposalId){
+        return response()->json([
+            'data' => $this->documentsService->getDocumentsByProposalId($proposalId),
+        ]);
+    }
+
+    public function destroy(Document $document){
+        abort_unless($document->uploaded_by === Auth::id(), 403);
+        $this->documentsService->deleteDocuments($document->id);
+        return response()->json(['message' => 'Document Deleted']);
+    }
+
+    public function show(Document $document){
+        abort_unless($document->uploaded_by === Auth::id(),403);
+        abort_unless(Storage::exists($document->file_path),404);
+
+        return Storage::download($document->file_path, $document->file_name);
     }
 }

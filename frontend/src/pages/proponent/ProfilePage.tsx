@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   Building2,
   Camera,
@@ -21,6 +21,18 @@ import {
 
 const inputClassName = 'mt-2 h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100'
 
+const emptyProfile: ProponentProfile = {
+  businessAddress: '',
+  contactNumber: '',
+  email: '',
+  fullName: '',
+  organizationName: '',
+  organizationType: '',
+  photoDataUrl: '',
+  position: '',
+  program: '',
+}
+
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean)
   return `${parts[0]?.[0] ?? 'P'}${parts[1]?.[0] ?? parts[0]?.[1] ?? 'R'}`.toUpperCase()
@@ -29,24 +41,41 @@ function getInitials(name: string) {
 export function ProfilePage() {
   const user = getMockUser()
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const [profile, setProfile] = useState<ProponentProfile>(() => user
-    ? getProponentProfile(user)
-    : {
-      businessAddress: '',
-      contactNumber: '',
-      email: '',
-      fullName: '',
-      organizationName: '',
-      organizationType: '',
-      photoDataUrl: '',
-      position: '',
-      program: '',
-    })
+  const [profile, setProfile] = useState<ProponentProfile>(emptyProfile)
+  const [loadingProfile, setLoadingProfile] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    let cancelled = false
+    if (!user) {
+      setLoadingProfile(false)
+      return
+    }
+    setLoadingProfile(true)
+    getProponentProfile(user)
+      .then((result) => { if (!cancelled) setProfile(result) })
+      .finally(() => { if (!cancelled) setLoadingProfile(false) })
+    return () => { cancelled = true }
+  }, [user])
+
   if (!user) return null
   const activeUser = user
+
+  if (loadingProfile) {
+    return (
+      <div className="space-y-7">
+        <AdminPageHeader
+          description="Keep your account and contact details up to date."
+          eyebrow="My Account"
+          title="Profile"
+        />
+        <div className="rounded-3xl bg-white p-10 text-center text-sm font-semibold text-slate-500 shadow-sm ring-1 ring-slate-200/70">
+          Loading profile…
+        </div>
+      </div>
+    )
+  }
 
   function updateField(field: keyof ProponentProfile, value: string) {
     setProfile((current) => ({ ...current, [field]: value }))

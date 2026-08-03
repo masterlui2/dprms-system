@@ -1,15 +1,39 @@
-import { Navigate, useParams } from 'react-router-dom'
+import { Navigate, useLocation, useParams } from 'react-router-dom'
+
+import { getMockUser } from '../lib/mockAuth'
+import { grantProgramAccess, hasProgramAccess } from '../lib/programAccess'
+import type { ApplicationProgram } from '../types/application'
 
 export function ProposalSubmission() {
   const { program = '' } = useParams()
-  const proposalType = program.toUpperCase()
+  const location = useLocation()
+  const user = getMockUser()
 
-  if (proposalType !== 'GIA' && proposalType !== 'SETUP') {
-    return <Navigate replace to="/programs/setup" />
+  let selectedProgram: ApplicationProgram = 'SETUP'
+  if (program.toUpperCase() === 'GIA' || location.pathname.includes('/gia')) {
+    selectedProgram = 'GIA'
+  } else if (program.toUpperCase() === 'SETUP' || location.pathname.includes('/setup')) {
+    selectedProgram = 'SETUP'
+  } else if (user?.program) {
+    selectedProgram = user.program
   }
 
-  if (proposalType === 'SETUP') return <Navigate replace to="/programs/setup/register" />
-  if (proposalType === 'GIA') return <Navigate replace to="/programs/gia/register" />
+  if (user) {
+    grantProgramAccess(selectedProgram)
+  }
 
-  return null
+  const hasAccess = user || hasProgramAccess(selectedProgram)
+
+  if (!hasAccess) {
+    const slug = selectedProgram.toLowerCase()
+    const target = `/programs/${slug}/register`
+    const redirect = encodeURIComponent(target)
+    return <Navigate replace to={`/register?program=${slug}&redirect=${redirect}`} />
+  }
+
+  if (selectedProgram === 'GIA') {
+    return <Navigate replace to="/gia/my-proposal" />
+  }
+
+  return <Navigate replace to="/setup/my-application" />
 }

@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Building2,
-  Check,
-  ChevronDown,
   ClipboardList,
-  LoaderCircle,
-  Save,
-  Send,
   Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 import {
   emptyGiaProposal,
@@ -30,9 +26,6 @@ import type {
   GiaProponentCategory,
 } from '../../types/giaProposal'
 import { cn } from '../../utils/cn'
-import { Button } from '../ui/button'
-import { ProposalSubmissionSuccess } from './ProposalSubmissionSuccess'
-import type { ApplicationRecord } from '../../types/application'
 
 const inputClass = 'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 hover:border-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100'
 
@@ -106,14 +99,15 @@ function Section({
   title: string
 }) {
   return (
-    <details className="group scroll-mt-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" id={id} open>
-      <summary className="flex cursor-pointer list-none items-center gap-4 px-5 py-5 sm:px-6 [&::-webkit-details-marker]:hidden">
-        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700"><Icon className="size-5" /></span>
+    <div className="scroll-mt-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" id={id}>
+      <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
+        <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700">
+          <Icon className="size-5" />
+        </span>
         <span className="min-w-0 flex-1 text-base font-black text-[#073b82] sm:text-lg">{title}</span>
-        <ChevronDown className="size-5 shrink-0 text-slate-400 transition group-open:rotate-180" />
-      </summary>
+      </div>
       <div className="border-t border-slate-100 p-5 sm:p-6">{children}</div>
-    </details>
+    </div>
   )
 }
 
@@ -121,7 +115,6 @@ function Field({
   children,
   error,
   label,
-  required = true,
 }: {
   children: React.ReactNode
   error?: string
@@ -130,14 +123,19 @@ function Field({
 }) {
   return (
     <label className="block text-sm font-bold text-slate-700">
-      {label}{required ? <span className="ml-1 text-red-600">*</span> : null}
+      {label}{error ? <span className="ml-1 text-red-600 font-bold">*</span> : null}
       {children}
       {error ? <span className="mt-1.5 block text-xs font-semibold text-red-600" role="alert">{error}</span> : null}
     </label>
   )
 }
 
-export function GiaProposalForm() {
+interface GiaProposalFormProps {
+  onDraftChange?: (draft: GiaProposalData) => void
+}
+
+export function GiaProposalForm({ onDraftChange }: GiaProposalFormProps = {}) {
+  const navigate = useNavigate()
   const user = getMockUser()
   const [data, setData] = useState<GiaProposalData>(() => getGiaDraft() ?? {
     ...emptyGiaProposal,
@@ -145,32 +143,23 @@ export function GiaProposalForm() {
     projectLeader: user?.name ?? '',
   })
   const [errors, setErrors] = useState<GiaProposalErrors>({})
-  const [saveState, setSaveState] = useState<'saving' | 'saved'>('saved')
-  const [lastSaved, setLastSaved] = useState<Date | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submittedApplication, setSubmittedApplication] = useState<ApplicationRecord | null>(null)
   const firstRender = useRef(true)
   const submitted = useRef(false)
 
   useEffect(() => {
+    onDraftChange?.(data)
     if (firstRender.current) {
       firstRender.current = false
       return
     }
-    setSaveState('saving')
     const timer = window.setTimeout(() => {
       saveGiaDraft(data)
-      setLastSaved(new Date())
-      setSaveState('saved')
     }, 650)
     return () => {
       window.clearTimeout(timer)
       if (!submitted.current) saveGiaDraft(data)
     }
   }, [data])
-
-  const completedRequired = useMemo(() => requiredFields.filter((field) => String(data[field]).trim()).length, [data])
-  const completion = Math.round((completedRequired / requiredFields.length) * 100)
 
   function update<K extends GiaProposalField>(field: K, value: GiaProposalData[K]) {
     setData((current) => ({ ...current, [field]: value }))
@@ -228,37 +217,13 @@ export function GiaProposalForm() {
       return
     }
 
-    setIsSubmitting(true)
     submitted.current = true
     const application = submitGiaProposal(data)
-    setSubmittedApplication(application)
-    setIsSubmitting(false)
-  }
-
-  if (submittedApplication) {
-    return (
-      <ProposalSubmissionSuccess
-        email={submittedApplication.contactEmail}
-        program="GIA"
-        referenceNo={submittedApplication.referenceNo}
-      />
-    )
+    navigate('/dashboard', { replace: true, state: { submittedReference: application.referenceNo } })
   }
 
   return (
     <form className="space-y-5" noValidate onSubmit={handleSubmit}>
-      <div className="rounded-xl border border-amber-100 bg-white p-5 shadow-sm sm:p-7">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">GIA Online Proposal Registration</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-[#073b82] sm:text-3xl">Register GIA Proposal</h1>
-          </div>
-          <div className="shrink-0 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 sm:w-44">
-            <div className="flex items-center justify-between text-xs font-bold"><span className="text-slate-500">Form progress</span><span className="text-amber-700">{completion}%</span></div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white"><div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${completion}%` }} /></div>
-          </div>
-        </div>
-      </div>
 
       {Object.keys(errors).length ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">Please complete the highlighted fields.</div> : null}
 
@@ -309,13 +274,6 @@ export function GiaProposalForm() {
         </div>
       </Section>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5">
-        <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500">
-          {saveState === 'saving' ? <LoaderCircle className="size-4 animate-spin text-amber-600" /> : lastSaved ? <Check className="size-4 text-emerald-600" /> : <Save className="size-4 text-slate-400" />}
-          <span>{saveState === 'saving' ? 'Saving draft...' : lastSaved ? `Draft saved at ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Draft auto-save is on'}</span>
-        </div>
-        <Button className="h-12 shrink-0 rounded-lg bg-amber-500 px-6 text-slate-950 hover:bg-amber-400" disabled={isSubmitting} type="submit"><Send className="size-4" />{isSubmitting ? 'Submitting...' : 'Submit Proposal'}</Button>
-      </div>
     </form>
   )
 }

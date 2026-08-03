@@ -1,129 +1,229 @@
-import { Building2, ClipboardList, Eye, Target, UserRound } from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import {
+  Building2,
+  CalendarClock,
+  CheckCircle2,
+  Eye,
+  MapPin,
+  ShieldCheck,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 
-import type { ProposalRecord } from '../../../data/admin'
-import { cn } from '../../../utils/cn'
-import { getProponentDetails } from './proponentDetails'
+import {
+  formatCurrency,
+  getProposalReviewStatus,
+  type ProposalRecord,
+} from "../../../data/admin";
+import { getProponentDetails } from "./proponentDetails";
 
 interface ProposalOverviewSectionProps {
-  onReviewFiles: () => void
-  proposal: ProposalRecord
+  onReviewFiles: () => void;
+  proposal: ProposalRecord;
 }
 
-function OverviewSection({
-  children,
-  icon: Icon,
-  tone,
-  title,
-}: {
-  children: React.ReactNode
-  icon: LucideIcon
-  tone: 'blue' | 'amber'
-  title: string
-}) {
-  return (
-    <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3">
-        <span className={cn('grid size-9 place-items-center rounded-lg', tone === 'amber' ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-[#0f53b7]')}><Icon className="size-5" /></span>
-        <h3 className="text-base font-black text-[#073b82] sm:text-lg">{title}</h3>
-      </div>
-      {children}
-    </section>
-  )
-}
+export function ProposalOverviewSection({
+  onReviewFiles,
+  proposal,
+}: ProposalOverviewSectionProps) {
+  const proponent = getProponentDetails(proposal);
+  const reviewStatus = getProposalReviewStatus(proposal);
 
-function InformationRow({ label, value }: { label: string, value: string }) {
-  return (
-    <div className="grid border-b border-slate-200 last:border-b-0 sm:grid-cols-[180px_minmax(0,1fr)]">
-      <dt className="bg-slate-50 px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 sm:border-r sm:border-slate-200">{label}</dt>
-      <dd className="px-4 py-2.5 text-sm font-semibold leading-6 text-slate-800">{value}</dd>
-    </div>
-  )
-}
+  const summaryCards = [
+    {
+      label: "Program",
+      value: proposal.program,
+      helper: "DOST assistance track",
+      icon: ShieldCheck,
+    },
+    {
+      label: "Requested budget",
+      value: formatCurrency(proposal.amount),
+      helper: "For review and validation",
+      icon: Wallet,
+    },
+    {
+      label: "Project location",
+      value: "Davao Oriental",
+      helper: "Implementation area",
+      icon: MapPin,
+    },
+    {
+      label: "Timeline",
+      value: "12 months",
+      helper: `Submitted ${proposal.submitted}`,
+      icon: CalendarClock,
+    },
+  ];
 
-export function ProposalOverviewSection({ onReviewFiles, proposal }: ProposalOverviewSectionProps) {
-  const proponent = getProponentDetails(proposal)
-  const isGia = proposal.program === 'GIA'
-  const tone = isGia ? 'amber' : 'blue'
-  const formSections: Array<{ icon: LucideIcon, rows: Array<[string, string]>, title: string }> = isGia
-    ? [
-      {
-        title: '1. Proponent Information', icon: UserRound, rows: [
-          ['Proponent category', proponent.organizationType],
-          ['Organization name', proposal.organization],
-          ['Office address', proponent.address],
-          ['Project leader', proponent.contactPerson],
-          ['Position', proponent.designation],
-          ['Contact number', proponent.mobile],
-          ['Email address', proponent.email],
-        ],
-      },
-      {
-        title: '2. Project Information', icon: Target, rows: [
-          ['Project title', proposal.title],
-          ['Project category', 'Science and technology intervention'],
-          ['Project type', 'Community development project'],
-          ['Project summary', 'Details are provided in the submitted GIA proposal document.'],
-          ['Project rationale', 'Details are provided in the submitted GIA proposal document.'],
-          ['General objective', 'Details are provided in the submitted GIA proposal document.'],
-          ['Specific objectives', 'Details are provided in the submitted GIA proposal document.'],
-        ],
-      },
-      {
-        title: '3. Implementation and Results', icon: ClipboardList, rows: [
-          ['Site of implementation', proponent.address],
-          ['Target beneficiaries', 'See submitted project proposal.'],
-          ['Implementation approach', 'See submitted project proposal.'],
-          ['Expected outputs', 'See submitted project proposal.'],
-          ['Sustainability plan', 'See submitted project proposal.'],
-        ],
-      },
-    ]
-    : [
-      {
-        title: '1. Project Information', icon: Target, rows: [
-          ['Project title', proposal.title],
-          ['General objective', 'Details are provided in the submitted SETUP proposal document.'],
-          ['Specific objectives', 'Details are provided in the submitted SETUP proposal document.'],
-          ['Project background', 'Details are provided in the submitted SETUP proposal document.'],
-        ],
-      },
-      {
-        title: '2. Company Profile', icon: Building2, rows: [
-          ['Name of firm', proposal.organization],
-          ['Address', proponent.address],
-          ['Contact person', proponent.contactPerson],
-          ['Contact no.', proponent.mobile],
-          ['E-mail address', proponent.email],
-          ['Year established', 'See submitted SETUP proposal document.'],
-          ['Type of organization', proponent.organizationType],
-          ['Business size', 'See submitted SETUP proposal document.'],
-          ['Number of employees', 'See submitted SETUP proposal document.'],
-          ['Business activities', 'See submitted SETUP proposal document.'],
-          ['Products / services', 'See submitted SETUP proposal document.'],
-          ['Brief enterprise background', 'See submitted SETUP proposal document.'],
-        ],
-      },
-    ]
+  const personalDetails = [
+    ["Organization", proposal.organization],
+    ["Contact person", proponent.contactPerson],
+    ["Designation", proponent.designation],
+    ["Email address", proponent.email],
+    ["Mobile number", proponent.mobile],
+    ["Organization type", proponent.organizationType],
+    ["Address", proponent.address],
+  ];
+
+  const objectives = [
+    "Improve production efficiency and product consistency.",
+    "Adopt suitable technology and strengthen staff capability.",
+    "Increase market readiness and sustainable enterprise growth.",
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 px-1 sm:flex-row sm:items-start sm:justify-between">
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex flex-col gap-4 border-b border-slate-200 px-5 py-5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Application overview</p>
-          <h3 className="mt-1 text-xl font-black text-[#073b82]">{proposal.title}</h3>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{proposal.completeness}% form completeness</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#0f53b7]">
+            Review workspace
+          </p>
+          <h3 className="mt-1 text-xl font-black text-[#073b82]">
+            Proponent and Proposal Overview
+          </h3>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-500">
+            A consolidated view of the proponent profile, proposal summary, and
+            readiness checks before final action.
+          </p>
         </div>
-        <button className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3.5 text-sm font-bold text-[#073b82] transition hover:bg-blue-100" onClick={onReviewFiles} type="button"><Eye className="size-4" />Review submitted files</button>
+
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <span className="grid size-11 place-items-center rounded-full bg-white text-emerald-700 shadow-sm">
+            <CheckCircle2 className="size-5" />
+          </span>
+          <div>
+            <p className="text-lg font-black text-slate-900">
+              {proposal.completeness}% complete
+            </p>
+            <p className="text-xs font-semibold text-emerald-700">
+              Ready for review
+            </p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid gap-4">
-        {formSections.map((section) => (
-          <OverviewSection icon={section.icon} key={section.title} title={section.title} tone={tone}>
-            <dl>{section.rows.map(([label, value]) => <InformationRow key={label} label={label} value={value} />)}</dl>
-          </OverviewSection>
-        ))}
+      <div className="max-h-[58vh] overflow-y-auto p-5">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          {summaryCards.map(({ helper, icon: Icon, label, value }) => (
+            <div
+              className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4"
+              key={label}
+            >
+              <span className="grid size-10 place-items-center rounded-xl bg-white text-[#0f53b7] shadow-sm">
+                <Icon className="size-5" />
+              </span>
+              <p className="mt-4 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
+                {label}
+              </p>
+              <p className="mt-1 text-base font-black text-slate-900">
+                {value}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">{helper}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]">
+                <UserRound className="size-5" />
+              </span>
+              <div>
+                <h4 className="font-black text-slate-900">
+                  Proponent Personal Details
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Contact and organization information
+                </p>
+              </div>
+            </div>
+
+            <dl className="mt-4 divide-y divide-slate-100">
+              {personalDetails.map(([label, value]) => (
+                <div
+                  className="grid gap-1 py-3 sm:grid-cols-[150px_minmax(0,1fr)] sm:gap-4"
+                  key={label}
+                >
+                  <dt className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    {label}
+                  </dt>
+                  <dd className="text-sm font-semibold text-slate-800">
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex items-center gap-3">
+              <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]">
+                <Building2 className="size-5" />
+              </span>
+              <div>
+                <h4 className="font-black text-slate-900">
+                  Proposal Summary
+                </h4>
+                <p className="text-xs text-slate-500">
+                  Main objective and review ownership
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 text-sm leading-7 text-slate-600">
+              The proposal seeks DOST support to implement a practical science
+              and technology intervention that improves operational capacity,
+              product quality, and long-term enterprise sustainability.
+            </p>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  Assigned reviewer
+                </p>
+                <p className="mt-1 text-sm font-black text-slate-900">
+                  {proposal.reviewer}
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-50 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                  Current status
+                </p>
+                <p className="mt-1 text-sm font-black text-slate-900">
+                  {reviewStatus}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+              <h5 className="text-sm font-black text-slate-900">
+                Project objectives
+              </h5>
+              <ul className="mt-3 space-y-3">
+                {objectives.map((objective) => (
+                  <li
+                    className="flex gap-3 text-sm leading-6 text-slate-600"
+                    key={objective}
+                  >
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                    <span>{objective}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <button
+              className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 text-sm font-black text-[#073b82] transition hover:bg-blue-100 sm:w-auto"
+              onClick={onReviewFiles}
+              type="button"
+            >
+              <Eye className="size-4" />
+              Review submitted files
+            </button>
+          </section>
+        </div>
       </div>
-    </div>
-  )
+    </section>
+  );
 }

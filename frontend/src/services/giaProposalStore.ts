@@ -56,6 +56,30 @@ export function submitGiaProposal(data: GiaProposalData): ApplicationRecord {
   return application
 }
 
+export function getSampleGiaProposalData(): GiaProposalData {
+  return {
+    organizationName: 'Davao Smart Agriculture & Innovation Cooperative',
+    proponentCategory: 'Private Sector',
+    projectTitle: 'Smart Solar-Powered Hydroponics and Automated Crop Monitoring System',
+    projectLeader: 'Dr. Maria Santos',
+    position: 'Executive Director / Project Lead',
+    emailAddress: 'maria.santos@davaosmartagri.org',
+    contactNumber: '+63 917 555 3829',
+    officeAddress: 'Km 12, McArthur Highway, Matina, Davao City',
+    projectCategory: 'Community Innovation',
+    projectType: 'Research & Community Development',
+    projectSummary: 'Deploying solar-powered automated hydroponics setups and IoT-based soil & climate monitoring sensors.',
+    projectRationale: 'Frequent climate shifts affect traditional crop yields; hydroponics provides year-round food security.',
+    generalObjective: 'Establish climate-resilient smart hydroponics and IoT monitoring systems for high-value crops in Davao Region.',
+    specificObjectives: '1. Establish 5 automated hydroponic greenhouses.\n2. Train 50 local farmers in climate-resilient farming.\n3. Increase crop yield by 35% using DOST-assisted IoT monitoring.',
+    siteOfImplementation: 'Barangay Matina Biao, Tugbok District, Davao City',
+    targetBeneficiaries: 'Local agricultural cooperatives and smallholder farmers in Davao City.',
+    methodology: 'Phase 1: Greenhouse construction. Phase 2: IoT sensor integration. Phase 3: Community training.',
+    expectedOutputs: '5 operational smart greenhouses, 1 technical manual, 50 trained agricultural workers.',
+    sustainabilityPlan: 'Cooperative revenue from high-value crop sales will fund ongoing maintenance and scaling.',
+  }
+}
+
 export function getGiaProposal(referenceNo: string) {
   return readDetails()[referenceNo] ?? null
 }

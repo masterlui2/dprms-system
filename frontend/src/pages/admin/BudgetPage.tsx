@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import {
   AlertTriangle,
   Download,
@@ -351,21 +350,13 @@ function RecentTransactionsModal({ onClose }: { onClose: () => void }) {
 }
 
 export function BudgetPage() {
-  const location = useLocation()
   const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(null)
   const [recentTransactionsOpen, setRecentTransactionsOpen] = useState(false)
-  const isRepaymentMonitoring = location.pathname.endsWith('/repayment-monitoring')
-  const visibleProjects = isRepaymentMonitoring
-    ? projectRecords.filter((project) => project.program === 'SETUP')
-    : projectRecords
-  const visibleAllocationColumns = isRepaymentMonitoring
-    ? allocationColumns.filter((column) => column.id !== 'program')
-    : allocationColumns
-  const totalAllocated = visibleProjects.reduce(
+  const totalAllocated = projectRecords.reduce(
     (total, project) => total + project.budget,
     0,
   )
-  const totalUsed = visibleProjects.reduce(
+  const totalUsed = projectRecords.reduce(
     (total, project) => total + project.used,
     0,
   )
@@ -395,8 +386,8 @@ export function BudgetPage() {
           </div>
         }
         description="Monitor disbursements, billing compliance, payment schedules, and auditable financial records."
-        eyebrow={isRepaymentMonitoring ? 'SETUP Repayment Monitoring' : 'Financial Management'}
-        title={isRepaymentMonitoring ? 'Repayment Monitoring' : 'Budget Management'}
+        eyebrow="Financial Management"
+        title="Budget Management"
       />
 
       <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
@@ -441,11 +432,11 @@ export function BudgetPage() {
             <History className="size-4" />
           </button>
         }
-        title={isRepaymentMonitoring ? 'SETUP repayment ledger' : 'Project allocations'}
+        title="Project allocations"
       >
         <DataTable
-          columns={visibleAllocationColumns}
-          data={visibleProjects}
+          columns={allocationColumns}
+          data={projectRecords}
           getRowKey={(project) => project.id}
           initialRowsPerPage={5}
           onRowClick={setSelectedProject}

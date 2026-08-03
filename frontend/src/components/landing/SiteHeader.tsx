@@ -22,47 +22,39 @@ import { type MockUser, clearMockUser, getMockUser } from "../../lib/mockAuth";
 import {
   getProponentProfile,
   PROFILE_UPDATED_EVENT,
+  type ProponentProfile,
 } from "../../services/profileStore";
 
-function getHomePath(user?: MockUser | null) {
+function getProgramHomePath(pathname: string, user?: MockUser | null) {
+  if (pathname.startsWith("/programs/gia")) return "/programs/gia";
+  if (pathname.startsWith("/programs/setup")) return "/programs/setup";
   if (user?.program === "GIA") return "/programs/gia";
   if (user?.program === "SETUP") return "/programs/setup";
 
   return "/";
 }
 
-function getProgramSectionPath(pathname: string, user?: MockUser | null) {
-  if (pathname.startsWith("/programs/gia")) return "/programs/gia";
-  if (pathname.startsWith("/programs/setup")) return "/programs/setup";
-  return getHomePath(user);
-}
-
 function getNavigationItems(pathname: string, user?: MockUser | null) {
-  const homeHref = getHomePath(user);
-  const sectionHref = getProgramSectionPath(pathname, user);
+  const homeHref = getProgramHomePath(pathname, user);
   const isProgramContext =
-    sectionHref === "/programs/gia" || sectionHref === "/programs/setup";
+    homeHref === "/programs/gia" || homeHref === "/programs/setup";
 
   return [
     { label: "Home", href: homeHref },
+    { label: "Programs", href: "/#programs" },
     {
       label: "How to Apply",
-      href: isProgramContext ? `${sectionHref}#process` : "/#process",
+      href: isProgramContext ? `${homeHref}#process` : "/#process",
     },
     {
       label: "Requirements",
-      href: isProgramContext ? `${sectionHref}#requirements` : "/#requirements",
+      href: isProgramContext ? `${homeHref}#requirements` : "/#requirements",
     },
     { label: "Track Proposal", href: "/login" },
     { label: "FAQs", href: "/#faq" },
     { label: "Contact", href: "/#contact" },
   ];
 }
-
-const programOptions = [
-  { label: "GIA", href: "/programs/gia", badge: "G" },
-  { label: "SETUP", href: "/programs/setup", badge: "S" },
-];
 
 function TopBar() {
   return (
@@ -88,10 +80,10 @@ function Logo({ homeHref }: { homeHref: string }) {
     >
       <img
         alt="DOST GIA and SETUP Portal"
-        className="h-11 w-auto shrink-0 object-contain sm:h-12"
+        className="h-12 w-auto shrink-0 object-contain sm:h-14"
         src={logoImage}
       />
-      <span className="hidden max-w-[300px] leading-tight sm:block">
+      <span className="hidden max-w-[280px] leading-tight xl:block">
         <span className="block text-sm font-black text-[#073b82]">
           DOST Davao Oriental Project Portal
         </span>
@@ -125,31 +117,38 @@ function UserAvatar({
 function AccountDropdown({
   onNavigate,
   onSignOut,
+  profile,
   user,
 }: {
   onNavigate: () => void;
   onSignOut: () => void;
+  profile: ProponentProfile | null;
   user: MockUser;
 }) {
-  const isProponent = user.role === "proponent";
-  const profile = getProponentProfile(user);
+  const isProponent = user.role === "proponent" || user.role === "applicant";
+  const isGia = user.program === "GIA";
+  const programPrefix = isGia ? "/gia" : "/setup";
+  const displayName = profile?.fullName || user.name;
   const moduleItems = [
-    { icon: LayoutDashboard, label: "Dashboard", to: "/dashboard" },
+    { icon: LayoutDashboard, label: "Dashboard", to: `${programPrefix}/dashboard` },
     {
       icon: FilePenLine,
-      label: "My Proposals",
-      to: "/dashboard/my-application",
+      label: isGia ? "My Proposal" : "My Application",
+      to: isGia ? "/gia/dashboard/my-proposal" : "/setup/dashboard/my-application",
     },
-
-    { icon: PackageCheck, label: "Equipment", to: "/dashboard/equipment" },
-    user.program === "GIA"
-      ? { icon: Activity, label: "Milestones", to: "/dashboard/milestones" }
-      : {
-          icon: ReceiptText,
-          label: "Repayment / Billing",
-          to: "/dashboard/finance",
-        },
-    { icon: User, label: "Profile", to: "/dashboard/profile" },
+    {
+      icon: Activity,
+      label: "Project Monitoring",
+      to: `${programPrefix}/dashboard/project-monitoring`,
+    },
+    { icon: PackageCheck, label: isGia ? "Accomplishment Reports" : "Equipment", to: isGia ? `${programPrefix}/dashboard/accomplishment-reports` : `${programPrefix}/dashboard/equipment` },
+    {
+      icon: ReceiptText,
+      label: isGia ? "Disbursement Tracking" : "Repayment / Billing",
+      to: `${programPrefix}/dashboard/finance`,
+    },
+    { icon: Bell, label: "Notifications", to: `${programPrefix}/dashboard/notifications` },
+    { icon: User, label: "Profile", to: `${programPrefix}/dashboard/profile` },
   ];
 
   return (
@@ -159,11 +158,11 @@ function AccountDropdown({
           <UserAvatar
             className="size-11 text-sm"
             initials={user.initials}
-            photoDataUrl={profile.photoDataUrl}
+            photoDataUrl={profile?.photoDataUrl}
           />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black text-slate-900">
-              {profile.fullName}
+              {displayName}
             </p>
             <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>
           </div>
@@ -231,14 +230,37 @@ export function SiteHeader() {
   const location = useLocation();
   const user = getMockUser();
   const [open, setOpen] = useState(false);
-  const [programsOpen, setProgramsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileRevision, setProfileRevision] = useState(0);
-  const isProponent = user?.role === "proponent";
-  const profile = user ? getProponentProfile(user) : null;
-  const homeHref = getHomePath(user);
+  const isProponent = user?.role === "proponent" || user?.role === "applicant";
+  const [profile, setProfile] = useState<ProponentProfile | null>(null);
+  const homeHref = getProgramHomePath(location.pathname, user);
   const navigationItems = getNavigationItems(location.pathname, user);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setProfile(null);
+      return;
+    }
+    getProponentProfile(user).then((result) => {
+      if (!cancelled) setProfile(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // NOTE: depends on user?.email (a primitive), not the `user` object
+    // itself. getMockUser() re-parses localStorage on every call and
+    // returns a brand-new object reference each time, even when nothing
+    // has actually changed. Using `user` directly here made React treat
+    // the dependency as "changed" on every single render, which re-ran
+    // this effect every time, which called setProfile on resolve, which
+    // triggered a re-render, which called getMockUser() again... an
+    // infinite effect loop that froze the tab (see the "SiteHeader.tsx:251"
+    // stack trace investigation). Do not swap this back to `user` without
+    // also fixing getMockUser() to return a stable/memoized reference.
+  }, [user?.email, profileRevision]);
 
   useEffect(() => {
     const refreshProfile = () => setProfileRevision((current) => current + 1);
@@ -249,8 +271,6 @@ export function SiteHeader() {
 
   function handleSignOut() {
     clearMockUser();
-    setOpen(false);
-    setProgramsOpen(false);
     setAccountOpen(false);
     setNotificationsOpen(false);
     navigate("/login");
@@ -267,39 +287,20 @@ export function SiteHeader() {
     return location.pathname === targetPath && !location.hash;
   }
 
-  function isNavItemActive(item: { label: string; href: string }) {
-    if (item.label === "Home" && item.href.startsWith("/programs/")) {
-      return false;
-    }
-
-    return isActive(item.href);
-  }
-
-  function isProgramsActive() {
-    return location.pathname.startsWith("/programs/") && !location.hash;
-  }
-
-  function closeMenus() {
-    setOpen(false);
-    setProgramsOpen(false);
-    setAccountOpen(false);
-    setNotificationsOpen(false);
-  }
-
   return (
     <header className="sticky top-0 z-40 border-b border-[#d6e9f8] bg-white">
       <TopBar />
 
-      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3 sm:px-6 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] lg:px-8">
-        <div className="min-w-0 justify-self-start">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3 sm:px-6 lg:px-8">
+        <div className="min-w-[120px] xl:min-w-[360px]">
           <Logo homeHref={homeHref} />
         </div>
 
         <nav
-          className="hidden items-center justify-center gap-1 lg:flex"
+          className="hidden flex-1 items-center justify-center gap-1 lg:flex"
           aria-label="Primary navigation"
         >
-          {navigationItems.slice(0, 1).map((item) => (
+          {navigationItems.map((item) => (
             <Link
               className={`rounded-md px-3 py-2 text-sm font-bold transition-colors ${
                 isActive(item.href)
@@ -308,72 +309,13 @@ export function SiteHeader() {
               }`}
               to={item.href}
               key={item.href}
-              onClick={() => setProgramsOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
-
-          <div className="relative">
-            <button
-              aria-expanded={programsOpen}
-              className={`inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-bold transition-colors ${
-                isProgramsActive()
-                  ? "bg-[#eaf6ff] text-[#073b82]"
-                  : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
-              }`}
-              onClick={() => {
-                setProgramsOpen((current) => !current);
-                setAccountOpen(false);
-                setNotificationsOpen(false);
-              }}
-              type="button"
-            >
-              Programs
-              <ChevronDown
-                className={`size-4 transition-transform ${
-                  programsOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {programsOpen ? (
-              <div className="absolute left-1/2 top-full z-50 mt-2 w-44 -translate-x-1/2 overflow-hidden rounded-xl border border-[#d8e1ee] bg-white p-1 shadow-xl">
-                {programOptions.map((program) => (
-                  <Link
-                    className={`block rounded-lg px-3 py-2.5 text-sm font-bold transition ${
-                      location.pathname === program.href
-                        ? "bg-[#eaf6ff] text-[#073b82]"
-                        : "text-slate-700 hover:bg-[#f3f8fe] hover:text-[#073b82]"
-                    }`}
-                    key={program.href}
-                    onClick={closeMenus}
-                    to={program.href}
-                  >
-                    {program.label}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-          </div>
-
-          {navigationItems.slice(1).map((item) => (
-            <Link
-              className={`rounded-md px-3 py-2 text-sm font-bold transition-colors ${
-                isActive(item.href)
-                  ? "bg-[#eaf6ff] text-[#073b82]"
-                  : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
-              }`}
-              to={item.href}
-              key={item.href}
-              onClick={() => setProgramsOpen(false)}
             >
               {item.label}
             </Link>
           ))}
         </nav>
 
-        <div className="hidden items-center justify-end gap-2 justify-self-end lg:flex">
+        <div className="hidden min-w-[90px] items-center justify-end gap-2 lg:flex">
           {isProponent ? (
             <>
               <div className="relative">
@@ -384,7 +326,6 @@ export function SiteHeader() {
                   onClick={() => {
                     setNotificationsOpen((current) => !current);
                     setAccountOpen(false);
-                    setProgramsOpen(false);
                   }}
                   type="button"
                 >
@@ -407,7 +348,6 @@ export function SiteHeader() {
                   onClick={() => {
                     setAccountOpen((current) => !current);
                     setNotificationsOpen(false);
-                    setProgramsOpen(false);
                   }}
                   type="button"
                 >
@@ -422,8 +362,9 @@ export function SiteHeader() {
                 {accountOpen ? (
                   <AccountDropdown
                     key={profileRevision}
-                    onNavigate={closeMenus}
+                    onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
+                    profile={profile}
                     user={user}
                   />
                 ) : null}
@@ -441,7 +382,7 @@ export function SiteHeader() {
           )}
         </div>
 
-        <div className="flex items-center gap-1 justify-self-end lg:hidden">
+        <div className="flex items-center gap-1 lg:hidden">
           {isProponent ? (
             <>
               <div className="relative">
@@ -452,7 +393,6 @@ export function SiteHeader() {
                   onClick={() => {
                     setNotificationsOpen((current) => !current);
                     setAccountOpen(false);
-                    setProgramsOpen(false);
                   }}
                   type="button"
                 >
@@ -475,7 +415,6 @@ export function SiteHeader() {
                   onClick={() => {
                     setAccountOpen((current) => !current);
                     setNotificationsOpen(false);
-                    setProgramsOpen(false);
                   }}
                   type="button"
                 >
@@ -489,8 +428,9 @@ export function SiteHeader() {
                 {accountOpen ? (
                   <AccountDropdown
                     key={profileRevision}
-                    onNavigate={closeMenus}
+                    onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
+                    profile={profile}
                     user={user}
                   />
                 ) : null}
@@ -501,12 +441,7 @@ export function SiteHeader() {
           <button
             aria-label="Menu"
             className="rounded-md p-2 text-[#073b82] transition-colors hover:bg-[#eaf6ff]"
-            onClick={() => {
-              setOpen((current) => !current);
-              setProgramsOpen(false);
-              setAccountOpen(false);
-              setNotificationsOpen(false);
-            }}
+            onClick={() => setOpen((current) => !current)}
             type="button"
           >
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -516,8 +451,8 @@ export function SiteHeader() {
 
       {open ? (
         <div className="border-t border-[#d6e9f8] bg-white lg:hidden">
-          <nav className="flex flex-col px-4 py-3 sm:px-6">
-            {navigationItems.slice(0, 1).map((item) => (
+          <nav className="mx-auto flex max-w-7xl flex-col px-4 py-3 sm:px-6">
+            {navigationItems.map((item) => (
               <Link
                 className={`rounded-md px-3 py-3 text-sm font-bold ${
                   isActive(item.href)
@@ -526,64 +461,11 @@ export function SiteHeader() {
                 }`}
                 to={item.href}
                 key={item.href}
-                onClick={closeMenus}
+                onClick={() => setOpen(false)}
               >
                 {item.label}
               </Link>
             ))}
-
-            <button
-              aria-expanded={programsOpen}
-              className={`inline-flex items-center justify-between rounded-md px-3 py-3 text-sm font-bold ${
-                isProgramsActive()
-                  ? "bg-[#eaf6ff] text-[#073b82]"
-                  : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
-              }`}
-              onClick={() => setProgramsOpen((current) => !current)}
-              type="button"
-            >
-              Programs
-              <ChevronDown
-                className={`size-4 transition-transform ${
-                  programsOpen ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-
-            {programsOpen ? (
-              <div className="mb-1 ml-3 grid gap-1 border-l border-[#d8e1ee] pl-3">
-                {programOptions.map((program) => (
-                  <Link
-                    className={`rounded-md px-3 py-2.5 text-sm font-bold ${
-                      location.pathname === program.href
-                        ? "bg-[#eaf6ff] text-[#073b82]"
-                        : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
-                    }`}
-                    key={program.href}
-                    onClick={closeMenus}
-                    to={program.href}
-                  >
-                    {program.label}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
-
-            {navigationItems.slice(1).map((item) => (
-              <Link
-                className={`rounded-md px-3 py-3 text-sm font-bold ${
-                  isActive(item.href)
-                    ? "bg-[#eaf6ff] text-[#073b82]"
-                    : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
-                }`}
-                to={item.href}
-                key={item.href}
-                onClick={closeMenus}
-              >
-                {item.label}
-              </Link>
-            ))}
-
             {isProponent ? (
               <button
                 className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm font-bold text-[#073b82]"

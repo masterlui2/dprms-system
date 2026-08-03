@@ -3,20 +3,18 @@ import { ArrowRight, Check, Circle } from 'lucide-react'
 import type { ApplicationRecord } from '../../types/application'
 import { cn } from '../../utils/cn'
 
-const stages = [
-  'Account Created',
-  'Proposal Submitted',
-  'Final Document Upload',
-  'DOST Initial Review',
-  'Technical Evaluation',
-  'Final Approval',
-]
-
-function getActiveIndex(status: ApplicationRecord['status'], documentsComplete: boolean) {
-  if (status === 'Approved') return 5
-  if (status === 'Technical evaluation') return 4
-  if (status === 'Under review' || documentsComplete) return 3
-  return 2
+function getActiveIndex(program: ApplicationRecord['program'], status: ApplicationRecord['status'], documentsComplete: boolean) {
+  if (program === 'GIA') {
+    if (status === 'Approved') return 3
+    if (status === 'In Process' || status === 'Executive Approval') return 2
+    if (status === 'Under review' || status === 'Technical evaluation' || (documentsComplete && status !== 'Draft Submitted')) return 1
+    return 0
+  }
+  if (status === 'Approved') return 4
+  if (status === 'In Process' || status === 'Executive Approval') return 3
+  if (status === 'Technical evaluation') return 2
+  if (status === 'Under review' || (documentsComplete && status !== 'Draft Submitted')) return 1
+  return 0
 }
 
 export function ProposalProgress({
@@ -28,12 +26,18 @@ export function ProposalProgress({
   documentsComplete: boolean
   compact?: boolean
 }) {
-  const activeIndex = getActiveIndex(application.status, documentsComplete)
+  const isGia = application.program === 'GIA'
+  const stages = isGia
+    ? ['GIA Proposal', 'DOST Initial Review', 'In Process', 'Final Approval']
+    : ['SETUP Proposal', 'DOST Initial Review', 'Technical Evaluation', 'In Process', 'Final Approval']
+
+  const activeIndex = getActiveIndex(application.program, application.status, documentsComplete)
+  const maxIndex = stages.length - 1
 
   return (
-    <ol className={cn('grid gap-0', compact ? 'md:grid-cols-6' : 'lg:grid-cols-6')} aria-label="Application progress">
+    <ol className={cn('grid gap-0', isGia ? (compact ? 'md:grid-cols-4' : 'lg:grid-cols-4') : (compact ? 'md:grid-cols-5' : 'lg:grid-cols-5'))} aria-label="Application progress">
       {stages.map((stage, index) => {
-        const complete = index < activeIndex || (index === 5 && application.status === 'Approved')
+        const complete = index < activeIndex || (index === maxIndex && application.status === 'Approved')
         const active = index === activeIndex
         return (
           <li className="relative flex gap-3 pb-5 last:pb-0 lg:block lg:pb-0" key={stage}>

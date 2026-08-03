@@ -7,6 +7,14 @@ export interface ApplicationRecord {
   contactEmail: string
   createdAt: string
   id: string
+  /**
+   * Numeric backend `proposals.id`. Only guaranteed present for SETUP
+   * applications created via submitSetupProposal() after this field was
+   * added. Older/local-only records may not have it — code that needs it
+   * (document upload/list) should fall back to resolving it via
+   * getSetupProposalId(referenceNo) in setupProposalStore.ts.
+   */
+  proposalId?: number
   organizationName: string
   program: ApplicationProgram
   projectTitle: string
@@ -16,6 +24,8 @@ export interface ApplicationRecord {
     | 'Draft Submitted'
     | 'Under review'
     | 'Technical evaluation'
+    | 'In Process'
+    | 'Executive Approval'
     | 'Approved'
     | 'Returned for Revision'
 }

@@ -19,7 +19,7 @@ export async function ensureCsrfCookie() {
 
 
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('dprms.auth-token')  // was 'token'
 
     if(token){
         config.headers.Authorization = `Bearer ${token}`
@@ -32,7 +32,18 @@ api.interceptors.response.use(
     (response) => response,
     (error) => {
         if(axios.isAxiosError(error) && error.response?.status === 401){
-            localStorage.removeItem('token')
+            localStorage.removeItem('dprms.auth-token')  // was 'token'
+        }
+
+        return Promise.reject(error)
+    },
+)
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if(axios.isAxiosError(error) && error.response?.status === 401){
+            localStorage.removeItem('dprms.auth-token')
         }
 
         return Promise.reject(error)
