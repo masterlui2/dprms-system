@@ -2,12 +2,15 @@ import axios, {AxiosError } from 'axios'
 import api, { ensureCsrfCookie } from '../lib/axios'
 import type { MockUser } from '../lib/mockAuth'
 import type { ApplicationProgram } from '../types/application'
+import { normalizeUserRole } from '../config/permissions'
 
 interface BackendUser {
   email: string
   name: string
+  program?: ApplicationProgram
+  program_type?: ApplicationProgram
   role?: string
-  roles?: Array<{ name?: string; code?: string }>
+  roles?: Array<{ name?: string; code?: string; program_type?: ApplicationProgram }>
 }
 
 interface LoginResponse {
@@ -39,21 +42,8 @@ export class AuthError extends Error {
 }
 
 function resolveRole(user: BackendUser): MockUser['role'] {
-  const explicitRole = user.role?.toLowerCase()
   const relationRole = user.roles?.[0]?.code ?? user.roles?.[0]?.name
-  const normalizedRelationRole = relationRole?.toLowerCase()
-
-  if (
-    explicitRole === 'admin' ||
-    explicitRole === 'system_admin' ||
-    normalizedRelationRole === 'admin' ||
-    normalizedRelationRole === 'system_admin' ||
-    normalizedRelationRole === 'administrator'
-  ) {
-    return 'admin'
-  }
-
-  return 'proponent'
+  return normalizeUserRole(user.role ?? relationRole)
 }
 
 function getInitials(name: string) {
@@ -68,8 +58,13 @@ function getInitials(name: string) {
 }
 
 function resolveProgram(user: BackendUser): ApplicationProgram | undefined {
-  const role = (user.role ?? user.roles?.[0]?.code ?? user.roles?.[0]?.name)?.toUpperCase()
+  if (user.program === 'GIA' || user.program === 'SETUP') return user.program
+  if (user.program_type === 'GIA' || user.program_type === 'SETUP') return user.program_type
 
+  const role = (user.role ?? user.roles?.[0]?.code ?? user.roles?.[0]?.name)?.toUpperCase()
+  const roleProgram = user.roles?.[0]?.program_type
+
+  if (roleProgram === 'GIA' || roleProgram === 'SETUP') return roleProgram
   if (role === 'GIA_PROJECT_LEADER') return 'GIA'
   if (role === 'MSME_PROPONENT') return 'SETUP'
 

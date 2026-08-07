@@ -125,7 +125,7 @@ function AccountDropdown({
   profile: ProponentProfile | null;
   user: MockUser;
 }) {
-  const isProponent = user.role === "proponent" || user.role === "applicant";
+  const isProponent = user.role === "proponent";
   const isGia = user.program === "GIA";
   const programPrefix = isGia ? "/gia" : "/setup";
   const displayName = profile?.fullName || user.name;
@@ -233,7 +233,7 @@ export function SiteHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileRevision, setProfileRevision] = useState(0);
-  const isProponent = user?.role === "proponent" || user?.role === "applicant";
+  const isProponent = user?.role === "proponent";
   const [profile, setProfile] = useState<ProponentProfile | null>(null);
   const homeHref = getProgramHomePath(location.pathname, user);
   const navigationItems = getNavigationItems(location.pathname, user);
