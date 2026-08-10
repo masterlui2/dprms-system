@@ -69,9 +69,12 @@ php artisan db:seed
 
 All demo accounts use `Dprms@123`:
 
-- `admin@dost.gov.ph` — System Administrator
-- `staff@dost.gov.ph` — Project Staff
-- `focal@dost.gov.ph` — Focal (Reviewer)
-- `director@dost.gov.ph` — Provincial Director
-- `rpmo@dost.gov.ph` — RPMO (Regional Viewer)
-- `proponent@dost.gov.ph` — Proponent / Beneficiary
+- **SETUP Proponent**: `setup.proponent@dost.gov.ph` (Maria SETUP Proponent)
+- **GIA Proponent**: `gia.proponent@dost.gov.ph` (Gina GIA Project Leader)
+- **SETUP Staff (SSCP Officer)**: `setup.staff@dost.gov.ph` (Paolo SETUP Staff)
+- **GIA Staff (CEST Officer)**: `gia.staff@dost.gov.ph` (Carla GIA Staff)
+- **SETUP Focal (SSCP Evaluator)**: `setup.focal@dost.gov.ph` (Faith SETUP Focal)
+- **GIA Focal (CEST Evaluator)**: `gia.focal@dost.gov.ph` (Felix GIA Focal)
+- **System Administrator**: `admin@dost.gov.ph` (DOST System Admin)
+- **Provincial Director**: `director@dost.gov.ph` (Pat Provincial Director)
+- **RPMO Regional Officer**: `rpmo@dost.gov.ph` (Rico Regional RPMO)

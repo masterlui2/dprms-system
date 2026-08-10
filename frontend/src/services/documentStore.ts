@@ -1,4 +1,5 @@
 import api from '../lib/axios'
+import type { ApplicationProgram } from '../types/application'
 import type { GiaProponentCategory } from '../types/giaProposal'
 import type { BusinessSize, OrganizationType } from '../types/setupProposal'
 import {
@@ -61,25 +62,227 @@ export function mapDocumentTypeToRequirement(record: DocumentTypeRecord): Docume
     description: record.description ?? '',
     group: (record.group ?? 'Additional Documents') as RequirementGroup,
     instructions: record.instructions ?? undefined,
-    required: record.is_required,
+    required: true,
     templateUrl: record.template_url ?? undefined,
   }
+}
+
+export const setupDocumentaryRequirements: DocumentaryRequirement[] = [
+  {
+    id: 'recent-mayors-permit',
+    title: "Recent Mayor's Permit",
+    description: "Indicating the firm's line of business.",
+    group: 'Business Documents',
+    instructions: "Upload a clear scanned copy of your valid Mayor's/Business Permit indicating the firm's line of business.",
+    required: true,
+  },
+  {
+    id: 'dti-registration-certificate',
+    title: 'DTI Registration',
+    description: 'DTI registration for sole proprietorship.',
+    group: 'Business Documents',
+    instructions: 'Upload Department of Trade and Industry (DTI) Certificate of Business Name Registration for sole proprietorship.',
+    organizationTypes: ['Sole Proprietorship'],
+    required: true,
+  },
+  {
+    id: 'bir-registration',
+    title: 'BIR Registration',
+    description: 'Bureau of Internal Revenue Certificate of Registration (Form 2303).',
+    group: 'Business Documents',
+    instructions: 'Upload official BIR Certificate of Registration (Form 2303).',
+    required: true,
+  },
+  {
+    id: 'blank-official-receipt',
+    title: 'Photocopy of Blank Official Receipt',
+    description: 'Provide a clear scanned copy or photo of a blank official receipt.',
+    group: 'Business Documents',
+    instructions: 'Upload a clear scanned copy or photo of a sample blank official receipt.',
+    required: true,
+  },
+  {
+    id: 'three-equipment-quotations',
+    title: '3 Valid Equipment Quotations',
+    description: 'From 3 different suppliers, originally signed with preference to the lowest bidder.',
+    group: 'Business Documents',
+    instructions: 'Obtain 3 valid equipment quotations from 3 different suppliers, originally signed with preference to the lowest bidder. Combine into a single PDF.',
+    required: true,
+  },
+  {
+    id: 'manufacturing-space-lease',
+    title: 'Lease Contract for Rented Manufacturing Space or Equivalent',
+    description: 'Lease contract for rented manufacturing space or equivalent.',
+    group: 'Business Documents',
+    instructions: 'Upload lease contract for rented manufacturing space or equivalent proof of site occupancy.',
+    required: true,
+  },
+  {
+    id: 'notarized-board-resolution',
+    title: 'Notarized Board Resolution',
+    description: 'Authorizing the availment of assistance & designating the approved signatory for the funding assistance.',
+    group: 'Corporation / Cooperative Documents',
+    instructions: 'Notarized Board Resolution authorizing the availment of assistance & designating the approved signatory for the funding assistance. (Required for Corporations & Cooperatives)',
+    organizationTypes: ['Corporation', 'Cooperative'],
+    required: true,
+  },
+  {
+    id: 'sec-cda-registration',
+    title: 'SEC or CDA Registration',
+    description: 'Certificate of SEC Registration (Corporation) or CDA Registration (Cooperative).',
+    group: 'Corporation / Cooperative Documents',
+    instructions: 'Upload SEC or CDA Registration Certificate. (Required for Corporations & Cooperatives)',
+    organizationTypes: ['Corporation', 'Cooperative'],
+    required: true,
+  },
+  {
+    id: 'articles-of-incorporation-cooperation',
+    title: 'Articles of Incorporation / Cooperation',
+    description: 'Official Articles of Incorporation or Articles of Cooperation with By-Laws.',
+    group: 'Corporation / Cooperative Documents',
+    instructions: 'Upload Articles of Incorporation / Cooperation. (Required for Corporations & Cooperatives)',
+    organizationTypes: ['Corporation', 'Cooperative'],
+    required: true,
+  },
+  {
+    id: 'secretarys-certificate',
+    title: "Secretary's Certificate of Incumbent Officers",
+    description: 'Certified list of incumbent corporate or cooperative officers.',
+    group: 'Corporation / Cooperative Documents',
+    instructions: "Upload Secretary's certificate of incumbent officers. (Required for Corporations & Cooperatives)",
+    organizationTypes: ['Corporation', 'Cooperative'],
+    required: true,
+  },
+  {
+    id: 'statement-financial-position',
+    title: 'Statement of Financial Position',
+    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
+    group: 'Financial Documents',
+    instructions: 'Audited Statement of Financial Position (Balance Sheet) together with notarized Sworn Statement that all information provided are correct and true.',
+    required: true,
+  },
+  {
+    id: 'statement-financial-operations',
+    title: 'Statement of Financial Operation',
+    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
+    group: 'Financial Documents',
+    instructions: 'Audited Statement of Financial Operation (Income Statement) together with notarized Sworn Statement.',
+    required: true,
+  },
+  {
+    id: 'statement-cash-flows',
+    title: 'Statement of Financial Cash Flows',
+    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
+    group: 'Financial Documents',
+    instructions: 'Statement of Financial Cash Flows together with notarized Sworn Statement.',
+    required: true,
+  },
+  {
+    id: 'statement-owner-equity',
+    title: "Statement of Changes in Owner's Equity",
+    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
+    group: 'Financial Documents',
+    instructions: "Statement of Changes in Owner's Equity together with notarized Sworn Statement.",
+    required: true,
+  },
+  {
+    id: 'notes-financial-statements',
+    title: 'Notes to Financial Statements',
+    description: 'For Small & Medium Enterprises (past 3 years) or Microenterprises (at least 1 year), together with notarized Sworn Statement.',
+    group: 'Financial Documents',
+    instructions: 'Notes to Financial Statements accompanying audited financial statements.',
+    required: true,
+  },
+  {
+    id: 'letter-intent-setup',
+    title: 'Letter of Intent for SETUP Assistance',
+    description: 'Stating commitment to refund the assistance and cover the insurance cost of equipment.',
+    group: 'Additional Documents',
+    instructions: 'Letter of Intent for SETUP Assistance, stating commitment to refund the assistance and cover the insurance cost of equipment.',
+    required: true,
+    templateUrl: '/templates/SETUP_Letter_of_Intent_Template.docx',
+  },
+  {
+    id: 'biodata-approved-signatory',
+    title: 'Bio-data of the Approved Signatory',
+    description: 'Curriculum Vitae / Bio-data of the approved signatory.',
+    group: 'Additional Documents',
+    instructions: 'Upload Bio-data / CV of the approved signatory.',
+    required: true,
+  },
+  {
+    id: 'government-id-approved-signatory',
+    title: 'Photocopy of Valid Government-issued ID of the Approved Signatory',
+    description: 'Must include 3 specimen signatures.',
+    group: 'Additional Documents',
+    instructions: 'Photocopy of valid government-issued ID of the approved signatory with 3 specimen signatures.',
+    required: true,
+  },
+  {
+    id: 'barangay-residence-certificate',
+    title: 'Barangay Certification of Permanent Residence',
+    description: 'Barangay certification of permanent residence of the approved signatory.',
+    group: 'Additional Documents',
+    instructions: 'Upload Barangay certification of permanent residence of the approved signatory.',
+    required: true,
+  },
+  {
+    id: 'omnibus-affidavit',
+    title: 'Omnibus Sworn Statement / Affidavit',
+    description: 'Notarized Omnibus Affidavit declaring non-agent status, no bad debt, no previous DOST accountabilities, and truthfulness of AFR information.',
+    group: 'Additional Documents',
+    instructions: 'Upload notarized Omnibus Sworn Statement / Affidavit declaring: 1) No organizers/directors/officials are agents, 2) No bad debt, 3) No previous accountabilities with DOST, 4) AFR information true & correct, 5) Truthfulness of stated facts.',
+    required: true,
+    templateUrl: '/templates/SETUP_Omnibus_Sworn_Statement_Template.docx',
+  },
+]
+
+export function filterSetupDocumentaryRequirements(
+  organizationType?: OrganizationType,
+  businessSize?: BusinessSize,
+): DocumentaryRequirement[] {
+  return setupDocumentaryRequirements.filter((requirement) => {
+    if (requirement.organizationTypes && requirement.organizationTypes.length > 0) {
+      if (
+        !organizationType ||
+        !requirement.organizationTypes.includes(organizationType as Exclude<OrganizationType, ''>)
+      ) {
+        return false
+      }
+    }
+    if (requirement.businessSizes && requirement.businessSizes.length > 0) {
+      if (
+        businessSize &&
+        !requirement.businessSizes.includes(businessSize as Exclude<BusinessSize, ''>)
+      ) {
+        return false
+      }
+    }
+    return true
+  })
 }
 
 export async function fetchSetupDocumentaryRequirements(
   organizationType?: OrganizationType,
   businessSize?: BusinessSize,
 ): Promise<DocumentaryRequirement[]> {
-  const records = await getDocumentTypes({
-    program: 'SETUP',
-    businessType: organizationType
-      ? ORGANIZATION_TYPE_TO_BUSINESS_TYPE[organizationType as Exclude<OrganizationType, ''>]
-      : undefined,
-    businessSize: businessSize
-      ? BUSINESS_SIZE_TO_ENTERPRISE_SIZE[businessSize as Exclude<BusinessSize, ''>]
-      : undefined,
-  })
-  return records.map(mapDocumentTypeToRequirement)
+  try {
+    const records = await getDocumentTypes({
+      program: 'SETUP',
+      businessType: organizationType
+        ? ORGANIZATION_TYPE_TO_BUSINESS_TYPE[organizationType as Exclude<OrganizationType, ''>]
+        : undefined,
+      businessSize: businessSize
+        ? BUSINESS_SIZE_TO_ENTERPRISE_SIZE[businessSize as Exclude<BusinessSize, ''>]
+        : undefined,
+    })
+    if (records && records.length > 0) {
+      return records.map(mapDocumentTypeToRequirement)
+    }
+  } catch (error) {
+    console.error('Failed to fetch setup document types from backend:', error)
+  }
+  return filterSetupDocumentaryRequirements(organizationType, businessSize)
 }
 
 // ---------------------------------------------------------------------------
@@ -216,9 +419,37 @@ export const giaDocumentaryRequirements: DocumentaryRequirement[] = [
     id: 'gia-letter-of-intent',
     title: 'Letter of Intent or for Collaboration duly signed by the Head of IA',
     description: 'Signed by the head of the implementing agency / organization.',
-    group: 'Additional Documents',
+    group: 'GIA Core Documents',
     required: true,
     templateUrl: '/templates/GIA_Letter_of_Intent_Template.docx',
+  },
+  {
+    id: 'gia-project-proposal',
+    title: 'Complete Project Proposal Form',
+    description: 'Duly accomplished project proposal following the standard DOST format.',
+    group: 'GIA Core Documents',
+    required: true,
+  },
+  {
+    id: 'gia-eligibility-checklist',
+    title: 'Project Leader Eligibility Checklist',
+    description: 'Checklist of eligibility requirements for the designated project leader.',
+    group: 'GIA Core Documents',
+    required: true,
+  },
+  {
+    id: 'gia-workplan',
+    title: 'Workplan and Implementation Schedule',
+    description: 'Detailed workplan and gantt chart of project activities.',
+    group: 'GIA Core Documents',
+    required: true,
+  },
+  {
+    id: 'gia-funds-availability',
+    title: 'Certificate of Availability of Funds / Counterpart Funding',
+    description: 'Proof of available counterpart funds for the proposed project.',
+    group: 'GIA Core Documents',
+    required: true,
   },
   {
     id: 'gia-private-registration',
@@ -294,14 +525,31 @@ export const giaDocumentaryRequirements: DocumentaryRequirement[] = [
   },
 ]
 
-/**
- * GIA-only. SETUP requirements now come from the backend via
- * fetchSetupDocumentaryRequirements() (see documentStore.ts / DocumentTypeController).
- */
-export function getDocumentaryRequirements(giaCategory?: GiaProponentCategory) {
+export function getDocumentaryRequirements(
+  programOrGiaCategory?: ApplicationProgram | GiaProponentCategory,
+  organizationType?: OrganizationType,
+  giaCategory?: GiaProponentCategory,
+  businessSize?: BusinessSize,
+): DocumentaryRequirement[] {
+  let program: ApplicationProgram = 'GIA'
+  let actualGiaCategory = giaCategory
+
+  if (programOrGiaCategory === 'SETUP' || programOrGiaCategory === 'GIA') {
+    program = programOrGiaCategory
+  } else if (programOrGiaCategory) {
+    actualGiaCategory = programOrGiaCategory as GiaProponentCategory
+  }
+
+  if (program === 'SETUP') {
+    return filterSetupDocumentaryRequirements(organizationType, businessSize)
+  }
+
   return giaDocumentaryRequirements.filter((requirement) => {
     if (requirement.giaCategories && requirement.giaCategories.length > 0) {
-      if (!giaCategory || !requirement.giaCategories.includes(giaCategory as Exclude<GiaProponentCategory, ''>)) {
+      if (
+        !actualGiaCategory ||
+        !requirement.giaCategories.includes(actualGiaCategory as Exclude<GiaProponentCategory, ''>)
+      ) {
         return false
       }
     }

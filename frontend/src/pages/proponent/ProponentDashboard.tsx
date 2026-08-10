@@ -28,6 +28,7 @@ import {
 } from '../../services/documentStore'
 import { getApplications } from '../../services/applicationStore'
 import { getGiaProposal } from '../../services/giaProposalStore'
+import { getSetupDraft } from '../../services/setupProposalStore'
 
 type TabType = 'overview' | 'monitoring' | 'equipment' | 'repayment' | 'notifications'
 
@@ -37,14 +38,33 @@ export function ProponentDashboard() {
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const allApplications = getApplications()
 
-  const application = allApplications.find((app) =>
-    user?.applicationReference
-      ? app.referenceNo === user.applicationReference
-      : !user?.email || app.contactEmail.toLowerCase() === user.email.toLowerCase(),
-  )
+  const userProgram = user?.program ?? 'SETUP'
+
+  // Match applications that belong to the logged-in user
+  const userApplications = allApplications.filter((app) => {
+    if (user?.applicationReference && app.referenceNo === user.applicationReference) {
+      return true
+    }
+    if (user?.email && app.contactEmail.toLowerCase() === user.email.toLowerCase()) {
+      return true
+    }
+    if (user?.name && app.applicantName.toLowerCase() === user.name.toLowerCase()) {
+      return true
+    }
+    return false
+  })
+
+  // Pick the active application for the user's current program
+  const programApp = userApplications.find((app) => app.program === userProgram)
+  const application =
+    programApp ??
+    userApplications[0] ??
+    allApplications.find((app) => app.program === userProgram) ??
+    allApplications[0]
 
   const documents = application ? getDocuments(application.referenceNo) : {}
-  const giaProposal = application?.program === 'GIA' ? getGiaProposal(application.referenceNo) : null
+  const giaProposal = application?.program === 'GIA' ? getGiaProposal(application?.referenceNo ?? '') : null
+  const liveSetup = application?.program === 'SETUP' ? getSetupDraft() : null
 
   const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([])
 
@@ -55,22 +75,21 @@ export function ProponentDashboard() {
     }
     if (application.program === 'SETUP') {
       let cancelled = false
-      // Same limitation as ApplicationStatusPage.tsx: no organizationType/businessSize
-      // source here yet, so this is the unfiltered SETUP checklist.
-      fetchSetupDocumentaryRequirements()
+      fetchSetupDocumentaryRequirements(liveSetup?.organizationType, liveSetup?.businessSize)
         .then((records) => { if (!cancelled) setRequirements(records) })
         .catch(() => { if (!cancelled) setRequirements([]) })
       return () => { cancelled = true }
     }
-    setRequirements(getDocumentaryRequirements(giaProposal?.proponentCategory))
-  }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory])
+    setRequirements(getDocumentaryRequirements('GIA', undefined, giaProposal?.proponentCategory))
+  }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory, liveSetup?.organizationType, liveSetup?.businessSize])
 
   const requiredRequirements = requirements.filter((req) => req.required)
-  const uploadedCount = requirements.filter((req) => documents[req.id]).length
+  const uploadedCount = requiredRequirements.filter((req) => Boolean(documents[req.id])).length
   const documentsComplete =
-    requiredRequirements.length > 0 && requiredRequirements.every((req) => documents[req.id])
+    requiredRequirements.length > 0 && requiredRequirements.every((req) => Boolean(documents[req.id]))
   const submittedReference = (location.state as { submittedReference?: string } | null)?.submittedReference
   const isApproved = application?.status === 'Approved'
+  const isUnderReview = application?.status === 'Under review' || application?.status === 'Submitted' || application?.status === 'Draft Submitted'
   const isGia = application?.program === 'GIA' || user?.program === 'GIA'
 
   const stage2Description = isGia
@@ -171,17 +190,17 @@ export function ProponentDashboard() {
                   value={`${uploadedCount}/${requiredRequirements.length}`}
                 />
                 <MetricCard
-                  detail={isApproved ? 'Active milestones' : 'Activates upon approval'}
+                  detail={isApproved ? 'Active milestones' : isUnderReview ? 'Initial review in progress' : 'Activates upon approval'}
                   icon={Activity}
                   label="Project Monitoring"
-                  tone="orange"
-                  value={isApproved ? 'Active' : 'Inactive'}
+                  tone={isApproved ? 'green' : isUnderReview ? 'sky' : 'orange'}
+                  value={isApproved ? 'Active' : isUnderReview ? 'In Review' : 'Inactive'}
                 />
                 <MetricCard
                   detail={isApproved ? 'SETUP refund schedule active' : 'Generated upon MOA signing'}
                   icon={CreditCard}
                   label="Repayment Status"
-                  tone="green"
+                  tone={isApproved ? 'green' : 'green'}
                   value={isApproved ? 'Active' : 'Inactive'}
                 />
               </section>

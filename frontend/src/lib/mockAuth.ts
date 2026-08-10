@@ -24,13 +24,15 @@ export const ADMIN_USER: MockUser = {
   role: ROLES.SYSTEM_ADMIN,
 };
 
-export const PROPONENT_USER: MockUser = {
-  email: "proponent@dost.gov.ph",
-  initials: "PR",
+export const SETUP_PROPONENT_USER: MockUser = {
+  email: "setup.proponent@dost.gov.ph",
+  initials: "MS",
   name: "Maria SETUP Proponent",
   program: "SETUP",
   role: ROLES.PROPONENT,
 };
+
+export const PROPONENT_USER: MockUser = SETUP_PROPONENT_USER;
 
 export const GIA_PROPONENT_USER: MockUser = {
   email: "gia.proponent@dost.gov.ph",
@@ -40,12 +42,38 @@ export const GIA_PROPONENT_USER: MockUser = {
   role: ROLES.PROPONENT,
 };
 
-const STAFF_USER: MockUser = {
-  email: 'staff@dost.gov.ph', initials: 'PS', name: 'Paolo Staff Encoder', role: ROLES.PROJECT_STAFF,
+const SETUP_STAFF_USER: MockUser = {
+  email: 'setup.staff@dost.gov.ph',
+  initials: 'SS',
+  name: 'Paolo SETUP Staff (SSCP)',
+  program: 'SETUP',
+  role: ROLES.PROJECT_STAFF,
 };
-const FOCAL_USER: MockUser = {
-  email: 'focal@dost.gov.ph', initials: 'FR', name: 'Faith Focal Evaluator', role: ROLES.FOCAL,
+
+const GIA_STAFF_USER: MockUser = {
+  email: 'gia.staff@dost.gov.ph',
+  initials: 'GS',
+  name: 'Carla GIA Staff (CEST)',
+  program: 'GIA',
+  role: ROLES.PROJECT_STAFF,
 };
+
+const SETUP_FOCAL_USER: MockUser = {
+  email: 'setup.focal@dost.gov.ph',
+  initials: 'SF',
+  name: 'Faith SETUP Focal (SSCP)',
+  program: 'SETUP',
+  role: ROLES.FOCAL,
+};
+
+const GIA_FOCAL_USER: MockUser = {
+  email: 'gia.focal@dost.gov.ph',
+  initials: 'GF',
+  name: 'Felix GIA Focal (CEST)',
+  program: 'GIA',
+  role: ROLES.FOCAL,
+};
+
 const DIRECTOR_USER: MockUser = {
   email: 'director@dost.gov.ph', initials: 'PD', name: 'Pat Director Approver', role: ROLES.PROVINCIAL_DIRECTOR,
 };
@@ -54,36 +82,13 @@ const RPMO_USER: MockUser = {
 };
 
 const MOCK_USERS = [
-  {
-    credentials: {
-      email: "admin@dost.gov.ph",
-      password: "Dprms@123",
-    },
-    user: ADMIN_USER,
-  },
-  {
-    credentials: {
-      email: "proponent@dost.gov.ph",
-      password: "Dprms@123",
-    },
-    user: PROPONENT_USER,
-  },
-  {
-    credentials: {
-      email: "setup.proponent@dost.gov.ph",
-      password: "Dprms@123",
-    },
-    user: PROPONENT_USER,
-  },
-  {
-    credentials: {
-      email: "gia.proponent@dost.gov.ph",
-      password: "Dprms@123",
-    },
-    user: GIA_PROPONENT_USER,
-  },
-  { credentials: { email: 'staff@dost.gov.ph', password: 'Dprms@123' }, user: STAFF_USER },
-  { credentials: { email: 'focal@dost.gov.ph', password: 'Dprms@123' }, user: FOCAL_USER },
+  { credentials: { email: "admin@dost.gov.ph", password: "Dprms@123" }, user: ADMIN_USER },
+  { credentials: { email: "setup.proponent@dost.gov.ph", password: "Dprms@123" }, user: SETUP_PROPONENT_USER },
+  { credentials: { email: "gia.proponent@dost.gov.ph", password: "Dprms@123" }, user: GIA_PROPONENT_USER },
+  { credentials: { email: "setup.staff@dost.gov.ph", password: "Dprms@123" }, user: SETUP_STAFF_USER },
+  { credentials: { email: "gia.staff@dost.gov.ph", password: "Dprms@123" }, user: GIA_STAFF_USER },
+  { credentials: { email: "setup.focal@dost.gov.ph", password: "Dprms@123" }, user: SETUP_FOCAL_USER },
+  { credentials: { email: "gia.focal@dost.gov.ph", password: "Dprms@123" }, user: GIA_FOCAL_USER },
   { credentials: { email: 'director@dost.gov.ph', password: 'Dprms@123' }, user: DIRECTOR_USER },
   { credentials: { email: 'rpmo@dost.gov.ph', password: 'Dprms@123' }, user: RPMO_USER },
 ];

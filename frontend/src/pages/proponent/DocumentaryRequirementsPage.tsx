@@ -327,9 +327,10 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     if (activeApplication.program === "SETUP") {
       if (liveSetupProposal) {
         const requiredFields: (keyof SetupProposalData)[] = [
-          'projectTitle', 'businessName', 'businessAddress', 'contactPerson',
-          'contactNumber', 'emailAddress', 'organizationType', 'businessSize',
-          'businessIndustry', 'productsServices', 'existingProblems', 'proposedTechnologyIntervention'
+          'projectTitle', 'generalObjective', 'specificObjectives', 'projectBackground',
+          'businessName', 'businessAddress', 'contactPerson', 'contactNumber',
+          'emailAddress', 'yearEstablished', 'organizationType', 'businessSize',
+          'numberOfEmployees', 'businessIndustry', 'productsServices', 'enterpriseBackground',
         ];
         formTotal = requiredFields.length;
         formFilled = requiredFields.filter(f => {
@@ -555,10 +556,6 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }
 
   function scrollToMissingRequirement(missingRequiredDocs: DocumentaryRequirement[]) {
-    const missingTitles = missingRequiredDocs.map((d) => d.title).join(", ");
-    setMessage(
-      `⚠️ Cannot submit application. Please upload the following required document${missingRequiredDocs.length === 1 ? "" : "s"}: ${missingTitles}`,
-    );
     const firstMissing = missingRequiredDocs[0];
     if (firstMissing) {
       const targetEl = document.getElementById(`requirement-${firstMissing.id}`);
@@ -617,8 +614,18 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         setActiveProposalId(proposalId);
 
         const nextDocuments: Record<string, StoredDocument> = {};
-        for (const record of result.documents) {
-          nextDocuments[String(record.document_type_id)] = documentRecordToStoredDocument(record);
+        if (result.documents && result.documents.length > 0) {
+          for (const record of result.documents) {
+            const stored = documentRecordToStoredDocument(record);
+            nextDocuments[String(record.document_type_id)] = stored;
+            saveDocument(application.referenceNo, String(record.document_type_id), stored);
+          }
+        } else {
+          for (const [reqId, file] of Object.entries(pendingFiles)) {
+            const stored = await fileToStoredDocument(file);
+            nextDocuments[reqId] = stored;
+            saveDocument(application.referenceNo, reqId, stored);
+          }
         }
         setDocuments(nextDocuments);
         setPendingFiles({});
@@ -841,10 +848,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                         </div>
                       ) : null}
 
-                      <div className="hidden grid-cols-[minmax(0,1.7fr)_minmax(310px,1fr)] gap-5 border-y border-slate-100 bg-white px-6 py-3 text-[11px] font-black uppercase tracking-[0.1em] text-slate-400 lg:grid">
-                        <span>Document name</span>
-                        <span>Verification and actions</span>
-                      </div>
+
 
                       <div className="divide-y divide-slate-100">
                         {groupRequirements.map((requirement) => {
@@ -917,9 +921,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                 <div className="min-w-0">
                                   <h3 className="font-bold leading-6 text-slate-900">
                                     {requirement.title}
-                                    {requirement.required ? (
+                                    {requirement.required || activeApplication.program === "SETUP" ? (
                                       <span
-                                        className="ml-1 text-red-600 font-extrabold"
+                                        className="ml-1 font-extrabold text-red-600"
                                         aria-label="required"
                                       >
                                         *
@@ -960,11 +964,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                               </div>
 
                               <div className="space-y-3">
-                                {isMissingRequired ? (
-                                  <span className="inline-flex rounded-full bg-red-100 px-2.5 py-0.5 text-[11px] font-bold text-red-700 border border-red-200">
-                                    Required — Not Uploaded
-                                  </span>
-                                ) : status !== "Not Uploaded" && status !== "Uploaded" ? (
+                                {status !== "Not Uploaded" && status !== "Uploaded" ? (
                                   <span
                                     className={cn(
                                       "inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold",
