@@ -21,8 +21,8 @@ import { ProposalProgress } from '../../components/proponent/ProposalProgress'
 import { StatusPill } from '../../components/admin/StatusPill'
 import { getMockUser } from '../../lib/mockAuth'
 import {
+  fetchGiaDocumentaryRequirements,
   fetchSetupDocumentaryRequirements,
-  getDocumentaryRequirements,
   getDocuments,
   type DocumentaryRequirement,
 } from '../../services/documentStore'
@@ -73,14 +73,17 @@ export function ProponentDashboard() {
       setRequirements([])
       return
     }
+    let cancelled = false
     if (application.program === 'SETUP') {
-      let cancelled = false
       fetchSetupDocumentaryRequirements(liveSetup?.organizationType, liveSetup?.businessSize)
         .then((records) => { if (!cancelled) setRequirements(records) })
         .catch(() => { if (!cancelled) setRequirements([]) })
-      return () => { cancelled = true }
+    } else {
+      fetchGiaDocumentaryRequirements(giaProposal?.proponentCategory)
+        .then((records) => { if (!cancelled) setRequirements(records) })
+        .catch(() => { if (!cancelled) setRequirements([]) })
     }
-    setRequirements(getDocumentaryRequirements('GIA', undefined, giaProposal?.proponentCategory))
+    return () => { cancelled = true }
   }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory, liveSetup?.organizationType, liveSetup?.businessSize])
 
   const requiredRequirements = requirements.filter((req) => req.required)

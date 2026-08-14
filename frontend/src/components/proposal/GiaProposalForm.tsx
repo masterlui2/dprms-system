@@ -1,11 +1,10 @@
-import { useEffect, useState, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useState, useRef } from 'react'
 import {
   Building2,
   ClipboardList,
   Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 
 import {
   emptyGiaProposal,
@@ -17,7 +16,6 @@ import { getMockUser } from '../../lib/mockAuth'
 import {
   getGiaDraft,
   saveGiaDraft,
-  submitGiaProposal,
 } from '../../services/giaProposalStore'
 import type {
   GiaProposalData,
@@ -134,8 +132,22 @@ interface GiaProposalFormProps {
   onDraftChange?: (draft: GiaProposalData) => void
 }
 
-export function GiaProposalForm({ onDraftChange }: GiaProposalFormProps = {}) {
-  const navigate = useNavigate()
+/**
+ * Imperative handle exposed to the parent page. Same contract as
+ * SetupProposalFormHandle in SetupProposalForm.tsx: the parent
+ * (DocumentaryRequirementsPage) drives the actual submit-to-backend flow
+ * (proposal creation + document uploads, in that order) — this component's
+ * job is only to own its own field state and validation. `validate()` runs
+ * the same checks the form used to run on its own onSubmit, surfaces
+ * errors/scrolls exactly as before, and returns the current data if valid
+ * or `null` if not (caller should stop).
+ */
+export interface GiaProposalFormHandle {
+  validate: () => GiaProposalData | null
+}
+
+export const GiaProposalForm = forwardRef<GiaProposalFormHandle, GiaProposalFormProps>(
+  function GiaProposalForm({ onDraftChange }, ref) {
   const user = getMockUser()
   const [data, setData] = useState<GiaProposalData>(() => getGiaDraft() ?? {
     ...emptyGiaProposal,
@@ -145,6 +157,11 @@ export function GiaProposalForm({ onDraftChange }: GiaProposalFormProps = {}) {
   const [errors, setErrors] = useState<GiaProposalErrors>({})
   const firstRender = useRef(true)
   const submitted = useRef(false)
+  // Always holds the latest keystroke, even between debounce ticks — used
+  // so an unmount mid-typing doesn't lose anything (same pattern as
+  // SetupProposalForm's latestData ref).
+  const latestData = useRef(data)
+  latestData.current = data
 
   useEffect(() => {
     onDraftChange?.(data)
@@ -157,9 +174,16 @@ export function GiaProposalForm({ onDraftChange }: GiaProposalFormProps = {}) {
     }, 650)
     return () => {
       window.clearTimeout(timer)
-      if (!submitted.current) saveGiaDraft(data)
     }
-  }, [data])
+  }, [data, onDraftChange])
+
+  // Save whatever the user last typed if they navigate away before the
+  // debounce above has a chance to fire. Runs once, only on unmount.
+  useEffect(() => {
+    return () => {
+      if (!submitted.current) saveGiaDraft(latestData.current)
+    }
+  }, [])
 
   function update<K extends GiaProposalField>(field: K, value: GiaProposalData[K]) {
     setData((current) => ({ ...current, [field]: value }))
@@ -207,23 +231,25 @@ export function GiaProposalForm({ onDraftChange }: GiaProposalFormProps = {}) {
     )
   }
 
-  function handleSubmit(event: React.FormEvent) {
-    event.preventDefault()
-    const nextErrors = validate(data)
-    setErrors(nextErrors)
-    const firstError = requiredFields.find((field) => nextErrors[field])
-    if (firstError) {
-      window.setTimeout(() => document.querySelector(`[name="${firstError}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
-      return
-    }
-
-    submitted.current = true
-    const application = submitGiaProposal(data)
-    navigate('/dashboard', { replace: true, state: { submittedReference: application.referenceNo } })
-  }
+  useImperativeHandle(ref, () => ({
+    validate: () => {
+      const nextErrors = validate(data)
+      setErrors(nextErrors)
+      const firstError = requiredFields.find((field) => nextErrors[field])
+      if (firstError) {
+        window.setTimeout(() => document.querySelector(`[name="${firstError}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 0)
+        return null
+      }
+      // Marks the draft as "handed off" so the unmount-save effect above
+      // doesn't overwrite what the parent is about to submit with a stale
+      // localStorage draft on the reload that follows a successful submit.
+      submitted.current = true
+      return data
+    },
+  }), [data])
 
   return (
-    <form className="space-y-5" noValidate onSubmit={handleSubmit}>
+    <div className="space-y-5">
 
       {Object.keys(errors).length ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">Please complete the highlighted fields.</div> : null}
 
@@ -274,6 +300,6 @@ export function GiaProposalForm({ onDraftChange }: GiaProposalFormProps = {}) {
         </div>
       </Section>
 
-    </form>
+    </div>
   )
-}
+})

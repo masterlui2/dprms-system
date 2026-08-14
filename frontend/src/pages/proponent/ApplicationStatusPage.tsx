@@ -5,8 +5,8 @@ import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { ProposalProgress } from '../../components/proponent/ProposalProgress'
 import { getMockUser } from '../../lib/mockAuth'
 import {
+  fetchGiaDocumentaryRequirements,
   fetchSetupDocumentaryRequirements,
-  getDocumentaryRequirements,
   getDocuments,
   type DocumentaryRequirement,
 } from '../../services/documentStore'
@@ -29,17 +29,20 @@ export function ApplicationStatusPage() {
       setRequirements([])
       return
     }
+    let cancelled = false
     if (application.program === 'SETUP') {
-      let cancelled = false
       // Note: no organizationType/businessSize filter available here yet, so this
       // returns the unfiltered SETUP checklist. Wire this up to a real proposal
       // lookup once one exists.
       fetchSetupDocumentaryRequirements()
         .then((records) => { if (!cancelled) setRequirements(records) })
         .catch(() => { if (!cancelled) setRequirements([]) })
-      return () => { cancelled = true }
+    } else {
+      fetchGiaDocumentaryRequirements(giaProposal?.proponentCategory)
+        .then((records) => { if (!cancelled) setRequirements(records) })
+        .catch(() => { if (!cancelled) setRequirements([]) })
     }
-    setRequirements(getDocumentaryRequirements(giaProposal?.proponentCategory))
+    return () => { cancelled = true }
   }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory])
 
   const requiredRequirements = requirements.filter((item) => item.required)

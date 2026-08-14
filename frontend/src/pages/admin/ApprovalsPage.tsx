@@ -7,10 +7,7 @@ import {
   ProposalReviewModal,
   type ReviewSection,
 } from "../../components/admin/ProposalReviewModal";
-import {
-  proposalRecords,
-  type ProposalRecord,
-} from "../../data/admin";
+import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
 import { getApplications } from "../../services/applicationStore";
 
@@ -59,13 +56,7 @@ export function ApprovalsPage() {
     };
   });
 
-  // Combine live submitted applications with mock proposals (avoid duplicates by id)
-  const combinedProposals = [
-    ...applicationProposals,
-    ...proposalRecords.filter((p) => !applicationProposals.some((ap) => ap.id === p.id)),
-  ];
-
-  const filteredProposals = combinedProposals.filter((proposal) => {
+  const filteredProposals = applicationProposals.filter((proposal) => {
     return program === "all" || proposal.program === program;
   });
 

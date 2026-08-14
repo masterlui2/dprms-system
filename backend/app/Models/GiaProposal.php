@@ -5,24 +5,19 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Override;
 
 class GiaProposal extends Model
 {
     protected $fillable = [
         'proposal_id',
-        'research_title',
+        'proponent_category',
+        'organization_name',
+        'office_address',
+        'position',
+        'contact_number',
         'research_type',
-        'sectoral_council',
-        'call_for_proposals_ref',
-        'research_duration_months',
-        'total_budget_requested',
-        'implementing_agency',
-        'project_site',
-        'abstract',
-        'gad_score',
-        'gad_scoresheet_path',
-        'capsule_proposal_path',
-        'full_proposal_path'
+        'research_category'
     ];
 
     public function proposal():BelongsTo{

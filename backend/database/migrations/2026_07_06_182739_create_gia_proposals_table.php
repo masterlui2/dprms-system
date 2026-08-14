@@ -14,19 +14,19 @@ return new class extends Migration
         Schema::create('gia_proposals', function (Blueprint $table) {
             $table->id();
             $table->foreignId("proposal_id")->unique()->constrained("proposals")->onDelete("set null");
-            $table->string("research_title",500);
-            $table->enum("research_type",["Basic Research","Applied Research", "Development","Demonstration"]);
-            $table->string("sectoral_council",255);
-            $table->string("call_for_proposals_ref",255)->nullable();
-            $table->integer("research_duration_months");
-            $table->decimal("total_budget_requested",15,2)->nullable();
-            $table->string("implementing_agency",255);
-            $table->text("project_site")->nullable();
-            $table->text("abstract")->nullable();
-            $table->decimal("gad_score",5,2)->nullable();
-            $table->string("gad_scoresheet_path",500)->nullable();
-            $table->string("capsule_proposal_path",500)->nullable();
-            $table->string("full_proposal_path",500)->nullable();
+            $table->enum("proponent_category",['Private Sector','Higher Education Institution','Barangay LGU']);
+            $table->string("organization_name", 255);
+            $table->text('office_address');
+            $table->string("position",255);
+            $table->string("contact_number",30);
+
+            // "Capability Building and Training" (singular "Capability") —
+            // was "Capabilities Building and Training", which didn't match
+            // GiaProposalSubmissionRequest's project_type validation rule or
+            // the frontend's giaProjectTypes list, so that option would
+            // always fail this column's check constraint on insert.
+            $table->enum("research_type",["Research and Development","Capability Building and Training", "Technology Transfer",'Community-Based Science and Technology Project',"Others"]);
+            $table->enum("research_category",['Agriculture and Fisheries','Community Development','Education','Environment','Health','Information and Communications Technology','Research and Development','Disaster Risk Reduction and Management','Others']);
             $table->timestamps();
         });
     }

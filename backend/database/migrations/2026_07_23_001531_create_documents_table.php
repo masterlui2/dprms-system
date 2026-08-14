@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('document_types', function (Blueprint $table) {
             $table->id();
             $table->string('name', 255);
-            $table->enum('set_number', ['PROPOSAL','SET1','SET2','SET3']);
+            $table->enum('set_number', ['PROPOSAL','SET1','SET2','SET3','GIA1']);
             $table->enum('applicable_program', ['SETUP', 'GIA', 'BOTH']);
             $table->boolean('is_required')->default(true);
             $table->timestamps();

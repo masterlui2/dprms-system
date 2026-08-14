@@ -7,6 +7,7 @@ use App\Http\Controllers\ProposalController;
 use App\Http\Controllers\ProposalTemplateController;
 use App\Models\DocumentRequirement;
 use App\Http\Controllers\GiaProposalController;
+use App\Http\Controllers\GiaProposalSubmissionController;
 use App\Http\Controllers\SetupProposalController;
 use App\Http\Controllers\SetupProposalSubmissionController;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,7 @@ Route::middleware('auth:sanctum')->prefix('proposal-templates')->group(function 
 
 Route::middleware('auth:sanctum')->prefix('proposal')->group(function (){
     Route::post('/setup', [SetupProposalSubmissionController::class, 'store']);
+    Route::post('/gia',[GiaProposalSubmissionController::class,'store']);
     Route::post('/submit',[ProposalController::class, 'submit']);
     Route::put('/advance-stage/{id}',[ProposalController::class,'advanceStage']);
     Route::put('/{id}/approve',[ProposalController::class,'approve']);
@@ -39,14 +41,13 @@ Route::middleware('auth:sanctum')->prefix('proposal')->group(function (){
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('document-types', [DocumentTypeController::class, 'index']);
-
     Route::get('proposals/{proposalId}/documents', [DocumentController::class, 'index']);
     Route::post('documents', [DocumentController::class, 'store']);
     Route::delete('documents/{document}', [DocumentController::class, 'destroy']);
     Route::get('documents/{document}/download', [DocumentController::class, 'show']);
 });
 
-Route::middleware('auth:sanctum')->group(function (){
+Route::middleware('auth:sanctum')->prefix('gia')->group(function (){
     Route::get('/gia/proposals',[GiaProposalController::class,'getGiaProposalDetials']);
     Route::post('/gia/proposals',[GiaProposalController::class,'createGiaProposal']);
     Route::post('gia/upload-document',[GiaProposalController::class,'uploadDocumnet']);
