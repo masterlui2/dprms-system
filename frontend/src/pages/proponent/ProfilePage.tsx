@@ -164,7 +164,7 @@ export function ProfilePage() {
                 <div className="pb-1">
                   <h2 className="text-xl font-black text-slate-900">{profile.fullName || 'Project Proponent'}</h2>
                   <p className="mt-1 text-sm text-slate-500">{profile.organizationName || 'Organization not yet added'}</p>
-                  {profile.program ? <span className="mt-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-[#0f53b7]">{profile.program} Proponent</span> : null}
+                  {profile.program ? <span className="mt-2 block text-xs font-bold text-[#0f53b7]">{profile.program} Proponent</span> : null}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">

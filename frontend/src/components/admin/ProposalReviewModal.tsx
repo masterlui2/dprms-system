@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, FileCheck2, FileText, Send, UserCheck, X } from "lucide-react";
 
+import { ROLES } from "../../config/permissions";
 import type { ProposalRecord } from "../../data/admin";
+import { getMockUser } from "../../lib/mockAuth";
 import { updateApplicationStatus } from "../../services/applicationStore";
 import { cn } from "../../utils/cn";
 import { ProposalCommentsSection } from "./proposal-review/ProposalCommentsSection";
 import { ProposalDocumentsSection } from "./proposal-review/ProposalDocumentsSection";
+import { InternalDocumentsSection } from "./proposal-review/InternalDocumentsSection";
+import { areSetupPostInspectionDocumentsComplete } from "./proposal-review/internalDocuments";
 import { ProposalOverviewSection } from "./proposal-review/ProposalOverviewSection";
 import { getProposalDocuments } from "./proposal-review/documents";
 import type { ReviewSection, SampleDocument } from "./proposal-review/types";
@@ -19,22 +23,22 @@ interface ProposalReviewModalProps {
   proposal: ProposalRecord;
 }
 
-const reviewTabs: Array<[ReviewSection, string]> = [
-  ["overview", "Overview"],
-  ["documents", "Document Checklist & DOST Internal Forms"],
-  ["comments", "Comments"],
-];
-
 export function ProposalReviewModal({
   initialSection = "overview",
   onClose,
   proposal: initialProposal,
 }: ProposalReviewModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const user = getMockUser();
+  const isDirectorApproval = user?.role === ROLES.PROVINCIAL_DIRECTOR;
   const [proposal, setProposal] = useState<ProposalRecord>(initialProposal);
   const [section, setSection] = useState<ReviewSection>(initialSection);
   const [selectedDocument, setSelectedDocument] = useState<SampleDocument | null>(null);
-  const [dostFormsCompleted, setDostFormsCompleted] = useState(false);
+  const [internalDocumentsReady, setInternalDocumentsReady] = useState(() =>
+    initialProposal.program === "SETUP"
+      ? areSetupPostInspectionDocumentsComplete(initialProposal.id)
+      : true,
+  );
   const [workflowStage, setWorkflowStage] = useState<'initial_review' | 'in_process' | 'endorsed' | 'approved'>(() => {
     if (initialProposal.status === 'Approved' || initialProposal.stage === 4) return 'approved';
     if (initialProposal.stage === 3) return 'endorsed';
@@ -43,6 +47,16 @@ export function ProposalReviewModal({
   });
 
   const documents = getProposalDocuments(proposal.program);
+  const reviewTabs: Array<[ReviewSection, string]> = [
+    ["overview", "Overview"],
+    ["documents", "Document Checklist"],
+    ...(proposal.program === "SETUP"
+      ? ([["internalDocuments", "Internal Documents"]] as Array<
+          [ReviewSection, string]
+        >)
+      : []),
+    ["comments", "Comments"],
+  ];
   const reviewStatus = workflowStage === 'approved'
     ? 'Approved'
     : workflowStage === 'endorsed'
@@ -76,10 +90,6 @@ export function ProposalReviewModal({
     setProposal((prev) => ({ ...prev, stage: 2, status: 'Under review' }));
   }
 
-  function handleFulfillForms() {
-    setDostFormsCompleted(true);
-  }
-
   function handleEndorseToDirector() {
     updateApplicationStatus(proposal.id, 'Executive Approval');
     setWorkflowStage('endorsed');
@@ -100,7 +110,7 @@ export function ProposalReviewModal({
       role="dialog"
     >
       <div className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex items-start gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
+        <header className="flex shrink-0 items-start gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
           <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]">
             <FileText className="size-5" />
           </span>
@@ -145,17 +155,17 @@ export function ProposalReviewModal({
 
         <nav
           aria-label="Proposal review sections"
-          className="flex overflow-x-auto border-b border-slate-200 px-5 sm:px-6"
+          className="relative z-10 flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-5 shadow-[0_10px_24px_-24px_rgba(15,23,42,0.75)] sm:px-6"
         >
           {reviewTabs.map(([value, label]) => {
             const tabLabel =
-              value === "documents" ? `${label} (${documents.length + 2})` : label;
+              value === "documents" ? `${label} (${documents.length})` : label;
 
             return (
               <button
                 aria-current={section === value ? "page" : undefined}
                 className={cn(
-                  "whitespace-nowrap border-b-2 px-4 py-3 text-sm font-bold transition",
+                  "whitespace-nowrap border-b-2 px-4 py-3 text-sm font-bold leading-5 transition",
                   section === value
                     ? "border-[#0f53b7] text-[#073b82]"
                     : "border-transparent text-slate-500 hover:text-slate-800",
@@ -181,17 +191,23 @@ export function ProposalReviewModal({
           {section === "documents" ? (
             <ProposalDocumentsSection
               documents={documents}
-              dostFormsCompleted={dostFormsCompleted}
-              onFulfillDostForms={handleFulfillForms}
               onSelectDocument={setSelectedDocument}
               selectedDocument={selectedDocument}
+            />
+          ) : null}
+
+          {section === "internalDocuments" && proposal.program === "SETUP" ? (
+            <InternalDocumentsSection
+              mode={isDirectorApproval ? "view" : "edit"}
+              onRequiredStatusChange={setInternalDocumentsReady}
+              proposalId={proposal.id}
             />
           ) : null}
 
           {section === "comments" ? <ProposalCommentsSection /> : null}
         </div>
 
-        <footer className="flex flex-col-reverse gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <button
             className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
             onClick={onClose}
@@ -214,21 +230,32 @@ export function ProposalReviewModal({
 
             {workflowStage === 'in_process' && (
               <>
-                <button
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-bold text-[#073b82] transition hover:bg-blue-100"
-                  onClick={handleFulfillForms}
-                  type="button"
-                >
-                  <FileCheck2 className="size-4" />
-                  {dostFormsCompleted ? 'Internal DOST Forms Uploaded' : 'Fulfill Internal DOST Forms'}
-                </button>
+                {proposal.program === "SETUP" ? (
+                  <button
+                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-bold text-[#073b82] transition hover:bg-blue-100"
+                    onClick={() => setSection("internalDocuments")}
+                    type="button"
+                  >
+                    <FileCheck2 className="size-4" />
+                    {internalDocumentsReady
+                      ? "Post-inspection documents complete"
+                      : "Upload post-inspection documents"}
+                  </button>
+                ) : null}
                 <button
                   className={cn(
                     "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-white transition",
-                    dostFormsCompleted ? "bg-[#0f53b7] hover:bg-[#0b3f8b]" : "bg-slate-400 cursor-not-allowed"
+                    internalDocumentsReady
+                      ? "bg-[#0f53b7] hover:bg-[#0b3f8b]"
+                      : "cursor-not-allowed bg-slate-400",
                   )}
-                  disabled={!dostFormsCompleted}
+                  disabled={!internalDocumentsReady}
                   onClick={handleEndorseToDirector}
+                  title={
+                    internalDocumentsReady
+                      ? undefined
+                      : "Complete all post-inspection SETUP documents first"
+                  }
                   type="button"
                 >
                   <UserCheck className="size-4" />

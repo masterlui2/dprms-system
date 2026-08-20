@@ -147,18 +147,7 @@ function AccountDropdown({
         ? "/gia/dashboard/my-proposal"
         : "/setup/dashboard/my-application",
     },
-    {
-      icon: Activity,
-      label: "Project Monitoring",
-      to: `${programPrefix}/dashboard/project-monitoring`,
-    },
-    {
-      icon: PackageCheck,
-      label: isGia ? "Accomplishment Reports" : "Equipment",
-      to: isGia
-        ? `${programPrefix}/dashboard/accomplishment-reports`
-        : `${programPrefix}/dashboard/equipment`,
-    },
+
     {
       icon: ReceiptText,
       label: isGia ? "Disbursement Tracking" : "Repayment / Billing",
@@ -335,7 +324,7 @@ export function SiteHeader() {
         </div>
 
         <nav
-          className="hidden flex-1 -translate-x-4 items-center justify-center gap-1 lg:flex xl:-translate-x-14"
+          className="hidden flex-1 -translate-x-4 items-center justify-center gap-1 lg:flex xl:-translate-x-15"
           aria-label="Primary navigation"
         >
           {navigationItems.map((item) =>
