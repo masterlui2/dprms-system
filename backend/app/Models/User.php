@@ -87,4 +87,10 @@ class User extends Authenticatable
     public function proposal_template():HasMany{
         return $this->hasMany(ProposalTemplate::class,"uploaded_by");
     }
+
+    public function hasRole(string|array $roles): bool{
+        $roles = is_array($roles) ? $roles : [$roles];
+
+        return $this->role()->whereIn('code', $roles)->exists();
+    }
 }
