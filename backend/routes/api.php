@@ -45,6 +45,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('documents', [DocumentController::class, 'store']);
     Route::delete('documents/{document}', [DocumentController::class, 'destroy']);
     Route::get('documents/{document}/download', [DocumentController::class, 'show']);
+    Route::get('documents/{proposalId}/',[DocumentController::class,'indexForOwner']);
+    Route::get('documents/{documentId}/view',[DocumentController::class,'showForOwner']);
 });
 
 Route::middleware('auth:sanctum')->prefix('gia')->group(function (){
