@@ -41,10 +41,15 @@ Route::middleware('auth:sanctum')->prefix('proposal')->group(function (){
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('document-types', [DocumentTypeController::class, 'index']);
-    Route::get('proposals/{proposalId}/documents', [DocumentController::class, 'index']);
     Route::post('documents', [DocumentController::class, 'store']);
     Route::delete('documents/{document}', [DocumentController::class, 'destroy']);
     Route::get('documents/{document}/download', [DocumentController::class, 'show']);
+    Route::get('documents/{proposalId}/',[DocumentController::class,'indexForOwner']);
+    Route::get('documents/{documentId}/view',[DocumentController::class,'showForOwner']);
+});
+
+Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('documents')->group(function (){
+    Route::get('/{proposalId}/proposal-documents', [DocumentController::class, 'index']);
 });
 
 Route::middleware('auth:sanctum')->prefix('gia')->group(function (){

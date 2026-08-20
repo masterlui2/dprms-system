@@ -11,4 +11,6 @@ interface DocumentsServiceInterface{
     public function uploadDocuments(array $data): Document;
     public function updateDocuments(int $id, array $data): Document;
     public function deleteDocuments(int $id): bool;
+    public function getForOwner(int $proposalId): Collection;
+    public function getOneForOwner(int $documentId): Document;
 }
