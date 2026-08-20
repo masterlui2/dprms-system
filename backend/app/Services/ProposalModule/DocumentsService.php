@@ -79,4 +79,10 @@ class DocumentsService implements DocumentsServiceInterface{
             Auth::id()
         );
     }
+
+    #[Override]
+    public function getOneForStaff(int $documentId): Document
+    {
+        return $this->documentsRepository->findById($documentId);
+    }
 }

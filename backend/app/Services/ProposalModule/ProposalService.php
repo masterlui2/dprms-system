@@ -63,4 +63,14 @@ class ProposalService implements ProposalServiceInterface{
     {
         return $this->proposalRepository->findBySubmitter($userId);
     }
+
+    #[Override]
+    public function getIndex(): Collection
+    {
+        return $this->proposalRepository->findIndex([
+            'user',
+            'setup_proposal',
+            'gia_proposal'
+        ]);
+    }
 }

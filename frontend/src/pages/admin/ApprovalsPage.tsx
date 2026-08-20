@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, Filter, Check } from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
@@ -8,7 +8,8 @@ import {
 } from "../../components/admin/ProposalReviewModal";
 import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
-import { getApplications } from "../../services/applicationStore";
+import { getAllProposals } from "../../services/proposalStore";
+import type { ApplicationRecord } from "../../types/application";
 
 const programFilters = [
   { label: "All Programs", value: "all" },
@@ -23,34 +24,67 @@ export function ApprovalsPage() {
     proposal: ProposalRecord;
     section: ReviewSection;
   } | null>(null);
+  const [applications, setApplications] = useState<ApplicationRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const applications = getApplications();
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getAllProposals()
+      .then((data) => {
+        if (!cancelled) setApplications(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load proposals:", err);
+        if (!cancelled) setError("Could not load applications. Please try again.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const applicationProposals: ProposalRecord[] = applications.map((app) => {
     let stage: 0 | 1 | 2 | 3 | 4 = 1;
-    if (app.status === 'Submitted' || app.status === 'Draft Submitted') stage = 0;
-    else if (app.status === 'Under review') stage = 1;
-    else if (app.status === 'Technical evaluation') stage = 2;
-    else if (app.status === 'In Process' || app.status === 'Executive Approval') stage = 3;
-    else if (app.status === 'Approved') stage = 4;
+    if (app.status === "Submitted" || app.status === "Draft Submitted") stage = 0;
+    else if (app.status === "Under review") stage = 1;
+    else if (app.status === "Technical evaluation") stage = 2;
+    else if (app.status === "In Process" || app.status === "Executive Approval") stage = 3;
+    else if (app.status === "Approved") stage = 4;
 
-    let status: 'Pending' | 'Under review' | 'Approved' | 'Rejected' = 'Under review';
-    if (app.status === 'Approved') status = 'Approved';
-    else if (app.status === 'Returned for Revision') status = 'Rejected';
-    else if (stage === 0) status = 'Pending';
+    let status: "Pending" | "Under review" | "Approved" | "Rejected" = "Under review";
+    if (app.status === "Approved") status = "Approved";
+    else if (app.status === "Returned for Revision") status = "Rejected";
+    else if (stage === 0) status = "Pending";
 
     return {
       amount: 1500000,
       completeness: 100,
       id: app.referenceNo,
+      proposalId: app.proposalId, // numeric backend id, needed by ProposalDocumentsSection
       organization: app.organizationName,
-      organizationType: app.program === 'GIA' ? 'HEI / SUC / LGU Proponent' : 'MSME Enterprise (Private Sector)',
-      proponentName: app.applicantName || 'Maria Proponent',
-      proponentRole: app.program === 'GIA' ? 'Project Leader / Researcher' : 'Authorized Enterprise Representative',
+      organizationType:
+        app.program === "GIA"
+          ? "HEI / SUC / LGU Proponent"
+          : "MSME Enterprise (Private Sector)",
+      proponentName: app.applicantName || "Maria Proponent",
+      proponentRole:
+        app.program === "GIA"
+          ? "Project Leader / Researcher"
+          : "Authorized Enterprise Representative",
       program: app.program,
-      reviewer: app.program === 'GIA' ? 'CEST Focal Officer' : 'SSCP Focal Officer',
+      reviewer: app.program === "GIA" ? "CEST Focal Officer" : "SSCP Focal Officer",
       stage,
       status,
-      submitted: new Date(app.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+      submitted: new Date(app.createdAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }),
       title: app.projectTitle,
     };
   });
@@ -71,12 +105,8 @@ export function ApprovalsPage() {
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
         <div>
-          <p className="font-semibold leading-5 text-slate-900">
-            {proposal.title}
-          </p>
-          <p className="mt-1 font-mono text-xs font-bold text-[#0f53b7]">
-            {proposal.id}
-          </p>
+          <p className="font-semibold leading-5 text-slate-900">{proposal.title}</p>
+          <p className="mt-1 font-mono text-xs font-bold text-[#0f53b7]">{proposal.id}</p>
         </div>
       ),
     },
@@ -98,9 +128,7 @@ export function ApprovalsPage() {
               {proposal.proponentName ?? "Maria Proponent"}
             </p>
             {showOrganization ? (
-              <p className="mt-1 text-xs leading-5 text-slate-500">
-                {proposal.organization}
-              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-500">{proposal.organization}</p>
             ) : null}
           </div>
         );
@@ -112,9 +140,7 @@ export function ApprovalsPage() {
       className: "w-[13%]",
       sortValue: (proposal) => proposal.program,
       render: (proposal) => (
-        <span className="text-xs font-black text-[#073b82]">
-          {proposal.program}
-        </span>
+        <span className="text-xs font-black text-[#073b82]">{proposal.program}</span>
       ),
     },
     {
@@ -150,6 +176,32 @@ export function ApprovalsPage() {
     },
   ];
 
+  if (loading) {
+    return (
+      <div className="space-y-7">
+        <AdminPageHeader
+          description="View and cater incoming proposal submissions from SETUP and GIA program applicants."
+          eyebrow="Application Intake"
+          title="Incoming Applications"
+        />
+        <p className="text-sm text-slate-500">Loading applications…</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-7">
+        <AdminPageHeader
+          description="View and cater incoming proposal submissions from SETUP and GIA program applicants."
+          eyebrow="Application Intake"
+          title="Incoming Applications"
+        />
+        <p className="text-sm text-red-600">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-7">
       <AdminPageHeader
@@ -168,7 +220,7 @@ export function ApprovalsPage() {
           onRowClick={(proposal) => openReview(proposal, "overview")}
           searchPlaceholder="Search applications..."
           searchText={(proposal) =>
-            `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.proponentName ?? ''} ${proposal.organizationType ?? ''} ${proposal.program}`
+            `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.proponentName ?? ""} ${proposal.organizationType ?? ""} ${proposal.program}`
           }
           toolbar={
             <div className="relative">
@@ -186,9 +238,7 @@ export function ApprovalsPage() {
               {filtersOpen ? (
                 <div className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-xl shadow-slate-900/10">
                   <div className="border-b border-slate-100 px-4 py-2.5">
-                    <p className="text-xs font-black text-[#073b82]">
-                      Filter by Program
-                    </p>
+                    <p className="text-xs font-black text-[#073b82]">Filter by Program</p>
                   </div>
 
                   <div className="p-2 space-y-1">

@@ -11,4 +11,5 @@ interface ProposalRepositoryInterface extends BaseRepositoryInterface{
     public function findBySubmitter(int $userId): Collection;
     public function findByStatus(string $status): Collection;
     public function updateStatus(int $id, string $status, string$currentStage): bool;
+    public function findIndex(array $with=[]):Collection;
 }

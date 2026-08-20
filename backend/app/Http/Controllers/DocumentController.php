@@ -57,4 +57,14 @@ class DocumentController extends Controller
             ['Content-Type' => $data->mime_type]
         );
     }
+
+    public function showForStaff(int $documentId){
+        $data = $this->documentsService->getOneForStaff($documentId);
+        abort_unless(Storage::exists($data->file_path),404);
+        return Storage::response(
+            $data->file_path,
+            $data->file_name,
+            ['Content-Type' => $data->mime_type]
+        );
+    }
 }

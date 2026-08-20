@@ -45,4 +45,10 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
         $user->current_stage = $currentStage;
         return $user->save();
     }
+
+    #[Override]
+    public function findIndex(array $with = []): Collection
+    {
+        return $this->model->newQuery()->with($with)->get();
+    }
 }

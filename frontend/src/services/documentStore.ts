@@ -346,15 +346,22 @@ interface DocumentIndexResponse {
 }
 
 /**
- * Fetches all documents already uploaded for a proposal via
- * GET /proposals/{proposalId}/documents (DocumentController::index),
- * keyed by document_type_id (which is what DocumentaryRequirement.id is
- * for SETUP records — see mapDocumentTypeToRequirement above).
+ * Fetches all documents already uploaded for a proposal, for the
+ * PROPONENT'S OWN view (e.g. resuming a SETUP application to see upload
+ * status). Owner-scoped — backed by GET /documents/{proposalId}
+ * (DocumentController::indexForOwner), which filters to Auth::id().
+ *
+ * Was previously calling `/proposals/${proposalId}/documents`, which does
+ * not match any registered route (routes are all under `/documents`, not
+ * `/proposals`) — fixed to the real route below.
+ *
+ * NOT for staff/reviewer use — see fetchProposalDocumentsForStaff further
+ * down, which hits the unscoped index instead.
  */
 export async function fetchProposalDocuments(
   proposalId: number,
 ): Promise<Record<string, StoredDocument>> {
-  const response = await api.get<DocumentIndexResponse>(`/proposals/${proposalId}/documents`)
+  const response = await api.get<DocumentIndexResponse>(`/documents/${proposalId}`)
   const byRequirement: Record<string, StoredDocument> = {}
   for (const record of response.data.data) {
     byRequirement[String(record.document_type_id)] = documentRecordToStoredDocument(record)
@@ -398,18 +405,17 @@ export async function deleteDocumentRecord(documentId: number): Promise<void> {
 }
 
 /**
- * Fetches a document's file as a blob URL for viewing, via
- * GET /documents/{document}/download (DocumentController::show).
+ * Fetches a document's file as a blob URL, for the PROPONENT'S OWN view,
+ * via GET /documents/{document}/download (DocumentController::show).
+ * Owner-scoped (uploaded_by === Auth::id()) — correct for a proponent
+ * viewing their own submission.
  *
- * NOTE: as of this writing, DocumentController::show() checks the file
- * exists but never actually streams it back — it needs a
- * `return Storage::download(...)` added, or this will resolve with an
- * empty/invalid blob. See the accompanying DocumentController.php fix.
+ * NOT for staff/reviewer use — see viewDocumentBlobForStaff further down.
  *
  * Uses api.get with responseType 'blob' (rather than a plain <a href>)
- * because the download route requires auth:sanctum — a bare browser
- * navigation wouldn't carry the Bearer token header the axios interceptor
- * attaches.
+ * because this route requires auth:sanctum with a Bearer token (not
+ * cookies — see loginWithBackend() in the auth service), and a bare
+ * browser navigation wouldn't carry that header.
  */
 export async function fetchDocumentBlobUrl(documentId: number): Promise<string> {
   const response = await api.get(`/documents/${documentId}/download`, {
@@ -632,4 +638,57 @@ export function fileToStoredDocument(file: File): Promise<StoredDocument> {
     })
     reader.readAsDataURL(file)
   })
+}
+
+// ---------------------------------------------------------------------------
+// STAFF / REVIEWER access (ProposalDocumentsSection, ApprovalsPage flow).
+// Unlike the proponent-facing functions above, these are NOT owner-scoped:
+// the authenticated user reviewing a proposal is never the uploader, so
+// the owner-scoped routes (indexForOwner, show, showForOwner) always
+// reject them. These call the unscoped index route, and a new staff-only
+// view route (see DocumentController::showForStaff — must be added to the
+// backend; not yet present as of the routes pasted earlier).
+// ---------------------------------------------------------------------------
+
+/**
+ * Lists all documents for a proposal, for staff review — no ownership
+ * check. Backed by GET /documents/{proposalId}/proposal-documents
+ * (DocumentController::index), restricted via role middleware to
+ * PROJECT_STAFF/FOCAL/PROVINCIAL_DIRECTOR.
+ */
+export async function fetchProposalDocumentsForStaff(proposalId: number): Promise<DocumentApiRecord[]> {
+  const response = await api.get<DocumentIndexResponse>(`/documents/${proposalId}/proposal-documents`)
+  return response.data.data
+}
+
+/**
+ * Fetches a document's file content as a blob and returns an object URL,
+ * for staff review (not the uploading proponent).
+ *
+ * REQUIRES a new backend route: GET /documents/{document}/staff-view ->
+ * DocumentController::showForStaff(), which must NOT check
+ * uploaded_by === Auth::id() (unlike show()/showForOwner()) since the
+ * reviewer is never the uploader:
+ *
+ *   public function showForStaff(Document $document)
+ *   {
+ *       abort_unless(Storage::exists($document->file_path), 404);
+ *       return Storage::response(
+ *           $document->file_path,
+ *           $document->file_name,
+ *           ['Content-Type' => $document->mime_type]
+ *       );
+ *   }
+ *
+ * Uses blob fetch + object URL (not a plain <a href>/window.open on the
+ * raw URL) for the same Bearer-token reason as fetchDocumentBlobUrl above.
+ *
+ * Caller is responsible for revoking the returned URL when done, unless
+ * intentionally leaving it open in a new tab (see call sites).
+ */
+export async function viewDocumentBlobForStaff(documentId: number): Promise<string> {
+  const response = await api.get(`/documents/${documentId}/view-staff`, {
+    responseType: 'blob',
+  })
+  return URL.createObjectURL(response.data as Blob)
 }

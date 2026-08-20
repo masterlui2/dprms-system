@@ -12,4 +12,5 @@ interface ProposalServiceInterface{
     public function disapprove(int $proposalId, ?string $remarks): Proposal;
     public function getByReferenceNumber(string $referenceNumber): ?Proposal;
     public function getSubmitterProposals(int $userId): Collection;
+    public function getIndex(): Collection;
 }
