@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string("dti_sec_number",100);
             $table->string("industry_sector",255);
             $table->enum("enterprise_size",["MICRO","SMALL","MEDIUM"]);
-            $table->integer("years_in_operation");
+            $table->integer("years_in_operation");  
             $table->text("business_address");
             $table->string("region",100);
             $table->string("province",100);

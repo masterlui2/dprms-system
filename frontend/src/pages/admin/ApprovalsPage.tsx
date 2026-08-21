@@ -1,16 +1,12 @@
 import { useState } from "react";
 import { Eye, Filter, Check } from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
-import { AdminPanel } from "../../components/admin/AdminPanel";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
 import {
   ProposalReviewModal,
   type ReviewSection,
 } from "../../components/admin/ProposalReviewModal";
-import {
-  proposalRecords,
-  type ProposalRecord,
-} from "../../data/admin";
+import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
 import { getApplications } from "../../services/applicationStore";
 
@@ -59,13 +55,7 @@ export function ApprovalsPage() {
     };
   });
 
-  // Combine live submitted applications with mock proposals (avoid duplicates by id)
-  const combinedProposals = [
-    ...applicationProposals,
-    ...proposalRecords.filter((p) => !applicationProposals.some((ap) => ap.id === p.id)),
-  ];
-
-  const filteredProposals = combinedProposals.filter((proposal) => {
+  const filteredProposals = applicationProposals.filter((proposal) => {
     return program === "all" || proposal.program === program;
   });
 
@@ -76,63 +66,61 @@ export function ApprovalsPage() {
   const columns: DataColumn<ProposalRecord>[] = [
     {
       id: "id",
-      header: "Application Ref",
-      sortValue: (proposal) => proposal.id,
+      header: "Application",
+      className: "w-[30%]",
+      sortValue: (proposal) => proposal.title,
       render: (proposal) => (
-        <span className="font-mono text-xs font-bold text-[#0f53b7]">{proposal.id}</span>
+        <div>
+          <p className="font-semibold leading-5 text-slate-900">
+            {proposal.title}
+          </p>
+          <p className="mt-1 font-mono text-xs font-bold text-[#0f53b7]">
+            {proposal.id}
+          </p>
+        </div>
       ),
     },
     {
       id: "proponent",
-      header: "Submitting Proponent",
+      header: "Proponent",
+      className: "w-[27%]",
       sortValue: (proposal) => proposal.proponentName ?? proposal.organization,
-      render: (proposal) => (
-        <div>
-          <p className="font-bold text-slate-900">
-            {proposal.proponentName ?? "Maria Proponent"}
-          </p>
-          <p className="mt-0.5 text-xs text-slate-500 font-medium">
-            {proposal.proponentRole ?? "Authorized Representative"}
-          </p>
-        </div>
-      ),
-    },
-    {
-      id: "organization",
-      header: "Firm / Office & Category",
-      sortValue: (proposal) => proposal.organization,
-      render: (proposal) => (
-        <div className="space-y-1">
-          <p className="font-bold text-slate-900 text-xs sm:text-sm">{proposal.organization}</p>
-          <span className="inline-flex rounded-md bg-blue-50 px-2 py-0.5 text-[11px] font-extrabold text-[#073b82] border border-blue-100">
-            {proposal.organizationType ?? (proposal.program === "SETUP" ? "Cooperative (Private Sector)" : "HEI / SUC")}
-          </span>
-        </div>
-      ),
-    },
-    {
-      id: "title",
-      header: "Project Title",
-      sortValue: (proposal) => proposal.title,
-      render: (proposal) => (
-        <p className="max-w-xs font-semibold text-xs leading-snug text-slate-800">
-          {proposal.title}
-        </p>
-      ),
+      render: (proposal) => {
+        const showOrganization =
+          proposal.organization.trim().toLowerCase() !==
+            proposal.title.trim().toLowerCase() &&
+          proposal.organization.trim().toLowerCase() !==
+            proposal.proponentName?.trim().toLowerCase();
+
+        return (
+          <div>
+            <p className="font-bold text-slate-900">
+              {proposal.proponentName ?? "Maria Proponent"}
+            </p>
+            {showOrganization ? (
+              <p className="mt-1 text-xs leading-5 text-slate-500">
+                {proposal.organization}
+              </p>
+            ) : null}
+          </div>
+        );
+      },
     },
     {
       id: "program",
       header: "Program",
+      className: "w-[13%]",
       sortValue: (proposal) => proposal.program,
       render: (proposal) => (
-        <span className="inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs font-black text-[#073b82] ring-1 ring-slate-200">
+        <span className="text-xs font-black text-[#073b82]">
           {proposal.program}
         </span>
       ),
     },
     {
       id: "submitted",
-      header: "Date Received",
+      header: "Received",
+      className: "w-[14%]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="whitespace-nowrap text-xs font-medium text-slate-600">
@@ -143,7 +131,7 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "text-right whitespace-nowrap",
+      className: "w-[16%] text-right whitespace-nowrap",
       render: (proposal) => (
         <div className="flex justify-end">
           <button
@@ -155,7 +143,7 @@ export function ApprovalsPage() {
             type="button"
           >
             <Eye className="size-3.5" />
-            Review Application
+            Review
           </button>
         </div>
       ),
@@ -170,10 +158,7 @@ export function ApprovalsPage() {
         title="Incoming Applications"
       />
 
-      <AdminPanel
-        description={`${filteredProposals.length} applications received across GIA and SETUP programs.`}
-        title="Applications Received"
-      >
+      <section className="overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
         <DataTable
           columns={columns}
           data={filteredProposals}
@@ -181,7 +166,7 @@ export function ApprovalsPage() {
           emptyTitle="No applications found"
           getRowKey={(proposal) => proposal.id}
           onRowClick={(proposal) => openReview(proposal, "overview")}
-          searchPlaceholder="Search application ref, proponent, office, or project title..."
+          searchPlaceholder="Search applications..."
           searchText={(proposal) =>
             `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.proponentName ?? ''} ${proposal.organizationType ?? ''} ${proposal.program}`
           }
@@ -234,7 +219,7 @@ export function ApprovalsPage() {
             </div>
           }
         />
-      </AdminPanel>
+      </section>
 
       {review ? (
         <ProposalReviewModal

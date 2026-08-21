@@ -41,4 +41,20 @@ class DocumentController extends Controller
 
         return Storage::download($document->file_path, $document->file_name);
     }
+
+    public function indexForOwner(int $proposalId){
+        return response()->json([
+            'data' => $this->documentsService->getForOwner($proposalId)
+        ]);
+    }
+
+    public function showForOwner(int $documentId){
+        $data = $this->documentsService->getOneForOwner($documentId);
+        abort_unless(Storage::exists($data->file_path),404);
+        return Storage::response(
+            $data->file_path,
+            $data->file_name,
+            ['Content-Type' => $data->mime_type]
+        );
+    }
 }

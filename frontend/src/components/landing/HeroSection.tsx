@@ -20,7 +20,7 @@ export function HeroSection() {
             Submit GIA Proposal
           </Link>
           <Link
-            className="inline-flex h-11 items-center justify-center rounded-lg border border-white/70 bg-white px-5 text-sm font-black text-[#073b82] shadow-2xl shadow-blue-900/20 ring-4 ring-white/30 transition hover:-translate-y-0.5 hover:bg-blue-50 sm:h-14 sm:rounded-xl sm:px-7 sm:text-base"
+            className="inline-flex h-11 items-center justify-center rounded-lg border-2 border-[#2563eb] bg-white/95 px-5 text-sm font-black text-[#1d4ed8] shadow-2xl shadow-blue-700/20 ring-4 ring-white/35 transition hover:-translate-y-0.5 hover:bg-blue-50 sm:h-14 sm:rounded-xl sm:px-7 sm:text-base"
             to={getProgramRegistrationUrl("SETUP")}
           >
             Register SETUP Proposal

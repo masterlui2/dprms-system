@@ -61,4 +61,22 @@ class DocumentsService implements DocumentsServiceInterface{
     {
         return $this->documentsRepository->delete($id);
     }
+
+    #[Override]
+    public function getForOwner(int $proposalId): Collection
+    {
+        return $this->documentsRepository->findForOwner(
+            Auth::id(),
+            array_filter(['proposal_id' => $proposalId ?? null])
+        );
+    }
+
+    #[Override]
+    public function getOneForOwner(int $documentId): Document
+    {
+        return $this->documentsRepository->findOneForOwner(
+            $documentId,
+            Auth::id()
+        );
+    }
 }

@@ -26,4 +26,16 @@ class DocumentsRepository extends BaseRepository implements DocumentsRepositoryI
     {
         return $this->model->newQuery()->where("proposal_id",$proposalId)->get();
     }
+
+    #[Override]
+    public function findForOwner(int $userId , array $filters = []): Collection
+    {
+        return $this->model->newQuery()->where('uploaded_by', $userId)->where($filters)->get();
+    }
+
+    #[Override]
+    public function findOneForOwner(int $documentId, int $userId): ?ModelsDocument
+    {
+        return $this->model->newQuery()->where('uploaded_by', $userId)->where('id',$documentId)->first();
+    }
 }

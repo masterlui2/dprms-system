@@ -16,7 +16,7 @@ import { AdminPanel } from '../../components/admin/AdminPanel'
 import { MetricCard } from '../../components/admin/MetricCard'
 import { StatusPill, type StatusTone } from '../../components/admin/StatusPill'
 import { ROLE_LABEL, ROLES, type UserRole } from '../../config/permissions'
-import { equipmentRecords, predictions, projectRecords, proposalRecords } from '../../data/admin'
+import { equipmentRecords, predictions, projectRecords } from '../../data/admin'
 
 type DashboardItem = {
   detail: string
@@ -40,7 +40,7 @@ function dashboardContent(role: UserRole): {
   recent: string[]
   title: string
 } {
-  const pendingApplications = proposalRecords.filter((proposal) => proposal.status === 'Pending').length
+  //const pendingApplications = proposalRecords.filter((proposal) => proposal.status === 'Pending').length
   const atRiskProjects = projectRecords.filter((project) => project.status === 'At risk').length
   const inspectionDue = equipmentRecords.filter((equipment) => equipment.condition === 'Needs inspection').length
   const highRisk = predictions.filter((prediction) => prediction.riskScore >= 70).length
@@ -52,7 +52,7 @@ function dashboardContent(role: UserRole): {
         title: 'Project staff dashboard',
         description: 'Encode applications, upload internal DOST documents, and update basic tracker statuses.',
         cards: [
-          { label: 'Data Entry', value: String(pendingApplications), detail: 'Applications for encoding', icon: ClipboardCheck },
+          //{ label: 'Data Entry', value: String(pendingApplications), detail: 'Applications for encoding', icon: ClipboardCheck },
           { label: 'Internal Uploads', value: '4', detail: 'MOA, TNA, inspection reports', icon: FileClock, tone: 'orange' },
           { label: 'Tracker Updates', value: '3', detail: 'Basic status changes', icon: Landmark, tone: 'sky' },
           { label: 'Equipment & QR', value: String(inspectionDue), detail: 'Assets needing updates', icon: Wrench, tone: 'red' },
@@ -70,7 +70,7 @@ function dashboardContent(role: UserRole): {
         title: 'Focal dashboard',
         description: 'Review proposals, view internal documents, upload TNA records, monitor projects, and check reports.',
         cards: [
-          { label: 'For Review', value: String(pendingApplications), detail: 'Uploaded PDFs to evaluate', icon: ClipboardCheck },
+          //{ label: 'For Review', value: String(pendingApplications), detail: 'Uploaded PDFs to evaluate', icon: ClipboardCheck },
           { label: 'Returned', value: '2', detail: 'Waiting for revision', icon: FileClock, tone: 'orange' },
           { label: 'Reports', value: String(highRisk), detail: 'Risk items included', icon: AlertTriangle, tone: 'red' },
           { label: 'Monitoring', value: String(atRiskProjects), detail: 'Projects needing action', icon: Activity, tone: 'sky' },
@@ -89,7 +89,7 @@ function dashboardContent(role: UserRole): {
         description: 'Review focal recommendations and make final project decisions.',
         cards: [
           { label: 'Final Decisions', value: '3', detail: 'Awaiting action', icon: ShieldCheck },
-          { label: 'Approved', value: String(proposalRecords.filter((proposal) => proposal.status === 'Approved').length), detail: 'Approved this period', icon: CheckCircle2, tone: 'green' },
+          //{ label: 'Approved', value: String(proposalRecords.filter((proposal) => proposal.status === 'Approved').length), detail: 'Approved this period', icon: CheckCircle2, tone: 'green' },
           { label: 'Finance Records', value: '3', detail: 'For review', icon: Landmark, tone: 'sky' },
           { label: 'Terminate Review', value: String(atRiskProjects), detail: 'Projects flagged for decision', icon: AlertTriangle, tone: 'red' },
         ],

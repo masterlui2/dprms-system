@@ -56,6 +56,11 @@ function getNavigationItems(pathname: string, user?: MockUser | null) {
   ];
 }
 
+const programOptions = [
+  { label: "GIA", href: "/programs/gia" },
+  { label: "SETUP", href: "/programs/setup" },
+];
+
 function TopBar() {
   return (
     <div className="bg-[#073b82] text-xs text-white">
@@ -130,24 +135,29 @@ function AccountDropdown({
   const programPrefix = isGia ? "/gia" : "/setup";
   const displayName = profile?.fullName || user.name;
   const moduleItems = [
-    { icon: LayoutDashboard, label: "Dashboard", to: `${programPrefix}/dashboard` },
+    {
+      icon: LayoutDashboard,
+      label: "Dashboard",
+      to: `${programPrefix}/dashboard`,
+    },
     {
       icon: FilePenLine,
       label: isGia ? "My Proposal" : "My Application",
-      to: isGia ? "/gia/dashboard/my-proposal" : "/setup/dashboard/my-application",
+      to: isGia
+        ? "/gia/dashboard/my-proposal"
+        : "/setup/dashboard/my-application",
     },
-    {
-      icon: Activity,
-      label: "Project Monitoring",
-      to: `${programPrefix}/dashboard/project-monitoring`,
-    },
-    { icon: PackageCheck, label: isGia ? "Accomplishment Reports" : "Equipment", to: isGia ? `${programPrefix}/dashboard/accomplishment-reports` : `${programPrefix}/dashboard/equipment` },
+
     {
       icon: ReceiptText,
       label: isGia ? "Disbursement Tracking" : "Repayment / Billing",
       to: `${programPrefix}/dashboard/finance`,
     },
-    { icon: Bell, label: "Notifications", to: `${programPrefix}/dashboard/notifications` },
+    {
+      icon: Bell,
+      label: "Notifications",
+      to: `${programPrefix}/dashboard/notifications`,
+    },
     { icon: User, label: "Profile", to: `${programPrefix}/dashboard/profile` },
   ];
 
@@ -230,13 +240,16 @@ export function SiteHeader() {
   const location = useLocation();
   const user = getMockUser();
   const [open, setOpen] = useState(false);
+  const [programsOpen, setProgramsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileRevision, setProfileRevision] = useState(0);
   const isProponent = user?.role === "proponent";
   const [profile, setProfile] = useState<ProponentProfile | null>(null);
-  const homeHref = getProgramHomePath(location.pathname, user);
   const navigationItems = getNavigationItems(location.pathname, user);
+  const programsActive =
+    location.pathname.startsWith("/programs/gia") ||
+    location.pathname.startsWith("/programs/setup");
 
   useEffect(() => {
     let cancelled = false;
@@ -273,6 +286,7 @@ export function SiteHeader() {
     clearMockUser();
     setAccountOpen(false);
     setNotificationsOpen(false);
+    setProgramsOpen(false);
     navigate("/login");
   }
 
@@ -287,32 +301,106 @@ export function SiteHeader() {
     return location.pathname === targetPath && !location.hash;
   }
 
+  function isNavigationItemActive(item: { label: string; href: string }) {
+    if (item.label === "Home") {
+      return location.pathname === "/" && !location.hash;
+    }
+    if (item.label === "Programs") {
+      return (
+        programsActive ||
+        (location.pathname === "/" && location.hash === "#programs")
+      );
+    }
+    return isActive(item.href);
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-[#d6e9f8] bg-white">
       <TopBar />
 
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="flex w-full items-center justify-between gap-6 px-4 py-3 sm:px-6 lg:px-[72px] xl:px-[72px]">
         <div className="min-w-[120px] xl:min-w-[360px]">
-          <Logo homeHref={homeHref} />
+          <Logo homeHref="/" />
         </div>
 
         <nav
-          className="hidden flex-1 items-center justify-center gap-1 lg:flex"
+          className="hidden flex-1 -translate-x-4 items-center justify-center gap-1 lg:flex xl:-translate-x-15"
           aria-label="Primary navigation"
         >
-          {navigationItems.map((item) => (
-            <Link
-              className={`rounded-md px-3 py-2 text-sm font-bold transition-colors ${
-                isActive(item.href)
-                  ? "bg-[#eaf6ff] text-[#073b82]"
-                  : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
-              }`}
-              to={item.href}
-              key={item.href}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navigationItems.map((item) =>
+            item.label === "Programs" ? (
+              <div
+                className="relative"
+                key={item.label}
+                onBlur={(event) => {
+                  if (
+                    !event.currentTarget.contains(
+                      event.relatedTarget as Node | null,
+                    )
+                  ) {
+                    setProgramsOpen(false);
+                  }
+                }}
+                onFocus={() => setProgramsOpen(true)}
+                onMouseEnter={() => setProgramsOpen(true)}
+                onMouseLeave={() => setProgramsOpen(false)}
+              >
+                <button
+                  aria-expanded={programsOpen}
+                  className={`inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-bold transition-colors ${
+                    isNavigationItemActive(item)
+                      ? "bg-[#eaf6ff] text-[#073b82]"
+                      : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
+                  }`}
+                  onClick={() => setProgramsOpen((current) => !current)}
+                  type="button"
+                >
+                  Programs
+                  <ChevronDown
+                    className={`size-4 transition-transform ${
+                      programsOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {programsOpen ? (
+                  <div className="absolute left-1/2 top-full z-50 w-44 -translate-x-1/2 pt-2">
+                    <div className="overflow-hidden rounded-lg border border-[#d8e1ee] bg-white p-1 shadow-xl">
+                      {programOptions.map((program) => (
+                        <Link
+                          className={`block rounded-md px-3 py-2.5 text-sm font-bold transition ${
+                            location.pathname === program.href
+                              ? "bg-[#eaf6ff] text-[#073b82]"
+                              : "text-slate-700 hover:bg-[#f3f8fe] hover:text-[#073b82]"
+                          }`}
+                          key={program.href}
+                          onClick={() => {
+                            setProgramsOpen(false);
+                            setOpen(false);
+                          }}
+                          to={program.href}
+                        >
+                          {program.label}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <Link
+                className={`rounded-md px-3 py-2 text-sm font-bold transition-colors ${
+                  isNavigationItemActive(item)
+                    ? "bg-[#eaf6ff] text-[#073b82]"
+                    : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
+                }`}
+                to={item.href}
+                key={item.href}
+              >
+                {item.label}
+              </Link>
+            ),
+          )}
         </nav>
 
         <div className="hidden min-w-[90px] items-center justify-end gap-2 lg:flex">
@@ -373,7 +461,7 @@ export function SiteHeader() {
           ) : (
             <>
               <Link
-                className="rounded-lg border border-[#d8e1ee] bg-white px-4 py-2 text-sm font-bold text-[#073b82] transition-colors hover:border-blue-300 hover:bg-blue-50"
+                className="rounded-lg border-2 border-[#2563eb] bg-white px-4 py-2 text-sm font-bold text-[#1d4ed8] shadow-sm shadow-blue-700/10 transition hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
                 to="/login"
               >
                 Sign In
@@ -452,20 +540,44 @@ export function SiteHeader() {
       {open ? (
         <div className="border-t border-[#d6e9f8] bg-white lg:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col px-4 py-3 sm:px-6">
-            {navigationItems.map((item) => (
-              <Link
-                className={`rounded-md px-3 py-3 text-sm font-bold ${
-                  isActive(item.href)
-                    ? "bg-[#eaf6ff] text-[#073b82]"
-                    : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
-                }`}
-                to={item.href}
-                key={item.href}
-                onClick={() => setOpen(false)}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {navigationItems.map((item) =>
+              item.label === "Programs" ? (
+                <div className="rounded-md px-3 py-2" key={item.label}>
+                  <p className="py-1 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                    Programs
+                  </p>
+                  <div className="mt-1 grid gap-1">
+                    {programOptions.map((program) => (
+                      <Link
+                        className={`rounded-md px-3 py-2.5 text-sm font-bold ${
+                          location.pathname === program.href
+                            ? "bg-[#eaf6ff] text-[#073b82]"
+                            : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
+                        }`}
+                        key={program.href}
+                        onClick={() => setOpen(false)}
+                        to={program.href}
+                      >
+                        {program.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <Link
+                  className={`rounded-md px-3 py-3 text-sm font-bold ${
+                    isNavigationItemActive(item)
+                      ? "bg-[#eaf6ff] text-[#073b82]"
+                      : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
+                  }`}
+                  to={item.href}
+                  key={item.href}
+                  onClick={() => setOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ),
+            )}
             {isProponent ? (
               <button
                 className="mt-2 inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-3 text-sm font-bold text-[#073b82]"
@@ -489,7 +601,7 @@ export function SiteHeader() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  className="inline-flex items-center justify-center rounded-lg border border-[#d8e1ee] px-4 py-3 text-sm font-bold text-[#073b82]"
+                  className="inline-flex items-center justify-center rounded-lg border-2 border-[#2563eb] bg-white px-4 py-3 text-sm font-bold text-[#1d4ed8] shadow-sm shadow-blue-700/10"
                   onClick={() => setOpen(false)}
                   to="/login"
                 >

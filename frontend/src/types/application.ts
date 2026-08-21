@@ -9,10 +9,13 @@ export interface ApplicationRecord {
   id: string
   /**
    * Numeric backend `proposals.id`. Only guaranteed present for SETUP
-   * applications created via submitSetupProposal() after this field was
-   * added. Older/local-only records may not have it — code that needs it
-   * (document upload/list) should fall back to resolving it via
-   * getSetupProposalId(referenceNo) in setupProposalStore.ts.
+   * applications created via submitSetupProposal() and GIA applications
+   * created via submitGiaProposal(), after this field was added. Older,
+   * local-only, or backend-submission-failed-and-fell-back records may not
+   * have it — code that needs it (document upload/list) should fall back
+   * to resolving it via getSetupProposalId(referenceNo) /
+   * getGiaProposalId(referenceNo) in setupProposalStore.ts /
+   * giaProposalStore.ts.
    */
   proposalId?: number
   organizationName: string

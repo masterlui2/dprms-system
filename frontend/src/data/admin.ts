@@ -25,6 +25,48 @@ export type ProposalReviewStatus =
   | 'Approved'
   | 'Disapproved'
 
+export type GiaOutputCategory =
+  | 'Publications'
+  | 'Patents / IP'
+  | 'Products'
+  | 'People Services'
+  | 'Places & Partnerships'
+  | 'Policy'
+
+export interface GiaOutputMetric {
+  actual: number
+  category: GiaOutputCategory
+  description: string
+  target: number
+}
+
+export interface GiaMonitoringDetails {
+  actualAccomplishment: string
+  agency: string
+  baseStation: string
+  catchUpPlan: string
+  cooperatingAgencies: string[]
+  durationMonths: number
+  endDate: string
+  issueSummary: string
+  latestReport: {
+    period: string
+    status: 'Approved' | 'Under review' | 'Pending'
+    submitted: string
+  }
+  location: string
+  objective: string
+  outputs: GiaOutputMetric[]
+  reportingPeriod: string
+  startDate: string
+  suggestedSolution: string
+  targetProgress: number
+  yearlyBudgets: Array<{
+    amount: number
+    label: string
+  }>
+}
+
 export interface ProjectRecord {
   budget: number
   compliance: 'Compliant' | 'Due soon' | 'Overdue'
@@ -34,6 +76,7 @@ export interface ProjectRecord {
   manager: string
   program: Program
   progress: number
+  gia?: GiaMonitoringDetails
   status: 'Active' | 'At risk' | 'Completed'
   title: string
   used: number
@@ -303,26 +346,162 @@ export const projectRecords: ProjectRecord[] = [
     title: 'Water Quality Monitoring',
     enterprise: 'DOrSU Research Center',
     program: 'GIA',
-    manager: 'Kevin Lim',
+    manager: 'Dr. Kevin Lim',
     progress: 44,
     status: 'Active',
     compliance: 'Due soon',
     dueDate: 'Sep 12, 2026',
     budget: 2180000,
     used: 960000,
+    gia: {
+      actualAccomplishment:
+        'Installed six community sampling stations and completed baseline testing in four priority barangays. The first validation dataset is under technical review.',
+      agency: 'Davao Oriental State University',
+      baseStation: 'DOrSU Research and Extension Center, Mati City',
+      catchUpPlan: 'Not required. Activities remain within the approved work plan.',
+      cooperatingAgencies: [
+        'Provincial Government of Davao Oriental',
+        'Municipality of Baganga',
+      ],
+      durationMonths: 24,
+      endDate: 'Jan 14, 2028',
+      issueSummary: 'No critical issue reported.',
+      latestReport: {
+        period: 'January-June 2026',
+        status: 'Approved',
+        submitted: 'Jul 18, 2026',
+      },
+      location: 'Baganga, Davao Oriental, Region XI',
+      objective:
+        'Establish a community-operated water quality monitoring system and produce validated data for local environmental decisions.',
+      outputs: [
+        {
+          actual: 1,
+          category: 'Publications',
+          description: 'Baseline methods paper in preparation.',
+          target: 2,
+        },
+        {
+          actual: 0,
+          category: 'Patents / IP',
+          description: 'No IP output due in the current period.',
+          target: 1,
+        },
+        {
+          actual: 1,
+          category: 'Products',
+          description: 'Field data collection toolkit deployed.',
+          target: 3,
+        },
+        {
+          actual: 64,
+          category: 'People Services',
+          description: 'Community monitors trained and supported.',
+          target: 120,
+        },
+        {
+          actual: 2,
+          category: 'Places & Partnerships',
+          description: 'Two LGU implementation partnerships active.',
+          target: 4,
+        },
+        {
+          actual: 0,
+          category: 'Policy',
+          description: 'Drafting begins after dataset validation.',
+          target: 1,
+        },
+      ],
+      reportingPeriod: 'Annual 2026',
+      startDate: 'Jan 15, 2026',
+      suggestedSolution:
+        'Continue monthly data-quality checks and validate the remaining sampling sites before the next milestone.',
+      targetProgress: 40,
+      yearlyBudgets: [
+        { amount: 1090000, label: 'Year 1' },
+        { amount: 1090000, label: 'Year 2' },
+      ],
+    },
   },
   {
     id: 'P-192',
     title: 'Bamboo Product Development',
     enterprise: 'Cateel Bamboo Association',
     program: 'GIA',
-    manager: 'Kevin Lim',
+    manager: 'Maria Torres',
     progress: 36,
-    status: 'Active',
-    compliance: 'Compliant',
+    status: 'At risk',
+    compliance: 'Due soon',
     dueDate: 'Oct 18, 2026',
     budget: 920000,
     used: 331000,
+    gia: {
+      actualAccomplishment:
+        'Completed product-design workshops and three initial prototypes. Equipment commissioning is pending delivery of specialized cutting components.',
+      agency: 'Cateel Bamboo Producers Association',
+      baseStation: 'Municipal Livelihood Center, Cateel',
+      catchUpPlan:
+        'Complete parallel skills training while replacement components are in transit, then add two supervised fabrication runs in October.',
+      cooperatingAgencies: [
+        'Municipality of Cateel',
+        'Davao Oriental State University',
+      ],
+      durationMonths: 12,
+      endDate: 'Feb 28, 2027',
+      issueSummary: 'Equipment delivery is delaying prototype validation.',
+      latestReport: {
+        period: 'January-June 2026',
+        status: 'Under review',
+        submitted: 'Jul 29, 2026',
+      },
+      location: 'Cateel, Davao Oriental, Region XI',
+      objective:
+        'Develop market-ready bamboo products and improve the association members\' design, fabrication, and quality-control capability.',
+      outputs: [
+        {
+          actual: 0,
+          category: 'Publications',
+          description: 'Production guide scheduled for final quarter.',
+          target: 1,
+        },
+        {
+          actual: 0,
+          category: 'Patents / IP',
+          description: 'Design registration follows prototype validation.',
+          target: 1,
+        },
+        {
+          actual: 3,
+          category: 'Products',
+          description: 'Three prototype furniture products completed.',
+          target: 8,
+        },
+        {
+          actual: 28,
+          category: 'People Services',
+          description: 'Association members completed design workshops.',
+          target: 50,
+        },
+        {
+          actual: 2,
+          category: 'Places & Partnerships',
+          description: 'LGU and university partnerships active.',
+          target: 3,
+        },
+        {
+          actual: 0,
+          category: 'Policy',
+          description: 'No policy output committed for this project.',
+          target: 0,
+        },
+      ],
+      reportingPeriod: 'Annual 2026',
+      startDate: 'Mar 1, 2026',
+      suggestedSolution:
+        'Expedite the supplier replacement and document the revised commissioning date for approval during the next monitoring review.',
+      targetProgress: 50,
+      yearlyBudgets: [{ amount: 920000, label: 'Year 1' }],
+    },
   },
   {
     id: 'P-187',

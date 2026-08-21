@@ -1,4 +1,8 @@
-export type ReviewSection = "overview" | "documents" | "comments";
+export type ReviewSection =
+  | "overview"
+  | "documents"
+  | "internalDocuments"
+  | "comments";
 
 export interface SampleDocument {
   name: string;

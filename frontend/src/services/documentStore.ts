@@ -8,6 +8,7 @@ import {
   BUSINESS_SIZE_TO_ENTERPRISE_SIZE,
   type DocumentTypeRecord,
 } from './setupProposalStore'
+import { GIA_CATEGORY_TO_API_CATEGORY } from './giaProposalStore'
 
 export type VerificationStatus =
   | 'Not Uploaded'
@@ -287,8 +288,11 @@ export async function fetchSetupDocumentaryRequirements(
 
 // ---------------------------------------------------------------------------
 // SETUP documents: backed by the real /documents API (Document model).
-// GIA documents further below are still local-only (localStorage) — out of
-// scope for this pass, kept exactly as they were.
+// GIA document *types* are now fetched from the same backend endpoint (see
+// fetchGiaDocumentaryRequirements below), but the uploaded *files*
+// themselves are still local-only (localStorage, via getDocuments /
+// saveDocument further down) — GIA has no backend submission flow yet,
+// unlike submitSetupProposal() in setupProposalStore.ts.
 // ---------------------------------------------------------------------------
 
 export interface DocumentApiRecord {
@@ -555,6 +559,35 @@ export function getDocumentaryRequirements(
     }
     return true
   })
+}
+
+/**
+ * Backend-first counterpart to getDocumentaryRequirements('GIA', ...):
+ * fetches GIA document types from GET /document-types
+ * (DocumentTypeController::index, set_number=GIA1), same endpoint and
+ * pattern fetchSetupDocumentaryRequirements() above uses for SETUP. Falls
+ * back to the static giaDocumentaryRequirements list (via
+ * getDocumentaryRequirements) if the request fails or the backend has no
+ * rows yet, so this is a safe drop-in replacement for callers currently
+ * using the local-only list.
+ */
+export async function fetchGiaDocumentaryRequirements(
+  giaCategory?: GiaProponentCategory,
+): Promise<DocumentaryRequirement[]> {
+  try {
+    const records = await getDocumentTypes({
+      program: 'GIA',
+      giaCategory: giaCategory
+        ? GIA_CATEGORY_TO_API_CATEGORY[giaCategory as Exclude<GiaProponentCategory, ''>]
+        : undefined,
+    })
+    if (records && records.length > 0) {
+      return records.map(mapDocumentTypeToRequirement)
+    }
+  } catch (error) {
+    console.error('Failed to fetch GIA document types from backend:', error)
+  }
+  return getDocumentaryRequirements('GIA', undefined, giaCategory)
 }
 
 const STORAGE_KEY = 'dprms.documentary-requirements'

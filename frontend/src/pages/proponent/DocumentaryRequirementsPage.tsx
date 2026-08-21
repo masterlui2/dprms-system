@@ -23,16 +23,17 @@ import { InitialReviewStageCard } from "../../components/proponent/InitialReview
 import { SetupProposalForm } from "../../components/proposal/SetupProposalForm";
 import type { SetupProposalFormHandle } from "../../components/proposal/SetupProposalForm";
 import { GiaProposalForm } from "../../components/proposal/GiaProposalForm";
+import type { GiaProposalFormHandle } from "../../components/proposal/GiaProposalForm";
 import { getMockUser } from "../../lib/mockAuth";
 import {
   deleteDocument,
   deleteDocumentRecord,
   documentRecordToStoredDocument,
   fetchDocumentBlobUrl,
+  fetchGiaDocumentaryRequirements,
   fetchProposalDocuments,
   fetchSetupDocumentaryRequirements,
   fileToStoredDocument,
-  getDocumentaryRequirements,
   getDocuments,
   saveDocument,
   uploadDocument,
@@ -51,6 +52,8 @@ import type { ApplicationRecord } from "../../types/application";
 import {
   getGiaDraft,
   getGiaProposal,
+  getGiaProposalId,
+  submitGiaProposal,
 } from "../../services/giaProposalStore";
 import type { GiaProposalData } from "../../types/giaProposal";
 import type { SetupProposalData } from "../../types/setupProposal";
@@ -58,16 +61,12 @@ import { cn } from "../../utils/cn";
 
 console.count("DocumentaryRequirementsPage render")
 
-// GIA still uses the old local-only stub (documentStore's fileToStoredDocument
-// / saveDocument), so its looser limits stay as-is for now.
-const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const ACCEPTED_EXTENSIONS = ["pdf", "doc", "docx", "jpg", "jpeg", "png"];
-
-// SETUP goes through the real API now — StoreDocumentRequest only accepts
-// PDF up to 10MB (mimes:pdf|max:10240), so the UI has to match or every
-// non-PDF / oversized upload will 422 after passing the client-side check.
-const SETUP_MAX_FILE_SIZE = 10 * 1024 * 1024;
-const SETUP_ACCEPTED_EXTENSIONS = ["pdf"];
+// Both SETUP and GIA now go through the real /documents API —
+// StoreDocumentRequest only accepts PDF up to 10MB (mimes:pdf|max:10240)
+// regardless of program, so the UI has to match or every non-PDF /
+// oversized upload will 422 after passing the client-side check.
+const BACKEND_MAX_FILE_SIZE = 10 * 1024 * 1024;
+const BACKEND_ACCEPTED_EXTENSIONS = ["pdf"];
 const groupOrder: RequirementGroup[] = [
   "Business Documents",
   "Corporation / Cooperative Documents",
@@ -90,9 +89,9 @@ function formatSize(bytes: number) {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function extractUploadErrorMessage(error: unknown, isSetup: boolean): string {
+function extractUploadErrorMessage(error: unknown): string {
   const response = (error as { response?: { status?: number; data?: { errors?: Record<string, string[]> } } })?.response;
-  if (isSetup && response?.status === 422 && response.data?.errors) {
+  if (response?.status === 422 && response.data?.errors) {
     const backendMessage = Object.values(response.data.errors).flat().join(" ");
     if (backendMessage) return backendMessage;
   }
@@ -132,10 +131,11 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  // Numeric backend proposals.id for the active SETUP application, resolved
-  // below (from activeApplication.proposalId, falling back to a lookup by
-  // referenceNo). Needed for every real /documents call — StoreDocumentRequest
-  // requires proposal_id, not the local referenceNo string.
+  // Numeric backend proposals.id for the active application (SETUP or GIA),
+  // resolved below (from activeApplication.proposalId, falling back to a
+  // lookup by referenceNo). Needed for every real /documents call —
+  // StoreDocumentRequest requires proposal_id, not the local referenceNo
+  // string.
   const [activeProposalId, setActiveProposalId] = useState<number | null>(null);
   // Files picked before the proposal exists on the backend, keyed by
   // document_type_id. There's no proposal_id to upload against yet, so
@@ -143,6 +143,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   // uploads them in one pass.
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const setupFormRef = useRef<SetupProposalFormHandle>(null);
+  const giaFormRef = useRef<GiaProposalFormHandle>(null);
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
 
   const applications = useMemo(() => {
@@ -202,9 +203,10 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }, [activeApplication?.referenceNo, activeApplication?.program]);
 
   const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([]);
-  // Tracks the params of the most recently *issued* SETUP fetch, and a
-  // monotonically increasing id so we can ignore stale/duplicate requests.
-  const setupFetchRef = useRef<{ key: string; requestId: number }>({
+  // Tracks the params of the most recently *issued* requirements fetch
+  // (SETUP or GIA), and a monotonically increasing id so we can ignore
+  // stale/duplicate requests.
+  const requirementsFetchRef = useRef<{ key: string; requestId: number }>({
     key: "",
     requestId: 0,
   });
@@ -215,14 +217,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       return;
     }
     if (activeApplication.program === "SETUP") {
-      const key = `${activeApplication.referenceNo}|${liveSetupProposal?.organizationType ?? ""}|${liveSetupProposal?.businessSize ?? ""}`;
+      const key = `SETUP|${activeApplication.referenceNo}|${liveSetupProposal?.organizationType ?? ""}|${liveSetupProposal?.businessSize ?? ""}`;
       // Same reference + org type + business size as the in-flight/last
       // request — skip. This is what was firing the request repeatedly
       // (and hammering /api/document-types) whenever liveSetupProposal
       // changed identity without its relevant fields actually changing.
-      if (setupFetchRef.current.key === key) return;
-      setupFetchRef.current.key = key;
-      const requestId = ++setupFetchRef.current.requestId;
+      if (requirementsFetchRef.current.key === key) return;
+      requirementsFetchRef.current.key = key;
+      const requestId = ++requirementsFetchRef.current.requestId;
 
       fetchSetupDocumentaryRequirements(
         liveSetupProposal?.organizationType,
@@ -231,7 +233,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         .then((records) => {
           // Only apply the response if this is still the latest request —
           // prevents an older, slower response from clobbering a newer one.
-          if (setupFetchRef.current.requestId === requestId) {
+          if (requirementsFetchRef.current.requestId === requestId) {
             setRequirements(records);
           }
         })
@@ -239,14 +241,29 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
           // Don't blank out a document list the user is already seeing
           // just because one fetch (possibly stale) failed. Only clear
           // if we don't have anything on screen yet.
-          if (setupFetchRef.current.requestId === requestId) {
+          if (requirementsFetchRef.current.requestId === requestId) {
             setRequirements((current) => (current.length ? current : []));
           }
         });
       return;
     }
-    setupFetchRef.current = { key: "", requestId: setupFetchRef.current.requestId };
-    setRequirements(getDocumentaryRequirements(liveGiaProposal?.proponentCategory));
+
+    const key = `GIA|${activeApplication.referenceNo}|${liveGiaProposal?.proponentCategory ?? ""}`;
+    if (requirementsFetchRef.current.key === key) return;
+    requirementsFetchRef.current.key = key;
+    const requestId = ++requirementsFetchRef.current.requestId;
+
+    fetchGiaDocumentaryRequirements(liveGiaProposal?.proponentCategory)
+      .then((records) => {
+        if (requirementsFetchRef.current.requestId === requestId) {
+          setRequirements(records);
+        }
+      })
+      .catch(() => {
+        if (requirementsFetchRef.current.requestId === requestId) {
+          setRequirements((current) => (current.length ? current : []));
+        }
+      });
   }, [
     activeApplication?.referenceNo,
     activeApplication?.program,
@@ -265,27 +282,26 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       return;
     }
 
-    if (activeApplication.program !== "SETUP") {
-      setActiveProposalId(null);
-      setDocuments(getDocuments(activeApplication.referenceNo));
-      return;
-    }
-
     let cancelled = false;
     setDocuments({});
 
     (async () => {
       const proposalId =
         activeApplication.proposalId ??
-        (await getSetupProposalId(activeApplication.referenceNo));
+        (activeApplication.program === "SETUP"
+          ? await getSetupProposalId(activeApplication.referenceNo)
+          : await getGiaProposalId(activeApplication.referenceNo));
 
       if (cancelled) return;
 
       if (!proposalId) {
         // This application only exists locally / hasn't synced with the
         // backend (e.g. the synthetic fallback record built above when no
-        // matching submitted application is found). Nothing to fetch.
+        // matching submitted application is found, or a submission that
+        // fell back to local-only after a backend error). Fall back to
+        // whatever's cached in local storage instead of a real fetch.
         setActiveProposalId(null);
+        setDocuments(getDocuments(activeApplication.referenceNo));
         return;
       }
 
@@ -370,24 +386,15 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
 
   async function handleFile(requirement: DocumentaryRequirement, file?: File) {
     if (!activeApplication || !file) return;
-    const isSetup = activeApplication.program === "SETUP";
-    const acceptedExtensions = isSetup
-      ? SETUP_ACCEPTED_EXTENSIONS
-      : ACCEPTED_EXTENSIONS;
-    const maxFileSize = isSetup ? SETUP_MAX_FILE_SIZE : MAX_FILE_SIZE;
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
 
-    if (!acceptedExtensions.includes(extension)) {
-      setMessage(
-        isSetup
-          ? "Please upload a PDF file."
-          : "Please upload a PDF, DOC, DOCX, JPG, or PNG file.",
-      );
+    if (!BACKEND_ACCEPTED_EXTENSIONS.includes(extension)) {
+      setMessage("Please upload a PDF file.");
       return;
     }
-    if (file.size > maxFileSize) {
+    if (file.size > BACKEND_MAX_FILE_SIZE) {
       setMessage(
-        `The selected file is larger than ${formatSize(maxFileSize)}. Please upload a smaller file.`,
+        `The selected file is larger than ${formatSize(BACKEND_MAX_FILE_SIZE)}. Please upload a smaller file.`,
       );
       return;
     }
@@ -396,50 +403,41 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     try {
       let nextDocuments: Record<string, StoredDocument>;
 
-      if (isSetup) {
-        if (!activeProposalId) {
-          // No backend proposal yet — hold the file locally and upload it
-          // as part of "Submit Application" instead of hitting /documents
-          // now (there's no proposal_id to attach it to).
-          setPendingFiles((current) => ({
-            ...current,
-            [requirement.id]: file,
-          }));
-          setMessage(
-            `${file.name} attached. It will be uploaded when you submit the application.`,
-          );
-          return;
-        }
-        // A proposal already exists (e.g. retrying a document that failed
-        // to upload during a previous submit attempt) — upload it now.
-        // documents has a unique constraint on (proposal_id, document_type_id)
-        // and the backend always INSERTs — so replacing a file means
-        // deleting the existing one first, or the upload will fail.
-        const existing = documents[requirement.id];
-        if (existing?.backendId) {
-          await deleteDocumentRecord(existing.backendId);
-        }
-        const stored = await uploadDocument(
-          activeProposalId,
-          requirement.id,
-          file,
+      if (!activeProposalId) {
+        // No backend proposal yet (for either SETUP or GIA) — hold the
+        // file locally and upload it as part of "Submit Application"
+        // instead of hitting /documents now (there's no proposal_id to
+        // attach it to).
+        setPendingFiles((current) => ({
+          ...current,
+          [requirement.id]: file,
+        }));
+        setMessage(
+          `${file.name} attached. It will be uploaded when you submit the application.`,
         );
-        nextDocuments = { ...documents, [requirement.id]: stored };
-        setPendingFiles((current) => {
-          if (!(requirement.id in current)) return current;
-          const next = { ...current };
-          delete next[requirement.id];
-          return next;
-        });
-      } else {
-        const storedDocument = await fileToStoredDocument(file);
-        saveDocument(
-          activeApplication.referenceNo,
-          requirement.id,
-          storedDocument,
-        );
-        nextDocuments = getDocuments(activeApplication.referenceNo);
+        return;
       }
+      // A proposal already exists (e.g. retrying a document that failed
+      // to upload during a previous submit attempt) — upload it now.
+      // documents has a unique constraint on (proposal_id, document_type_id)
+      // and the backend always INSERTs — so replacing a file means
+      // deleting the existing one first, or the upload will fail.
+      const existing = documents[requirement.id];
+      if (existing?.backendId) {
+        await deleteDocumentRecord(existing.backendId);
+      }
+      const stored = await uploadDocument(
+        activeProposalId,
+        requirement.id,
+        file,
+      );
+      nextDocuments = { ...documents, [requirement.id]: stored };
+      setPendingFiles((current) => {
+        if (!(requirement.id in current)) return current;
+        const next = { ...current };
+        delete next[requirement.id];
+        return next;
+      });
 
       setDocuments(nextDocuments);
       const allRequiredUploaded =
@@ -455,7 +453,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         setMessage(`${file.name} uploaded successfully.`);
       }
     } catch (error) {
-      setMessage(extractUploadErrorMessage(error, isSetup));
+      setMessage(extractUploadErrorMessage(error));
     } finally {
       setUploadingRequirement(null);
       setDraggingRequirement(null);
@@ -467,40 +465,39 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     if (!window.confirm(`Delete the uploaded file for “${requirement.title}”?`))
       return;
 
-    if (activeApplication.program === "SETUP") {
-      const existing = documents[requirement.id];
-      if (!existing?.backendId) {
-        // Nothing on the backend yet — this is (at most) a pending local
-        // file. Just drop it.
-        setPendingFiles((current) => {
-          if (!(requirement.id in current)) return current;
-          const next = { ...current };
-          delete next[requirement.id];
-          return next;
-        });
-        setMessage("File removed.");
-        return;
-      }
-      try {
-        await deleteDocumentRecord(existing.backendId);
-        const next = { ...documents };
+    const existing = documents[requirement.id];
+    if (!existing?.backendId) {
+      // Nothing on the backend yet — this is (at most) a pending local
+      // file, or a local-only fallback record. Just drop it from wherever
+      // it's held.
+      setPendingFiles((current) => {
+        if (!(requirement.id in current)) return current;
+        const next = { ...current };
         delete next[requirement.id];
-        setDocuments(next);
-        if (requirement.required) {
-          updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
-        }
-        setMessage("File deleted. You can upload a replacement at any time.");
-      } catch {
-        setMessage("Could not delete the file. Please try again.");
+        return next;
+      });
+      if (documents[requirement.id]) {
+        deleteDocument(activeApplication.referenceNo, requirement.id);
+        setDocuments(getDocuments(activeApplication.referenceNo));
       }
+      if (requirement.required) {
+        updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
+      }
+      setMessage("File removed.");
       return;
     }
-
-    deleteDocument(activeApplication.referenceNo, requirement.id);
-    setDocuments(getDocuments(activeApplication.referenceNo));
-    if (requirement.required)
-      updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
-    setMessage("File deleted. You can upload a replacement at any time.");
+    try {
+      await deleteDocumentRecord(existing.backendId);
+      const next = { ...documents };
+      delete next[requirement.id];
+      setDocuments(next);
+      if (requirement.required) {
+        updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
+      }
+      setMessage("File deleted. You can upload a replacement at any time.");
+    } catch {
+      setMessage("Could not delete the file. Please try again.");
+    }
   }
 
   function viewPendingFile(file: File) {
@@ -568,18 +565,16 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }
 
   /**
-   * SETUP only. GIA keeps its previous local-only submit (below, inline in
-   * the button) since it's out of scope for this pass.
-   *
-   * One click, one request: submitSetupProposal() now sends the proposal
-   * fields AND every file in `pendingFiles` together in a single multipart
-   * POST. The backend creates the Proposal, the SetupProposal row, the
-   * auto-generated Form 001 PDF, and every supporting document inside one
+   * Shared by SETUP and GIA. One click, one request: submitSetupProposal()
+   * / submitGiaProposal() send the proposal fields AND every file in
+   * `pendingFiles` together in a single multipart POST. The backend
+   * creates the Proposal, the SetupProposal/GiaProposal row, the
+   * auto-generated proposal PDF, and every supporting document inside one
    * DB transaction — either all of it is created, or (validation failure,
    * a bad file, anything) none of it is. There's no partial
    * "proposal exists but some documents are missing" state to recover
-   * from, so unlike before there's nothing to retry piecemeal on failure —
-   * the whole submission just needs to be tried again.
+   * from, so there's nothing to retry piecemeal on failure — the whole
+   * submission just needs to be tried again.
    *
    * If a proposal already exists (activeProposalId set — e.g. the
    * applicant is revisiting after a previous successful submit, or an
@@ -587,10 +582,13 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
    * to submit; any remaining pending files just go through the normal
    * per-document upload control instead.
    */
-  async function handleSubmitSetupApplication() {
+  async function handleSubmitApplication() {
     if (!activeApplication) return;
+    const isSetup = activeApplication.program === "SETUP";
 
-    const proposalData = setupFormRef.current?.validate();
+    const proposalData = isSetup
+      ? setupFormRef.current?.validate()
+      : giaFormRef.current?.validate();
     if (!proposalData) return;
 
     const missingRequiredDocs = requiredRequirements.filter(
@@ -608,7 +606,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       let application = activeApplication;
 
       if (!proposalId) {
-        const result = await submitSetupProposal(proposalData, pendingFiles);
+        const result = isSetup
+          ? await submitSetupProposal(proposalData as SetupProposalData, pendingFiles)
+          : await submitGiaProposal(proposalData as GiaProposalData, pendingFiles);
         application = result.application;
         proposalId = application.proposalId ?? null;
         setActiveProposalId(proposalId);
@@ -643,7 +643,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       updateApplicationStatus(application.referenceNo, "Under review");
       showSubmittedDialog(updatedApp);
     } catch (error) {
-      setMessage(extractUploadErrorMessage(error, true));
+      setMessage(extractUploadErrorMessage(error));
     } finally {
       setIsSubmittingApplication(false);
     }
@@ -754,7 +754,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
               {/* Stage 1: Continuous Single Page Layout (Proposal Form + Attached Documents) */}
               <section className="space-y-6">
                 {activeApplication.program === "GIA" ? (
-                  <GiaProposalForm onDraftChange={setLiveGiaProposal} />
+                  <GiaProposalForm ref={giaFormRef} onDraftChange={setLiveGiaProposal} />
                 ) : (
                   <SetupProposalForm ref={setupFormRef} onDraftChange={setLiveSetupProposal} />
                 )}
@@ -1007,11 +1007,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                         ? "Replace File"
                                         : "Upload"}
                                     <input
-                                      accept={
-                                        activeApplication.program === "SETUP"
-                                          ? ".pdf"
-                                          : ".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                                      }
+                                      accept=".pdf"
                                       className="sr-only"
                                       disabled={isUploading}
                                       onChange={(event) => {
@@ -1083,28 +1079,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                   disabled={isSubmittingApplication}
                   onClick={() => {
                     if (!activeApplication) return;
-
-                    if (activeApplication.program === "SETUP") {
-                      void handleSubmitSetupApplication();
-                      return;
-                    }
-
-                    // GIA: unchanged local-only submit (still out of scope
-                    // for the backend migration).
-                    const missingRequiredDocs = requiredRequirements.filter(
-                      (req) => !documents[req.id]
-                    );
-                    if (missingRequiredDocs.length > 0 || !requiredComplete) {
-                      scrollToMissingRequirement(missingRequiredDocs);
-                      return;
-                    }
-                    const updatedApp: ApplicationRecord = {
-                      ...activeApplication,
-                      status: "Under review",
-                    };
-                    saveApplication(updatedApp);
-                    updateApplicationStatus(activeApplication.referenceNo, "Under review");
-                    showSubmittedDialog(updatedApp);
+                    void handleSubmitApplication();
                   }}
                   type="button"
                 >

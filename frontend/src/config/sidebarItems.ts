@@ -3,7 +3,6 @@ import {
   Activity,
   BarChart3,
   Bell,
-  Brain,
   Building2,
   ClipboardCheck,
   DatabaseBackup,
@@ -109,7 +108,6 @@ export const sidebarItems: SidebarItem[] = [
     Activity,
     "/dashboard/regional-monitoring",
   ),
-  item("aiAnalytics", "AI Risk Reports", Brain, "/dashboard/ai-analytics"),
   item("reports", "Reports", BarChart3, "/dashboard/reports"),
 
   item("userManagement", "User Management", Users, "/dashboard/users"),
@@ -185,8 +183,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   rpmo: [
     "dashboard",
     "regionalMonitoring",
-    "projects",
-    "aiAnalytics",
     "reports",
   ],
   proponent: [],
@@ -195,6 +191,10 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
 export function getSidebarItems(role: UserRole) {
   const order = sidebarOrderByRole[role];
   return sidebarItems
-    .filter((sidebarItem) => canAccessModule(role, sidebarItem.id))
+    .filter(
+      (sidebarItem) =>
+        order.includes(sidebarItem.id) &&
+        canAccessModule(role, sidebarItem.id),
+    )
     .sort((left, right) => order.indexOf(left.id) - order.indexOf(right.id));
 }
