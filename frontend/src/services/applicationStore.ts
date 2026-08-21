@@ -111,6 +111,7 @@ export interface BackendProposalRecord {
   submitted_by: number
   program_type: 'SETUP' | 'GIA'
   reference_number: string
+  remarks: string | null
   title: string
   status: string
   submitted_at?: string
@@ -121,8 +122,11 @@ export interface BackendProposalRecord {
 function mapBackendProposalStatus(status: string): ApplicationRecord['status'] {
   const normalized = status.toUpperCase()
   if (normalized === 'SUBMITTED' || normalized === 'UNDER_REVIEW') return 'Under review'
+  if (normalized === 'UNDER_VALIDATION') return 'In Process'
+  if (normalized === 'ENDORSED_TO_DIRECTOR') return 'Executive Approval'
+  if (normalized === 'RETURNED' || normalized === 'RETURNED_FOR_REVISION') return 'Returned for Revision'
   if (normalized === 'APPROVED') return 'Approved'
-  if (normalized === 'DISAPPROVED') return 'Returned for Revision'
+  if (normalized === 'DISAPPROVED') return 'Disapproved'
   return 'Under review'
 }
 
@@ -151,6 +155,7 @@ export async function syncUserApplicationsFromBackend(user: {
         program: p.program_type,
         projectTitle: p.title,
         referenceNo: p.reference_number,
+        remarks: p.remarks,
         status: mapBackendProposalStatus(p.status),
         submittedAt: p.submitted_at || p.created_at,
         createdAt: p.created_at,

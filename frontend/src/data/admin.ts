@@ -11,7 +11,15 @@ export interface ProposalRecord {
   program: Program
   reviewer: string
   stage: 0 | 1 | 2 | 3 | 4
-  status: 'Pending' | 'Under review' | 'Approved' | 'Rejected'
+  status:
+    | 'Pending'
+    | 'Under review'
+    | 'In Process'
+    | 'Executive Approval'
+    | 'Approved'
+    | 'Rejected'
+    | 'Returned for Revision'
+    | 'Disapproved'
   submitted: string
   title: string
   proposalId?: number;

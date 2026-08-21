@@ -33,7 +33,7 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     }
 
     #[Override]
-    public function updateStatus(int $id, string $status, string $currentStage): bool
+    public function updateStatus(int $id, string $status, ?string $remarks = null): bool
     {
         $user = $this->model->newQuery()->find($id);
 
@@ -42,7 +42,7 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
         }
 
         $user->status = $status;
-        $user->current_stage = $currentStage;
+        $user->remarks = $remarks;
         return $user->save();
     }
 

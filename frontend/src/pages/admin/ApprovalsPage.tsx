@@ -25,12 +25,10 @@ export function ApprovalsPage() {
     section: ReviewSection;
   } | null>(null);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     setError(null);
     getAllProposals()
       .then((data) => {
@@ -39,9 +37,6 @@ export function ApprovalsPage() {
       .catch((err) => {
         console.error("Failed to load proposals:", err);
         if (!cancelled) setError("Could not load applications. Please try again.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
@@ -52,13 +47,16 @@ export function ApprovalsPage() {
     let stage: 0 | 1 | 2 | 3 | 4 = 1;
     if (app.status === "Submitted" || app.status === "Draft Submitted") stage = 0;
     else if (app.status === "Under review") stage = 1;
-    else if (app.status === "Technical evaluation") stage = 2;
-    else if (app.status === "In Process" || app.status === "Executive Approval") stage = 3;
+    else if (app.status === "Technical evaluation" || app.status === "In Process") stage = 2;
+    else if (app.status === "Executive Approval") stage = 3;
     else if (app.status === "Approved") stage = 4;
 
-    let status: "Pending" | "Under review" | "Approved" | "Rejected" = "Under review";
+    let status: ProposalRecord["status"] = "Under review";
     if (app.status === "Approved") status = "Approved";
-    else if (app.status === "Returned for Revision") status = "Rejected";
+    else if (app.status === "Returned for Revision") status = "Returned for Revision";
+    else if (app.status === "Disapproved") status = "Disapproved";
+    else if (app.status === "In Process") status = "In Process";
+    else if (app.status === "Executive Approval") status = "Executive Approval";
     else if (stage === 0) status = "Pending";
 
     return {
@@ -151,17 +149,23 @@ export function ApprovalsPage() {
       className: "w-[11%]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
-        let toneClass = "bg-blue-50 text-[#0f53b7]";
+        let toneClass = "text-[#0f53b7]";
         if (proposal.status === "Approved") {
-          toneClass = "bg-emerald-50 text-emerald-700";
-        } else if (proposal.status === "Rejected") {
-          toneClass = "bg-rose-50 text-rose-700";
-        } else if (proposal.status === "Pending") {
-          toneClass = "bg-amber-50 text-amber-700";
+          toneClass = "text-emerald-700";
+        } else if (
+          proposal.status === "Rejected" ||
+          proposal.status === "Disapproved"
+        ) {
+          toneClass = "text-rose-700";
+        } else if (
+          proposal.status === "Pending" ||
+          proposal.status === "Returned for Revision"
+        ) {
+          toneClass = "text-amber-700";
         }
 
         return (
-          <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold", toneClass)}>
+          <span className={cn("text-xs font-bold", toneClass)}>
             {proposal.status}
           </span>
         );
@@ -200,32 +204,6 @@ export function ApprovalsPage() {
     },
   ];
 
-  if (loading) {
-    return (
-      <div className="space-y-7">
-        <AdminPageHeader
-          description="View and cater incoming proposal submissions from SETUP and GIA program applicants."
-          eyebrow="Application Intake"
-          title="Incoming Applications"
-        />
-        <p className="text-sm text-slate-500">Loading applications…</p>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="space-y-7">
-        <AdminPageHeader
-          description="View and cater incoming proposal submissions from SETUP and GIA program applicants."
-          eyebrow="Application Intake"
-          title="Incoming Applications"
-        />
-        <p className="text-sm text-red-600">{error}</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-7">
       <AdminPageHeader
@@ -235,6 +213,14 @@ export function ApprovalsPage() {
       />
 
       <section className="overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
+        {error ? (
+          <p
+            className="border-b border-red-100 bg-red-50 px-5 py-3 text-xs font-semibold text-red-700"
+            role="alert"
+          >
+            {error}
+          </p>
+        ) : null}
         <DataTable
           columns={columns}
           data={filteredProposals}
@@ -300,6 +286,20 @@ export function ApprovalsPage() {
           initialSection={review.section}
           key={`${review.proposal.id}-${review.section}`}
           onClose={() => setReview(null)}
+          onStatusChange={(status, remarks) => {
+            setApplications((current) =>
+              current.map((application) =>
+                application.referenceNo === review.proposal.id
+                  ? { ...application, remarks: remarks ?? application.remarks, status }
+                  : application,
+              ),
+            );
+            void getAllProposals()
+              .then(setApplications)
+              .catch((refreshError) => {
+                console.error("Failed to refresh proposal status:", refreshError);
+              });
+          }}
           proposal={review.proposal}
         />
       ) : null}

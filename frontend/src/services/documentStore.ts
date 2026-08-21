@@ -32,6 +32,8 @@ export interface StoredDocument {
   fileName: string
   fileSize: number
   fileType: string
+  remarks?: string | null
+  reviewedAt?: string | null
   uploadedAt: string
   verificationStatus: VerificationStatus
 }
@@ -352,6 +354,8 @@ export function documentRecordToStoredDocument(record: DocumentApiRecord): Store
     fileName: record.file_name,
     fileSize: record.file_size ?? 0,
     fileType: record.mime_type ?? 'application/pdf',
+    remarks: record.remarks,
+    reviewedAt: record.reviewed_at,
     uploadedAt: record.created_at,
     verificationStatus: mapDocumentStatus(record.status),
   }
@@ -388,11 +392,9 @@ export async function fetchProposalDocuments(
 /**
  * Uploads a document via POST /documents (DocumentController::store).
  *
- * IMPORTANT: `documents` has a unique constraint on (proposal_id,
- * document_type_id), and the backend always INSERTs (there's no upsert
- * route wired). Callers replacing an existing file for the same
- * requirement MUST delete the old document first via deleteDocumentRecord,
- * or this will fail with a DB constraint error.
+ * The backend replaces the existing record when the same proposal and
+ * document type are uploaded again, so callers do not need a delete-first
+ * workflow.
  *
  * IMPORTANT: the `api` axios instance sets a default
  * 'Content-Type: application/json' header. That has to be explicitly
@@ -413,6 +415,21 @@ export async function uploadDocument(
     headers: { 'Content-Type': undefined },
   })
   return documentRecordToStoredDocument(response.data.data)
+}
+
+export async function reviewProposalDocument(
+  documentId: number,
+  status: 'approved' | 'returned_for_revision',
+  remarks?: string,
+): Promise<DocumentApiRecord> {
+  const response = await api.put<{ data: DocumentApiRecord }>(
+    `/documents/${documentId}/review`,
+    {
+      remarks: remarks?.trim() || null,
+      status,
+    },
+  )
+  return response.data.data
 }
 
 /** Deletes a document via DELETE /documents/{document}. */
@@ -681,20 +698,7 @@ export async function fetchProposalDocumentsForStaff(proposalId: number): Promis
  * Fetches a document's file content as a blob and returns an object URL,
  * for staff review (not the uploading proponent).
  *
- * REQUIRES a new backend route: GET /documents/{document}/staff-view ->
- * DocumentController::showForStaff(), which must NOT check
- * uploaded_by === Auth::id() (unlike show()/showForOwner()) since the
- * reviewer is never the uploader:
- *
- *   public function showForStaff(Document $document)
- *   {
- *       abort_unless(Storage::exists($document->file_path), 404);
- *       return Storage::response(
- *           $document->file_path,
- *           $document->file_name,
- *           ['Content-Type' => $document->mime_type]
- *       );
- *   }
+ * Backed by the staff-only GET /documents/{document}/view-staff stream.
  *
  * Uses blob fetch + object URL (not a plain <a href>/window.open on the
  * raw URL) for the same Bearer-token reason as fetchDocumentBlobUrl above.
@@ -707,4 +711,29 @@ export async function viewDocumentBlobForStaff(documentId: number): Promise<stri
     responseType: 'blob',
   })
   return URL.createObjectURL(response.data as Blob)
+}
+
+/** Uploads or replaces a staff-only internal proposal document. */
+export async function uploadInternalDocument(
+  proposalId: number,
+  documentTypeId: number,
+  file: File,
+): Promise<DocumentApiRecord> {
+  const formData = new FormData()
+  formData.append('proposal_id', String(proposalId))
+  formData.append('document_type_id', String(documentTypeId))
+  formData.append('file', file)
+
+  const response = await api.post<{ data: DocumentApiRecord }>('/documents', formData, {
+    headers: { 'Content-Type': undefined },
+  })
+  return response.data.data
+}
+
+/** Loads the server-side SETUP document types hidden from proponents. */
+export async function fetchSetupInternalDocumentTypes(): Promise<DocumentTypeRecord[]> {
+  return getDocumentTypes({
+    program: 'SETUP',
+    visibility: 'internal',
+  })
 }

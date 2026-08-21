@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ReviewDocumentRequest;
 use App\Http\Requests\StoreDocumentRequest;
 use App\Models\Document;
 use App\Services\Contracts\ProposalModule\DocumentsServiceInterface;
@@ -66,5 +67,21 @@ class DocumentController extends Controller
             $data->file_name,
             ['Content-Type' => $data->mime_type]
         );
+    }
+
+    public function review(ReviewDocumentRequest $request, Document $document){
+        abort_unless($document->document_type()->where('is_applicant_visible', true)->exists(), 422);
+
+        $data = $this->documentsService->updateDocuments($document->id, [
+            'status' => $request->validated('status'),
+            'remarks' => $request->validated('remarks'),
+            'reviewed_by' => Auth::id(),
+            'reviewed_at' => now(),
+        ]);
+
+        return response()->json([
+            'message' => 'Document Review Saved',
+            'data' => $data->load('document_type'),
+        ]);
     }
 }

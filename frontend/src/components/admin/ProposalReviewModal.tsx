@@ -1,14 +1,27 @@
 import { useEffect, useRef, useState } from "react";
-import { FileCheck2, FileText, X } from "lucide-react";
+import {
+  CheckCircle2,
+  FileCheck2,
+  FileText,
+  RotateCcw,
+  Send,
+  X,
+  XCircle,
+} from "lucide-react";
 
 import { ROLES } from "../../config/permissions";
 import type { ProposalRecord } from "../../data/admin";
 import { getMockUser } from "../../lib/mockAuth";
+import { updateApplicationStatus } from "../../services/applicationStore";
+import { markProposalInProcess } from "../../services/proposalStore";
+import type { ApplicationRecord } from "../../types/application";
 import { cn } from "../../utils/cn";
-import { ProposalCommentsSection } from "./proposal-review/ProposalCommentsSection";
+import {
+  ProposalCommentsSection,
+  type DecisionType,
+} from "./proposal-review/ProposalCommentsSection";
 import { ProposalDocumentsSection } from "./proposal-review/ProposalDocumentsSection";
 import { InternalDocumentsSection } from "./proposal-review/InternalDocumentsSection";
-import { areSetupPostInspectionDocumentsComplete } from "./proposal-review/internalDocuments";
 import { ProposalOverviewSection } from "./proposal-review/ProposalOverviewSection";
 import type { ReviewSection } from "./proposal-review/types";
 import { StatusPill } from "./StatusPill";
@@ -18,30 +31,46 @@ export type { ReviewSection } from "./proposal-review/types";
 interface ProposalReviewModalProps {
   initialSection?: ReviewSection;
   onClose: () => void;
+  onStatusChange?: (
+    status: ApplicationRecord["status"],
+    remarks?: string,
+  ) => void;
   proposal: ProposalRecord;
 }
 
 export function ProposalReviewModal({
   initialSection = "overview",
   onClose,
+  onStatusChange,
   proposal: initialProposal,
 }: ProposalReviewModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const user = getMockUser();
-  const isDirectorApproval = user?.role === ROLES.PROVINCIAL_DIRECTOR;
+  const isProjectStaff = user?.role === ROLES.PROJECT_STAFF;
+  const isFocal = user?.role === ROLES.FOCAL;
+  const isDirector = user?.role === ROLES.PROVINCIAL_DIRECTOR;
   const [proposal, setProposal] = useState<ProposalRecord>(initialProposal);
   const [section, setSection] = useState<ReviewSection>(initialSection);
-  const [, setInternalDocumentsReady] = useState(() =>
-    initialProposal.program === "SETUP"
-      ? areSetupPostInspectionDocumentsComplete(initialProposal.id)
-      : true,
+  const [internalDocumentsReady, setInternalDocumentsReady] = useState(
+    initialProposal.program !== "SETUP",
   );
-  const [workflowStage, setWorkflowStage] = useState<'initial_review' | 'in_process' | 'endorsed' | 'approved'>(() => {
+  const [workflowStage, setWorkflowStage] = useState<'initial_review' | 'in_process' | 'endorsed' | 'approved' | 'closed'>(() => {
+    if (
+      initialProposal.status === 'Disapproved' ||
+      initialProposal.status === 'Rejected' ||
+      initialProposal.status === 'Returned for Revision'
+    ) return 'closed';
     if (initialProposal.status === 'Approved' || initialProposal.stage === 4) return 'approved';
     if (initialProposal.stage === 3) return 'endorsed';
     if (initialProposal.stage === 2) return 'in_process';
     return 'initial_review';
   });
+  const [decisionRequest, setDecisionRequest] = useState<{
+    id: number;
+    type: DecisionType;
+  } | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [footerError, setFooterError] = useState<string | null>(null);
 
   const reviewTabs: Array<[ReviewSection, string]> = [
     ["overview", "Overview"],
@@ -53,7 +82,9 @@ export function ProposalReviewModal({
       : []),
     ["comments", "Review Decision & Remarks"],
   ];
-  const reviewStatus = workflowStage === 'approved'
+  const reviewStatus = workflowStage === 'closed'
+    ? String(proposal.status)
+    : workflowStage === 'approved'
     ? 'Approved'
     : workflowStage === 'endorsed'
     ? 'Executive Approval'
@@ -79,6 +110,32 @@ export function ProposalReviewModal({
       previousActiveElement?.focus();
     };
   }, [onClose]);
+
+  async function handleMarkInProcess() {
+    setFooterError(null);
+    setIsUpdating(true);
+
+    try {
+      if (proposal.proposalId) {
+        await markProposalInProcess(proposal.proposalId);
+      }
+
+      updateApplicationStatus(proposal.id, 'In Process');
+      setProposal((current) => ({ ...current, stage: 2, status: 'In Process' }));
+      setWorkflowStage('in_process');
+      onStatusChange?.('In Process');
+    } catch (error) {
+      console.error('Failed to mark proposal as in process:', error);
+      setFooterError('The application could not be updated. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  function openDecision(type: DecisionType) {
+    setDecisionRequest({ id: Date.now(), type });
+    setSection('comments');
+  }
 
   return (
     <div
@@ -188,15 +245,17 @@ export function ProposalReviewModal({
 
           {section === "internalDocuments" && proposal.program === "SETUP" ? (
             <InternalDocumentsSection
-              mode={isDirectorApproval ? "view" : "edit"}
+              mode={isProjectStaff ? "edit" : "view"}
               onRequiredStatusChange={setInternalDocumentsReady}
-              proposalId={proposal.id}
+              proposalId={proposal.proposalId}
             />
           ) : null}
 
           {section === "comments" ? (
             <ProposalCommentsSection
-              onDecisionApplied={(newStatus) => {
+              requestedDecision={decisionRequest}
+              onDecisionApplied={(newStatus, remarks) => {
+                const status = newStatus as ProposalRecord["status"];
                 setProposal((prev) => ({
                   ...prev,
                   stage:
@@ -207,16 +266,147 @@ export function ProposalReviewModal({
                         : newStatus === "In Process"
                           ? 2
                           : prev.stage,
-                  status: newStatus as any,
+                  status,
                 }));
                 if (newStatus === "Approved") setWorkflowStage("approved");
                 else if (newStatus === "Executive Approval") setWorkflowStage("endorsed");
                 else if (newStatus === "In Process") setWorkflowStage("in_process");
+                else if (
+                  newStatus === "Disapproved" ||
+                  newStatus === "Returned for Revision"
+                ) setWorkflowStage("closed");
+                onStatusChange?.(
+                  newStatus as ApplicationRecord["status"],
+                  remarks,
+                );
               }}
               proposal={proposal}
             />
           ) : null}
         </div>
+
+        <footer className="flex shrink-0 flex-col-reverse gap-2 border-t border-slate-200 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <button
+            className="inline-flex h-9 items-center justify-center rounded-lg px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900"
+            onClick={onClose}
+            type="button"
+          >
+            Close review
+          </button>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {footerError ? (
+              <span className="text-xs font-bold text-rose-700" role="alert">
+                {footerError}
+              </span>
+            ) : null}
+
+            {isProjectStaff && workflowStage === 'initial_review' ? (
+              <button
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b] disabled:cursor-wait disabled:opacity-60"
+                disabled={isUpdating}
+                onClick={handleMarkInProcess}
+                type="button"
+              >
+                <Send className="size-3.5" />
+                {isUpdating ? 'Updating...' : 'Mark as In Process'}
+              </button>
+            ) : null}
+
+            {isProjectStaff && workflowStage === 'in_process' && proposal.program === 'SETUP' ? (
+              <button
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
+                onClick={() => setSection('internalDocuments')}
+                type="button"
+              >
+                <FileCheck2 className="size-3.5" />
+                {internalDocumentsReady ? 'View Internal Documents' : 'Complete Internal Documents'}
+              </button>
+            ) : null}
+
+            {isProjectStaff && workflowStage === 'in_process' && proposal.program === 'GIA' ? (
+              <button
+                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
+                onClick={() => setSection('documents')}
+                type="button"
+              >
+                <FileCheck2 className="size-3.5" />
+                View Submitted Documents
+              </button>
+            ) : null}
+
+            {isFocal && workflowStage === 'in_process' ? (
+              <>
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-amber-700 transition hover:bg-amber-50"
+                  onClick={() => openDecision('return_revision')}
+                  type="button"
+                >
+                  <RotateCcw className="size-3.5" />
+                  Return for Revision
+                </button>
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
+                  onClick={() => openDecision('endorse')}
+                  type="button"
+                >
+                  <Send className="size-3.5" />
+                  Recommend Approval
+                </button>
+              </>
+            ) : null}
+
+            {isDirector && workflowStage === 'endorsed' ? (
+              <>
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-rose-700 transition hover:bg-rose-50"
+                  onClick={() => openDecision('disapprove')}
+                  type="button"
+                >
+                  <XCircle className="size-3.5" />
+                  Disapprove
+                </button>
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-4 text-xs font-bold text-white transition hover:bg-emerald-700"
+                  onClick={() => openDecision('approve')}
+                  type="button"
+                >
+                  <CheckCircle2 className="size-3.5" />
+                  Approve Application
+                </button>
+              </>
+            ) : null}
+
+            {isFocal && workflowStage === 'initial_review' ? (
+              <span className="text-xs font-semibold text-slate-500">
+                Waiting for Project Staff processing
+              </span>
+            ) : null}
+
+            {isDirector && workflowStage !== 'endorsed' && workflowStage !== 'approved' && workflowStage !== 'closed' ? (
+              <span className="text-xs font-semibold text-slate-500">
+                Waiting for Focal recommendation
+              </span>
+            ) : null}
+
+            {workflowStage === 'endorsed' && !isDirector ? (
+              <span className="text-xs font-bold text-[#0f53b7]">
+                Endorsed to the Provincial Director
+              </span>
+            ) : null}
+
+            {workflowStage === 'approved' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700">
+                <CheckCircle2 className="size-3.5" />
+                Approved by the Provincial Director
+              </span>
+            ) : null}
+
+            {workflowStage === 'closed' ? (
+              <span className="text-xs font-bold text-slate-600">{proposal.status}</span>
+            ) : null}
+          </div>
+        </footer>
       </div>
     </div>
   );

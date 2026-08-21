@@ -7,7 +7,9 @@ use App\Repositories\Contracts\ProposalModule\DocumentsRepositoryInterface;
 use App\Services\Contracts\ProposalModule\DocumentsServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use Override;
+use Throwable;
 
 class DocumentsService implements DocumentsServiceInterface{
     public function __construct(protected DocumentsRepositoryInterface $documentsRepository)
@@ -30,17 +32,42 @@ class DocumentsService implements DocumentsServiceInterface{
     public function uploadDocuments(array $data): Document
     {
         $file = $data['file'];
-
-        return $this->documentsRepository->create([
+        $newPath = $file->store('document');
+        $existing = $this->documentsRepository->findByProposalAndDocumentType(
+            (int) $data['proposal_id'],
+            (int) $data['document_type_id'],
+        );
+        $attributes = [
             'proposal_id' => $data['proposal_id'],
             'document_type_id' => $data['document_type_id'],
             'uploaded_by' => Auth::id(),
             'file_name' => $file->getClientOriginalName(),
-            'file_path' => $file->store('document'),
+            'file_path' => $newPath,
             'file_size' => $file->getSize(),
             'mime_type' => $file->getMimeType(),
-            'status' => 'pending'
-        ]);
+            'status' => 'pending',
+            'reviewed_by' => null,
+            'remarks' => null,
+            'reviewed_at' => null,
+        ];
+
+        try {
+            if (! $existing) {
+                return $this->documentsRepository->create($attributes);
+            }
+
+            $oldPath = $existing->file_path;
+            $existing->update($attributes);
+
+            if ($oldPath !== $newPath) {
+                Storage::delete($oldPath);
+            }
+
+            return $existing->fresh();
+        } catch (Throwable $error) {
+            Storage::delete($newPath);
+            throw $error;
+        }
     }
 
     #[Override]

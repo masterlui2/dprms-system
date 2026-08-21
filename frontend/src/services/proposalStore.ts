@@ -73,10 +73,18 @@ interface ProposalIndexResponse {
 const BACKEND_STATUS_TO_APPLICATION_STATUS: Record<string, ApplicationRecord['status']> = {
   SUBMITTED: 'Submitted',
   UNDER_REVIEW: 'Under review',
+  UNDER_VALIDATION: 'In Process',
+  ENDORSED_TO_RPMO: 'Under review',
+  UNDER_SCREENING: 'Under review',
+  ENDORSED_TO_RTEC: 'Technical evaluation',
+  UNDER_EVALUATION: 'Technical evaluation',
+  ENDORSED_TO_DIRECTOR: 'Executive Approval',
   TECHNICAL_EVALUATION: 'Technical evaluation',
   IN_PROCESS: 'In Process',
   EXECUTIVE_APPROVAL: 'Executive Approval',
   APPROVED: 'Approved',
+  DISAPPROVED: 'Disapproved',
+  RETURNED: 'Returned for Revision',
   RETURNED_FOR_REVISION: 'Returned for Revision',
 }
 
@@ -115,6 +123,7 @@ export async function getAllProposals(): Promise<ApplicationRecord[]> {
       program: proposal.program_type,
       projectTitle: proposal.title,
       referenceNo: proposal.reference_number,
+      remarks: proposal.remarks,
       status: mapProposalStatus(proposal.status),
     }
   })
@@ -126,4 +135,54 @@ export async function submitProposal(
   await new Promise((resolve) => window.setTimeout(resolve, 700))
 
   return createApplicationFromProposal(proposal)
+}
+
+export async function markProposalInProcess(proposalId: number) {
+  await api.put(`/proposal/advance-stage/${proposalId}`, {
+    status: 'UNDER_VALIDATION',
+  })
+}
+
+export type ProposalDecision =
+  | 'approve'
+  | 'disapprove'
+  | 'endorse'
+  | 'return_revision'
+
+export async function applyProposalDecision({
+  decision,
+  proposalId,
+  remarks,
+}: {
+  decision: ProposalDecision
+  proposalId: number
+  remarks?: string
+}): Promise<ApplicationRecord['status']> {
+  if (decision === 'approve') {
+    await api.put(`/proposal/${proposalId}/approve`, { remarks: remarks || null })
+    return 'Approved'
+  }
+
+  if (decision === 'disapprove') {
+    await api.put(`/proposal/${proposalId}/disapprove`, { remarks })
+    return 'Disapproved'
+  }
+
+  if (decision === 'return_revision') {
+    const response = await api.put<{ data: ProposalIndexApiRecord }>(
+      `/proposal/${proposalId}/return-for-revision`,
+      { remarks },
+    )
+    return mapProposalStatus(response.data.data.status)
+  }
+
+  await api.put(`/proposal/advance-stage/${proposalId}`, {
+    remarks: remarks || null,
+    status: 'ENDORSED_TO_DIRECTOR',
+  })
+  return 'Executive Approval'
+}
+
+export async function resubmitProposal(proposalId: number) {
+  await api.put(`/proposal/${proposalId}/resubmit`)
 }

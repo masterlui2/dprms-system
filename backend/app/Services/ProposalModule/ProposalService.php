@@ -29,9 +29,9 @@ class ProposalService implements ProposalServiceInterface{
     }
 
     #[Override]
-    public function advanceStage(int $proposalId, string $newStatus, string $newStage): Proposal
+    public function advanceStage(int $proposalId, string $newStatus, ?string $remarks = null): Proposal
     {
-        $updated = $this->proposalRepository->updateStatus($proposalId,$newStatus,$newStage);
+        $updated = $this->proposalRepository->updateStatus($proposalId,$newStatus,$remarks);
 
         if(! $updated){
             abort(404,'Proposal not Found');
@@ -43,13 +43,13 @@ class ProposalService implements ProposalServiceInterface{
     #[Override]
     public function disapprove(int $proposalId, ?string $remarks): Proposal
     {
-        return $this->advanceStage($proposalId,'DISAPPROVED','DISAPPROVED');
+        return $this->advanceStage($proposalId,'DISAPPROVED',$remarks);
     }
 
     #[Override]
     public function approve(int $proposalId, ?string $remarks = null): Proposal
     {
-        return $this->advanceStage($proposalId,'APPROVED','APPROVED');
+        return $this->advanceStage($proposalId,'APPROVED',$remarks);
     }
 
     #[Override]

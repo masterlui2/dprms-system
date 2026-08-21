@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
   Building2,
   Check,
@@ -48,6 +49,7 @@ import {
   syncUserApplicationsFromBackend,
   updateApplicationStatus,
 } from "../../services/applicationStore";
+import { resubmitProposal } from "../../services/proposalStore";
 import { getSetupProposalId, submitSetupProposal } from "../../services/setupProposalStore";
 import type { ApplicationRecord } from "../../types/application";
 import {
@@ -147,16 +149,33 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   const setupFormRef = useRef<SetupProposalFormHandle>(null);
   const giaFormRef = useRef<GiaProposalFormHandle>(null);
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
+  const [isResubmittingRevision, setIsResubmittingRevision] = useState(false);
   const [allApplicationsList, setAllApplicationsList] = useState<ApplicationRecord[]>(() => getApplications());
 
   useEffect(() => {
-    if (!user) return;
-    syncUserApplicationsFromBackend(user).then((apps) => {
-      if (apps.length > 0) {
-        setAllApplicationsList(apps);
-      }
-    });
-  }, [user?.id, user?.email]);
+    let cancelled = false;
+
+    async function refreshApplications() {
+      const currentUser = getMockUser();
+      if (!currentUser) return;
+      const apps = await syncUserApplicationsFromBackend(currentUser);
+      if (!cancelled && apps.length > 0) setAllApplicationsList(apps);
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") void refreshApplications();
+    }
+
+    void refreshApplications();
+    window.addEventListener("focus", refreshApplications);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", refreshApplications);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user?.id, user?.email, user?.applicationReference]);
 
   const applications = useMemo(() => {
     const filtered = allApplicationsList.filter((application) =>
@@ -203,6 +222,8 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       contactNumber: "09171234567",
     };
   }, [baseApplication, activeProgram, user?.name, user?.email]);
+  const isDraftMode = activeApplication.status === "Draft Submitted";
+  const isRevisionMode = activeApplication.status === "Returned for Revision";
 
   const [liveSetupProposal, setLiveSetupProposal] = useState<SetupProposalData | null>(null);
   const [liveGiaProposal, setLiveGiaProposal] = useState<GiaProposalData | null>(null);
@@ -341,6 +362,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     activeApplication?.referenceNo,
     activeApplication?.program,
     activeApplication?.proposalId,
+    activeApplication?.status,
   ]);
 
   const requiredRequirements = useMemo(
@@ -392,16 +414,34 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     requiredRequirements.length > 0 &&
     completedRequiredCount === requiredRequirements.length;
   const normalizedQuery = query.trim().toLowerCase();
+  const revisionDocuments = Object.entries(documents).filter(
+    ([, document]) => document.verificationStatus === "Needs Revision",
+  );
+  const revisionItems = revisionDocuments.map(([requirementId, document]) => ({
+    document,
+    requirementId,
+    title:
+      requirements.find((requirement) => requirement.id === requirementId)?.title ??
+      document.fileName,
+  }));
   const visibleRequirements = requirements.filter(
     (requirement) =>
-      !normalizedQuery ||
-      requirement.title.toLowerCase().includes(normalizedQuery) ||
-      requirement.group.toLowerCase().includes(normalizedQuery) ||
-      requirement.description.toLowerCase().includes(normalizedQuery),
+      (!isRevisionMode || Boolean(documents[requirement.id])) &&
+      (!normalizedQuery ||
+        requirement.title.toLowerCase().includes(normalizedQuery) ||
+        requirement.group.toLowerCase().includes(normalizedQuery) ||
+        requirement.description.toLowerCase().includes(normalizedQuery)),
   );
 
   async function handleFile(requirement: DocumentaryRequirement, file?: File) {
     if (!activeApplication || !file) return;
+    if (
+      isRevisionMode &&
+      documents[requirement.id]?.verificationStatus !== "Needs Revision"
+    ) {
+      setMessage("Only documents marked Needs Revision can be replaced.");
+      return;
+    }
     const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
 
     if (!BACKEND_ACCEPTED_EXTENSIONS.includes(extension)) {
@@ -432,15 +472,8 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         );
         return;
       }
-      // A proposal already exists (e.g. retrying a document that failed
-      // to upload during a previous submit attempt) — upload it now.
-      // documents has a unique constraint on (proposal_id, document_type_id)
-      // and the backend always INSERTs — so replacing a file means
-      // deleting the existing one first, or the upload will fail.
-      const existing = documents[requirement.id];
-      if (existing?.backendId) {
-        await deleteDocumentRecord(existing.backendId);
-      }
+      // The backend replaces the existing proposal/document-type record
+      // without deleting the reviewed file before the new upload succeeds.
       const stored = await uploadDocument(
         activeProposalId,
         requirement.id,
@@ -459,7 +492,11 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         requiredRequirements.length > 0 &&
         requiredRequirements.every((item) => nextDocuments[item.id]);
 
-      if (allRequiredUploaded) {
+      if (isRevisionMode) {
+        setMessage(
+          `${file.name} uploaded as the revised file. Resubmit when every flagged document has been replaced.`,
+        );
+      } else if (allRequiredUploaded) {
         updateApplicationStatus(activeApplication.referenceNo, "Under review");
         setMessage(
           "All required documents are complete. Your application is ready for DOST initial review.",
@@ -477,6 +514,10 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
 
   async function remove(requirement: DocumentaryRequirement) {
     if (!activeApplication) return;
+    if (isRevisionMode) {
+      setMessage("Returned applications only allow replacement of flagged documents.");
+      return;
+    }
     if (!window.confirm(`Delete the uploaded file for “${requirement.title}”?`))
       return;
 
@@ -664,6 +705,48 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     }
   }
 
+  async function handleResubmitRevisions() {
+    if (!activeProposalId || !isRevisionMode) return;
+
+    if (revisionDocuments.length > 0) {
+      const firstRequirement = requirements.find(
+        (requirement) => requirement.id === revisionDocuments[0]?.[0],
+      );
+      if (firstRequirement) scrollToMissingRequirement([firstRequirement]);
+      setMessage("Replace every document marked Needs Revision before resubmitting.");
+      return;
+    }
+
+    setIsResubmittingRevision(true);
+    setMessage(null);
+    try {
+      await resubmitProposal(activeProposalId);
+      const updatedApplication: ApplicationRecord = {
+        ...activeApplication,
+        remarks: null,
+        status: "In Process",
+      };
+      saveApplication(updatedApplication);
+      setAllApplicationsList((current) =>
+        current.map((application) =>
+          application.referenceNo === updatedApplication.referenceNo
+            ? updatedApplication
+            : application,
+        ),
+      );
+      await Swal.fire({
+        confirmButtonColor: "#0f53b7",
+        icon: "success",
+        text: "Your revised documents are back in the DOST review queue.",
+        title: "Revisions Resubmitted",
+      });
+    } catch (error) {
+      setMessage(extractUploadErrorMessage(error));
+    } finally {
+      setIsResubmittingRevision(false);
+    }
+  }
+
   const handleStartApplication = (programType: "SETUP" | "GIA") => {
     const referenceNo = `${programType}-${new Date().getFullYear()}-${Math.floor(
       1000 + Math.random() * 9000,
@@ -726,17 +809,17 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
               <div className="min-w-[280px] flex-1">
                 <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
                   <span className="text-base font-black text-[#073b82]">
-                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application — {activeApplication.status === "Draft Submitted" ? "Stage 1: Proposal & Documents" : "Stage 2: DOST Initial Review"}
+                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application — {isDraftMode ? "Stage 1: Proposal & Documents" : isRevisionMode ? "Revision Required" : "Stage 2: DOST Initial Review"}
                   </span>
-                  {activeApplication.status === "Draft Submitted" ? (
+                  {isDraftMode ? (
                     <span className="font-mono text-xs font-bold text-[#0f53b7]">{overallProgressPercent}% Overall Progress</span>
+                  ) : isRevisionMode ? (
+                    <span className="text-xs font-bold text-rose-700">Action Required</span>
                   ) : (
-                    <span className="inline-flex rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
-                      ✓ Submitted
-                    </span>
+                    <span className="text-xs font-bold text-emerald-700">Submitted</span>
                   )}
                 </div>
-                {activeApplication.status === "Draft Submitted" ? (
+                {isDraftMode ? (
                   <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100 ring-1 ring-slate-200/60">
                     <div
                       className="h-full rounded-full bg-[#0f53b7] transition-all duration-300"
@@ -745,7 +828,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                   </div>
                 ) : null}
               </div>
-              {activeApplication.status === "Draft Submitted" ? (
+              {isDraftMode ? (
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 shrink-0">
                   <Check className="size-3.5 text-emerald-600" />
                   <span>Draft saved</span>
@@ -762,26 +845,121 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
           </section>
 
           {/* Stage 2+ Review / DOST Initial Review Stage View */}
-          {activeApplication.status !== "Draft Submitted" ? (
+          {!isDraftMode && !isRevisionMode ? (
             <InitialReviewStageCard application={activeApplication} />
           ) : (
             <>
-              {/* Stage 1: Continuous Single Page Layout (Proposal Form + Attached Documents) */}
-              <section className="space-y-6">
-                {activeApplication.program === "GIA" ? (
-                  <GiaProposalForm ref={giaFormRef} onDraftChange={setLiveGiaProposal} />
-                ) : (
-                  <SetupProposalForm ref={setupFormRef} onDraftChange={setLiveSetupProposal} />
-                )}
-              </section>
+              {isDraftMode ? (
+                <section className="space-y-6">
+                  {activeApplication.program === "GIA" ? (
+                    <GiaProposalForm ref={giaFormRef} onDraftChange={setLiveGiaProposal} />
+                  ) : (
+                    <SetupProposalForm ref={setupFormRef} onDraftChange={setLiveSetupProposal} />
+                  )}
+                </section>
+              ) : (
+                <section
+                  aria-labelledby="revision-required-title"
+                  className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-rose-200"
+                >
+                  <div className="border-l-4 border-rose-500 px-5 py-6 sm:px-7">
+                    <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="flex min-w-0 items-start gap-4">
+                        <span className="grid size-11 shrink-0 place-items-center rounded-full bg-rose-50 text-rose-600">
+                          <AlertTriangle className="size-5" />
+                        </span>
+                        <div className="min-w-0">
+                          <span className="text-[11px] font-black uppercase tracking-[0.14em] text-rose-600">
+                            Action required
+                          </span>
+                          <h2
+                            className="mt-1 text-xl font-black tracking-tight text-slate-900 sm:text-2xl"
+                            id="revision-required-title"
+                          >
+                            Your proposal was returned for revision
+                          </h2>
+                          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                            Update only the documents listed below, then resubmit your proposal to the DOST review queue.
+                          </p>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-xs font-black text-rose-700">
+                        {revisionItems.length
+                          ? `${revisionItems.length} file${revisionItems.length === 1 ? "" : "s"} to revise`
+                          : "Ready to resubmit"}
+                      </span>
+                    </div>
+
+                    {activeApplication.remarks ? (
+                      <div className="mt-5 rounded-2xl bg-slate-50 px-4 py-3.5">
+                        <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">
+                          Staff review summary
+                        </p>
+                        <p className="mt-1.5 text-sm leading-6 text-slate-700">
+                          {activeApplication.remarks}
+                        </p>
+                      </div>
+                    ) : null}
+
+                    {revisionItems.length ? (
+                      <div className="mt-5 divide-y divide-slate-100 rounded-2xl bg-rose-50/50 px-4 ring-1 ring-rose-100">
+                        {revisionItems.map((item) => (
+                          <div
+                            className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between"
+                            key={item.requirementId}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <FileText className="size-4 shrink-0 text-rose-500" />
+                                <p className="truncate text-sm font-black text-slate-900">
+                                  {item.title}
+                                </p>
+                              </div>
+                              <p className="mt-1.5 pl-6 text-xs leading-5 text-slate-600">
+                                {item.document.remarks ||
+                                  "Replace this document with the corrected version requested by the evaluator."}
+                              </p>
+                            </div>
+                            <button
+                              className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-[#0f53b7] transition hover:bg-blue-50"
+                              onClick={() => {
+                                document
+                                  .getElementById(`requirement-${item.requirementId}`)
+                                  ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                              }}
+                              type="button"
+                            >
+                              Replace file
+                              <ArrowRight className="size-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-5 flex items-start gap-3 rounded-2xl bg-emerald-50 px-4 py-3.5 text-emerald-800 ring-1 ring-emerald-100">
+                        <Check className="mt-0.5 size-4 shrink-0" strokeWidth={3} />
+                        <p className="text-sm font-semibold">
+                          All requested files have been replaced. Use the resubmit button below to send them back for review.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
 
           {/* Attached Documents Section (Lower Page Divider) */}
           {requirements.length ? (
             <div className="mt-8 space-y-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 pt-6">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">Attached Documentary Requirements</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Upload required supporting documents to accompany your proposal submission.</p>
+                  <h3 className="text-lg font-black text-slate-900">
+                    {isRevisionMode ? "Document Revision Checklist" : "Attached Documentary Requirements"}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {isRevisionMode
+                      ? "Only documents marked Needs Revision can be replaced. Other submitted files are locked."
+                      : "Upload required supporting documents to accompany your proposal submission."}
+                  </p>
                 </div>
                 <label className="relative block w-full sm:w-72">
                   <span className="sr-only">
@@ -883,6 +1061,8 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                           const isMissingRequired =
                             !storedDocument && !pendingFile && requirement.required;
                           const hasFile = Boolean(storedDocument || pendingFile);
+                          const needsRevision = status === "Needs Revision";
+                          const canReplace = !isRevisionMode || needsRevision;
 
                           return (
                             <article
@@ -892,10 +1072,13 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                   "bg-blue-50 ring-2 ring-inset ring-[#0f53b7]",
                                 isMissingRequired &&
                                   "bg-red-50/40 border-l-4 border-l-red-500",
+                                needsRevision &&
+                                  "border-l-4 border-l-rose-500 bg-rose-50/60",
                               )}
                               id={`requirement-${requirement.id}`}
                               key={requirement.id}
                               onDragEnter={(event) => {
+                                if (!canReplace) return;
                                 event.preventDefault();
                                 setDraggingRequirement(requirement.id);
                               }}
@@ -907,8 +1090,11 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                 )
                                   setDraggingRequirement(null);
                               }}
-                              onDragOver={(event) => event.preventDefault()}
+                              onDragOver={(event) => {
+                                if (canReplace) event.preventDefault();
+                              }}
                               onDrop={(event) => {
+                                if (!canReplace) return;
                                 event.preventDefault();
                                 void handleFile(
                                   requirement,
@@ -920,14 +1106,18 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                 <span
                                   className={cn(
                                     "mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border-2",
-                                    hasFile
+                                    needsRevision
+                                      ? "border-rose-500 bg-rose-500 text-white"
+                                      : hasFile
                                       ? "border-emerald-500 bg-emerald-500 text-white"
                                       : isMissingRequired
                                         ? "border-red-400 bg-red-50 text-red-500"
                                         : "border-slate-200 text-slate-300",
                                   )}
                                 >
-                                  {hasFile ? (
+                                  {needsRevision ? (
+                                    <AlertTriangle className="size-4" />
+                                  ) : hasFile ? (
                                     <Check className="size-4" strokeWidth={3} />
                                   ) : (
                                     <FileText className="size-3.5" />
@@ -1002,7 +1192,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                       Download Template
                                     </a>
                                   ) : null}
-                                  <label
+                                  {canReplace ? <label
                                     className={cn(
                                       "inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white transition hover:bg-[#0b3f8b]",
                                       isUploading &&
@@ -1034,7 +1224,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                       }}
                                       type="file"
                                     />
-                                  </label>
+                                  </label> : null}
                                   {hasFile ? (
                                     <>
                                       <button
@@ -1051,14 +1241,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                         <Eye className="size-3.5" />
                                         View File
                                       </button>
-                                      <button
+                                      {!isRevisionMode ? <button
                                         className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-100 px-3 text-xs font-bold text-red-600 transition hover:bg-red-50"
                                         onClick={() => void remove(requirement)}
                                         type="button"
                                       >
                                         <Trash2 className="size-3.5" />
                                         Delete File
-                                      </button>
+                                      </button> : null}
                                     </>
                                   ) : null}
                                 </div>
@@ -1091,18 +1281,33 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
               <div className="flex justify-end pt-4 pb-8">
                 <button
                   className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#0d479e] hover:shadow-lg disabled:pointer-events-none disabled:opacity-70"
-                  disabled={isSubmittingApplication}
+                  disabled={
+                    isRevisionMode
+                      ? isResubmittingRevision || revisionDocuments.length > 0
+                      : isSubmittingApplication
+                  }
                   onClick={() => {
                     if (!activeApplication) return;
-                    void handleSubmitApplication();
+                    if (isRevisionMode) void handleResubmitRevisions();
+                    else void handleSubmitApplication();
                   }}
                   type="button"
                 >
-                  {isSubmittingApplication ? (
+                  {isSubmittingApplication || isResubmittingRevision ? (
                     <LoaderCircle className="size-4 animate-spin" />
                   ) : null}
-                  {isSubmittingApplication ? "Submitting" : "Submit Application"}
-                  {isSubmittingApplication ? null : <ArrowRight className="size-4" />}
+                  {isRevisionMode
+                    ? isResubmittingRevision
+                      ? "Resubmitting"
+                      : revisionDocuments.length
+                        ? `${revisionDocuments.length} Revision${revisionDocuments.length === 1 ? "" : "s"} Remaining`
+                        : "Resubmit Revised Documents"
+                    : isSubmittingApplication
+                      ? "Submitting"
+                      : "Submit Application"}
+                  {isSubmittingApplication || isResubmittingRevision ? null : (
+                    <ArrowRight className="size-4" />
+                  )}
                 </button>
               </div>
             </div>
