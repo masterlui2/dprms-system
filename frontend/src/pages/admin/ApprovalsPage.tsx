@@ -113,7 +113,7 @@ export function ApprovalsPage() {
     {
       id: "proponent",
       header: "Proponent",
-      className: "w-[27%]",
+      className: "w-[22%]",
       sortValue: (proposal) => proposal.proponentName ?? proposal.organization,
       render: (proposal) => {
         const showOrganization =
@@ -135,18 +135,42 @@ export function ApprovalsPage() {
       },
     },
     {
-      id: "program",
-      header: "Program",
-      className: "w-[13%]",
-      sortValue: (proposal) => proposal.program,
+      id: "reviewer",
+      header: "Assigned Officer",
+      className: "w-[15%]",
+      sortValue: (proposal) => proposal.reviewer,
       render: (proposal) => (
-        <span className="text-xs font-black text-[#073b82]">{proposal.program}</span>
+        <span className="text-xs font-semibold text-slate-700">
+          {proposal.reviewer || "Project Staff"}
+        </span>
       ),
+    },
+    {
+      id: "status",
+      header: "Status",
+      className: "w-[11%]",
+      sortValue: (proposal) => proposal.status,
+      render: (proposal) => {
+        let toneClass = "bg-blue-50 text-[#0f53b7]";
+        if (proposal.status === "Approved") {
+          toneClass = "bg-emerald-50 text-emerald-700";
+        } else if (proposal.status === "Rejected") {
+          toneClass = "bg-rose-50 text-rose-700";
+        } else if (proposal.status === "Pending") {
+          toneClass = "bg-amber-50 text-amber-700";
+        }
+
+        return (
+          <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold", toneClass)}>
+            {proposal.status}
+          </span>
+        );
+      },
     },
     {
       id: "submitted",
       header: "Received",
-      className: "w-[14%]",
+      className: "w-[11%]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="whitespace-nowrap text-xs font-medium text-slate-600">
@@ -157,7 +181,7 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[16%] text-right whitespace-nowrap",
+      className: "w-[11%] text-right whitespace-nowrap",
       render: (proposal) => (
         <div className="flex justify-end">
           <button

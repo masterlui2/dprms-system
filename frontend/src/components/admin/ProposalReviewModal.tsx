@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, FileCheck2, FileText, Send, UserCheck, X } from "lucide-react";
+import { FileCheck2, FileText, X } from "lucide-react";
 
 import { ROLES } from "../../config/permissions";
 import type { ProposalRecord } from "../../data/admin";
 import { getMockUser } from "../../lib/mockAuth";
-import { updateApplicationStatus } from "../../services/applicationStore";
 import { cn } from "../../utils/cn";
 import { ProposalCommentsSection } from "./proposal-review/ProposalCommentsSection";
 import { ProposalDocumentsSection } from "./proposal-review/ProposalDocumentsSection";
@@ -32,7 +31,7 @@ export function ProposalReviewModal({
   const isDirectorApproval = user?.role === ROLES.PROVINCIAL_DIRECTOR;
   const [proposal, setProposal] = useState<ProposalRecord>(initialProposal);
   const [section, setSection] = useState<ReviewSection>(initialSection);
-  const [internalDocumentsReady, setInternalDocumentsReady] = useState(() =>
+  const [, setInternalDocumentsReady] = useState(() =>
     initialProposal.program === "SETUP"
       ? areSetupPostInspectionDocumentsComplete(initialProposal.id)
       : true,
@@ -52,7 +51,7 @@ export function ProposalReviewModal({
           [ReviewSection, string]
         >)
       : []),
-    ["comments", "Comments"],
+    ["comments", "Review Decision & Remarks"],
   ];
   const reviewStatus = workflowStage === 'approved'
     ? 'Approved'
@@ -60,7 +59,7 @@ export function ProposalReviewModal({
     ? 'Executive Approval'
     : workflowStage === 'in_process'
     ? 'In Process'
-    : 'Document Validation';
+    : String(proposal.status || 'Document Validation');
 
   useEffect(() => {
     const previousActiveElement = document.activeElement as HTMLElement | null;
@@ -81,85 +80,73 @@ export function ProposalReviewModal({
     };
   }, [onClose]);
 
-  function handlePassToStaff() {
-    updateApplicationStatus(proposal.id, 'In Process');
-    setWorkflowStage('in_process');
-    setProposal((prev) => ({ ...prev, stage: 2, status: 'Under review' }));
-  }
-
-  function handleEndorseToDirector() {
-    updateApplicationStatus(proposal.id, 'Executive Approval');
-    setWorkflowStage('endorsed');
-    setProposal((prev) => ({ ...prev, stage: 3, status: 'Under review' }));
-  }
-
-  function handleApproveProposal() {
-    updateApplicationStatus(proposal.id, 'Approved');
-    setWorkflowStage('approved');
-    setProposal((prev) => ({ ...prev, stage: 4, status: 'Approved' }));
-  }
-
   return (
     <div
       aria-labelledby="proposal-review-title"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-2 sm:p-4 backdrop-blur-sm"
       role="dialog"
     >
-      <div className="flex max-h-[94vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-        <header className="flex shrink-0 items-start gap-4 border-b border-slate-200 px-5 py-4 sm:px-6">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]">
-            <FileText className="size-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <p className="text-xs font-black uppercase tracking-[0.12em] text-[#0f53b7]">
-                {proposal.id}
-              </p>
-              <StatusPill tone="info">{proposal.program}</StatusPill>
-              <StatusPill
-                tone={
-                  reviewStatus === "Approved"
-                    ? "success"
-                    : reviewStatus === "In Process" || reviewStatus === "Document Validation"
-                      ? "warning"
-                      : "info"
-                }
+      <div className="flex h-[92vh] max-h-[92vh] w-full max-w-7xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <header className="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-blue-50 text-[#0f53b7]">
+              <FileText className="size-4.5" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#0f53b7]">
+                  {proposal.id}
+                </span>
+                <span className="text-slate-300">·</span>
+                <StatusPill tone="info">{proposal.program}</StatusPill>
+                {reviewStatus && reviewStatus !== "Document Validation" ? (
+                  <StatusPill
+                    tone={
+                      reviewStatus === "Approved"
+                        ? "success"
+                        : reviewStatus === "Disapproved" || reviewStatus === "Returned for Revision" || reviewStatus === "Rejected"
+                          ? "danger"
+                          : "warning"
+                    }
+                  >
+                    {reviewStatus}
+                  </StatusPill>
+                ) : null}
+              </div>
+              <h2
+                className="truncate text-sm sm:text-base font-bold text-[#073b82]"
+                id="proposal-review-title"
+                title={proposal.title}
               >
-                {reviewStatus}
-              </StatusPill>
+                {proposal.title}
+              </h2>
+              <p className="truncate text-[11px] text-slate-500">
+                {proposal.organization} · Submitted {proposal.submitted}
+              </p>
             </div>
-            <h2
-              className="mt-1 truncate text-xl font-black text-[#073b82]"
-              id="proposal-review-title"
-            >
-              {proposal.title}
-            </h2>
-            <p className="mt-1 text-sm text-slate-500">
-              {proposal.organization} - Submitted {proposal.submitted}
-            </p>
           </div>
           <button
             aria-label="Close proposal review"
-            className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-100"
             onClick={onClose}
             ref={closeButtonRef}
             type="button"
           >
-            <X className="size-5" />
+            <X className="size-4.5" />
           </button>
         </header>
 
         <nav
           aria-label="Proposal review sections"
-          className="relative z-10 flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-5 shadow-[0_10px_24px_-24px_rgba(15,23,42,0.75)] sm:px-6"
+          className="relative z-10 flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-4 sm:px-6"
         >
           {reviewTabs.map(([value, label]) => {
             return (
               <button
                 aria-current={section === value ? "page" : undefined}
                 className={cn(
-                  "whitespace-nowrap border-b-2 px-4 py-3 text-sm font-bold leading-5 transition",
+                  "whitespace-nowrap border-b-2 px-3.5 py-2.5 text-xs sm:text-sm font-bold transition",
                   section === value
                     ? "border-[#0f53b7] text-[#073b82]"
                     : "border-transparent text-slate-500 hover:text-slate-800",
@@ -174,7 +161,7 @@ export function ProposalReviewModal({
           })}
         </nav>
 
-        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-5 sm:p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50/70 p-3 sm:p-4">
           {section === "overview" ? (
             <ProposalOverviewSection
               onReviewFiles={() => setSection("documents")}
@@ -207,84 +194,29 @@ export function ProposalReviewModal({
             />
           ) : null}
 
-          {section === "comments" ? <ProposalCommentsSection /> : null}
+          {section === "comments" ? (
+            <ProposalCommentsSection
+              onDecisionApplied={(newStatus) => {
+                setProposal((prev) => ({
+                  ...prev,
+                  stage:
+                    newStatus === "Approved"
+                      ? 4
+                      : newStatus === "Executive Approval"
+                        ? 3
+                        : newStatus === "In Process"
+                          ? 2
+                          : prev.stage,
+                  status: newStatus as any,
+                }));
+                if (newStatus === "Approved") setWorkflowStage("approved");
+                else if (newStatus === "Executive Approval") setWorkflowStage("endorsed");
+                else if (newStatus === "In Process") setWorkflowStage("in_process");
+              }}
+              proposal={proposal}
+            />
+          ) : null}
         </div>
-
-        <footer className="flex shrink-0 flex-col-reverse gap-3 border-t border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <button
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 px-4 text-sm font-bold text-slate-700 hover:bg-slate-50"
-            onClick={onClose}
-            type="button"
-          >
-            Close review
-          </button>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {workflowStage === 'initial_review' && (
-              <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#0f53b7] px-4 text-sm font-bold text-white transition hover:bg-[#0b3f8b]"
-                onClick={handlePassToStaff}
-                type="button"
-              >
-                <Send className="size-4" />
-                Pass to Project Staff (In Process)
-              </button>
-            )}
-
-            {workflowStage === 'in_process' && (
-              <>
-                {proposal.program === "SETUP" ? (
-                  <button
-                    className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-4 text-sm font-bold text-[#073b82] transition hover:bg-blue-100"
-                    onClick={() => setSection("internalDocuments")}
-                    type="button"
-                  >
-                    <FileCheck2 className="size-4" />
-                    {internalDocumentsReady
-                      ? "Post-inspection documents complete"
-                      : "Upload post-inspection documents"}
-                  </button>
-                ) : null}
-                <button
-                  className={cn(
-                    "inline-flex h-10 items-center justify-center gap-2 rounded-lg px-4 text-sm font-bold text-white transition",
-                    internalDocumentsReady
-                      ? "bg-[#0f53b7] hover:bg-[#0b3f8b]"
-                      : "cursor-not-allowed bg-slate-400",
-                  )}
-                  disabled={!internalDocumentsReady}
-                  onClick={handleEndorseToDirector}
-                  title={
-                    internalDocumentsReady
-                      ? undefined
-                      : "Complete all post-inspection SETUP documents first"
-                  }
-                  type="button"
-                >
-                  <UserCheck className="size-4" />
-                  Endorse to Provincial Director
-                </button>
-              </>
-            )}
-
-            {workflowStage === 'endorsed' && (
-              <button
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-bold text-white transition hover:bg-emerald-700"
-                onClick={handleApproveProposal}
-                type="button"
-              >
-                <Check className="size-4" />
-                Provincial Director Approval
-              </button>
-            )}
-
-            {workflowStage === 'approved' && (
-              <span className="inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-700">
-                <Check className="size-4" /> Approved & Endorsed by Provincial Director
-              </span>
-            )}
-          </div>
-        </footer>
       </div>
     </div>
   );

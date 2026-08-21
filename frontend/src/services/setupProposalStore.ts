@@ -293,11 +293,25 @@ export async function submitSetupProposal(
   }
 
   saveApplication(application)
+  try {
+    window.localStorage.setItem(`dprms.setup-proposal-snapshot.${referenceNo}`, JSON.stringify(data))
+  } catch {
+    // ignore
+  }
   if (currentUser) {
     setMockUser({ ...currentUser, applicationReference: referenceNo })
   }
   clearSetupDraft()
   return { application, documents: result.documents ?? [] }
+}
+
+export function getSetupProposalSnapshot(referenceNo: string): SetupProposalData | null {
+  try {
+    const item = window.localStorage.getItem(`dprms.setup-proposal-snapshot.${referenceNo}`)
+    return item ? (JSON.parse(item) as SetupProposalData) : null
+  } catch {
+    return null
+  }
 }
 
 interface ProposalIdLookupResponse {
