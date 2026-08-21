@@ -1,5 +1,6 @@
-import axios, {AxiosError } from 'axios'
+import axios, { AxiosError } from 'axios'
 import api, { ensureCsrfCookie } from '../lib/axios'
+import type { MockUser } from '../lib/mockAuth'
 import type { ApplicationProgram } from '../types/application'
 import { normalizeUserRole } from '../config/permissions'
 

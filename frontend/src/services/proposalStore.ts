@@ -1,5 +1,7 @@
 import api from '../lib/axios'
 import type { ApplicationRecord, ApplicationProgram } from '../types/application'
+import type { ProposalFormData } from '../types/proposal'
+import { createApplicationFromProposal } from './applicationStore'
 
 interface ProposalUserApiRecord {
   id: number
@@ -116,4 +118,12 @@ export async function getAllProposals(): Promise<ApplicationRecord[]> {
       status: mapProposalStatus(proposal.status),
     }
   })
+}
+
+export async function submitProposal(
+  proposal: ProposalFormData,
+): Promise<ApplicationRecord> {
+  await new Promise((resolve) => window.setTimeout(resolve, 700))
+
+  return createApplicationFromProposal(proposal)
 }
