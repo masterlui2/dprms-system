@@ -5,6 +5,7 @@ import type { ApplicationProgram } from '../types/application'
 import { normalizeUserRole } from '../config/permissions'
 
 interface BackendUser {
+  id?: number
   email: string
   name: string
   program?: ApplicationProgram
@@ -81,6 +82,7 @@ export async function loginWithBackend(email: string, password: string) {
  
     const backendUser = response.data.data.user
     const user: MockUser = {
+      id: backendUser.id,
       email: backendUser.email,
       initials: getInitials(backendUser.name),
       name: backendUser.name,
@@ -98,11 +100,32 @@ export async function loginWithBackend(email: string, password: string) {
   }
 }
 
-export async function registerWithBackend(payload: RegisterPayload) {
+interface RegisterResponse {
+  data: {
+    token: string
+    user: BackendUser
+  }
+  message: string
+}
+
+export async function registerWithBackend(payload: RegisterPayload): Promise<{ token: string; user: MockUser }> {
   try {
     await ensureCsrfCookie()
-    const response = await api.post('/register', payload)
-    return response.data
+    const response = await api.post<RegisterResponse>('/register', payload)
+    const backendUser = response.data.data.user
+    const user: MockUser = {
+      id: backendUser.id,
+      email: backendUser.email,
+      initials: getInitials(backendUser.name),
+      name: backendUser.name,
+      program: resolveProgram(backendUser),
+      role: resolveRole(backendUser),
+    }
+
+    return {
+      token: response.data.data.token,
+      user,
+    }
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const axiosError = error as AxiosError<ValidationErrorPayload>

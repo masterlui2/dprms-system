@@ -201,47 +201,82 @@ export async function submitSetupProposal(
     : 0
 
   const formData = new FormData()
-  formData.append('title', data.projectTitle)
-  formData.append('business_name', data.businessName)
-  if (data.organizationType) {
-    formData.append(
-      'business_type',
-      ORGANIZATION_TYPE_TO_BUSINESS_TYPE[data.organizationType as Exclude<OrganizationType, ''>],
-    )
-  }
-  formData.append('industry_sector', data.businessIndustry)
-  if (data.businessSize) {
-    formData.append(
-      'enterprise_size',
-      BUSINESS_SIZE_TO_ENTERPRISE_SIZE[data.businessSize as Exclude<BusinessSize, ''>],
-    )
-  }
+  formData.append('title', data.projectTitle || 'SETUP Technology Upgrade Proposal')
+  formData.append('business_name', data.businessName || 'Proponent Enterprise')
+  const businessType = data.organizationType
+    ? ORGANIZATION_TYPE_TO_BUSINESS_TYPE[data.organizationType as Exclude<OrganizationType, ''>] ?? 'SOLE-PROPRIETORSHIP'
+    : 'SOLE-PROPRIETORSHIP'
+  formData.append('business_type', businessType)
+  formData.append('industry_sector', data.businessIndustry || 'Manufacturing')
+  const enterpriseSize = data.businessSize
+    ? BUSINESS_SIZE_TO_ENTERPRISE_SIZE[data.businessSize as Exclude<BusinessSize, ''>] ?? 'MICRO'
+    : 'MICRO'
+  formData.append('enterprise_size', enterpriseSize)
   formData.append('years_in_operation', String(yearsInOperation))
-  formData.append('business_address', data.businessAddress)
+  formData.append('business_address', data.businessAddress || 'Philippines')
 
   for (const [key, value] of Object.entries(data)) {
     formData.append(`form_snapshot[${key}]`, value == null ? '' : String(value))
   }
 
-  Object.entries(documents).forEach(([documentTypeId, file], index) => {
-    formData.append(`documents[${index}][document_type_id]`, documentTypeId)
-    formData.append(`documents[${index}][file]`, file)
-  })
-
-  let result: { proposal: { id: number; reference_number: string }; documents: any[] } | null = null
-  try {
-    const response = await api.post<SetupProposalSubmitResponse>('/proposal/setup', formData, {
-      headers: { 'Content-Type': undefined },
-    })
-    result = response.data.data
-  } catch (error) {
-    console.warn('Backend proposal submission failed, falling back to local submission:', error)
+  let resolvedDocTypes: DocumentTypeRecord[] = []
+  const hasNonNumeric = Object.keys(documents).some((id) => !/^\d+$/.test(id))
+  if (hasNonNumeric) {
+    try {
+      resolvedDocTypes = await getDocumentTypes({ program: 'SETUP' })
+    } catch {
+      // ignore
+    }
   }
 
-  const referenceNo =
-    result?.proposal?.reference_number ??
-    `SETUP-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-  const proposalId = result?.proposal?.id ?? Math.floor(10000 + Math.random() * 90000)
+  let index = 0
+  for (const [docKey, file] of Object.entries(documents)) {
+    let numericId: number | string = docKey
+    if (!/^\d+$/.test(docKey) && resolvedDocTypes.length > 0) {
+      const match = resolvedDocTypes.find((dt) => {
+        const lowerDtName = dt.name.toLowerCase()
+        const lowerKey = docKey.toLowerCase()
+        return (
+          lowerDtName.includes(lowerKey.replace(/-/g, ' ')) ||
+          (lowerKey.includes('omnibus') && lowerDtName.includes('omnibus')) ||
+          (lowerKey.includes('intent') && lowerDtName.includes('intent')) ||
+          (lowerKey.includes('mayor') && lowerDtName.includes('mayor')) ||
+          (lowerKey.includes('dti') && lowerDtName.includes('dti')) ||
+          (lowerKey.includes('sec') && lowerDtName.includes('sec')) ||
+          (lowerKey.includes('bir') && lowerDtName.includes('bir')) ||
+          (lowerKey.includes('receipt') && lowerDtName.includes('receipt')) ||
+          (lowerKey.includes('quotation') && lowerDtName.includes('quotation')) ||
+          (lowerKey.includes('lease') && lowerDtName.includes('lease')) ||
+          (lowerKey.includes('resolution') && lowerDtName.includes('resolution')) ||
+          (lowerKey.includes('articles') && lowerDtName.includes('articles')) ||
+          (lowerKey.includes('secretary') && lowerDtName.includes('secretary')) ||
+          (lowerKey.includes('position') && lowerDtName.includes('position')) ||
+          (lowerKey.includes('operation') && lowerDtName.includes('operation')) ||
+          (lowerKey.includes('cash') && lowerDtName.includes('cash')) ||
+          (lowerKey.includes('equity') && lowerDtName.includes('equity')) ||
+          (lowerKey.includes('notes') && lowerDtName.includes('notes')) ||
+          (lowerKey.includes('biodata') && lowerDtName.includes('bio-data')) ||
+          (lowerKey.includes('government-id') && lowerDtName.includes('government')) ||
+          (lowerKey.includes('barangay') && lowerDtName.includes('barangay'))
+        )
+      })
+      if (match) {
+        numericId = match.id
+      }
+    }
+
+    formData.append(`documents[${index}][document_type_id]`, String(numericId))
+    formData.append(`documents[${index}][file]`, file)
+    index++
+  }
+
+  const response = await api.post<SetupProposalSubmitResponse>('/proposal/setup', formData, {
+    headers: { 'Content-Type': undefined },
+  })
+  const result = response.data.data
+
+  const referenceNo = result.proposal.reference_number
+  const proposalId = result.proposal.id
 
   const currentUser = getMockUser()
   const application: ApplicationRecord = {
@@ -262,7 +297,7 @@ export async function submitSetupProposal(
     setMockUser({ ...currentUser, applicationReference: referenceNo })
   }
   clearSetupDraft()
-  return { application, documents: result?.documents ?? [] }
+  return { application, documents: result.documents ?? [] }
 }
 
 interface ProposalIdLookupResponse {

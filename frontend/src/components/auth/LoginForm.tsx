@@ -3,13 +3,15 @@ import { ArrowLeft, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
-  authenticateMockUser,
   getDefaultRedirect,
   PROPONENT_USER,
   setAuthToken,
   setMockUser,
 } from "../../lib/mockAuth";
 import { AuthError, loginWithBackend } from "../../services/authService";
+import { syncUserApplicationsFromBackend } from "../../services/applicationStore";
+import { clearSetupDraft } from "../../services/setupProposalStore";
+import { clearGiaDraft } from "../../services/giaProposalStore";
 import { DostBrand } from "./DostBrand";
 import { grantProgramAccess } from "../../lib/programAccess";
 
@@ -37,20 +39,16 @@ export function LoginForm() {
 
       setMessage(null);
       setAuthToken(token);
+      clearSetupDraft();
+      clearGiaDraft();
       if (user.program) grantProgramAccess(user.program);
+      const syncedApps = await syncUserApplicationsFromBackend(user);
+      if (syncedApps.length > 0) {
+        user.applicationReference = syncedApps[0].referenceNo;
+      }
       setMockUser(user);
       navigate(getDefaultRedirect(user));
     } catch (error) {
-      const mockUser = authenticateMockUser(email, password);
-
-      if (mockUser) {
-        setMessage(null);
-        if (mockUser.program) grantProgramAccess(mockUser.program);
-        setMockUser(mockUser);
-        navigate(getDefaultRedirect(mockUser));
-        return;
-      }
-
       setMessage(
         error instanceof AuthError
           ? error.message

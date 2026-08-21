@@ -57,6 +57,16 @@ export interface DocumentaryRequirement {
 }
 
 export function mapDocumentTypeToRequirement(record: DocumentTypeRecord): DocumentaryRequirement {
+  let templateUrl = record.template_url ?? undefined
+  const lowerName = record.name.toLowerCase()
+  if (!templateUrl) {
+    if (lowerName.includes('letter of intent')) {
+      templateUrl = '/templates/SETUP_Letter_of_Intent_Template.docx'
+    } else if (lowerName.includes('omnibus')) {
+      templateUrl = '/templates/SETUP_Omnibus_Sworn_Statement_Template.docx'
+    }
+  }
+
   return {
     id: String(record.id),
     title: record.name,
@@ -64,7 +74,7 @@ export function mapDocumentTypeToRequirement(record: DocumentTypeRecord): Docume
     group: (record.group ?? 'Additional Documents') as RequirementGroup,
     instructions: record.instructions ?? undefined,
     required: true,
-    templateUrl: record.template_url ?? undefined,
+    templateUrl,
   }
 }
 
@@ -230,9 +240,9 @@ export const setupDocumentaryRequirements: DocumentaryRequirement[] = [
   {
     id: 'omnibus-affidavit',
     title: 'Omnibus Sworn Statement / Affidavit',
-    description: 'Notarized Omnibus Affidavit declaring non-agent status, no bad debt, no previous DOST accountabilities, and truthfulness of AFR information.',
+    description: 'Omnibus affidavit stating: 1) None of its organizers, directors or officials is an agent... 2) No bad debt, 3) No previous accountabilities with DOST, 4) Information in AFR are true & correct, 5) Truthfulness of above stated facts.',
     group: 'Additional Documents',
-    instructions: 'Upload notarized Omnibus Sworn Statement / Affidavit declaring: 1) No organizers/directors/officials are agents, 2) No bad debt, 3) No previous accountabilities with DOST, 4) AFR information true & correct, 5) Truthfulness of stated facts.',
+    instructions: 'Omnibus affidavit stating the following: 1) None of its organizers, directors or officials is an agent..., 2) No bad debt, 3) No previous accountabilities with DOST, 4) Information in AFR are true & correct, 5) Truthfulness of above stated facts.',
     required: true,
     templateUrl: '/templates/SETUP_Omnibus_Sworn_Statement_Template.docx',
   },

@@ -3,9 +3,12 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { registerWithBackend } from "../../services/authService";
+import { clearApplications } from "../../services/applicationStore";
+import { clearSetupDraft } from "../../services/setupProposalStore";
+import { clearGiaDraft } from "../../services/giaProposalStore";
 import { DostBrand } from "./DostBrand";
 import { grantProgramAccess } from "../../lib/programAccess";
-import { registerUserAccount, setMockUser } from "../../lib/mockAuth";
+import { registerUserAccount, setAuthToken, setMockUser } from "../../lib/mockAuth";
 import type { ApplicationProgram } from "../../types/application";
 
 const roleOptions = [
@@ -94,34 +97,47 @@ export function RegisterForm() {
     setIsSubmitting(true);
 
     try {
-      await registerWithBackend({
+      const result = await registerWithBackend({
         email: form.email,
         name: form.fullName,
         password: form.password,
         password_confirmation: form.confirmPassword,
         role: form.role,
       });
-    } catch {
-      // Allow fallback session creation in local/offline environment
+
+      if (result.token) {
+        setAuthToken(result.token);
+      }
+
+      const program: ApplicationProgram =
+        selectedProgram ?? (form.role === "GIA_PROJECT_LEADER" ? "GIA" : "SETUP");
+
+      grantProgramAccess(program);
+      const registeredUser = registerUserAccount({
+        email: form.email,
+        name: form.fullName,
+        password: form.password,
+        program,
+      });
+      // Clear any stale application data from a previous session
+      clearApplications();
+      clearSetupDraft();
+      clearGiaDraft();
+      setMockUser({
+        ...registeredUser,
+        role: result.user.role || registeredUser.role,
+      });
+
+      const targetPath =
+        redirectTo ??
+        (program === "GIA" ? "/gia/dashboard/my-proposal" : "/setup/dashboard/my-application");
+
+      navigate(targetPath, { replace: true });
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Registration failed. Please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const program: ApplicationProgram =
-      selectedProgram ?? (form.role === "GIA_PROJECT_LEADER" ? "GIA" : "SETUP");
-
-    grantProgramAccess(program);
-    const registeredUser = registerUserAccount({
-      email: form.email,
-      name: form.fullName,
-      password: form.password,
-      program,
-    });
-    setMockUser(registeredUser);
-
-    const targetPath =
-      redirectTo ??
-      (program === "GIA" ? "/gia/dashboard/my-proposal" : "/setup/dashboard/my-application");
-
-    navigate(targetPath, { replace: true });
   }
 
   function updateField(field: keyof typeof form, value: string) {
