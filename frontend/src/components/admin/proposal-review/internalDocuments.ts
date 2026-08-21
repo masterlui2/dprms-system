@@ -1,8 +1,10 @@
 export type InternalDocumentStage = "later" | "post-inspection";
 
 export type InternalDocument = {
+  dataUrl?: string;
   fileName?: string;
   fileSize?: string;
+  fileType?: string;
   id: string;
   label: string;
   requiredForEndorsement: boolean;

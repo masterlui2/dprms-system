@@ -1,17 +1,17 @@
 import {
-  CheckCircle2,
-  Clock3,
+  Check,
+  Download,
+  ExternalLink,
+  Eye,
   FileCheck2,
-  FileUp,
-  History,
+  ShieldCheck,
   Upload,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "../../../utils/cn";
 import {
   type InternalDocument,
-  type InternalDocumentStage,
   readSetupInternalDocuments,
   setupPostInspectionComplete,
   storeSetupInternalDocuments,
@@ -34,10 +34,20 @@ export function InternalDocumentsSection({
   const [documents, setDocuments] = useState<InternalDocument[]>(() =>
     readSetupInternalDocuments(proposalId),
   );
-  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<InternalDocument | null>(() => {
+    const initialDocs = readSetupInternalDocuments(proposalId);
+    return initialDocs.find((d) => d.status === "Uploaded") ?? initialDocs[0] ?? null;
+  });
   const readOnly = mode === "view";
   const requiredComplete = setupPostInspectionComplete(documents);
-  const uploaded = documents.filter((document) => document.status === "Uploaded");
+
+  const uploadedCount = useMemo(() => {
+    return documents.filter((d) => d.status === "Uploaded").length;
+  }, [documents]);
+
+  const percentComplete = documents.length > 0
+    ? Math.round((uploadedCount / documents.length) * 100)
+    : 0;
 
   useEffect(() => {
     onRequiredStatusChange?.(requiredComplete);
@@ -46,249 +56,306 @@ export function InternalDocumentsSection({
   function saveFile(id: string, file?: File) {
     if (!file || readOnly) return;
 
-    setDocuments((current) => {
-      const next = current.map((document) =>
-        document.id === id
-          ? {
-              ...document,
-              fileName: file.name,
-              fileSize: formatFileSize(file.size),
-              status: "Uploaded" as const,
-              updated: new Date().toLocaleDateString("en-US", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              }),
-            }
-          : document,
-      );
-      storeSetupInternalDocuments(proposalId, next);
-      return next;
-    });
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      setDocuments((current) => {
+        const next = current.map((document) =>
+          document.id === id
+            ? {
+                ...document,
+                dataUrl,
+                fileName: file.name,
+                fileSize: formatFileSize(file.size),
+                fileType: file.type || "application/pdf",
+                status: "Uploaded" as const,
+                updated: new Date().toLocaleDateString("en-US", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                }),
+              }
+            : document,
+        );
+        storeSetupInternalDocuments(proposalId, next);
+        const updated = next.find((d) => d.id === id);
+        if (updated) setSelectedDocument(updated);
+        return next;
+      });
+    };
+    reader.readAsDataURL(file);
   }
 
-  function renderGroup(
-    title: string,
-    description: string,
-    stage: InternalDocumentStage,
-  ) {
-    const groupDocuments = documents.filter(
-      (document) => document.stage === stage,
-    );
+  function handleDownload(document: InternalDocument) {
+    if (!document.dataUrl) return;
+    const link = window.document.createElement("a");
+    link.href = document.dataUrl;
+    link.download = document.fileName || `${document.label}.pdf`;
+    window.document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
 
-    return (
-      <section className="space-y-3" key={stage}>
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="font-black text-[#073b82]">{title}</h3>
-            <p className="mt-1 text-xs leading-5 text-slate-500">
-              {description}
-            </p>
-          </div>
-          {stage === "post-inspection" ? (
+  function handleOpenNewTab(document: InternalDocument) {
+    if (!document.dataUrl) return;
+    const win = window.open();
+    if (win) {
+      win.document.write(
+        `<iframe src="${document.dataUrl}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+      );
+    }
+  }
+
+  return (
+    <div className="grid h-full min-h-[calc(92vh-160px)] gap-3 lg:grid-cols-[minmax(330px,365px)_minmax(0,1fr)]">
+      {/* Internal Document Checklist Column */}
+      <section className="flex h-full min-h-[calc(92vh-160px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+        {/* Checklist Header with Progress Meter */}
+        <div className="border-b border-slate-200 bg-slate-50/60 p-3.5">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h3 className="flex items-center gap-1.5 text-xs font-bold text-[#073b82]">
+                <ShieldCheck className="size-4 text-[#0f53b7]" />
+                Internal Document Checklist
+              </h3>
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                {uploadedCount} of {documents.length} attached ({percentComplete}%)
+              </p>
+            </div>
             <span
               className={cn(
-                "inline-flex items-center gap-1.5 text-xs font-bold",
-                requiredComplete ? "text-emerald-700" : "text-amber-700",
+                "whitespace-nowrap shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold",
+                requiredComplete
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-blue-50 text-[#0f53b7]",
               )}
             >
-              {requiredComplete ? (
-                <CheckCircle2 className="size-4" />
-              ) : (
-                <Clock3 className="size-4" />
-              )}
-              {requiredComplete ? "Complete" : "Required before endorsement"}
+              {requiredComplete ? "Endorsement Ready" : "In Progress"}
             </span>
-          ) : null}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/80">
+            <div
+              className={cn(
+                "h-full transition-all duration-300",
+                requiredComplete ? "bg-emerald-600" : "bg-[#0f53b7]",
+              )}
+              style={{ width: `${percentComplete}%` }}
+            />
+          </div>
         </div>
 
-        <div className="grid gap-3 md:grid-cols-2">
-          {groupDocuments.map((document) => {
-            const Card = readOnly ? "article" : "label";
+        {/* Scrollable Checklist Items */}
+        <div className="divide-y divide-slate-100 overflow-y-auto max-h-[calc(92vh-240px)] flex-1">
+          {documents.map((document, idx) => {
+            const isUploaded = document.status === "Uploaded";
+            const isSelected = selectedDocument?.id === document.id;
+            const isPostInspection = document.stage === "post-inspection";
 
             return (
-              <Card
+              <div
                 className={cn(
-                  "group flex min-h-40 flex-col rounded-xl bg-white p-4 transition",
-                  readOnly
-                    ? "border border-slate-200"
-                    : "cursor-pointer border-2 border-dashed",
-                  !readOnly && draggingId === document.id
-                    ? "border-[#0f53b7] bg-blue-50"
-                    : "",
-                  !readOnly && document.status === "Uploaded"
-                    ? "border-emerald-200 hover:border-emerald-300"
-                    : "",
-                  !readOnly && document.status === "Not uploaded"
-                    ? "border-slate-200 hover:border-blue-300 hover:bg-blue-50/40"
-                    : "",
+                  "group flex items-center justify-between gap-2 px-3 py-2.5 transition hover:bg-blue-50/60",
+                  isSelected && "bg-blue-50/90 border-l-4 border-[#073b82]",
                 )}
                 key={document.id}
-                onDragEnter={
-                  readOnly ? undefined : () => setDraggingId(document.id)
-                }
-                onDragLeave={readOnly ? undefined : () => setDraggingId(null)}
-                onDragOver={
-                  readOnly ? undefined : (event) => event.preventDefault()
-                }
-                onDrop={
-                  readOnly
-                    ? undefined
-                    : (event) => {
-                        event.preventDefault();
-                        setDraggingId(null);
-                        saveFile(document.id, event.dataTransfer.files[0]);
-                      }
-                }
               >
-                {!readOnly ? (
-                  <input
-                    accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
-                    className="sr-only"
-                    onChange={(event) =>
-                      saveFile(document.id, event.target.files?.[0])
-                    }
-                    type="file"
-                  />
-                ) : null}
-
-                <div className="flex items-start justify-between gap-3">
+                <button
+                  className="flex min-w-0 flex-1 items-start gap-2.5 text-left focus-visible:outline-none"
+                  onClick={() => setSelectedDocument(document)}
+                  type="button"
+                >
+                  {/* Status Indicator Icon */}
                   <span
                     className={cn(
-                      "grid size-10 place-items-center rounded-xl",
-                      document.status === "Uploaded"
-                        ? "bg-emerald-50 text-emerald-700"
+                      "mt-0.5 grid size-6 shrink-0 place-items-center rounded-md text-[11px]",
+                      isUploaded
+                        ? "bg-emerald-100 text-emerald-700 font-bold"
                         : "bg-slate-100 text-slate-500",
                     )}
                   >
-                    {document.status === "Uploaded" ? (
-                      <FileCheck2 className="size-5" />
+                    {isUploaded ? (
+                      <Check className="size-3.5" />
                     ) : (
-                      <FileUp className="size-5" />
+                      <span className="text-[10px] font-bold text-slate-500">{idx + 1}</span>
                     )}
                   </span>
-                  <span
-                    className={cn(
-                      "text-[10px] font-black uppercase tracking-wide",
-                      document.status === "Uploaded"
-                        ? "text-emerald-700"
-                        : "text-slate-500",
-                    )}
-                  >
-                    {document.status}
-                  </span>
-                </div>
 
-                <p className="mt-4 font-black leading-5 text-slate-900">
-                  {document.label}
-                </p>
-                {document.fileName ? (
-                  <p className="mt-1 truncate text-xs font-semibold text-slate-500">
-                    {document.fileName}
-                    {document.fileSize ? ` · ${document.fileSize}` : ""}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    {readOnly
-                      ? "No file uploaded by staff yet."
-                      : "Drop a file here or select one from your device."}
-                  </p>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={cn(
+                        "text-xs font-bold text-slate-900 transition group-hover:text-[#073b82] leading-snug",
+                        isSelected && "text-[#073b82]",
+                      )}
+                      title={document.label}
+                    >
+                      {document.label}
+                    </p>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
+                      <span
+                        className={cn(
+                          "rounded px-1 py-0.2 text-[10px] font-medium",
+                          isPostInspection
+                            ? "bg-blue-50 text-[#073b82]"
+                            : "bg-slate-100 text-slate-600",
+                        )}
+                      >
+                        {isPostInspection ? "Post-Inspection" : "Implementation"}
+                      </span>
+                      {document.fileName ? (
+                        <span>{document.fileSize}</span>
+                      ) : null}
+                      <span>·</span>
+                      <span
+                        className={cn(
+                          "font-semibold",
+                          isUploaded ? "text-emerald-700" : "text-amber-600",
+                        )}
+                      >
+                        {isUploaded ? "Uploaded" : "Pending Upload"}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+
+                {/* Upload/Replace icon only on the side checklist */}
+                {!readOnly && (
+                  <div className="flex shrink-0 items-center">
+                    <input
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                      className="sr-only"
+                      id={`internal-upload-${document.id}`}
+                      onChange={(event) =>
+                        saveFile(document.id, event.target.files?.[0])
+                      }
+                      type="file"
+                    />
+                    <label
+                      aria-label={isUploaded ? `Replace ${document.label}` : `Upload ${document.label}`}
+                      className={cn(
+                        "inline-flex size-6.5 cursor-pointer items-center justify-center rounded transition",
+                        isUploaded
+                          ? "text-slate-400 hover:bg-slate-200 hover:text-slate-800"
+                          : "bg-[#0f53b7] text-white hover:bg-[#0b3f8b]",
+                      )}
+                      htmlFor={`internal-upload-${document.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      title={isUploaded ? "Replace document" : "Upload document"}
+                    >
+                      <Upload className="size-3" />
+                    </label>
+                  </div>
                 )}
-
-                <span
-                  className={cn(
-                    "mt-auto inline-flex items-center gap-2 pt-4 text-xs font-bold",
-                    readOnly ? "text-slate-500" : "text-[#0f53b7]",
-                  )}
-                >
-                  {readOnly ? (
-                    document.status === "Uploaded" ? (
-                      <>
-                        <FileCheck2 className="size-3.5" /> Available for review
-                      </>
-                    ) : (
-                      <>
-                        <Clock3 className="size-3.5" /> Awaiting staff upload
-                      </>
-                    )
-                  ) : (
-                    <>
-                      <Upload className="size-3.5" />
-                      {document.status === "Uploaded"
-                        ? "Replace document"
-                        : "Upload document"}
-                    </>
-                  )}
-                </span>
-              </Card>
+              </div>
             );
           })}
         </div>
       </section>
-    );
-  }
 
-  return (
-    <div className="space-y-6">
-      <section className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm leading-6">
-        <p className="font-black text-[#073b82]">
-          SETUP internal document checklist
-        </p>
-        <p className="mt-1 text-slate-600">
-          {readOnly
-            ? "Staff-uploaded post-inspection records for director review."
-            : "Upload the staff-only records prepared after the site inspection. Files are tracked separately from proponent submissions."}
-        </p>
-      </section>
+      {/* Internal Document PDF Preview Viewport */}
+      <section className="flex h-full min-h-[calc(92vh-160px)] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
+        {selectedDocument && selectedDocument.status === "Uploaded" ? (
+          <>
+            {/* Header bar with Document Info & Actions */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3.5 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-xs font-bold text-slate-900" title={selectedDocument.label}>
+                    {selectedDocument.label}
+                  </span>
+                  <span className="rounded bg-emerald-100 px-1.5 py-0.2 text-[10px] font-bold text-emerald-800">
+                    Attached
+                  </span>
+                </div>
+                <p className="mt-0.5 truncate text-[10px] text-slate-500">
+                  {selectedDocument.fileName} · {selectedDocument.fileSize} · Uploaded {selectedDocument.updated}
+                </p>
+              </div>
 
-      {renderGroup(
-        "Post-inspection requirements",
-        "Complete these four records before the SETUP application is endorsed.",
-        "post-inspection",
-      )}
+              {/* Action Icons on Top of PDF */}
+              <div className="flex items-center gap-1.5">
+                <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                {selectedDocument.dataUrl && (
+                  <>
+                    <button
+                      className="inline-flex size-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
+                      onClick={() => handleDownload(selectedDocument)}
+                      title="Download file"
+                      type="button"
+                    >
+                      <Download className="size-3.5" />
+                    </button>
+                    <button
+                      className="inline-flex size-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition"
+                      onClick={() => handleOpenNewTab(selectedDocument)}
+                      title="Open in new tab"
+                      type="button"
+                    >
+                      <ExternalLink className="size-3.5" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
 
-      {renderGroup(
-        "Later implementation requirements",
-        "Upload these when the application reaches the corresponding implementation stage.",
-        "later",
-      )}
-
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 px-4 py-3">
-          <h3 className="flex items-center gap-2 font-black text-[#073b82]">
-            <History className="size-4" />
-            {readOnly ? "Staff upload history" : "Upload history"}
-          </h3>
-          <span className="text-xs font-semibold text-slate-500">
-            {uploaded.length} of {documents.length} uploaded
-          </span>
-        </div>
-        {uploaded.length ? (
-          <div className="divide-y divide-slate-100">
-            {uploaded.map((document) => (
-              <div
-                className="flex items-center justify-between gap-4 px-4 py-3"
-                key={document.id}
-              >
-                <div className="min-w-0">
-                  <p className="font-bold text-slate-900">{document.label}</p>
-                  <p className="mt-0.5 truncate text-xs text-slate-500">
-                    {document.fileName}
-                    {document.fileSize ? ` · ${document.fileSize}` : ""}
+            {/* Document Preview Viewport */}
+            <div className="relative flex h-full min-h-[calc(92vh-220px)] flex-1 flex-col overflow-hidden bg-slate-100">
+              {selectedDocument.dataUrl ? (
+                <iframe
+                  className="h-full min-h-[calc(92vh-220px)] w-full flex-1 border-0 bg-white"
+                  src={`${selectedDocument.dataUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                  title={selectedDocument.label}
+                />
+              ) : (
+                <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-slate-500">
+                  <FileCheck2 className="size-8 text-emerald-600" />
+                  <p className="text-xs font-bold text-slate-800">{selectedDocument.fileName}</p>
+                  <p className="text-[11px] text-slate-400">
+                    File attached. Re-upload or select another file to inspect live PDF viewer.
                   </p>
                 </div>
-                <span className="whitespace-nowrap text-xs font-semibold text-slate-400">
-                  {document.updated}
-                </span>
-              </div>
-            ))}
-          </div>
+              )}
+            </div>
+          </>
         ) : (
-          <p className="px-4 py-8 text-center text-sm text-slate-500">
-            No internal documents have been uploaded for this application.
-          </p>
+          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+            <span className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
+              <Eye className="size-6" />
+            </span>
+            <p className="mt-3 text-sm font-bold text-slate-800">
+              {selectedDocument ? selectedDocument.label : "Select an internal requirement"}
+            </p>
+            <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
+              {selectedDocument?.status === "Not uploaded"
+                ? "This internal requirement has not been uploaded yet. Click the upload button on the left to attach the file."
+                : "Select an attached document from the checklist to preview its contents."}
+            </p>
+            {!readOnly && selectedDocument && selectedDocument.status === "Not uploaded" && (
+              <div className="mt-4">
+                <input
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
+                  className="sr-only"
+                  id={`empty-upload-${selectedDocument.id}`}
+                  onChange={(event) =>
+                    saveFile(selectedDocument.id, event.target.files?.[0])
+                  }
+                  type="file"
+                />
+                <label
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f53b7] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#0b3f8b] cursor-pointer transition"
+                  htmlFor={`empty-upload-${selectedDocument.id}`}
+                >
+                  <Upload className="size-3.5" />
+                  Upload {selectedDocument.label}
+                </label>
+              </div>
+            )}
+          </div>
         )}
       </section>
     </div>
   );
 }
+
+

@@ -323,6 +323,12 @@ export interface DocumentApiRecord {
   reviewed_at: string | null
   created_at: string
   updated_at: string
+  document_type?: {
+    id: number
+    name: string
+    group?: string | null
+    description?: string | null
+  }
 }
 
 function mapDocumentStatus(status: DocumentApiRecord['status']): VerificationStatus {
