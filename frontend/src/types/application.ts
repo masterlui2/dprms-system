@@ -31,6 +31,7 @@ export interface ApplicationRecord {
     | 'Executive Approval'
     | 'Approved'
     | 'Returned for Revision'
+    | 'Disapproved'
 }
 
 export interface CreatedProjectRecord {
