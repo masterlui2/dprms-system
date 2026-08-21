@@ -14,6 +14,7 @@ export interface ProposalRecord {
   status: 'Pending' | 'Under review' | 'Approved' | 'Rejected'
   submitted: string
   title: string
+  proposalId?: number;
 }
 
 export type ProposalReviewStatus =

@@ -58,4 +58,10 @@ class ProposalController extends Controller
             'data' => $proposal
         ],200);
     }
+
+    public function index(){
+        return response()->json([
+            'data' => $this->proposalService->getIndex()
+        ],200);
+    }
 }

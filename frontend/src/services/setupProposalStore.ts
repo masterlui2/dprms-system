@@ -192,44 +192,6 @@ export interface SetupProposalSubmitResult {
   documents: DocumentApiRecord[]
 }
 
-/**
- * Submits a SETUP proposal via POST /proposal/setup
- * (SetupProposalSubmissionController::store) as a single multipart request
- * that creates the Proposal, the SetupProposal row, the auto-generated
- * Form 001 PDF snapshot, and every supporting document in `documents` all
- * together. The backend wraps all of this in one DB transaction
- * (SetupSubmissionService::submit()) — either everything is created, or
- * (on validation failure or any error) nothing is, so there's no partial
- * "proposal exists but some documents are missing" state to recover from
- * on the frontend.
- *
- * `documents` is keyed by document_type_id (a DocumentaryRequirement.id),
- * matching what DocumentaryRequirementsPage already tracks in
- * `pendingFiles`.
- *
- * Sent as FormData (not JSON) because it carries files. `form_snapshot` is
- * flattened to `form_snapshot[field]=value` bracket notation since
- * multipart requests can't carry a nested JSON object directly — Laravel
- * reassembles this into a proper array server-side, satisfying the
- * `form_snapshot => required|array` validation rule. Every SetupProposalData
- * field is a plain string, so no further nesting is needed.
- *
- * IMPORTANT: same as uploadDocument() in documentStore.ts — the `api`
- * axios instance defaults to 'Content-Type: application/json', which has
- * to be explicitly cleared here so the browser attaches the multipart
- * boundary instead.
- *
- * KNOWN ISSUE (backend, not this function's bug): the business address is
- * sent as one free-text string, but SetupProposalService splits it on
- * commas expecting exactly 4 segments in the order
- * `street, city/municipality, province, region` — anything else silently
- * mis-assigns fields or, as seen in testing, leaves `region` null and
- * fails the DB constraint. The SETUP form only has a single "Business
- * Address" textarea with no such guidance, so this will keep breaking
- * until either the form collects region/province/city separately or the
- * backend parsing is made tolerant. Not fixed here — flagging so it isn't
- * mistaken for a frontend wiring bug.
- */
 export async function submitSetupProposal(
   data: SetupProposalData,
   documents: Record<string, File>,

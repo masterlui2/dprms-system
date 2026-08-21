@@ -50,6 +50,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('documents')->group(function (){
     Route::get('/{proposalId}/proposal-documents', [DocumentController::class, 'index']);
+    Route::get('/{documentId}/view-staff', [DocumentController::class, 'showForStaff']);
+});
+
+Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal')->group(function (){
+    Route::get('/', [ProposalController::class, 'index']);
 });
 
 Route::middleware('auth:sanctum')->prefix('gia')->group(function (){

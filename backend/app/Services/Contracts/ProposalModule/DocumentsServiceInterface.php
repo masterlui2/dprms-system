@@ -13,4 +13,5 @@ interface DocumentsServiceInterface{
     public function deleteDocuments(int $id): bool;
     public function getForOwner(int $proposalId): Collection;
     public function getOneForOwner(int $documentId): Document;
+    public function getOneForStaff(int $documentId): Document;
 }

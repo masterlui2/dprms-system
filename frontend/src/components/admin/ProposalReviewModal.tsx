@@ -11,8 +11,7 @@ import { ProposalDocumentsSection } from "./proposal-review/ProposalDocumentsSec
 import { InternalDocumentsSection } from "./proposal-review/InternalDocumentsSection";
 import { areSetupPostInspectionDocumentsComplete } from "./proposal-review/internalDocuments";
 import { ProposalOverviewSection } from "./proposal-review/ProposalOverviewSection";
-import { getProposalDocuments } from "./proposal-review/documents";
-import type { ReviewSection, SampleDocument } from "./proposal-review/types";
+import type { ReviewSection } from "./proposal-review/types";
 import { StatusPill } from "./StatusPill";
 
 export type { ReviewSection } from "./proposal-review/types";
@@ -33,7 +32,6 @@ export function ProposalReviewModal({
   const isDirectorApproval = user?.role === ROLES.PROVINCIAL_DIRECTOR;
   const [proposal, setProposal] = useState<ProposalRecord>(initialProposal);
   const [section, setSection] = useState<ReviewSection>(initialSection);
-  const [selectedDocument, setSelectedDocument] = useState<SampleDocument | null>(null);
   const [internalDocumentsReady, setInternalDocumentsReady] = useState(() =>
     initialProposal.program === "SETUP"
       ? areSetupPostInspectionDocumentsComplete(initialProposal.id)
@@ -46,7 +44,6 @@ export function ProposalReviewModal({
     return 'initial_review';
   });
 
-  const documents = getProposalDocuments(proposal.program);
   const reviewTabs: Array<[ReviewSection, string]> = [
     ["overview", "Overview"],
     ["documents", "Document Checklist"],
@@ -158,9 +155,6 @@ export function ProposalReviewModal({
           className="relative z-10 flex shrink-0 overflow-x-auto border-b border-slate-200 bg-white px-5 shadow-[0_10px_24px_-24px_rgba(15,23,42,0.75)] sm:px-6"
         >
           {reviewTabs.map(([value, label]) => {
-            const tabLabel =
-              value === "documents" ? `${label} (${documents.length})` : label;
-
             return (
               <button
                 aria-current={section === value ? "page" : undefined}
@@ -174,7 +168,7 @@ export function ProposalReviewModal({
                 onClick={() => setSection(value)}
                 type="button"
               >
-                {tabLabel}
+                {label}
               </button>
             );
           })}
@@ -189,11 +183,20 @@ export function ProposalReviewModal({
           ) : null}
 
           {section === "documents" ? (
-            <ProposalDocumentsSection
-              documents={documents}
-              onSelectDocument={setSelectedDocument}
-              selectedDocument={selectedDocument}
-            />
+            proposal.proposalId ? (
+              <ProposalDocumentsSection proposalId={proposal.proposalId} />
+            ) : (
+              <div className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
+                <FileCheck2 className="size-8 text-slate-400" />
+                <p className="mt-3 font-bold text-slate-800">
+                  Documents unavailable
+                </p>
+                <p className="mt-1 max-w-sm text-sm leading-6 text-slate-500">
+                  This application isn't linked to a backend proposal record,
+                  so its submitted documents can't be loaded.
+                </p>
+              </div>
+            )
           ) : null}
 
           {section === "internalDocuments" && proposal.program === "SETUP" ? (
