@@ -9,10 +9,8 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  PackageCheck,
   ReceiptText,
   User,
-  Activity,
   X,
 } from "lucide-react";
 

@@ -45,6 +45,7 @@ import {
 import {
   getApplications,
   saveApplication,
+  syncUserApplicationsFromBackend,
   updateApplicationStatus,
 } from "../../services/applicationStore";
 import { getSetupProposalId, submitSetupProposal } from "../../services/setupProposalStore";
@@ -58,8 +59,6 @@ import {
 import type { GiaProposalData } from "../../types/giaProposal";
 import type { SetupProposalData } from "../../types/setupProposal";
 import { cn } from "../../utils/cn";
-
-console.count("DocumentaryRequirementsPage render")
 
 // Both SETUP and GIA now go through the real /documents API —
 // StoreDocumentRequest only accepts PDF up to 10MB (mimes:pdf|max:10240)
@@ -77,7 +76,7 @@ const groupOrder: RequirementGroup[] = [
 
 const statusClasses: Record<VerificationStatus, string> = {
   "Not Uploaded": "bg-slate-100 text-slate-600",
-  "Pending Upload": "bg-slate-100 text-slate-600",
+  "Pending Upload": "bg-blue-50 text-[#0f53b7]",
   Uploaded: "bg-blue-50 text-[#0f53b7]",
   "Under Review": "bg-amber-50 text-amber-700",
   Approved: "bg-emerald-50 text-emerald-700",
@@ -90,12 +89,15 @@ function formatSize(bytes: number) {
 }
 
 function extractUploadErrorMessage(error: unknown): string {
-  const response = (error as { response?: { status?: number; data?: { errors?: Record<string, string[]> } } })?.response;
-  if (response?.status === 422 && response.data?.errors) {
+  const response = (error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } })?.response;
+  if (response?.data?.errors) {
     const backendMessage = Object.values(response.data.errors).flat().join(" ");
     if (backendMessage) return backendMessage;
   }
-  return "The file could not be saved. Please try a smaller file.";
+  if (response?.data?.message) {
+    return response.data.message;
+  }
+  return "Could not submit application. Please check that all required fields and documents are uploaded.";
 }
 
 
@@ -145,10 +147,19 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   const setupFormRef = useRef<SetupProposalFormHandle>(null);
   const giaFormRef = useRef<GiaProposalFormHandle>(null);
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
+  const [allApplicationsList, setAllApplicationsList] = useState<ApplicationRecord[]>(() => getApplications());
+
+  useEffect(() => {
+    if (!user) return;
+    syncUserApplicationsFromBackend(user).then((apps) => {
+      if (apps.length > 0) {
+        setAllApplicationsList(apps);
+      }
+    });
+  }, [user?.id, user?.email]);
 
   const applications = useMemo(() => {
-    const allApplications = getApplications();
-    const filtered = allApplications.filter((application) =>
+    const filtered = allApplicationsList.filter((application) =>
       user?.applicationReference
         ? application.referenceNo === user.applicationReference
         : !user?.email ||
@@ -157,8 +168,10 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     const matching = filtered.filter((app) => app.program === activeProgram);
     if (matching.length) return matching;
     if (filtered.length) return filtered;
-    return allApplications;
-  }, [user?.applicationReference, user?.email, activeProgram]);
+    // Do NOT fall back to all applications — a fresh user has no application
+    // and should see the empty / new-application state, not another user's data.
+    return [];
+  }, [user?.applicationReference, user?.email, activeProgram, allApplicationsList]);
 
   const requestedReference = searchParams.get("proposal");
   const baseApplication =
@@ -170,9 +183,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       return baseApplication;
     }
     return {
-      id: `${activeProgram.toLowerCase()}-app-1`,
+      id: `${activeProgram.toLowerCase()}-app-draft`,
       applicantName: user?.name ?? "Proponent Representative",
-      referenceNo: `${activeProgram}-2026-0001`,
+      referenceNo: `${activeProgram}-DRAFT`,
       projectTitle:
         activeProgram === "GIA"
           ? "Community Empowerment & Technology Transfer Project"
@@ -286,11 +299,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     setDocuments({});
 
     (async () => {
-      const proposalId =
-        activeApplication.proposalId ??
-        (activeApplication.program === "SETUP"
-          ? await getSetupProposalId(activeApplication.referenceNo)
-          : await getGiaProposalId(activeApplication.referenceNo));
+      // Only resolve proposal ID against backend if this is an actual submitted baseApplication
+      const isDraft = !baseApplication || activeApplication.referenceNo.endsWith("-DRAFT");
+      const proposalId = isDraft
+        ? null
+        : (activeApplication.proposalId ??
+          (activeApplication.program === "SETUP"
+            ? await getSetupProposalId(activeApplication.referenceNo)
+            : await getGiaProposalId(activeApplication.referenceNo)));
 
       if (cancelled) return;
 
@@ -404,16 +420,15 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       let nextDocuments: Record<string, StoredDocument>;
 
       if (!activeProposalId) {
-        // No backend proposal yet (for either SETUP or GIA) — hold the
-        // file locally and upload it as part of "Submit Application"
-        // instead of hitting /documents now (there's no proposal_id to
-        // attach it to).
+        // Hold the file locally with visual loading transition,
+        // to be uploaded when "Submit Application" is clicked.
+        await new Promise((resolve) => setTimeout(resolve, 450));
         setPendingFiles((current) => ({
           ...current,
           [requirement.id]: file,
         }));
         setMessage(
-          `${file.name} attached. It will be uploaded when you submit the application.`,
+          `${file.name} attached. It will be submitted with your application.`,
         );
         return;
       }
@@ -957,14 +972,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                       title={pendingFile.name}
                                     >
                                       {pendingFile.name} ·{" "}
-                                      {formatSize(pendingFile.size)} · attached, not yet submitted
+                                      {formatSize(pendingFile.size)}
                                     </p>
                                   ) : null}
                                 </div>
                               </div>
 
                               <div className="space-y-3">
-                                {status !== "Not Uploaded" && status !== "Uploaded" ? (
+                                {status !== "Not Uploaded" && status !== "Uploaded" && status !== "Pending Upload" ? (
                                   <span
                                     className={cn(
                                       "inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold",

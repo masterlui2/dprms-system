@@ -26,9 +26,10 @@ import {
   getDocuments,
   type DocumentaryRequirement,
 } from '../../services/documentStore'
-import { getApplications } from '../../services/applicationStore'
+import { getApplications, syncUserApplicationsFromBackend } from '../../services/applicationStore'
 import { getGiaProposal } from '../../services/giaProposalStore'
 import { getSetupDraft } from '../../services/setupProposalStore'
+import type { ApplicationRecord } from '../../types/application'
 
 type TabType = 'overview' | 'monitoring' | 'equipment' | 'repayment' | 'notifications'
 
@@ -36,7 +37,16 @@ export function ProponentDashboard() {
   const location = useLocation()
   const user = getMockUser()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
-  const allApplications = getApplications()
+  const [allApplications, setAllApplications] = useState<ApplicationRecord[]>(() => getApplications())
+
+  useEffect(() => {
+    if (!user) return
+    syncUserApplicationsFromBackend(user).then((apps) => {
+      if (apps.length > 0) {
+        setAllApplications(apps)
+      }
+    })
+  }, [user?.id, user?.email])
 
   const userProgram = user?.program ?? 'SETUP'
 
@@ -59,8 +69,7 @@ export function ProponentDashboard() {
   const application =
     programApp ??
     userApplications[0] ??
-    allApplications.find((app) => app.program === userProgram) ??
-    allApplications[0]
+    null
 
   const documents = application ? getDocuments(application.referenceNo) : {}
   const giaProposal = application?.program === 'GIA' ? getGiaProposal(application?.referenceNo ?? '') : null

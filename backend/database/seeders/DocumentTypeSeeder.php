@@ -246,8 +246,16 @@ class DocumentTypeSeeder extends Seeder
                 'applicable_program' => 'BOTH',
             ]),
 
-            // SET2 — internal
-            $this->doc(['name' => 'Omnibus Affidavit', 'set_number' => 'SET2', 'applicable_program' => 'BOTH', 'is_applicant_visible' => false]),
+            $this->doc([
+                'name' => 'Omnibus Affidavit',
+                'group' => 'Additional Documents',
+                'description' => 'Notarized Omnibus Affidavit declaring non-agent status, no bad debt, no previous DOST accountabilities, and truthfulness of AFR information.',
+                'instructions' => 'Omnibus affidavit stating the following: 1) None of its organizers, directors or officials is an agent..., 2) No bad debt, 3) No previous accountabilities with DOST, 4) Information in AFR are true & correct, 5) Truthfulness of above stated facts.',
+                'set_number' => 'SET1',
+                'applicable_program' => 'BOTH',
+                'is_applicant_visible' => true,
+                'is_required' => true,
+            ]),
             $this->doc(['name' => 'TNA Form 4', 'set_number' => 'SET2', 'applicable_program' => 'SETUP', 'is_applicant_visible' => false]),
 
             // ---------------------------------------------------------

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { initialProposalFormData } from '../data/proposal'
-import { submitProposal } from '../services/proposalService'
+import { submitProposal } from '../services/proposalStore'
 import type { ApplicationRecord } from '../types/application'
 import type {
   ProposalDocumentKey,

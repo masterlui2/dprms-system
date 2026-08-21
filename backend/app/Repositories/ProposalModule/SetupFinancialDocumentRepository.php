@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Collection;
 use Override;
 
 class SetupFinancialDocumentRepository extends BaseRepository implements SetupFinancialDocumentRepositoryInterface{
-    #[Override]
     public function __construct(SetupFinancialDocuments $model)
     {
         parent::__construct($model);

@@ -36,6 +36,7 @@ class AuthService implements AuthServiceInterface
 
         return [
             'user' => [
+                'id' => $user->id,
                 'email' => $user->email,
                 'name' => $user->name,
                 'role' => $primaryRole?->code ?? 'proponent',
@@ -54,7 +55,7 @@ class AuthService implements AuthServiceInterface
     }
 
     #[Override]
-    public function register(array $data): User
+    public function register(array $data): array
     {
         $role = $data['role'];
         unset($data['role']);
@@ -67,7 +68,7 @@ class AuthService implements AuthServiceInterface
             ]);
         }
 
-        return DB::transaction(function () use ($data, $roleId) {
+        return DB::transaction(function () use ($data, $roleId, $role) {
             $user = $this->userRepository->create($data);
 
             $user->role()->syncWithoutDetaching([
@@ -76,7 +77,17 @@ class AuthService implements AuthServiceInterface
                 ],
             ]);
 
-            return $user;
+            $token = $user->createToken('api-token')->plainTextToken;
+
+            return [
+                'user' => [
+                    'id' => $user->id,
+                    'email' => $user->email,
+                    'name' => $user->name,
+                    'role' => $role,
+                ],
+                'token' => $token,
+            ];
         });
     }
 }

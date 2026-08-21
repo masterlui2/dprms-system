@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Collection;
 use Override;
 
 class DocumentsRepository extends BaseRepository implements DocumentsRepositoryInterface{
-    #[Override]
     public function __construct(ModelsDocument $model)
     {
         parent::__construct($model);

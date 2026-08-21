@@ -159,20 +159,13 @@ export async function submitGiaProposal(
     formData.append(`documents[${index}][file]`, file)
   })
 
-  let result: { proposal: { id: number; reference_number: string }; documents: DocumentApiRecord[] } | null = null
-  try {
-    const response = await api.post<GiaProposalSubmitResponse>('/proposal/gia', formData, {
-      headers: { 'Content-Type': undefined },
-    })
-    result = response.data.data
-  } catch (error) {
-    console.warn('Backend GIA proposal submission failed, falling back to local submission:', error)
-  }
+  const response = await api.post<GiaProposalSubmitResponse>('/proposal/gia', formData, {
+    headers: { 'Content-Type': undefined },
+  })
+  const result = response.data.data
 
-  const referenceNo =
-    result?.proposal?.reference_number ??
-    `GIA-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-  const proposalId = result?.proposal?.id
+  const referenceNo = result.proposal.reference_number
+  const proposalId = result.proposal.id
 
   const currentUser = getMockUser()
   const application: ApplicationRecord = {
@@ -194,7 +187,7 @@ export async function submitGiaProposal(
     setMockUser({ ...currentUser, applicationReference: referenceNo })
   }
   clearGiaDraft()
-  return { application, documents: result?.documents ?? [] }
+  return { application, documents: result.documents ?? [] }
 }
 
 interface GiaProposalIdLookupResponse {

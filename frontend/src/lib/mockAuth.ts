@@ -5,6 +5,7 @@ export type { UserRole } from '../config/permissions'
 export { ROLE_LABEL } from '../config/permissions'
 
 export type MockUser = {
+  id?: number;
   applicationReference?: string;
   email: string;
   initials: string;

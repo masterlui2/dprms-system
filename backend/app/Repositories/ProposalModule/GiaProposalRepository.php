@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class GiaProposalRepository extends BaseRepository implements GiaProposalRepositoryInterface{
-    #[Override]
     public function __construct(GiaProposal $model)
     {
         parent::__construct($model);

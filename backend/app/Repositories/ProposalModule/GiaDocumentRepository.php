@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class GiaDocumentRepository extends BaseRepository implements GiaDocumentRepositoryInterface{
-    #[Override]
     public function __construct(GiaDocument $model)
     {
         parent::__construct($model);
