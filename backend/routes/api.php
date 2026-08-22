@@ -32,11 +32,17 @@ Route::middleware('auth:sanctum')->prefix('proposal')->group(function (){
     Route::post('/setup', [SetupProposalSubmissionController::class, 'store']);
     Route::post('/gia',[GiaProposalSubmissionController::class,'store']);
     Route::post('/submit',[ProposalController::class, 'submit']);
-    Route::put('/advance-stage/{id}',[ProposalController::class,'advanceStage']);
-    Route::put('/{id}/approve',[ProposalController::class,'approve']);
-    Route::put('/{id}/disapprove',[ProposalController::class,'disapprove']);
+    Route::put('/advance-stage/{id}',[ProposalController::class,'advanceStage'])
+        ->middleware('role:PROJECT_STAFF,FOCAL');
+    Route::put('/{id}/approve',[ProposalController::class,'approve'])
+        ->middleware('role:PROVINCIAL_DIRECTOR');
+    Route::put('/{id}/disapprove',[ProposalController::class,'disapprove'])
+        ->middleware('role:PROVINCIAL_DIRECTOR');
     Route::get('/reference-number/{referenceNumber}',[ProposalController::class, 'getByReferenceNumber']);
     Route::get('/submitter/{userId}',[ProposalController::class, 'getSubmitterProposals']);
+    Route::put('/{proposal}/resubmit',[ProposalController::class, 'resubmit']);
+    Route::put('/{proposal}/return-for-revision',[ProposalController::class, 'returnForRevision'])
+        ->middleware('role:FOCAL');
 });
 
 Route::middleware('auth:sanctum')->group(function () {
@@ -51,6 +57,8 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('documents')->group(function (){
     Route::get('/{proposalId}/proposal-documents', [DocumentController::class, 'index']);
     Route::get('/{documentId}/view-staff', [DocumentController::class, 'showForStaff']);
+    Route::put('/{document}/review', [DocumentController::class, 'review'])
+        ->middleware('role:FOCAL');
 });
 
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal')->group(function (){

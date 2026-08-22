@@ -22,6 +22,7 @@ export interface ApplicationRecord {
   program: ApplicationProgram
   projectTitle: string
   referenceNo: string
+  remarks?: string | null
   status:
     | 'Submitted'
     | 'Draft Submitted'

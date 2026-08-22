@@ -48,7 +48,7 @@ export interface DocumentTypeRecord {
   description: string | null
   instructions: string | null
   template_url: string | null
-  set_number: 'PROPOSAL' | 'SET1' | 'SET2' | 'SET3'
+  set_number: 'PROPOSAL' | 'SET1' | 'SET2' | 'SET3' | 'GIA1'
   applicable_program: 'SETUP' | 'GIA' | 'BOTH'
   applicable_business_types: string[] | null
   applicable_business_sizes: string[] | null
@@ -66,6 +66,8 @@ export async function getDocumentTypes(params: {
   businessType?: string
   businessSize?: string
   giaCategory?: string
+  setNumber?: DocumentTypeRecord['set_number']
+  visibility?: 'applicant' | 'internal'
 }): Promise<DocumentTypeRecord[]> {
   const response = await api.get<DocumentTypeIndexResponse>('/document-types', {
     params: {
@@ -73,6 +75,8 @@ export async function getDocumentTypes(params: {
       business_type: params.businessType,
       business_size: params.businessSize,
       gia_category: params.giaCategory,
+      set_number: params.setNumber,
+      visibility: params.visibility,
     },
   })
   return response.data.data

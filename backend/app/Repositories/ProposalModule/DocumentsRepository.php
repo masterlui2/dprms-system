@@ -21,6 +21,15 @@ class DocumentsRepository extends BaseRepository implements DocumentsRepositoryI
     }
 
     #[Override]
+    public function findByProposalAndDocumentType(int $proposalId, int $documentTypeId): ?ModelsDocument
+    {
+        return $this->model->newQuery()
+            ->where('proposal_id', $proposalId)
+            ->where('document_type_id', $documentTypeId)
+            ->first();
+    }
+
+    #[Override]
     public function findByProposalId(int $proposalId): Collection
     {
         return $this->model->newQuery()->with('document_type')->where("proposal_id",$proposalId)->get();

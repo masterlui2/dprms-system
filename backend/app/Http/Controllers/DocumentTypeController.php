@@ -12,6 +12,7 @@ class DocumentTypeController extends Controller
     {
         $validated = $request->validate([
             'program' => ['required', Rule::in(['SETUP', 'GIA'])],
+            'visibility' => ['nullable', Rule::in(['applicant', 'internal'])],
             'set_number' => ['nullable', Rule::in(['PROPOSAL', 'SET1', 'SET2', 'SET3', 'GIA1'])],
             'business_type' => ['nullable', Rule::in([
                 'SOLE-PROPRIETORSHIP', 'PARTNERSHIP', 'CORPORATION', 'COOPERATIVE',
@@ -23,12 +24,23 @@ class DocumentTypeController extends Controller
         ]);
 
         $program = $validated['program'];
+        $visibility = $validated['visibility'] ?? 'applicant';
         $setNumber = $validated['set_number'] ?? null;
         $businessType = $validated['business_type'] ?? null;
         $businessSize = $validated['business_size'] ?? null;
         $giaCategory = $validated['gia_category'] ?? null;
 
-        $query = DocumentType::query()->where('is_applicant_visible', true);
+        if ($visibility === 'internal') {
+            abort_unless(
+                $request->user()?->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR']),
+                403,
+            );
+        }
+
+        $query = DocumentType::query()->where(
+            'is_applicant_visible',
+            $visibility === 'applicant',
+        );
 
         // program is required, so this is always applied (no more silent
         // SETUP+GIA merge when the param is omitted)

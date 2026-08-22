@@ -10,17 +10,17 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { ROLE_LABEL } from "../../../config/permissions";
+import { ROLE_LABEL, ROLES } from "../../../config/permissions";
 import type { ProposalRecord } from "../../../data/admin";
 import { getMockUser } from "../../../lib/mockAuth";
 import { updateApplicationStatus } from "../../../services/applicationStore";
+import {
+  applyProposalDecision,
+  type ProposalDecision,
+} from "../../../services/proposalStore";
 import { cn } from "../../../utils/cn";
 
-type DecisionType =
-  | "endorse"
-  | "return_revision"
-  | "disapprove"
-  | "note_only";
+export type DecisionType = ProposalDecision | "note_only";
 
 interface ReviewComment {
   id: string;
@@ -69,6 +69,14 @@ const decisionOptions: Array<{
   tone: "success" | "warning" | "danger" | "neutral";
 }> = [
   {
+    description: "Issue the Provincial Director's final approval and activate the project workflow.",
+    icon: CheckCircle2,
+    id: "approve",
+    label: "Approve Application",
+    newStatus: "Approved",
+    tone: "success",
+  },
+  {
     description: "Documents complete and verified. Forward for Provincial Director executive approval.",
     icon: CheckCircle2,
     id: "endorse",
@@ -101,12 +109,30 @@ const decisionOptions: Array<{
   },
 ];
 
+function getAllowedDecisions(role?: string): DecisionType[] {
+  if (role === ROLES.FOCAL) {
+    return ["endorse", "return_revision", "note_only"];
+  }
+
+  if (role === ROLES.PROVINCIAL_DIRECTOR) {
+    return ["approve", "disapprove", "note_only"];
+  }
+
+  if (role === ROLES.PROJECT_STAFF) {
+    return ["note_only"];
+  }
+
+  return [];
+}
+
 export function ProposalCommentsSection({
   onDecisionApplied,
   proposal,
+  requestedDecision,
 }: {
-  onDecisionApplied?: (newStatus: string) => void;
+  onDecisionApplied?: (newStatus: string, remarks?: string) => void;
   proposal?: ProposalRecord;
+  requestedDecision?: { id: number; type: DecisionType } | null;
 }) {
   const currentUser = getMockUser();
   const [comments, setComments] = useState<ReviewComment[]>(() =>
@@ -116,18 +142,61 @@ export function ProposalCommentsSection({
   const [selectedFinding, setSelectedFinding] = useState("");
   const [newNote, setNewNote] = useState("");
   const [submitNotice, setSubmitNotice] = useState<string | null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const allowedDecisions = getAllowedDecisions(currentUser?.role);
+  const visibleDecisionOptions = decisionOptions.filter((option) =>
+    allowedDecisions.includes(option.id),
+  );
 
   useEffect(() => {
     setComments(readReviewLogs(proposal?.id));
   }, [proposal?.id]);
 
-  function handleAddComment() {
+  useEffect(() => {
+    if (
+      requestedDecision &&
+      getAllowedDecisions(currentUser?.role).includes(requestedDecision.type)
+    ) {
+      setSelectedDecision(requestedDecision.type);
+    }
+  }, [currentUser?.role, requestedDecision]);
+
+  async function handleAddComment() {
     if (!newNote.trim() && !selectedFinding && selectedDecision === "note_only") return;
 
     const chosen = decisionOptions.find((d) => d.id === selectedDecision);
-    if (proposal && chosen?.newStatus) {
-      updateApplicationStatus(proposal.id, chosen.newStatus as any);
-      onDecisionApplied?.(chosen.newStatus);
+    const remarks = [selectedFinding, newNote.trim()].filter(Boolean).join("\n");
+
+    setSubmitError(null);
+    setIsSubmitting(true);
+
+    try {
+      if (proposal && chosen?.newStatus && selectedDecision !== "note_only") {
+        if (!proposal.proposalId) {
+          throw new Error("This application is not linked to a server proposal.");
+        }
+
+        const savedStatus = await applyProposalDecision({
+          decision: selectedDecision,
+          proposalId: proposal.proposalId,
+          remarks,
+        });
+
+        updateApplicationStatus(proposal.id, savedStatus);
+        onDecisionApplied?.(savedStatus, remarks);
+      }
+    } catch (error) {
+      console.error("Failed to apply proposal decision:", error);
+      const serverMessage = (
+        error as { response?: { data?: { message?: string } } }
+      ).response?.data?.message;
+      setSubmitError(
+        serverMessage || "The decision could not be saved. Please try again.",
+      );
+      setIsSubmitting(false);
+      return;
     }
 
     const now = new Date();
@@ -161,6 +230,7 @@ export function ProposalCommentsSection({
       setSubmitNotice(`Decision recorded: Status updated to "${chosen.newStatus}"`);
       setTimeout(() => setSubmitNotice(null), 5000);
     }
+    setIsSubmitting(false);
   }
 
   return (
@@ -182,6 +252,11 @@ export function ProposalCommentsSection({
               {submitNotice}
             </span>
           )}
+          {submitError ? (
+            <span className="text-xs font-bold text-rose-700" role="alert">
+              {submitError}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -250,6 +325,7 @@ export function ProposalCommentsSection({
         </div>
 
         {/* Review Decision & Remarks Form */}
+        {visibleDecisionOptions.length > 0 ? (
         <div className="flex flex-col justify-between p-3.5 bg-slate-50/40">
           <div className="space-y-3">
             {/* Step 1: Decision Action */}
@@ -258,7 +334,7 @@ export function ProposalCommentsSection({
                 1. Review Action / Decision
               </label>
               <div className="space-y-1.5">
-                {decisionOptions.map((option) => {
+                {visibleDecisionOptions.map((option) => {
                   const isSelected = selectedDecision === option.id;
                   const Icon = option.icon;
 
@@ -363,12 +439,21 @@ export function ProposalCommentsSection({
                     ? "bg-rose-600 hover:bg-rose-700"
                     : "bg-[#0f53b7] hover:bg-[#0b3f8b]",
             )}
-            disabled={!newNote.trim() && !selectedFinding && selectedDecision === "note_only"}
+            disabled={
+              isSubmitting ||
+              (!newNote.trim() && !selectedFinding && selectedDecision === "note_only") ||
+              (selectedDecision === "return_revision" && !newNote.trim() && !selectedFinding) ||
+              (selectedDecision === "disapprove" && !newNote.trim() && !selectedFinding)
+            }
             onClick={handleAddComment}
             type="button"
           >
             <Send className="size-3.5" />
-            {selectedDecision === "endorse"
+            {isSubmitting
+              ? "Saving decision..."
+              : selectedDecision === "approve"
+                ? "Confirm Approval"
+                : selectedDecision === "endorse"
               ? "Endorse Application"
               : selectedDecision === "return_revision"
                 ? "Return to Applicant for Revision"
@@ -377,6 +462,17 @@ export function ProposalCommentsSection({
                   : "Post Review Note"}
           </button>
         </div>
+        ) : (
+          <div className="flex min-h-[360px] flex-col items-center justify-center bg-slate-50/40 p-8 text-center">
+            <span className="grid size-11 place-items-center rounded-xl bg-slate-100 text-slate-500">
+              <UserRound className="size-5" />
+            </span>
+            <p className="mt-3 text-sm font-bold text-slate-800">Read-only review trail</p>
+            <p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">
+              Your role can view the review history but cannot submit an application decision.
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

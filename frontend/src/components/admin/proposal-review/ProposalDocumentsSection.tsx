@@ -9,9 +9,12 @@ import {
   XCircle,
 } from "lucide-react";
 
+import { ROLES } from "../../../config/permissions";
+import { getMockUser } from "../../../lib/mockAuth";
 import { cn } from "../../../utils/cn";
 import {
   fetchProposalDocumentsForStaff,
+  reviewProposalDocument,
   viewDocumentBlobForStaff,
   type DocumentApiRecord,
 } from "../../../services/documentStore";
@@ -38,6 +41,8 @@ function formatUpdated(isoDate: string): string {
 export function ProposalDocumentsSection({
   proposalId,
 }: ProposalDocumentsSectionProps) {
+  const currentUser = getMockUser();
+  const canReview = currentUser?.role === ROLES.FOCAL;
   const [documents, setDocuments] = useState<DocumentApiRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +57,8 @@ export function ProposalDocumentsSection({
   // Tracks in-flight view/download requests per document id
   const [pendingAction, setPendingAction] = useState<{ id: number; type: "view" | "download" } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [reviewRemarks, setReviewRemarks] = useState("");
+  const [reviewing, setReviewing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -127,7 +134,11 @@ export function ProposalDocumentsSection({
     return () => {
       cancelled = true;
     };
-  }, [selectedDocument?.id]);
+  }, [selectedDocument]);
+
+  useEffect(() => {
+    setReviewRemarks(selectedDocument?.remarks ?? "");
+  }, [selectedDocument]);
 
   async function handleView(document: DocumentApiRecord) {
     setActionError(null);
@@ -163,11 +174,34 @@ export function ProposalDocumentsSection({
     }
   }
 
-  function toggleVerification(docId: number, status: "approved" | "returned_for_revision" | "pending") {
-    setVerifiedMap((prev) => ({
-      ...prev,
-      [docId]: prev[docId] === status ? "pending" : status,
-    }));
+  async function saveReview(status: "approved" | "returned_for_revision") {
+    if (!selectedDocument || !canReview) return;
+    if (status === "returned_for_revision" && !reviewRemarks.trim()) {
+      setActionError("Add clear revision instructions before flagging this document.");
+      return;
+    }
+
+    setReviewing(true);
+    setActionError(null);
+    try {
+      const updated = await reviewProposalDocument(
+        selectedDocument.id,
+        status,
+        reviewRemarks,
+      );
+      setDocuments((current) =>
+        current.map((document) =>
+          document.id === updated.id ? updated : document,
+        ),
+      );
+      setSelectedDocument(updated);
+      setVerifiedMap((current) => ({ ...current, [updated.id]: updated.status }));
+    } catch (error) {
+      console.error("Failed to save document review:", error);
+      setActionError("The document review could not be saved. Please try again.");
+    } finally {
+      setReviewing(false);
+    }
   }
 
   const verifiedCount = useMemo(() => {
@@ -370,35 +404,37 @@ export function ProposalDocumentsSection({
 
               {/* Action Buttons: Verification & Download */}
               <div className="flex items-center gap-1.5">
-                <button
+                {canReview ? <button
                   className={cn(
                     "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold shadow-2xs transition",
                     selectedDocStatus === "approved"
                       ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-bold"
                       : "border-slate-300 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800",
                   )}
-                  onClick={() => toggleVerification(selectedDocument.id, "approved")}
+                  disabled={reviewing}
+                  onClick={() => void saveReview("approved")}
                   type="button"
                 >
                   <Check className="size-3.5 text-emerald-600" />
                   <span>{selectedDocStatus === "approved" ? "Verified" : "Mark Verified"}</span>
-                </button>
+                </button> : null}
 
-                <button
+                {canReview ? <button
                   className={cn(
                     "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold shadow-2xs transition",
                     selectedDocStatus === "returned_for_revision"
                       ? "border-rose-500 bg-rose-50 text-rose-800 font-bold"
                       : "border-slate-300 bg-white text-slate-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-800",
                   )}
-                  onClick={() => toggleVerification(selectedDocument.id, "returned_for_revision")}
+                  disabled={reviewing}
+                  onClick={() => void saveReview("returned_for_revision")}
                   type="button"
                 >
                   <XCircle className="size-3.5 text-rose-600" />
                   <span>{selectedDocStatus === "returned_for_revision" ? "Flagged" : "Flag"}</span>
-                </button>
+                </button> : null}
 
-                <div className="h-4 w-px bg-slate-200 mx-0.5" />
+                {canReview ? <div className="mx-0.5 h-4 w-px bg-slate-200" /> : null}
 
                 <button
                   className="inline-flex size-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition disabled:opacity-50"
@@ -428,6 +464,28 @@ export function ProposalDocumentsSection({
                 </button>
               </div>
             </div>
+
+            {canReview ? (
+              <div className="border-b border-slate-200 bg-slate-50/70 px-3.5 py-2.5">
+                <label
+                  className="text-[11px] font-bold text-slate-700"
+                  htmlFor={`document-review-remarks-${selectedDocument.id}`}
+                >
+                  Revision instructions
+                </label>
+                <textarea
+                  className="mt-1 min-h-16 w-full resize-none rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 outline-none focus:border-[#0f53b7] focus:ring-2 focus:ring-blue-100"
+                  id={`document-review-remarks-${selectedDocument.id}`}
+                  onChange={(event) => setReviewRemarks(event.target.value)}
+                  placeholder="Explain exactly what the proponent must correct in this file..."
+                  value={reviewRemarks}
+                />
+              </div>
+            ) : selectedDocument.remarks ? (
+              <div className="border-b border-rose-100 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
+                <span className="font-bold">Review remarks:</span> {selectedDocument.remarks}
+              </div>
+            ) : null}
 
             {actionError ? (
               <div className="border-b border-red-100 bg-red-50 px-3.5 py-1.5 text-xs text-red-700 font-medium">

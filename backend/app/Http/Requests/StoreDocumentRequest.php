@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Models\DocumentType;
+use App\Models\Document;
+use App\Models\Proposal;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -12,7 +15,34 @@ class StoreDocumentRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return true;
+        $documentType = DocumentType::query()->find($this->input('document_type_id'));
+
+        if (! $documentType) {
+            return true;
+        }
+
+        if (! $documentType->is_applicant_visible) {
+            return $this->user()?->hasRole('PROJECT_STAFF') ?? false;
+        }
+
+        $proposal = Proposal::query()->find($this->input('proposal_id'));
+        if (! $proposal) {
+            return true;
+        }
+
+        if ($proposal->submitted_by !== $this->user()?->id) {
+            return false;
+        }
+
+        if ($proposal->status !== 'RETURNED') {
+            return true;
+        }
+
+        return Document::query()
+            ->where('proposal_id', $proposal->id)
+            ->where('document_type_id', $documentType->id)
+            ->where('status', 'returned_for_revision')
+            ->exists();
     }
 
     /**

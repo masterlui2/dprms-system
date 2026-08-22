@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 interface DocumentsRepositoryInterface extends BaseRepositoryInterface{
     public function findByProposalId(int $proposalId): Collection;
     public function findByDocumentTypeId(int $documentTypeId): Collection;
+    public function findByProposalAndDocumentType(int $proposalId, int $documentTypeId): ?Document;
     public function findForOwner(int $userId, array $filters): Collection;
     public function findOneForOwner(int $documentId, int $userId): ?Document;
 }
