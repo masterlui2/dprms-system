@@ -17,7 +17,16 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     #[Override]
     public function findByReferenceNumber(string $referenceNumber): ?Proposal
     {
-        return $this->model->newQuery()->where("reference_number",$referenceNumber)->first();
+        return $this->model->newQuery()
+            ->with([
+                'user:id,name,email',
+                'focal:id,name,email',
+                'reviewed:id,name,email',
+                'setup_proposal',
+                'gia_proposal',
+            ])
+            ->where('reference_number', $referenceNumber)
+            ->first();
     }
 
     #[Override]

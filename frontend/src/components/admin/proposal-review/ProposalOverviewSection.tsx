@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   BadgeCheck,
   Briefcase,
   Building2,
@@ -12,6 +13,7 @@ import {
   MapPin,
   Package,
   Phone,
+  RefreshCw,
   ShieldCheck,
   Target,
   User,
@@ -21,83 +23,181 @@ import {
 import { useEffect, useState } from "react";
 
 import type { ProposalRecord } from "../../../data/admin";
-import { getApplicationByReference } from "../../../services/applicationStore";
 import {
-  getSetupDraft,
-  getSetupProposal,
-  getSetupProposalSnapshot,
-} from "../../../services/setupProposalStore";
-import type { SetupProposalData } from "../../../types/setupProposal";
-import { getProponentDetails } from "./proponentDetails";
+  fetchProposalOverview,
+  type ProposalOverviewData,
+} from "../../../services/proposalOverviewStore";
 
 interface ProposalOverviewSectionProps {
   onReviewFiles?: () => void;
   proposal: ProposalRecord;
 }
 
+function ProposalOverviewSkeleton() {
+  return (
+    <div
+      aria-label="Loading proposal overview"
+      className="animate-pulse space-y-3"
+      role="status"
+    >
+      <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <div className="h-4 w-56 rounded bg-slate-200" />
+        <div className="h-8 w-40 rounded-lg bg-slate-100" />
+      </div>
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            className="h-16 rounded-xl border border-slate-200 bg-white p-3"
+            key={index}
+          >
+            <div className="h-3 w-20 rounded bg-slate-100" />
+            <div className="mt-2 h-4 w-28 rounded bg-slate-200" />
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {Array.from({ length: 2 }).map((_, column) => (
+          <div
+            className="space-y-3 rounded-xl border border-slate-200 bg-white p-4"
+            key={column}
+          >
+            <div className="h-5 w-44 rounded bg-slate-200" />
+            {Array.from({ length: 6 }).map((__, row) => (
+              <div className="space-y-2" key={row}>
+                <div className="h-3 w-28 rounded bg-slate-100" />
+                <div className="h-4 w-full rounded bg-slate-200" />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <span className="sr-only">Loading proposal details from the server.</span>
+    </div>
+  );
+}
+
 export function ProposalOverviewSection({
   proposal,
 }: ProposalOverviewSectionProps) {
-  const appRecord = getApplicationByReference(proposal.id);
-  const proponent = getProponentDetails(proposal);
   const [showGuidelinesTooltip, setShowGuidelinesTooltip] = useState(false);
-  const [setupData, setSetupData] = useState<Partial<SetupProposalData> | null>(null);
+  const [overview, setOverview] = useState<ProposalOverviewData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const isSetup = proposal.program === "SETUP";
 
   useEffect(() => {
-    let isMounted = true;
-    if (isSetup) {
-      // 1. Try to load from saved submission snapshot
-      const snapshot = getSetupProposalSnapshot(proposal.id);
-      if (snapshot) {
-        setSetupData(snapshot);
-      } else {
-        // 2. Try draft if active
-        const draft = getSetupDraft();
-        if (draft && (draft.projectTitle || draft.businessName)) {
-          setSetupData(draft);
-        }
-      }
+    let cancelled = false;
+    setIsLoading(true);
+    setLoadError(null);
+    setOverview(null);
 
-      // 3. Query backend proposal data
-      getSetupProposal(proposal.id).then((fetched) => {
-        if (isMounted && fetched) {
-          setSetupData((prev) => ({ ...prev, ...fetched }));
+    fetchProposalOverview(proposal.id)
+      .then((data) => {
+        if (!cancelled) setOverview(data);
+      })
+      .catch((error) => {
+        console.error("Failed to load proposal overview:", error);
+        if (!cancelled) {
+          const serverMessage = (
+            error as { response?: { data?: { message?: string } } }
+          ).response?.data?.message;
+          setLoadError(
+            serverMessage ||
+              "The proposal details could not be loaded from the server.",
+          );
         }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
       });
-    }
+
     return () => {
-      isMounted = false;
+      cancelled = true;
     };
-  }, [proposal.id, isSetup]);
+  }, [proposal.id, loadAttempt]);
 
-  // Exact 1. Project Information Fields (from application submission)
-  const projectTitle = setupData?.projectTitle || appRecord?.projectTitle || proposal.title || "—";
-  const generalObjective = setupData?.generalObjective || "—";
-  const specificObjectives = setupData?.specificObjectives || "—";
-  const projectBackground = setupData?.projectBackground || "—";
+  if (isLoading) return <ProposalOverviewSkeleton />;
 
-  // Exact 2. Company Profile Fields (from application submission)
-  const nameOfFirm = setupData?.businessName || appRecord?.organizationName || proposal.organization || "—";
-  const firmAddress = setupData?.businessAddress || setupData?.plantLocation || proponent.address || "—";
-  const contactPerson = setupData?.contactPerson || appRecord?.applicantName || proponent.contactPerson || "—";
-  const contactNo = setupData?.contactNumber || proponent.mobile || "—";
-  const emailAddress = setupData?.emailAddress || appRecord?.contactEmail || proponent.email || "—";
-  const yearEstablished = setupData?.yearEstablished || "—";
-  const typeOfOrganization = setupData?.organizationType || proponent.organizationType || "—";
-  const businessSize = setupData?.businessSize || (isSetup ? "MSME Beneficiary" : "Academic / Institutional");
-  const numberOfEmployees = setupData?.numberOfEmployees || "—";
-  const businessActivities = setupData?.businessIndustry || (isSetup ? "Priority S&T Sector" : "Research & Development");
-  const productsServices = setupData?.productsServices || "—";
-  const enterpriseBackground = setupData?.enterpriseBackground || "—";
+  if (loadError || !overview) {
+    return (
+      <div
+        className="grid min-h-[360px] place-items-center rounded-xl border border-rose-100 bg-white p-8 text-center shadow-2xs"
+        role="alert"
+      >
+        <div className="max-w-md">
+          <span className="mx-auto grid size-11 place-items-center rounded-full bg-rose-50 text-rose-600">
+            <AlertCircle className="size-5" />
+          </span>
+          <h3 className="mt-3 text-sm font-black text-slate-900">
+            Unable to load proposal overview
+          </h3>
+          <p className="mt-1.5 text-xs leading-5 text-slate-600">
+            {loadError || "The server returned no proposal details."}
+          </p>
+          <button
+            className="mx-auto mt-4 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
+            onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+            type="button"
+          >
+            <RefreshCw className="size-3.5" />
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const loadedOverview = overview;
+  const emptyValue = "—";
+  const projectTitle = overview.projectTitle || emptyValue;
+  const generalObjective = overview.generalObjective || emptyValue;
+  const specificObjectives = overview.specificObjectives || emptyValue;
+  const projectBackground = overview.projectBackground || emptyValue;
+  const nameOfFirm = overview.organizationName || emptyValue;
+  const firmAddress = overview.address || emptyValue;
+  const contactPerson = overview.contactPerson || emptyValue;
+  const contactNo = overview.contactNumber || emptyValue;
+  const emailAddress = overview.emailAddress || emptyValue;
+  const yearEstablished = isSetup
+    ? overview.yearEstablished || emptyValue
+    : overview.siteOfImplementation || emptyValue;
+  const typeOfOrganization = isSetup
+    ? overview.organizationType || emptyValue
+    : overview.proponentCategory || emptyValue;
+  const businessSize = isSetup
+    ? overview.businessSize || emptyValue
+    : overview.projectCategory || emptyValue;
+  const numberOfEmployees = isSetup
+    ? overview.numberOfEmployees || emptyValue
+    : overview.position || emptyValue;
+  const businessActivities = isSetup
+    ? overview.businessIndustry || emptyValue
+    : overview.projectType || emptyValue;
+  const productsServices = isSetup
+    ? overview.productsServices || emptyValue
+    : overview.expectedOutputs || emptyValue;
+  const enterpriseBackground = isSetup
+    ? overview.enterpriseBackground || emptyValue
+    : overview.projectSummary || emptyValue;
+  const assignedOfficer = overview.assignedOfficer || "Not assigned";
+  const statusLabel = overview.status
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+  const submittedDate = new Date(overview.submittedAt).toLocaleDateString(
+    "en-US",
+    { day: "numeric", month: "short", year: "numeric" },
+  );
 
   function handleDownloadProposalForm() {
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>DOST ${proposal.program} Application Details - ${proposal.id}</title>
+          <title>DOST ${loadedOverview.program} Application Details - ${loadedOverview.referenceNo}</title>
           <style>
             body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; font-size: 13px; }
             .header { text-align: center; border-bottom: 2px solid #0f53b7; padding-bottom: 16px; margin-bottom: 24px; }
@@ -119,8 +219,8 @@ export function ProposalOverviewSection({
         <body>
           <div class="header">
             <h2>DEPARTMENT OF SCIENCE AND TECHNOLOGY · REGION XI</h2>
-            <h1>${proposal.program} Application Details</h1>
-            <div class="badge">Reference ID: ${proposal.id}</div>
+            <h1>${loadedOverview.program} Application Details</h1>
+            <div class="badge">Reference ID: ${loadedOverview.referenceNo}</div>
           </div>
 
           <div class="section">
@@ -144,9 +244,9 @@ export function ProposalOverviewSection({
           </div>
 
           <div class="section">
-            <div class="section-title">2. Company Profile</div>
+            <div class="section-title">2. ${isSetup ? "Company Profile" : "Proponent Profile"}</div>
             <div class="grid">
-              <div class="label">Name of Firm:</div>
+              <div class="label">${isSetup ? "Name of Firm" : "Organization"}:</div>
               <div class="value">${nameOfFirm}</div>
               <div class="label">Address:</div>
               <div class="value">${firmAddress}</div>
@@ -156,27 +256,27 @@ export function ProposalOverviewSection({
               <div class="value">${contactNo}</div>
               <div class="label">E-mail Address:</div>
               <div class="value">${emailAddress}</div>
-              <div class="label">Year Established:</div>
+              <div class="label">${isSetup ? "Year Established" : "Implementation Site"}:</div>
               <div class="value">${yearEstablished}</div>
-              <div class="label">Type of Organization:</div>
+              <div class="label">${isSetup ? "Type of Organization" : "Proponent Category"}:</div>
               <div class="value">${typeOfOrganization}</div>
-              <div class="label">Business Size:</div>
+              <div class="label">${isSetup ? "Business Size" : "Project Category"}:</div>
               <div class="value">${businessSize}</div>
-              <div class="label">Number of Employees:</div>
+              <div class="label">${isSetup ? "Number of Employees" : "Leader Position"}:</div>
               <div class="value">${numberOfEmployees}</div>
-              <div class="label">Business Activities:</div>
+              <div class="label">${isSetup ? "Business Activities" : "Project Type"}:</div>
               <div class="value">${businessActivities}</div>
-              <div class="label">Products / Services:</div>
+              <div class="label">${isSetup ? "Products / Services" : "Expected Outputs"}:</div>
               <div class="value">${productsServices}</div>
             </div>
             <div class="box" style="margin-top: 8px;">
-              <strong>Brief Enterprise Background:</strong><br />
+              <strong>${isSetup ? "Brief Enterprise Background" : "Project Summary"}:</strong><br />
               ${enterpriseBackground}
             </div>
           </div>
 
           <div class="section" style="margin-top: 30px; font-size: 11px; color: #94a3b8; text-align: center;">
-            DOST Regional Proposal Application Data · Reference: ${proposal.id} · Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+            DOST Regional Proposal Application Data · Reference: ${loadedOverview.referenceNo} · Generated on ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
           </div>
         </body>
       </html>
@@ -255,7 +355,7 @@ export function ProposalOverviewSection({
           </div>
 
           <span className="rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-[#0f53b7]">
-            Ref: {proposal.id}
+            Ref: {overview.referenceNo}
           </span>
         </div>
 
@@ -279,7 +379,7 @@ export function ProposalOverviewSection({
           </span>
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Date Filed</p>
-            <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{proposal.submitted}</p>
+            <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{submittedDate}</p>
           </div>
         </div>
 
@@ -288,7 +388,9 @@ export function ProposalOverviewSection({
             <Layers className="size-4.5" />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Business Activities</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              {isSetup ? "Business Activities" : "Project Type"}
+            </p>
             <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{businessActivities}</p>
           </div>
         </div>
@@ -298,7 +400,9 @@ export function ProposalOverviewSection({
             <Briefcase className="size-4.5" />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Business Size</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              {isSetup ? "Business Size" : "Project Category"}
+            </p>
             <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{businessSize}</p>
           </div>
         </div>
@@ -309,7 +413,7 @@ export function ProposalOverviewSection({
           </span>
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Assigned Officer</p>
-            <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{proposal.reviewer || "Project Staff"}</p>
+            <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">{assignedOfficer}</p>
           </div>
         </div>
       </div>
@@ -368,20 +472,22 @@ export function ProposalOverviewSection({
             <div className="rounded-lg bg-slate-50 p-2.5 border border-slate-100">
               <p className="flex items-center gap-1 text-xs font-semibold text-slate-400">
                 <Clock className="size-3.5 text-slate-400" />
-                Target Implementation Timeline
+                Current Proposal Status
               </p>
-              <p className="text-xs sm:text-sm font-bold text-slate-800 truncate mt-0.5">12 Months</p>
+              <p className="text-xs sm:text-sm font-bold text-slate-800 truncate mt-0.5">
+                {statusLabel}
+              </p>
             </div>
           </div>
         </section>
 
-        {/* Column 2: 2. Company Profile (6 Cols) */}
+        {/* Column 2: 2. Proponent Profile (6 Cols) */}
         <section className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 sm:p-4.5 shadow-2xs lg:col-span-6">
           <div>
             <div className="flex items-center justify-between border-b border-slate-100 pb-2">
               <h4 className="flex items-center gap-1.5 text-sm sm:text-base font-bold text-[#073b82]">
                 <Building2 className="size-4.5 text-[#0f53b7]" />
-                2. Company Profile
+                2. {isSetup ? "Company Profile" : "Proponent Profile"}
               </h4>
               <span className="rounded bg-blue-50 px-2 py-0.5 text-xs font-bold text-[#0f53b7]">
                 {businessSize}
@@ -392,7 +498,7 @@ export function ProposalOverviewSection({
               <div className="grid grid-cols-[145px_1fr] items-center py-1.5">
                 <dt className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500">
                   <Building2 className="size-4 shrink-0 text-slate-400" />
-                  Name of Firm
+                  {isSetup ? "Name of Firm" : "Organization"}
                 </dt>
                 <dd className="font-bold text-slate-900 truncate">{nameOfFirm}</dd>
               </div>
@@ -432,7 +538,7 @@ export function ProposalOverviewSection({
               <div className="grid grid-cols-[145px_1fr] items-center py-1.5">
                 <dt className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500">
                   <Calendar className="size-4 shrink-0 text-slate-400" />
-                  Year Established
+                  {isSetup ? "Year Established" : "Implementation Site"}
                 </dt>
                 <dd className="font-medium text-slate-800">{yearEstablished}</dd>
               </div>
@@ -440,7 +546,7 @@ export function ProposalOverviewSection({
               <div className="grid grid-cols-[145px_1fr] items-center py-1.5">
                 <dt className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500">
                   <BadgeCheck className="size-4 shrink-0 text-slate-400" />
-                  Type of Organization
+                  {isSetup ? "Type of Organization" : "Proponent Category"}
                 </dt>
                 <dd className="font-medium text-slate-800">{typeOfOrganization}</dd>
               </div>
@@ -448,7 +554,7 @@ export function ProposalOverviewSection({
               <div className="grid grid-cols-[145px_1fr] items-center py-1.5">
                 <dt className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500">
                   <Briefcase className="size-4 shrink-0 text-slate-400" />
-                  Business Size
+                  {isSetup ? "Business Size" : "Project Category"}
                 </dt>
                 <dd className="font-medium text-slate-800">{businessSize}</dd>
               </div>
@@ -456,7 +562,7 @@ export function ProposalOverviewSection({
               <div className="grid grid-cols-[145px_1fr] items-center py-1.5">
                 <dt className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500">
                   <Users className="size-4 shrink-0 text-slate-400" />
-                  Number of Employees
+                  {isSetup ? "Number of Employees" : "Leader Position"}
                 </dt>
                 <dd className="font-medium text-slate-800">{numberOfEmployees}</dd>
               </div>
@@ -464,7 +570,7 @@ export function ProposalOverviewSection({
               <div className="grid grid-cols-[145px_1fr] items-center py-1.5">
                 <dt className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500">
                   <Layers className="size-4 shrink-0 text-slate-400" />
-                  Business Activities
+                  {isSetup ? "Business Activities" : "Project Type"}
                 </dt>
                 <dd className="font-medium text-slate-800 truncate">{businessActivities}</dd>
               </div>
@@ -472,7 +578,7 @@ export function ProposalOverviewSection({
               <div className="grid grid-cols-[145px_1fr] items-center py-1.5">
                 <dt className="flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-500">
                   <Package className="size-4 shrink-0 text-slate-400" />
-                  Products / Services
+                  {isSetup ? "Products / Services" : "Expected Outputs"}
                 </dt>
                 <dd className="font-medium text-slate-800 truncate">{productsServices}</dd>
               </div>
@@ -482,13 +588,15 @@ export function ProposalOverviewSection({
                   <UserCheck className="size-4 shrink-0 text-slate-400" />
                   Assigned Officer
                 </dt>
-                <dd className="font-semibold text-slate-800">{proposal.reviewer || "Project Staff"}</dd>
+                <dd className="font-semibold text-slate-800">{assignedOfficer}</dd>
               </div>
             </dl>
 
             {enterpriseBackground !== "—" && (
               <div className="mt-2.5 rounded-lg bg-slate-50 p-2.5 border border-slate-100 text-xs sm:text-sm">
-                <p className="text-xs font-bold text-slate-400 uppercase">Enterprise Background</p>
+                <p className="text-xs font-bold text-slate-400 uppercase">
+                  {isSetup ? "Enterprise Background" : "Project Summary"}
+                </p>
                 <p className="text-slate-700 leading-snug mt-0.5 font-medium">{enterpriseBackground}</p>
               </div>
             )}

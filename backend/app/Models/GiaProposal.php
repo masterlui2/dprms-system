@@ -17,11 +17,20 @@ class GiaProposal extends Model
         'position',
         'contact_number',
         'research_type',
-        'research_category'
+        'research_category',
+        'form_snapshot',
     ];
 
+    #[Override]
+    protected function casts(): array
+    {
+        return [
+            'form_snapshot' => 'array',
+        ];
+    }
+
     public function proposal():BelongsTo{
-        return $this->belongsTo(GiaProposal::class);
+        return $this->belongsTo(Proposal::class);
     }
 
     public function gia_document():HasMany{

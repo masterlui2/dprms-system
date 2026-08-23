@@ -16,10 +16,18 @@ class SetupProposal extends Model
         'enterprise_size',
         'years_in_operation',
         'business_address',
+        'form_snapshot',
         'region',
         'province',
         'city_municipality',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'form_snapshot' => 'array',
+        ];
+    }
 
     public function proposal():BelongsTo{
         return $this->belongsTo(Proposal::class);

@@ -53,6 +53,8 @@ class ProposalController extends Controller
 
     public function getByReferenceNumber(string $referenceNumber){
         $proposal = $this->proposalService->getByReferenceNumber($referenceNumber);
+        abort_unless($proposal, 404, 'Proposal not found.');
+
         return response()->json([
             'data' => $proposal
         ],200);
