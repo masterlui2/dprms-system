@@ -14,4 +14,5 @@ interface DocumentsServiceInterface{
     public function getForOwner(int $proposalId): Collection;
     public function getOneForOwner(int $documentId): Document;
     public function getOneForStaff(int $documentId): Document;
+    public function getProjectForm(int $proposalId): Document;
 }

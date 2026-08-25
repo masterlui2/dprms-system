@@ -6,6 +6,7 @@ import {
   Eye,
   FileCheck2,
   Loader2,
+  ShieldCheck,
   XCircle,
 } from "lucide-react";
 
@@ -50,6 +51,9 @@ export function ProposalDocumentsSection({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+
+  const [documentApproved, setDocumentApproved] = useState(false)
+  const [approvingDocument, setApprovingDocument] = useState(false)
 
   // Local verification status state per document
   const [verifiedMap, setVerifiedMap] = useState<Record<number, "approved" | "pending" | "returned_for_revision">>({});
@@ -204,6 +208,18 @@ export function ProposalDocumentsSection({
     }
   }
 
+  async function handleMarkDocumentApproved() {
+    setApprovingDocument(true);
+    try{
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      setDocumentApproved(true);
+    }catch(err){
+      console.error("Failed to approve proposal:", err);
+      setActionError("Could not mark this proposal as approved. Please try again");
+    }finally{
+      setApprovingDocument(false);
+    }
+  }
   const verifiedCount = useMemo(() => {
     return documents.filter((d) => verifiedMap[d.id] === "approved").length;
   }, [documents, verifiedMap]);
@@ -401,7 +417,7 @@ export function ProposalDocumentsSection({
                   {selectedDocument.file_name} · {formatFileSize(selectedDocument.file_size)} · Uploaded {formatUpdated(selectedDocument.created_at)}
                 </p>
               </div>
-
+                    
               {/* Action Buttons: Verification & Download */}
               <div className="flex items-center gap-1.5">
                 {canReview ? <button

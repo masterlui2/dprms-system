@@ -18,7 +18,6 @@ import {
 } from "../../../services/documentStore";
 import { cn } from "../../../utils/cn";
 import {
-  getSetupInternalDocumentTemplate,
   type InternalDocument,
   mergeSetupInternalDocuments,
   setupPostInspectionComplete,
@@ -49,9 +48,7 @@ export function InternalDocumentsSection({
   onRequiredStatusChange?: (complete: boolean) => void;
   proposalId?: number;
 }) {
-  const [documents, setDocuments] = useState<InternalDocument[]>(
-    getSetupInternalDocumentTemplate,
-  );
+  const [documents, setDocuments] = useState<InternalDocument[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState(
     documents[0]?.id ?? null,
   );
