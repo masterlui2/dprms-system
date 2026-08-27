@@ -24,8 +24,7 @@ export type VerificationStatus =
 
 export interface StoredDocument {
   /**
-   * Present only for documents backed by the real /documents API (SETUP).
-   * GIA documents are still local-only (localStorage) and won't have this.
+   * Present for documents backed by the real /documents API.
    */
   backendId?: number
   dataUrl: string
@@ -75,7 +74,7 @@ export function mapDocumentTypeToRequirement(record: DocumentTypeRecord): Docume
     description: record.description ?? '',
     group: (record.group ?? 'Additional Documents') as RequirementGroup,
     instructions: record.instructions ?? undefined,
-    required: true,
+    required: record.is_required,
     templateUrl,
   }
 }
@@ -299,12 +298,8 @@ export async function fetchSetupDocumentaryRequirements(
 }
 
 // ---------------------------------------------------------------------------
-// SETUP documents: backed by the real /documents API (Document model).
-// GIA document *types* are now fetched from the same backend endpoint (see
-// fetchGiaDocumentaryRequirements below), but the uploaded *files*
-// themselves are still local-only (localStorage, via getDocuments /
-// saveDocument further down) — GIA has no backend submission flow yet,
-// unlike submitSetupProposal() in setupProposalStore.ts.
+// Server-backed proposal documents (Document model). Both SETUP and GIA
+// submission and review flows use these records when a proposal id exists.
 // ---------------------------------------------------------------------------
 
 export interface DocumentApiRecord {
@@ -616,6 +611,7 @@ export async function fetchGiaDocumentaryRequirements(
   try {
     const records = await getDocumentTypes({
       program: 'GIA',
+      setNumber: 'GIA1',
       giaCategory: giaCategory
         ? GIA_CATEGORY_TO_API_CATEGORY[giaCategory as Exclude<GiaProponentCategory, ''>]
         : undefined,
@@ -730,10 +726,16 @@ export async function uploadInternalDocument(
   return response.data.data
 }
 
-/** Loads the server-side SETUP document types hidden from proponents. */
-export async function fetchSetupInternalDocumentTypes(): Promise<DocumentTypeRecord[]> {
+/** Loads the server-side document types hidden from proponents for a program. */
+export async function fetchInternalDocumentTypes(
+  program: ApplicationProgram,
+): Promise<DocumentTypeRecord[]> {
   return getDocumentTypes({
-    program: 'SETUP',
+    program,
+    // GIA's internal workflow is represented by the shared SET3 records.
+    // SETUP intentionally spans SET1-SET3 because its post-inspection
+    // checklist begins before the post-approval set.
+    setNumber: program === 'GIA' ? 'SET3' : undefined,
     visibility: 'internal',
   })
 }

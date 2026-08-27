@@ -182,8 +182,7 @@ export const DEFAULT_REDIRECT_BY_ROLE: Record<UserRole, string> = {
 
 export function getDefaultRedirect(user: MockUser) {
   if (user.role === ROLES.PROPONENT) {
-    const program = user.program ?? "SETUP";
-    return `/programs/${program.toLowerCase()}`;
+    return user.program ? `/programs/${user.program.toLowerCase()}` : "/";
   }
 
   return DEFAULT_REDIRECT_BY_ROLE[user.role];

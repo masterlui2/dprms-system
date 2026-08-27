@@ -24,8 +24,10 @@ import {
 } from "../../services/profileStore";
 
 function getProgramHomePath(pathname: string, user?: MockUser | null) {
-  if (pathname.startsWith("/programs/gia")) return "/programs/gia";
-  if (pathname.startsWith("/programs/setup")) return "/programs/setup";
+  if (pathname.startsWith("/programs/gia") || pathname.startsWith("/gia"))
+    return "/programs/gia";
+  if (pathname.startsWith("/programs/setup") || pathname.startsWith("/setup"))
+    return "/programs/setup";
   if (user?.program === "GIA") return "/programs/gia";
   if (user?.program === "SETUP") return "/programs/setup";
 
@@ -121,15 +123,17 @@ function AccountDropdown({
   onNavigate,
   onSignOut,
   profile,
+  program,
   user,
 }: {
   onNavigate: () => void;
   onSignOut: () => void;
   profile: ProponentProfile | null;
+  program: "SETUP" | "GIA";
   user: MockUser;
 }) {
   const isProponent = user.role === "proponent";
-  const isGia = user.program === "GIA";
+  const isGia = program === "GIA";
   const programPrefix = isGia ? "/gia" : "/setup";
   const displayName = profile?.fullName || user.name;
   const moduleItems = [
@@ -244,6 +248,14 @@ export function SiteHeader() {
   const [profileRevision, setProfileRevision] = useState(0);
   const isProponent = user?.role === "proponent";
   const [profile, setProfile] = useState<ProponentProfile | null>(null);
+  const activeProgram: "SETUP" | "GIA" =
+    location.pathname.startsWith("/gia") ||
+    location.pathname.startsWith("/programs/gia")
+    ? "GIA"
+    : location.pathname.startsWith("/setup") ||
+        location.pathname.startsWith("/programs/setup")
+      ? "SETUP"
+      : user?.program ?? "SETUP";
   const navigationItems = getNavigationItems(location.pathname, user);
   const programsActive =
     location.pathname.startsWith("/programs/gia") ||
@@ -451,6 +463,7 @@ export function SiteHeader() {
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
                     profile={profile}
+                    program={activeProgram}
                     user={user}
                   />
                 ) : null}
@@ -517,6 +530,7 @@ export function SiteHeader() {
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
                     profile={profile}
+                    program={activeProgram}
                     user={user}
                   />
                 ) : null}

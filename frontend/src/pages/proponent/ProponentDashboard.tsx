@@ -38,17 +38,30 @@ export function ProponentDashboard() {
   const user = getMockUser()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [allApplications, setAllApplications] = useState<ApplicationRecord[]>(() => getApplications())
+  const userId = user?.id
+  const userName = user?.name
+  const userEmail = user?.email
+  const userApplicationReference = user?.applicationReference
 
   useEffect(() => {
-    if (!user) return
-    syncUserApplicationsFromBackend(user).then((apps) => {
+    if (!userName || !userEmail) return
+    syncUserApplicationsFromBackend({
+      id: userId,
+      name: userName,
+      email: userEmail,
+      applicationReference: userApplicationReference,
+    }).then((apps) => {
       if (apps.length > 0) {
         setAllApplications(apps)
       }
     })
-  }, [user?.id, user?.email])
+  }, [userId, userName, userEmail, userApplicationReference])
 
-  const userProgram = user?.program ?? 'SETUP'
+  const activeProgram: ApplicationRecord['program'] = location.pathname.startsWith('/gia')
+    ? 'GIA'
+    : location.pathname.startsWith('/setup')
+      ? 'SETUP'
+      : (user?.program ?? 'SETUP')
 
   // Match applications that belong to the logged-in user
   const userApplications = allApplications.filter((app) => {
@@ -64,26 +77,26 @@ export function ProponentDashboard() {
     return false
   })
 
-  // Pick the active application for the user's current program
-  const programApp = userApplications.find((app) => app.program === userProgram)
+  // Never fall back to an application from the other program. SETUP and GIA
+  // have independent proposal, revision, document, and progress states.
   const application =
-    programApp ??
-    userApplications[0] ??
-    null
+    userApplications.find((app) => app.program === activeProgram) ?? null
+  const applicationProgram = application?.program
+  const applicationReferenceNo = application?.referenceNo
 
-  const documents = application ? getDocuments(application.referenceNo) : {}
-  const giaProposal = application?.program === 'GIA' ? getGiaProposal(application?.referenceNo ?? '') : null
-  const liveSetup = application?.program === 'SETUP' ? getSetupDraft() : null
+  const documents = applicationReferenceNo ? getDocuments(applicationReferenceNo) : {}
+  const giaProposal = applicationProgram === 'GIA' ? getGiaProposal(applicationReferenceNo ?? '') : null
+  const liveSetup = applicationProgram === 'SETUP' ? getSetupDraft() : null
 
   const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([])
 
   useEffect(() => {
-    if (!application) {
+    if (!applicationProgram) {
       setRequirements([])
       return
     }
     let cancelled = false
-    if (application.program === 'SETUP') {
+    if (applicationProgram === 'SETUP') {
       fetchSetupDocumentaryRequirements(liveSetup?.organizationType, liveSetup?.businessSize)
         .then((records) => { if (!cancelled) setRequirements(records) })
         .catch(() => { if (!cancelled) setRequirements([]) })
@@ -93,7 +106,7 @@ export function ProponentDashboard() {
         .catch(() => { if (!cancelled) setRequirements([]) })
     }
     return () => { cancelled = true }
-  }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory, liveSetup?.organizationType, liveSetup?.businessSize])
+  }, [applicationReferenceNo, applicationProgram, giaProposal?.proponentCategory, liveSetup?.organizationType, liveSetup?.businessSize])
 
   const requiredRequirements = requirements.filter((req) => req.required)
   const uploadedCount = requiredRequirements.filter((req) => Boolean(documents[req.id])).length
@@ -102,7 +115,7 @@ export function ProponentDashboard() {
   const submittedReference = (location.state as { submittedReference?: string } | null)?.submittedReference
   const isApproved = application?.status === 'Approved'
   const isUnderReview = application?.status === 'Under review' || application?.status === 'Submitted' || application?.status === 'Draft Submitted'
-  const isGia = application?.program === 'GIA' || user?.program === 'GIA'
+  const isGia = activeProgram === 'GIA'
 
   const stage2Description = isGia
     ? 'CEST Officers verify documentary completeness and initial eligibility criteria.'
@@ -134,7 +147,7 @@ export function ProponentDashboard() {
         <AdminPageHeader
           action={null}
           description="DOST PSTO Davao Oriental Proponent Management Portal."
-          eyebrow={`${user?.program ?? 'DOST'} Proponent Portal`}
+          eyebrow={`${activeProgram} Proponent Portal`}
           title={`Welcome${user?.name ? `, ${user.name.split(' ')[0]}` : ''}`}
         />
       </div>
