@@ -417,7 +417,7 @@ export async function reviewProposalDocument(
   status: 'approved' | 'returned_for_revision',
   remarks?: string,
 ): Promise<DocumentApiRecord> {
-  const response = await api.put<{ data: DocumentApiRecord }>(
+  const response = await api.patch<{ data: DocumentApiRecord }>(
     `/documents/${documentId}/review`,
     {
       remarks: remarks?.trim() || null,

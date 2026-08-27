@@ -91,4 +91,16 @@ class DocumentController extends Controller
             'data' => $data->load('document_type'),
         ]);
     }
+
+    public function showForm(int $proposalId)
+    {
+        $data = $this->documentsService->getProjectForm($proposalId);
+        abort_unless(Storage::exists($data->file_path), 404);
+
+        return Storage::response(
+            $data->file_path,
+            $data->file_name,
+            ['Content-Type' => $data->mime_type]
+        );
+    }
 }
