@@ -178,18 +178,27 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }, [user?.id, user?.email, user?.applicationReference]);
 
   const applications = useMemo(() => {
-    const filtered = allApplicationsList.filter((application) =>
-      user?.applicationReference
-        ? application.referenceNo === user.applicationReference
-        : !user?.email ||
-          application.contactEmail.toLowerCase() === user.email.toLowerCase(),
+    const ownedApplications = allApplicationsList.filter(
+      (application) =>
+        !user?.email ||
+        application.contactEmail.toLowerCase() === user.email.toLowerCase(),
     );
-    const matching = filtered.filter((app) => app.program === activeProgram);
-    if (matching.length) return matching;
-    if (filtered.length) return filtered;
+
+    const programApplications = ownedApplications.filter(
+      (application) => application.program === activeProgram,
+    );
+
+    if (user?.applicationReference) {
+      const referencedApplication = programApplications.find(
+        (application) =>
+          application.referenceNo === user.applicationReference,
+      );
+      if (referencedApplication) return [referencedApplication];
+    }
+
     // Do NOT fall back to all applications — a fresh user has no application
-    // and should see the empty / new-application state, not another user's data.
-    return [];
+    // for this program and must not inherit another program's revision state.
+    return programApplications;
   }, [user?.applicationReference, user?.email, activeProgram, allApplicationsList]);
 
   const requestedReference = searchParams.get("proposal");
@@ -197,33 +206,13 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     applications.find((item) => item.referenceNo === requestedReference) ??
     applications[0];
 
-  const activeApplication: ApplicationRecord = useMemo(() => {
-    if (baseApplication && baseApplication.program === activeProgram) {
-      return baseApplication;
-    }
-    return {
-      id: `${activeProgram.toLowerCase()}-app-draft`,
-      applicantName: user?.name ?? "Proponent Representative",
-      referenceNo: `${activeProgram}-DRAFT`,
-      projectTitle:
-        activeProgram === "GIA"
-          ? "Community Empowerment & Technology Transfer Project"
-          : "Enterprise Technology Upgrading Project",
-      organizationName: user?.name
-        ? `${user.name} Organization`
-        : "DOST Proponent Enterprise",
-      program: activeProgram,
-      status: "Draft Submitted",
-      submittedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      contactName: user?.name ?? "Proponent Representative",
-      contactEmail: user?.email ?? "proponent@example.com",
-      contactNumber: "09171234567",
-    };
-  }, [baseApplication, activeProgram, user?.name, user?.email]);
-  const isDraftMode = activeApplication.status === "Draft Submitted";
-  const isRevisionMode = activeApplication.status === "Returned for Revision";
+  const activeApplication = useMemo(
+    () =>
+      baseApplication?.program === activeProgram ? baseApplication : null,
+    [baseApplication, activeProgram],
+  );
+  const isDraftMode = activeApplication?.status === "Draft Submitted";
+  const isRevisionMode = activeApplication?.status === "Returned for Revision";
 
   const [liveSetupProposal, setLiveSetupProposal] = useState<SetupProposalData | null>(null);
   const [liveGiaProposal, setLiveGiaProposal] = useState<GiaProposalData | null>(null);
@@ -234,7 +223,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       setLiveGiaProposal(getGiaDraft() ?? getGiaProposal(activeApplication.referenceNo));
     }
     // SETUP's liveSetupProposal is populated by SetupProposalForm's onDraftChange.
-  }, [activeApplication?.referenceNo, activeApplication?.program]);
+  }, [activeApplication]);
 
   const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([]);
   // Tracks the params of the most recently *issued* requirements fetch
@@ -299,8 +288,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         }
       });
   }, [
-    activeApplication?.referenceNo,
-    activeApplication?.program,
+    activeApplication,
     liveGiaProposal?.proponentCategory,
     liveSetupProposal?.businessSize,
     liveSetupProposal?.organizationType,
@@ -358,12 +346,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     return () => {
       cancelled = true;
     };
-  }, [
-    activeApplication?.referenceNo,
-    activeApplication?.program,
-    activeApplication?.proposalId,
-    activeApplication?.status,
-  ]);
+  }, [activeApplication, baseApplication]);
 
   const requiredRequirements = useMemo(
     () => requirements.filter((item) => item.required),
@@ -651,6 +634,10 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       (req) => !documents[req.id] && !pendingFiles[req.id],
     );
     if (missingRequiredDocs.length > 0) {
+      const firstMissing = missingRequiredDocs[0];
+      setMessage(
+        `Upload ${missingRequiredDocs.length} remaining required document${missingRequiredDocs.length === 1 ? "" : "s"} before submitting.${firstMissing ? ` First required: ${firstMissing.title}.` : ""}`,
+      );
       scrollToMissingRequirement(missingRequiredDocs);
       return;
     }
@@ -1304,7 +1291,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                         : "Resubmit Revised Documents"
                     : isSubmittingApplication
                       ? "Submitting"
-                      : "Submit Application"}
+                      : activeApplication.program === "GIA"
+                        ? "Submit GIA Proposal"
+                        : "Submit SETUP Application"}
                   {isSubmittingApplication || isResubmittingRevision ? null : (
                     <ArrowRight className="size-4" />
                   )}

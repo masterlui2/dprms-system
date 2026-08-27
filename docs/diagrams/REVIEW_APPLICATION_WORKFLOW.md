@@ -29,7 +29,7 @@ flowchart TD
         B4{"Program Type?"}:::staff
         B5["SETUP: Conduct TNA / Site Visit & Upload SET1 Internal Docs:<br/>- TNA Form 1<br/>- GAD Assessment & Checklist<br/>- Hazard Hunter"]:::staff
         B6["GIA: Verify Project Leader info & Co-authors"]:::staff
-        
+
         A3 --> B1 --> B2 --> B3 --> B4
         B4 -->|SETUP| B5
         B4 -->|GIA| B6

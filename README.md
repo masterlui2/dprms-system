@@ -82,4 +82,3 @@ All demo accounts use `Dprms@123`:
 ## Documentation & Diagrams
 
 - [Review Application Workflow](docs/diagrams/REVIEW_APPLICATION_WORKFLOW.md) - Comprehensive Mermaid workflow flowchart, role permissions, and status transitions from Application intake through Director approval and Monitoring handover.
-

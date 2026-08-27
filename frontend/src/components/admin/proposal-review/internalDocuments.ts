@@ -1,97 +1,188 @@
 import type { DocumentApiRecord } from "../../../services/documentStore";
-import {
-  fetchProposalDocumentsForStaff,
-  fetchSetupInternalDocumentTypes,
-} from "../../../services/documentStore";
 import type { DocumentTypeRecord } from "../../../services/setupProposalStore";
+import type { ApplicationProgram } from "../../../types/application";
 
-export type InternalDocumentStage = "later" | "post-inspection";
+export type InternalDocumentStage = "implementation" | "post-inspection";
+export type InternalDocumentStatus =
+  | "not_uploaded"
+  | "pending"
+  | "approved"
+  | "returned_for_revision";
 
 export type InternalDocument = {
   backendId?: number;
-  documentTypeId: number;
+  description?: string;
+  documentTypeId?: number;
   fileName?: string;
   fileSize?: number;
   fileType?: string;
   id: string;
   label: string;
+  remarks?: string;
   requiredForEndorsement: boolean;
+  reviewedAt?: string;
+  setNumber: DocumentTypeRecord["set_number"];
   stage: InternalDocumentStage;
-  status: "Not uploaded" | "Uploaded";
+  status: InternalDocumentStatus;
   updated?: string;
 };
 
-// ... rest of the file unchanged (stageForSetNumber, mergeSetupInternalDocuments,
-// fetchSetupInternalDocuments, setupPostInspectionComplete)
+type SetupTemplate = Pick<
+  InternalDocument,
+  "id" | "label" | "requiredForEndorsement" | "setNumber" | "stage"
+>;
 
-/**
- * Internal SETUP documents are split into two stages based on which
- * checklist "set" they were seeded under (see DocumentTypeSeeder):
- *   - SET1 internal docs (TNA Form 01, GAD Assessment, GAD Checklist,
- *     Hazard Hunter) are gathered during/after the site inspection and are
- *     required before the proposal can be endorsed.
- *   - SET2/SET3 internal docs (TNA Form 4, Pre-Project Implementation
- *     Sheet, etc.) are handled later in the workflow (post-approval) and
- *     don't block endorsement.
- *
- * This is derived from set_number rather than hardcoded per document, so
- * any new internal doc type seeded under SET1 automatically becomes part
- * of the required post-inspection set without a frontend change.
- */
-function stageForSetNumber(setNumber: DocumentTypeRecord["set_number"]): InternalDocumentStage {
-  return setNumber === "SET1" ? "post-inspection" : "later";
+const setupDocumentTemplate: SetupTemplate[] = [
+  {
+    id: "tna-form-01",
+    label: "Filled-out TNA Form 01",
+    requiredForEndorsement: true,
+    setNumber: "SET1",
+    stage: "post-inspection",
+  },
+  {
+    id: "gad-assessment-gwp",
+    label: "GAD Assessment (GWP)",
+    requiredForEndorsement: true,
+    setNumber: "SET1",
+    stage: "post-inspection",
+  },
+  {
+    id: "gad-checklist-msme",
+    label: "GAD Checklist for S&T Interventions in MSMEs",
+    requiredForEndorsement: true,
+    setNumber: "SET1",
+    stage: "post-inspection",
+  },
+  {
+    id: "hazard-hunter",
+    label: "Hazard Hunter",
+    requiredForEndorsement: true,
+    setNumber: "SET1",
+    stage: "post-inspection",
+  },
+  {
+    id: "tna-form-4",
+    label: "TNA Form 4",
+    requiredForEndorsement: false,
+    setNumber: "SET2",
+    stage: "implementation",
+  },
+  {
+    id: "pre-project-implementation-sheet",
+    label: "Pre-Project Implementation Sheet",
+    requiredForEndorsement: false,
+    setNumber: "SET3",
+    stage: "implementation",
+  },
+];
+
+function findUploadedDocument(
+  documentTypeId: number,
+  uploadedDocuments: DocumentApiRecord[],
+) {
+  return uploadedDocuments.find(
+    (document) => document.document_type_id === documentTypeId,
+  );
 }
 
-/**
- * Builds the internal document checklist directly from backend document
- * types (GET /document-types?program=SETUP&visibility=internal), matched
- * against already-uploaded documents by document_type_id — no local
- * hardcoded template, no label string-matching.
- */
-export function mergeSetupInternalDocuments(
+function mergeServerFields(
+  base: Omit<InternalDocument, "status">,
+  uploaded?: DocumentApiRecord,
+): InternalDocument {
+  return {
+    ...base,
+    backendId: uploaded?.id,
+    fileName: uploaded?.file_name,
+    fileSize: uploaded?.file_size ?? undefined,
+    fileType: uploaded?.mime_type ?? undefined,
+    remarks: uploaded?.remarks ?? undefined,
+    reviewedAt: uploaded?.reviewed_at ?? undefined,
+    status: uploaded?.status ?? "not_uploaded",
+    updated: uploaded?.updated_at,
+  };
+}
+
+function mergeSetupDocuments(
   documentTypes: DocumentTypeRecord[],
   uploadedDocuments: DocumentApiRecord[],
 ): InternalDocument[] {
-  return documentTypes.map((documentType) => {
-    const uploaded = uploadedDocuments.find(
-      (record) => record.document_type_id === documentType.id,
+  return setupDocumentTemplate.map((template) => {
+    const documentType = documentTypes.find(
+      (type) =>
+        type.name.trim().toLowerCase() === template.label.toLowerCase(),
     );
-    const stage = stageForSetNumber(documentType.set_number);
+    const uploaded = documentType
+      ? findUploadedDocument(documentType.id, uploadedDocuments)
+      : undefined;
 
-    return {
-      backendId: uploaded?.id,
-      documentTypeId: documentType.id,
-      fileName: uploaded?.file_name,
-      fileSize: uploaded?.file_size ?? undefined,
-      fileType: uploaded?.mime_type ?? undefined,
-      id: String(documentType.id),
-      label: documentType.name,
-      requiredForEndorsement: stage === "post-inspection" && documentType.is_required,
-      stage,
-      status: uploaded ? "Uploaded" : "Not uploaded",
-      updated: uploaded?.updated_at,
-    };
+    return mergeServerFields(
+      {
+        ...template,
+        description: documentType?.description ?? undefined,
+        documentTypeId: documentType?.id,
+      },
+      uploaded,
+    );
   });
 }
 
-/**
- * Fetches internal SETUP document types and this proposal's uploaded
- * documents in parallel, then merges them into the checklist shape used
- * by the UI. Replaces the old local-template + label-matching approach.
- */
-export async function fetchSetupInternalDocuments(
-  proposalId: number,
-): Promise<InternalDocument[]> {
-  const [documentTypes, uploadedDocuments] = await Promise.all([
-    fetchSetupInternalDocumentTypes(),
-    fetchProposalDocumentsForStaff(proposalId),
-  ]);
-
-  return mergeSetupInternalDocuments(documentTypes, uploadedDocuments);
+function mergeGiaDocuments(
+  documentTypes: DocumentTypeRecord[],
+  uploadedDocuments: DocumentApiRecord[],
+): InternalDocument[] {
+  return documentTypes
+    .filter((type) => type.set_number === "SET3")
+    .map((documentType) =>
+      mergeServerFields(
+        {
+          description: documentType.description ?? undefined,
+          documentTypeId: documentType.id,
+          id: String(documentType.id),
+          label: documentType.name,
+          requiredForEndorsement: documentType.is_required,
+          setNumber: documentType.set_number,
+          stage: "implementation",
+        },
+        findUploadedDocument(documentType.id, uploadedDocuments),
+      ),
+    );
 }
 
-export function setupPostInspectionComplete(documents: InternalDocument[]) {
-  return documents
-    .filter((document) => document.requiredForEndorsement)
-    .every((document) => document.status === "Uploaded");
+export function getInitialInternalDocuments(
+  program: ApplicationProgram,
+): InternalDocument[] {
+  if (program === "GIA") return [];
+
+  return setupDocumentTemplate.map((document) => ({
+    ...document,
+    status: "not_uploaded",
+  }));
+}
+
+export function mergeInternalDocuments(
+  program: ApplicationProgram,
+  documentTypes: DocumentTypeRecord[],
+  uploadedDocuments: DocumentApiRecord[],
+): InternalDocument[] {
+  return program === "GIA"
+    ? mergeGiaDocuments(documentTypes, uploadedDocuments)
+    : mergeSetupDocuments(documentTypes, uploadedDocuments);
+}
+
+export function requiredInternalDocumentsComplete(
+  documents: InternalDocument[],
+) {
+  const requiredDocuments = documents.filter(
+    (document) => document.requiredForEndorsement,
+  );
+
+  return (
+    requiredDocuments.length > 0 &&
+    requiredDocuments.every(
+      (document) =>
+        document.status !== "not_uploaded" &&
+        document.status !== "returned_for_revision",
+    )
+  );
 }

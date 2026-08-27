@@ -51,9 +51,7 @@ export function ProposalReviewModal({
   const isDirector = user?.role === ROLES.PROVINCIAL_DIRECTOR;
   const [proposal, setProposal] = useState<ProposalRecord>(initialProposal);
   const [section, setSection] = useState<ReviewSection>(initialSection);
-  const [internalDocumentsReady, setInternalDocumentsReady] = useState(
-    initialProposal.program !== "SETUP",
-  );
+  const [internalDocumentsReady, setInternalDocumentsReady] = useState(false);
   const [workflowStage, setWorkflowStage] = useState<'initial_review' | 'in_process' | 'endorsed' | 'approved' | 'closed'>(() => {
     if (
       initialProposal.status === 'Disapproved' ||
@@ -75,11 +73,7 @@ export function ProposalReviewModal({
   const reviewTabs: Array<[ReviewSection, string]> = [
     ["overview", "Overview"],
     ["documents", "Document Checklist"],
-    ...(proposal.program === "SETUP"
-      ? ([["internalDocuments", "Internal Documents"]] as Array<
-          [ReviewSection, string]
-        >)
-      : []),
+    ["internalDocuments", "Internal Documents"],
     ["comments", "Review Decision & Remarks"],
   ];
   const reviewStatus = workflowStage === 'closed'
@@ -243,10 +237,11 @@ export function ProposalReviewModal({
             )
           ) : null}
 
-          {section === "internalDocuments" && proposal.program === "SETUP" ? (
+          {section === "internalDocuments" ? (
             <InternalDocumentsSection
-              mode={isProjectStaff ? "edit" : "view"}
+              mode={isProjectStaff ? "edit" : isFocal ? "review" : "view"}
               onRequiredStatusChange={setInternalDocumentsReady}
+              program={proposal.program}
               proposalId={proposal.proposalId}
             />
           ) : null}
@@ -313,7 +308,7 @@ export function ProposalReviewModal({
               </button>
             ) : null}
 
-            {isProjectStaff && workflowStage === 'in_process' && proposal.program === 'SETUP' ? (
+            {isProjectStaff && workflowStage === 'in_process' ? (
               <button
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
                 onClick={() => setSection('internalDocuments')}
@@ -321,17 +316,6 @@ export function ProposalReviewModal({
               >
                 <FileCheck2 className="size-3.5" />
                 {internalDocumentsReady ? 'View Internal Documents' : 'Complete Internal Documents'}
-              </button>
-            ) : null}
-
-            {isProjectStaff && workflowStage === 'in_process' && proposal.program === 'GIA' ? (
-              <button
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
-                onClick={() => setSection('documents')}
-                type="button"
-              >
-                <FileCheck2 className="size-3.5" />
-                View Submitted Documents
               </button>
             ) : null}
 

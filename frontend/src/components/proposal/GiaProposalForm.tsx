@@ -1,7 +1,11 @@
-import { forwardRef, useEffect, useImperativeHandle, useState, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useState, useRef } from 'react'
 import {
   Building2,
+  Check,
+  ChevronDown,
   ClipboardList,
+  LoaderCircle,
+  Save,
   Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -97,15 +101,16 @@ function Section({
   title: string
 }) {
   return (
-    <div className="scroll-mt-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" id={id}>
-      <div className="flex items-center gap-4 px-5 py-5 sm:px-6">
+    <details className="group scroll-mt-32 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm" id={id} open>
+      <summary className="flex cursor-pointer list-none items-center gap-4 px-5 py-5 sm:px-6 [&::-webkit-details-marker]:hidden">
         <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700">
           <Icon className="size-5" />
         </span>
         <span className="min-w-0 flex-1 text-base font-black text-[#073b82] sm:text-lg">{title}</span>
-      </div>
+        <ChevronDown className="size-5 shrink-0 text-slate-400 transition group-open:rotate-180" />
+      </summary>
       <div className="border-t border-slate-100 p-5 sm:p-6">{children}</div>
-    </div>
+    </details>
   )
 }
 
@@ -113,6 +118,7 @@ function Field({
   children,
   error,
   label,
+  required = true,
 }: {
   children: React.ReactNode
   error?: string
@@ -121,7 +127,7 @@ function Field({
 }) {
   return (
     <label className="block text-sm font-bold text-slate-700">
-      {label}{error ? <span className="ml-1 text-red-600 font-bold">*</span> : null}
+      {label}{required ? <span className="ml-1 text-red-600">*</span> : null}
       {children}
       {error ? <span className="mt-1.5 block text-xs font-semibold text-red-600" role="alert">{error}</span> : null}
     </label>
@@ -155,6 +161,8 @@ export const GiaProposalForm = forwardRef<GiaProposalFormHandle, GiaProposalForm
     projectLeader: user?.name ?? '',
   })
   const [errors, setErrors] = useState<GiaProposalErrors>({})
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const firstRender = useRef(true)
   const submitted = useRef(false)
   // Always holds the latest keystroke, even between debounce ticks — used
@@ -169,13 +177,24 @@ export const GiaProposalForm = forwardRef<GiaProposalFormHandle, GiaProposalForm
       firstRender.current = false
       return
     }
+    setSaveState('saving')
     const timer = window.setTimeout(() => {
       saveGiaDraft(data)
+      setLastSaved(new Date())
+      setSaveState('saved')
     }, 650)
     return () => {
       window.clearTimeout(timer)
     }
   }, [data, onDraftChange])
+
+  const completedRequired = useMemo(
+    () => requiredFields.filter((field) => String(data[field]).trim()).length,
+    [data],
+  )
+  const completion = Math.round(
+    (completedRequired / requiredFields.length) * 100,
+  )
 
   // Save whatever the user last typed if they navigate away before the
   // debounce above has a chance to fire. Runs once, only on unmount.
@@ -187,7 +206,12 @@ export const GiaProposalForm = forwardRef<GiaProposalFormHandle, GiaProposalForm
 
   function update<K extends GiaProposalField>(field: K, value: GiaProposalData[K]) {
     setData((current) => ({ ...current, [field]: value }))
-    setErrors((current) => ({ ...current, [field]: undefined }))
+    setErrors((current) => {
+      if (!current[field]) return current
+      const next = { ...current }
+      delete next[field]
+      return next
+    })
   }
 
   function input(field: GiaProposalField, options?: { type?: string; placeholder?: string }) {
@@ -220,6 +244,7 @@ export const GiaProposalForm = forwardRef<GiaProposalFormHandle, GiaProposalForm
   function select(field: 'projectCategory' | 'projectType', options: string[]) {
     return (
       <select
+        aria-invalid={Boolean(errors[field])}
         className={cn(inputClass, errors[field] && 'border-red-500')}
         name={field}
         onChange={(event) => update(field, event.target.value)}
@@ -250,6 +275,37 @@ export const GiaProposalForm = forwardRef<GiaProposalFormHandle, GiaProposalForm
 
   return (
     <div className="space-y-5">
+      <section className="overflow-hidden rounded-xl border border-amber-200 bg-white shadow-sm">
+        <div className="h-1 bg-amber-500" />
+        <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-7">
+          <div className="max-w-2xl">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">
+              GIA Online Proposal Registration
+            </p>
+            <h2 className="mt-2 text-2xl font-black tracking-tight text-[#073b82] sm:text-3xl">
+              Register GIA Proposal
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Provide the implementing organization, project rationale, objectives, implementation approach, and expected results.
+            </p>
+          </div>
+          <div className="shrink-0 rounded-lg bg-amber-50 px-4 py-3 sm:w-48">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-slate-500">Required fields</span>
+              <span className="text-amber-700">{completedRequired}/{requiredFields.length}</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+              <div
+                className="h-full rounded-full bg-amber-500 transition-all duration-300"
+                style={{ width: `${completion}%` }}
+              />
+            </div>
+            <p className="mt-1.5 text-right text-[10px] font-bold text-amber-700">
+              {completion}% complete
+            </p>
+          </div>
+        </div>
+      </section>
 
       {Object.keys(errors).length ? <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700" role="alert">Please complete the highlighted fields.</div> : null}
 
@@ -299,6 +355,28 @@ export const GiaProposalForm = forwardRef<GiaProposalFormHandle, GiaProposalForm
           <div className="sm:col-span-2"><Field error={errors.sustainabilityPlan} label="Sustainability Plan"><span>{textarea('sustainabilityPlan', 'Explain how project benefits will continue after implementation.')}</span></Field></div>
         </div>
       </Section>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="flex min-w-0 items-center gap-2 text-xs font-semibold text-slate-500">
+          {saveState === 'saving' ? (
+            <LoaderCircle className="size-4 shrink-0 animate-spin text-amber-600" />
+          ) : lastSaved ? (
+            <Check className="size-4 shrink-0 text-emerald-600" />
+          ) : (
+            <Save className="size-4 shrink-0 text-slate-400" />
+          )}
+          <span>
+            {saveState === 'saving'
+              ? 'Saving GIA draft...'
+              : lastSaved
+                ? `GIA draft saved at ${lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                : 'GIA draft auto-save is on'}
+          </span>
+        </div>
+        <p className="text-xs font-semibold text-slate-500">
+          Complete the supporting documents below before submitting.
+        </p>
+      </div>
 
     </div>
   )
