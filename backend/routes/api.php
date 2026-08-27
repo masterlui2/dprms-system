@@ -57,8 +57,9 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('documents')->group(function (){
     Route::get('/{proposalId}/proposal-documents', [DocumentController::class, 'index']);
     Route::get('/{documentId}/view-staff', [DocumentController::class, 'showForStaff']);
-    Route::put('/{document}/review', [DocumentController::class, 'review'])
+    Route::patch('/{document}/review', [DocumentController::class, 'review'])
         ->middleware('role:FOCAL');
+    Route::get('/{proposalId}/forms', [DocumentController::class, 'showForm']);
 });
 
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal')->group(function (){
