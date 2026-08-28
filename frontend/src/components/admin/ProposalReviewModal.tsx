@@ -296,7 +296,7 @@ export function ProposalReviewModal({
               </span>
             ) : null}
 
-            {isProjectStaff && workflowStage === 'initial_review' ? (
+            {isFocal && workflowStage === 'initial_review' ? (
               <button
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b] disabled:cursor-wait disabled:opacity-60"
                 disabled={isUpdating}
@@ -304,18 +304,18 @@ export function ProposalReviewModal({
                 type="button"
               >
                 <Send className="size-3.5" />
-                {isUpdating ? 'Updating...' : 'Mark as In Process'}
+                {isUpdating ? 'Updating...' : 'Start Evaluation (Mark In Process)'}
               </button>
             ) : null}
 
-            {isProjectStaff && workflowStage === 'in_process' ? (
+            {isProjectStaff && (workflowStage === 'initial_review' || workflowStage === 'in_process') ? (
               <button
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
                 onClick={() => setSection('internalDocuments')}
                 type="button"
               >
                 <FileCheck2 className="size-3.5" />
-                {internalDocumentsReady ? 'View Internal Documents' : 'Complete Internal Documents'}
+                {internalDocumentsReady ? 'View Internal Documents' : 'Upload Internal Documents'}
               </button>
             ) : null}
 
@@ -361,11 +361,6 @@ export function ProposalReviewModal({
               </>
             ) : null}
 
-            {isFocal && workflowStage === 'initial_review' ? (
-              <span className="text-xs font-semibold text-slate-500">
-                Waiting for Project Staff processing
-              </span>
-            ) : null}
 
             {isDirector && workflowStage !== 'endorsed' && workflowStage !== 'approved' && workflowStage !== 'closed' ? (
               <span className="text-xs font-semibold text-slate-500">

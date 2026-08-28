@@ -23,6 +23,7 @@ import {
   transactions,
   type ProjectRecord,
 } from '../../data/admin'
+import { getMockUser } from '../../lib/mockAuth'
 
 interface FinancialTransaction {
   amount: number
@@ -350,17 +351,49 @@ function RecentTransactionsModal({ onClose }: { onClose: () => void }) {
 }
 
 export function BudgetPage() {
+  const currentUser = getMockUser()
+  const lockedProgram =
+    currentUser?.program === 'SETUP' || currentUser?.program === 'GIA'
+      ? currentUser.program
+      : null
+
   const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(null)
   const [recentTransactionsOpen, setRecentTransactionsOpen] = useState(false)
-  const totalAllocated = projectRecords.reduce(
+
+  const visibleProjects = projectRecords.filter(
+    (project) => !lockedProgram || project.program === lockedProgram,
+  )
+
+  const totalAllocated = visibleProjects.reduce(
     (total, project) => total + project.budget,
     0,
   )
-  const totalUsed = projectRecords.reduce(
+  const totalUsed = visibleProjects.reduce(
     (total, project) => total + project.used,
     0,
   )
-  const utilization = Math.round((totalUsed / totalAllocated) * 100)
+  const utilization = Math.round((totalUsed / Math.max(totalAllocated, 1)) * 100)
+
+  const headerEyebrow =
+    lockedProgram === 'SETUP'
+      ? 'SSCP Finance & Amortization'
+      : lockedProgram === 'GIA'
+        ? 'CEST Grants & Disbursements'
+        : 'Financial Management'
+
+  const headerTitle =
+    lockedProgram === 'SETUP'
+      ? 'SETUP Repayment & Amortization Records'
+      : lockedProgram === 'GIA'
+        ? 'GIA Grant Budget & Disbursements'
+        : 'Financial Records'
+
+  const headerDescription =
+    lockedProgram === 'SETUP'
+      ? 'Monitor MSME equipment amortization schedules, quarterly refund ledgers, and repayment collection efficiency.'
+      : lockedProgram === 'GIA'
+        ? 'Monitor GIA fund release tranches, Line-Item Budget (LIB) allocations, and financial liquidation compliance.'
+        : 'Monitor disbursements, billing compliance, payment schedules, and auditable financial records.'
 
   return (
     <div className="space-y-7">
@@ -385,14 +418,14 @@ export function BudgetPage() {
             </button>
           </div>
         }
-        description="Monitor disbursements, billing compliance, payment schedules, and auditable financial records."
-        eyebrow="Financial Management"
-        title="Budget Management"
+        description={headerDescription}
+        eyebrow={headerEyebrow}
+        title={headerTitle}
       />
 
       <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
         <MetricCard
-          detail="Across active funded projects"
+          detail={lockedProgram ? `Across active ${lockedProgram} projects` : 'Across active funded projects'}
           icon={Wallet}
           label="Total Allocated"
           value={formatCurrency(totalAllocated)}
@@ -432,11 +465,11 @@ export function BudgetPage() {
             <History className="size-4" />
           </button>
         }
-        title="Project allocations"
+        title={lockedProgram ? `${lockedProgram} project allocations` : 'Project allocations'}
       >
         <DataTable
           columns={allocationColumns}
-          data={projectRecords}
+          data={visibleProjects}
           getRowKey={(project) => project.id}
           initialRowsPerPage={5}
           onRowClick={setSelectedProject}

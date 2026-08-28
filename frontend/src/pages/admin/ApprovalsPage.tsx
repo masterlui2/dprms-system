@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Eye, Filter, Check } from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
@@ -9,6 +10,7 @@ import {
 import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
 import { getAllProposals } from "../../services/proposalStore";
+import { getMockUser } from "../../lib/mockAuth";
 import type { ApplicationRecord } from "../../types/application";
 
 const programFilters = [
@@ -18,7 +20,14 @@ const programFilters = [
 ];
 
 export function ApprovalsPage() {
-  const [program, setProgram] = useState("all");
+  const location = useLocation();
+  const currentUser = getMockUser();
+  const lockedProgram =
+    currentUser?.program === "SETUP" || currentUser?.program === "GIA"
+      ? currentUser.program
+      : null;
+
+  const [program, setProgram] = useState<string>(lockedProgram || "all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [review, setReview] = useState<{
     proposal: ProposalRecord;
@@ -26,6 +35,12 @@ export function ApprovalsPage() {
   } | null>(null);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (lockedProgram) {
+      setProgram(lockedProgram);
+    }
+  }, [lockedProgram]);
 
   useEffect(() => {
     let cancelled = false;
@@ -87,13 +102,56 @@ export function ApprovalsPage() {
     };
   });
 
+  const effectiveProgram = lockedProgram || program;
   const filteredProposals = applicationProposals.filter((proposal) => {
-    return program === "all" || proposal.program === program;
+    return effectiveProgram === "all" || proposal.program === effectiveProgram;
   });
 
   function openReview(proposal: ProposalRecord, section: ReviewSection) {
     setReview({ proposal, section });
   }
+
+  // Module Header Customization based on Route & Scoped Program
+  const isReviewRoute = location.pathname.includes("/application-review");
+  const isApprovalRoute = location.pathname.includes("/executive-approval");
+
+  const headerEyebrow = isReviewRoute
+    ? lockedProgram === "SETUP"
+      ? "SSCP Technical Review"
+      : lockedProgram === "GIA"
+        ? "CEST Technical Review"
+        : "Technical Evaluation"
+    : isApprovalRoute
+      ? "Executive Decisions"
+      : lockedProgram === "SETUP"
+        ? "SSCP Application Intake"
+        : lockedProgram === "GIA"
+          ? "CEST Proposal Intake"
+          : "Application Intake";
+
+  const headerTitle = isReviewRoute
+    ? lockedProgram === "SETUP"
+      ? "SETUP Proposal Review & Verification"
+      : lockedProgram === "GIA"
+        ? "GIA Proposal Review & Verification"
+        : "Proposal Review & Evaluation"
+    : isApprovalRoute
+      ? "Executive Final Approval"
+      : lockedProgram === "SETUP"
+        ? "SETUP Incoming Applications"
+        : lockedProgram === "GIA"
+          ? "GIA Incoming Proposals"
+          : "Incoming Applications";
+
+  const headerDescription = isReviewRoute
+    ? "Evaluate proposal eligibility, verify applicant and internal documents, and endorse qualified proposals to the Provincial Director."
+    : isApprovalRoute
+      ? "Inspect endorsed project dossiers and issue official Executive Approval or Disapproval."
+      : lockedProgram === "SETUP"
+        ? "View and process incoming technology upgrading applications from MSME applicants."
+        : lockedProgram === "GIA"
+          ? "View and process incoming research and community S&T proposals from GIA applicants."
+          : "View and cater incoming proposal submissions from SETUP and GIA program applicants.";
 
   const columns: DataColumn<ProposalRecord>[] = [
     {
@@ -207,9 +265,9 @@ export function ApprovalsPage() {
   return (
     <div className="space-y-7">
       <AdminPageHeader
-        description="View and cater incoming proposal submissions from SETUP and GIA program applicants."
-        eyebrow="Application Intake"
-        title="Incoming Applications"
+        description={headerDescription}
+        eyebrow={headerEyebrow}
+        title={headerTitle}
       />
 
       <section className="overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
@@ -233,50 +291,57 @@ export function ApprovalsPage() {
             `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.proponentName ?? ""} ${proposal.organizationType ?? ""} ${proposal.program}`
           }
           toolbar={
-            <div className="relative">
-              <button
-                aria-expanded={filtersOpen}
-                aria-label="Filter by Program"
-                className="relative inline-flex items-center gap-2 rounded-xl border border-[#d8e1ee] bg-white px-3.5 py-2 text-xs font-bold text-[#073b82] shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-                onClick={() => setFiltersOpen((open) => !open)}
-                type="button"
-              >
-                <Filter className="size-3.5" />
-                <span>{program === "all" ? "Filter Program" : program}</span>
-              </button>
+            lockedProgram ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-black text-[#073b82]">
+                <span className="size-2 rounded-full bg-[#0f53b7]" />
+                {lockedProgram === "SETUP" ? "SSCP / SETUP Unit" : "CEST / GIA Unit"}
+              </span>
+            ) : (
+              <div className="relative">
+                <button
+                  aria-expanded={filtersOpen}
+                  aria-label="Filter by Program"
+                  className="relative inline-flex items-center gap-2 rounded-xl border border-[#d8e1ee] bg-white px-3.5 py-2 text-xs font-bold text-[#073b82] shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
+                  onClick={() => setFiltersOpen((open) => !open)}
+                  type="button"
+                >
+                  <Filter className="size-3.5" />
+                  <span>{program === "all" ? "Filter Program" : program}</span>
+                </button>
 
-              {filtersOpen ? (
-                <div className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-xl shadow-slate-900/10">
-                  <div className="border-b border-slate-100 px-4 py-2.5">
-                    <p className="text-xs font-black text-[#073b82]">Filter by Program</p>
-                  </div>
+                {filtersOpen ? (
+                  <div className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-xl shadow-slate-900/10">
+                    <div className="border-b border-slate-100 px-4 py-2.5">
+                      <p className="text-xs font-black text-[#073b82]">Filter by Program</p>
+                    </div>
 
-                  <div className="p-2 space-y-1">
-                    {programFilters.map((item) => (
-                      <button
-                        className={cn(
-                          "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold transition",
-                          program === item.value
-                            ? "bg-blue-50 text-[#073b82]"
-                            : "text-slate-600 hover:bg-slate-50",
-                        )}
-                        key={item.value}
-                        onClick={() => {
-                          setProgram(item.value);
-                          setFiltersOpen(false);
-                        }}
-                        type="button"
-                      >
-                        <span>{item.label}</span>
-                        {program === item.value ? (
-                          <Check className="size-3.5 text-[#0f53b7]" />
-                        ) : null}
-                      </button>
-                    ))}
+                    <div className="p-2 space-y-1">
+                      {programFilters.map((item) => (
+                        <button
+                          className={cn(
+                            "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold transition",
+                            program === item.value
+                              ? "bg-blue-50 text-[#073b82]"
+                              : "text-slate-600 hover:bg-slate-50",
+                          )}
+                          key={item.value}
+                          onClick={() => {
+                            setProgram(item.value);
+                            setFiltersOpen(false);
+                          }}
+                          type="button"
+                        >
+                          <span>{item.label}</span>
+                          {program === item.value ? (
+                            <Check className="size-3.5 text-[#0f53b7]" />
+                          ) : null}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            )
           }
         />
       </section>
