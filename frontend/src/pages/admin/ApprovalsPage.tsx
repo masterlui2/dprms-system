@@ -8,11 +8,6 @@ import {
   FileCheck,
   ShieldCheck,
   CheckCircle2,
-  Building2,
-  MapPin,
-  User,
-  GraduationCap,
-  Sparkles,
 } from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
@@ -20,7 +15,7 @@ import {
   ProposalReviewModal,
   type ReviewSection,
 } from "../../components/admin/ProposalReviewModal";
-import { type ProposalRecord, formatCurrency } from "../../data/admin";
+import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
 import { getAllProposals } from "../../services/proposalStore";
 import { getMockUser } from "../../lib/mockAuth";
@@ -98,15 +93,15 @@ export function ApprovalsPage() {
     else if (stage === 0) status = "Pending";
 
     return {
-      amount: app.fundingRequested || 1500000,
+      amount: 1500000,
       completeness: 100,
       id: app.referenceNo,
       proposalId: app.proposalId, // numeric backend id, needed by ProposalDocumentsSection
       organization: app.organizationName,
       organizationType:
         app.program === "GIA"
-          ? app.proponentCategory || "HEI / SUC / LGU Proponent"
-          : app.businessType || "MSME Enterprise (Private Sector)",
+          ? (app.proponentCategory || "HEI / SUC / LGU Proponent")
+          : (app.businessType || "MSME Enterprise"),
       proponentName: app.applicantName || "Maria Proponent",
       proponentRole:
         app.program === "GIA"
@@ -122,13 +117,13 @@ export function ApprovalsPage() {
         year: "numeric",
       }),
       title: app.projectTitle,
-      businessType: app.businessType,
       industrySector: app.industrySector,
       enterpriseSize: app.enterpriseSize,
+      businessType: app.businessType,
       location: app.location,
       proponentCategory: app.proponentCategory,
-      researchType: app.researchType,
       researchCategory: app.researchCategory,
+      contactNumber: app.contactNumber,
     };
   });
 
@@ -190,80 +185,75 @@ export function ApprovalsPage() {
   const columns: DataColumn<ProposalRecord>[] = [
     {
       id: "id",
-      header: "Application & Project Info",
-      className: "w-[40%]",
+      header: "Application & Project Details",
+      className: "w-[44%]",
       sortValue: (proposal) => proposal.title,
-      render: (proposal) => {
-        const isSetup = proposal.program === "SETUP";
-        const sectorOrCategory = isSetup
-          ? proposal.industrySector || "Technology Upgrading"
-          : proposal.researchCategory || proposal.researchType || "R&D / Community S&T";
-
-        return (
-          <div className="space-y-1.5 py-1">
-            <p className="font-bold text-slate-900 leading-snug">{proposal.title}</p>
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="font-mono font-bold text-[#0f53b7] bg-blue-50 border border-blue-200/60 rounded px-1.5 py-0.5">
-                {proposal.id}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="inline-flex items-center gap-1 font-medium text-slate-600">
-                <Sparkles className="size-3 text-amber-500" />
-                {sectorOrCategory}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="font-bold text-slate-700">
-                {formatCurrency(proposal.amount)}
-              </span>
-            </div>
+      render: (proposal) => (
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs font-bold text-[#0f53b7] bg-blue-50 px-2 py-0.5 rounded border border-blue-200/80">
+              {proposal.id}
+            </span>
+            {proposal.program === "SETUP" ? (
+              <>
+                {proposal.industrySector ? (
+                  <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                    {proposal.industrySector}
+                  </span>
+                ) : null}
+                {proposal.enterpriseSize ? (
+                  <span className="inline-flex items-center rounded bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200/60">
+                    {proposal.enterpriseSize} Enterprise
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {proposal.proponentCategory ? (
+                  <span className="inline-flex items-center rounded bg-purple-50 px-2 py-0.5 text-[11px] font-semibold text-purple-800 border border-purple-200/60">
+                    {proposal.proponentCategory}
+                  </span>
+                ) : null}
+                {proposal.researchCategory ? (
+                  <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                    {proposal.researchCategory}
+                  </span>
+                ) : null}
+              </>
+            )}
           </div>
-        );
-      },
+          <p className="font-bold leading-snug text-slate-900 line-clamp-2">{proposal.title}</p>
+          {proposal.location ? (
+            <p className="text-xs text-slate-500 font-medium">
+              📍 {proposal.location}
+            </p>
+          ) : null}
+        </div>
+      ),
     },
     {
       id: "proponent",
-      header: "Proponent & Profile",
-      className: "w-[30%]",
+      header: "Proponent / Organization",
+      className: "w-[26%]",
       sortValue: (proposal) => proposal.proponentName ?? proposal.organization,
       render: (proposal) => {
-        const isSetup = proposal.program === "SETUP";
-        const orgName = proposal.organization || (isSetup ? "Enterprise" : "Proponent Institution");
-        const proponent = proposal.proponentName || "Maria Proponent";
-        const sizeOrCategory = isSetup
-          ? proposal.enterpriseSize || "Micro Enterprise"
-          : proposal.proponentCategory || "HEI / SUC Proponent";
-        const location = proposal.location || "Davao Oriental";
+        const showOrganization =
+          proposal.organization.trim().toLowerCase() !==
+            proposal.title.trim().toLowerCase() &&
+          proposal.organization.trim().toLowerCase() !==
+            proposal.proponentName?.trim().toLowerCase();
 
         return (
-          <div className="space-y-1.5 py-1">
-            <div className="flex items-center gap-1.5">
-              {isSetup ? (
-                <Building2 className="size-3.5 text-[#0f53b7] shrink-0" />
-              ) : (
-                <GraduationCap className="size-3.5 text-purple-600 shrink-0" />
-              )}
-              <span className="font-bold text-slate-900 leading-tight">
-                {orgName}
-              </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-              <span className="inline-flex items-center gap-1 font-medium text-slate-700">
-                <User className="size-3 text-slate-400" />
-                {proponent}
-              </span>
-              <span className="text-slate-300">•</span>
-              <span className="inline-flex items-center gap-0.5 text-slate-500">
-                <MapPin className="size-3 text-slate-400" />
-                {location}
-              </span>
-            </div>
-
-            <div className="pt-0.5">
-              <span className="inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                {sizeOrCategory}
-              </span>
-            </div>
+          <div className="space-y-1">
+            <p className="font-bold text-slate-900">
+              {proposal.proponentName ?? "Maria Proponent"}
+            </p>
+            {showOrganization ? (
+              <p className="text-xs font-semibold text-slate-600">{proposal.organization}</p>
+            ) : null}
+            {proposal.organizationType ? (
+              <p className="text-[11px] text-slate-400 font-medium">{proposal.organizationType}</p>
+            ) : null}
           </div>
         );
       },
@@ -271,7 +261,7 @@ export function ApprovalsPage() {
     {
       id: "status",
       header: "Status",
-      className: "w-[15%]",
+      className: "w-[14%]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
         let toneClass = "text-[#0f53b7] bg-blue-50 border-blue-200";
@@ -312,7 +302,7 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[5%] text-right whitespace-nowrap",
+      className: "w-[6%] text-right whitespace-nowrap",
       render: (proposal) => (
         <div className="flex justify-end">
           <button

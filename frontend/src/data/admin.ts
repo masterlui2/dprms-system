@@ -23,14 +23,13 @@ export interface ProposalRecord {
   submitted: string
   title: string
   proposalId?: number
-  businessType?: string
-  industrySector?: string
-  enterpriseSize?: string
-  location?: string
-  proponentCategory?: string
-  researchType?: string
-  researchCategory?: string
-  fundingRequested?: number
+  industrySector?: string | null
+  enterpriseSize?: string | null
+  businessType?: string | null
+  location?: string | null
+  proponentCategory?: string | null
+  researchCategory?: string | null
+  contactNumber?: string | null
 }
 
 export type ProposalReviewStatus =

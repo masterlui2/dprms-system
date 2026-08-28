@@ -4,7 +4,6 @@ import {
   BarChart3,
   Bell,
   Building2,
-  ClipboardCheck,
   DatabaseBackup,
   FilePenLine,
   FolderKanban,
@@ -66,22 +65,10 @@ export const sidebarItems: SidebarItem[] = [
   ),
 
   item(
-    "applicationReview",
-    "Review",
-    ClipboardCheck,
-    "/dashboard/application-review",
-  ),
-  item(
     "projectMonitoring",
     "Project Monitoring",
     Activity,
     "/dashboard/project-monitoring",
-  ),
-  item(
-    "executiveApproval",
-    "Final Approval",
-    ShieldCheck,
-    "/dashboard/executive-approval",
   ),
   item("projects", "Projects", FolderKanban, "/dashboard/projects"),
   item(
