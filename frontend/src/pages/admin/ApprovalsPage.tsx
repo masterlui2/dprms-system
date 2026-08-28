@@ -159,19 +159,14 @@ export function ApprovalsPage() {
     setReview({ proposal, section });
   }
 
-  const headerEyebrow =
-    lockedProgram === "SETUP"
-      ? "SSCP Application & Review Desk"
-      : lockedProgram === "GIA"
-        ? "CEST Proposal & Review Desk"
-        : "Application & Review Desk";
+  const headerEyebrow = "Proposal Management";
 
   const headerTitle =
     lockedProgram === "SETUP"
-      ? "SETUP Applications & Review"
+      ? "SETUP Applications"
       : lockedProgram === "GIA"
-        ? "GIA Proposals & Review"
-        : "Applications & Review";
+        ? "GIA Proposals"
+        : "Applications";
 
   const headerDescription =
     lockedProgram === "SETUP"
@@ -184,7 +179,7 @@ export function ApprovalsPage() {
     {
       id: "id",
       header: "Application",
-      className: "w-[30%]",
+      className: "w-[36%]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
         <div>
@@ -196,7 +191,7 @@ export function ApprovalsPage() {
     {
       id: "proponent",
       header: "Proponent",
-      className: "w-[22%]",
+      className: "w-[28%]",
       sortValue: (proposal) => proposal.proponentName ?? proposal.organization,
       render: (proposal) => {
         const showOrganization =
@@ -218,39 +213,30 @@ export function ApprovalsPage() {
       },
     },
     {
-      id: "reviewer",
-      header: "Assigned Officer",
-      className: "w-[15%]",
-      sortValue: (proposal) => proposal.reviewer,
-      render: (proposal) => (
-        <span className="text-xs font-semibold text-slate-700">
-          {proposal.reviewer || "Project Staff"}
-        </span>
-      ),
-    },
-    {
       id: "status",
       header: "Status",
-      className: "w-[11%]",
+      className: "w-[16%]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
-        let toneClass = "text-[#0f53b7]";
+        let toneClass = "text-[#0f53b7] bg-blue-50 border-blue-200";
         if (proposal.status === "Approved") {
-          toneClass = "text-emerald-700";
+          toneClass = "text-emerald-700 bg-emerald-50 border-emerald-200";
         } else if (
           proposal.status === "Rejected" ||
           proposal.status === "Disapproved"
         ) {
-          toneClass = "text-rose-700";
+          toneClass = "text-rose-700 bg-rose-50 border-rose-200";
         } else if (
           proposal.status === "Pending" ||
           proposal.status === "Returned for Revision"
         ) {
-          toneClass = "text-amber-700";
+          toneClass = "text-amber-700 bg-amber-50 border-amber-200";
+        } else if (proposal.status === "Executive Approval") {
+          toneClass = "text-purple-700 bg-purple-50 border-purple-200";
         }
 
         return (
-          <span className={cn("text-xs font-bold", toneClass)}>
+          <span className={cn("inline-flex items-center rounded-lg border px-2.5 py-1 text-xs font-bold", toneClass)}>
             {proposal.status}
           </span>
         );
@@ -259,7 +245,7 @@ export function ApprovalsPage() {
     {
       id: "submitted",
       header: "Received",
-      className: "w-[11%]",
+      className: "w-[12%]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="whitespace-nowrap text-xs font-medium text-slate-600">
@@ -270,7 +256,7 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[11%] text-right whitespace-nowrap",
+      className: "w-[8%] text-right whitespace-nowrap",
       render: (proposal) => (
         <div className="flex justify-end">
           <button
@@ -389,7 +375,7 @@ export function ApprovalsPage() {
 
         <button
           className={cn(
-            "group inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-xs",
+            "group inline-flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold transition shadow-xs",
             lifecycleTab === "approved"
               ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
               : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
@@ -431,12 +417,7 @@ export function ApprovalsPage() {
             `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.proponentName ?? ""} ${proposal.organizationType ?? ""} ${proposal.program}`
           }
           toolbar={
-            lockedProgram ? (
-              <span className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-black text-[#073b82]">
-                <span className="size-2 rounded-full bg-[#0f53b7]" />
-                {lockedProgram === "SETUP" ? "SSCP / SETUP Unit" : "CEST / GIA Unit"}
-              </span>
-            ) : (
+            lockedProgram ? null : (
               <div className="relative">
                 <button
                   aria-expanded={filtersOpen}
