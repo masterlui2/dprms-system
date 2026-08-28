@@ -161,6 +161,7 @@ export type ProposalDecision =
   | 'disapprove'
   | 'endorse'
   | 'return_revision'
+  | 'return_in_process'
 
 export async function applyProposalDecision({
   decision,
@@ -179,6 +180,14 @@ export async function applyProposalDecision({
   if (decision === 'disapprove') {
     await api.put(`/proposal/${proposalId}/disapprove`, { remarks })
     return 'Disapproved'
+  }
+
+  if (decision === 'return_in_process') {
+    await api.put(`/proposal/advance-stage/${proposalId}`, {
+      remarks: remarks || null,
+      status: 'UNDER_VALIDATION',
+    })
+    return 'In Process'
   }
 
   if (decision === 'return_revision') {

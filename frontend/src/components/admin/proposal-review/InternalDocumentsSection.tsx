@@ -1,13 +1,11 @@
 import {
   AlertTriangle,
   Check,
-  CheckCircle2,
   Download,
   ExternalLink,
   Eye,
   FileCheck2,
   Loader2,
-  RotateCcw,
   ShieldCheck,
   Upload,
 } from "lucide-react";
@@ -94,7 +92,6 @@ export function InternalDocumentsSection({
   const [reviewingStatus, setReviewingStatus] = useState<
     "approved" | "returned_for_revision" | null
   >(null);
-  const [reviewRemarks, setReviewRemarks] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -108,26 +105,12 @@ export function InternalDocumentsSection({
     documents.find((document) => document.id === selectedDocumentId) ?? null;
   const requiredComplete = requiredInternalDocumentsComplete(documents);
 
-  const attachedCount = useMemo(
-    () =>
-      documents.filter((document) => document.status !== "not_uploaded").length,
-    [documents],
-  );
   const verifiedCount = useMemo(
     () => documents.filter((document) => document.status === "approved").length,
     [documents],
   );
-  const requiredDocuments = useMemo(
-    () => documents.filter((document) => document.requiredForEndorsement),
-    [documents],
-  );
-  const requiredAttachedCount = requiredDocuments.filter(
-    (document) =>
-      document.status !== "not_uploaded" &&
-      document.status !== "returned_for_revision",
-  ).length;
-  const percentComplete = requiredDocuments.length
-    ? Math.round((requiredAttachedCount / requiredDocuments.length) * 100)
+  const percentComplete = documents.length > 0
+    ? Math.round((verifiedCount / documents.length) * 100)
     : 0;
 
   useEffect(() => {
@@ -192,10 +175,6 @@ export function InternalDocumentsSection({
     setActionError(null);
     setActionNotice(null);
   }, [selectedDocument?.id]);
-
-  useEffect(() => {
-    setReviewRemarks(selectedDocument?.remarks ?? "");
-  }, [selectedDocument?.id, selectedDocument?.remarks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -274,9 +253,8 @@ export function InternalDocumentsSection({
                 backendId: uploaded.id,
                 fileName: uploaded.file_name,
                 fileSize: uploaded.file_size ?? undefined,
-                fileType: uploaded.mime_type ?? "application/pdf",
-                remarks: undefined,
-                reviewedAt: undefined,
+                remarks: uploaded.remarks ?? undefined,
+                reviewedAt: uploaded.reviewed_at ?? undefined,
                 status: uploaded.status,
                 updated: uploaded.updated_at,
               }
@@ -284,15 +262,11 @@ export function InternalDocumentsSection({
         ),
       );
       setSelectedDocumentId(id);
-      setActionNotice(
-        document.status === "not_uploaded"
-          ? "Internal document uploaded successfully."
-          : "Replacement uploaded and returned to Focal review.",
-      );
       setPreviewVersion((version) => version + 1);
+      setActionNotice(`${document.label} was uploaded successfully.`);
     } catch (error) {
       console.error("Failed to upload internal document:", error);
-      setActionError("The PDF could not be uploaded. Please try again.");
+      setActionError("The internal PDF could not be uploaded. Please try again.");
     } finally {
       setUploadingId(null);
     }
@@ -303,11 +277,6 @@ export function InternalDocumentsSection({
   ) {
     if (!selectedDocument?.backendId || !canReview) return;
 
-    if (status === "returned_for_revision" && !reviewRemarks.trim()) {
-      setActionError("Add clear revision instructions before returning this file.");
-      return;
-    }
-
     setReviewingStatus(status);
     setActionError(null);
     setActionNotice(null);
@@ -316,26 +285,34 @@ export function InternalDocumentsSection({
       const updated = await reviewProposalDocument(
         selectedDocument.backendId,
         status,
-        status === "returned_for_revision" ? reviewRemarks : undefined,
       );
-      setDocuments((current) =>
-        current.map((document) =>
-          document.id === selectedDocument.id
-            ? {
-                ...document,
-                remarks: updated.remarks ?? undefined,
-                reviewedAt: updated.reviewed_at ?? undefined,
-                status: updated.status,
-                updated: updated.updated_at,
-              }
-            : document,
-        ),
+      const nextDocs = documents.map((document) =>
+        document.id === selectedDocument.id
+          ? {
+              ...document,
+              remarks: updated.remarks ?? undefined,
+              reviewedAt: updated.reviewed_at ?? undefined,
+              status: updated.status,
+              updated: updated.updated_at,
+            }
+          : document,
       );
+      setDocuments(nextDocs);
       setActionNotice(
         status === "approved"
           ? "Internal document marked as verified."
           : "Revision instructions saved for Project Staff.",
       );
+
+      // Auto advance to next unverified document or next in list
+      const currentIndex = nextDocs.findIndex((d) => d.id === selectedDocument.id);
+      const nextDoc =
+        nextDocs.find((d, idx) => idx > currentIndex && d.status !== "approved" && d.status !== "not_uploaded") ??
+        nextDocs.find((d) => d.id !== selectedDocument.id && d.status !== "approved" && d.status !== "not_uploaded") ??
+        nextDocs[currentIndex + 1] ??
+        selectedDocument;
+
+      setSelectedDocumentId(nextDoc.id);
     } catch (error) {
       console.error("Failed to review internal document:", error);
       setActionError("The document review could not be saved. Please try again.");
@@ -383,23 +360,25 @@ export function InternalDocumentsSection({
     <div className="grid h-full min-h-[calc(92vh-160px)] gap-3 lg:grid-cols-[minmax(330px,365px)_minmax(0,1fr)]">
       <section className="flex h-full min-h-[calc(92vh-160px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
         <div className="border-b border-slate-200 bg-slate-50/60 p-3.5">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center justify-between gap-2">
             <div>
               <h3 className="flex items-center gap-1.5 text-xs font-bold text-[#073b82]">
                 <ShieldCheck className="size-4 text-[#0f53b7]" />
-                {program} internal documents
+                Internal Documents
               </h3>
-              <p className="mt-1 text-[11px] leading-4 text-slate-500">
-                {attachedCount} of {documents.length} attached · {verifiedCount} verified
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                {verifiedCount} of {documents.length} verified ({percentComplete}%)
               </p>
             </div>
             <span
               className={cn(
-                "shrink-0 whitespace-nowrap text-[10px] font-bold",
-                requiredComplete ? "text-emerald-700" : "text-[#0f53b7]",
+                "whitespace-nowrap shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold",
+                percentComplete === 100
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-blue-50 text-[#0f53b7]",
               )}
             >
-              {requiredComplete ? "Ready for review" : "Documents pending"}
+              {percentComplete === 100 ? "Complete" : "In Review"}
             </span>
           </div>
 
@@ -407,7 +386,7 @@ export function InternalDocumentsSection({
             <div
               className={cn(
                 "h-full transition-all duration-300",
-                requiredComplete ? "bg-emerald-600" : "bg-[#0f53b7]",
+                percentComplete === 100 ? "bg-emerald-600" : "bg-[#0f53b7]",
               )}
               style={{ width: `${percentComplete}%` }}
             />
@@ -592,6 +571,31 @@ export function InternalDocumentsSection({
               </div>
 
               <div className="flex items-center gap-1.5">
+                {canReview && selectedDocument.backendId ? (
+                  <>
+                    <button
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold shadow-2xs transition disabled:opacity-50",
+                        selectedDocument.status === "approved"
+                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                          : "border border-slate-300 bg-white text-slate-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800",
+                      )}
+                      disabled={reviewingStatus !== null}
+                      onClick={() => void saveReview("approved")}
+                      title={selectedDocument.status === "approved" ? "Verified" : "Mark as Verified"}
+                      type="button"
+                    >
+                      {reviewingStatus === "approved" ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Check className="size-3.5" />
+                      )}
+                      <span>{selectedDocument.status === "approved" ? "Verified" : "Mark Verified"}</span>
+                    </button>
+                    <div className="mx-0.5 h-4 w-px bg-slate-200" />
+                  </>
+                ) : null}
+
                 <button
                   className="inline-flex size-7 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                   disabled={downloading}
@@ -618,65 +622,6 @@ export function InternalDocumentsSection({
                 </button>
               </div>
             </div>
-
-            {canReview ? (
-              <div className="border-b border-slate-200 bg-slate-50/70 px-3.5 py-3">
-                <div className="flex flex-col gap-2.5 xl:flex-row xl:items-end">
-                  <div className="min-w-0 flex-1">
-                    <label
-                      className="text-[10px] font-bold uppercase tracking-wider text-slate-500"
-                      htmlFor={`internal-review-remarks-${selectedDocument.id}`}
-                    >
-                      Review remarks
-                    </label>
-                    <textarea
-                      className="mt-1 min-h-16 w-full resize-none rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-2 focus:ring-blue-100"
-                      id={`internal-review-remarks-${selectedDocument.id}`}
-                      onChange={(event) => setReviewRemarks(event.target.value)}
-                      placeholder="Required when returning this file for revision."
-                      value={reviewRemarks}
-                    />
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <button
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-amber-700 transition hover:bg-amber-100 disabled:opacity-50"
-                      disabled={reviewingStatus !== null}
-                      onClick={() => void saveReview("returned_for_revision")}
-                      type="button"
-                    >
-                      {reviewingStatus === "returned_for_revision" ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <RotateCcw className="size-3.5" />
-                      )}
-                      Needs revision
-                    </button>
-                    <button
-                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:opacity-50"
-                      disabled={reviewingStatus !== null}
-                      onClick={() => void saveReview("approved")}
-                      type="button"
-                    >
-                      {reviewingStatus === "approved" ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="size-3.5" />
-                      )}
-                      Mark verified
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ) : selectedDocument.remarks ? (
-              <div className="border-b border-amber-100 bg-amber-50/70 px-3.5 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                  Focal remarks
-                </p>
-                <p className="mt-1 text-xs leading-5 text-slate-700">
-                  {selectedDocument.remarks}
-                </p>
-              </div>
-            ) : null}
 
             <div className="relative flex min-h-[360px] flex-1 flex-col overflow-hidden bg-slate-100">
               {previewLoading ? (

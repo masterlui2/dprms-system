@@ -23,6 +23,7 @@ export interface ProposalRecord {
   submitted: string
   title: string
   proposalId?: number
+  remarks?: string | null
   industrySector?: string | null
   enterpriseSize?: string | null
   businessType?: string | null

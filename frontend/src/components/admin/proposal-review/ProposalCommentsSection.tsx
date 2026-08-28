@@ -20,7 +20,7 @@ import {
 } from "../../../services/proposalStore";
 import { cn } from "../../../utils/cn";
 
-export type DecisionType = ProposalDecision | "note_only";
+export type DecisionType = ProposalDecision | "return_in_process";
 
 interface ReviewComment {
   id: string;
@@ -36,14 +36,112 @@ function getReviewStorageKey(proposalId?: string) {
   return `dprms.proposal-review-logs.${proposalId || "general"}`;
 }
 
-function readReviewLogs(proposalId?: string): ReviewComment[] {
-  if (typeof window === "undefined" || !proposalId) return [];
+function isActionValidForStage(decision: DecisionType | undefined, stage: number, status: string): boolean {
+  if (!decision) return true;
+  if (decision === "approve" && stage < 4 && status !== "Approved") return false;
+  if (decision === "disapprove" && status !== "Disapproved") return false;
+  if (decision === "endorse" && stage < 3 && status !== "Executive Approval" && status !== "Approved") return false;
+  return true;
+}
+
+function readReviewLogs(proposal?: ProposalRecord): ReviewComment[] {
+  if (typeof window === "undefined" || !proposal?.id) return [];
   try {
-    const raw = window.localStorage.getItem(getReviewStorageKey(proposalId));
-    return raw ? (JSON.parse(raw) as ReviewComment[]) : [];
+    const raw = window.localStorage.getItem(getReviewStorageKey(proposal.id));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as ReviewComment[];
+    // Filter out inconsistent/stale test decisions that don't match the current database stage
+    return parsed.filter((comment) =>
+      isActionValidForStage(comment.decision, proposal.stage, proposal.status),
+    );
   } catch {
     return [];
   }
+}
+
+function getInitialTimeline(proposal?: ProposalRecord): ReviewComment[] {
+  if (!proposal) return [];
+  const stored = readReviewLogs(proposal);
+  if (stored.length > 0) return stored;
+
+  const initial: ReviewComment[] = [];
+  const dateStr = proposal.submitted
+    ? new Date(proposal.submitted).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Recently";
+
+  initial.push({
+    id: `sub-${proposal.id}`,
+    author: proposal.proponentName || "Applicant",
+    role: "Applicant",
+    date: dateStr,
+    note: `Submitted application for ${proposal.program} project: "${proposal.title}".`,
+  });
+
+  if (proposal.stage >= 1) {
+    initial.push({
+      id: `rev-${proposal.id}`,
+      author: proposal.reviewer || "DOST Focal Person",
+      role: "DOST Focal Person",
+      date: dateStr,
+      note: "Initial documentary requirements submitted and opened for desk validation.",
+    });
+  }
+
+  if (proposal.stage >= 2) {
+    initial.push({
+      id: `proc-${proposal.id}`,
+      author: proposal.reviewer || "DOST Focal Person",
+      role: "DOST Focal Person",
+      date: dateStr,
+      note: "Requirements verified. Advanced to technical assessment, site validation, and TNA.",
+    });
+  }
+
+  if (proposal.stage >= 3) {
+    initial.push({
+      id: `end-${proposal.id}`,
+      author: proposal.reviewer || "DOST Focal Person",
+      role: "DOST Focal Person",
+      date: dateStr,
+      decision: "endorse",
+      note: "Technical evaluation and documentary requirements complete. Endorsed for Provincial Director approval.",
+    });
+  }
+
+  if (proposal.stage === 4 || proposal.status === "Approved") {
+    initial.push({
+      id: `app-${proposal.id}`,
+      author: "Provincial Director",
+      role: "Provincial Director",
+      date: dateStr,
+      decision: "approve",
+      note: proposal.remarks || "Application approved for project implementation and fund release.",
+    });
+  } else if (proposal.status === "Disapproved") {
+    initial.push({
+      id: `dis-${proposal.id}`,
+      author: "Provincial Director",
+      role: "Provincial Director",
+      date: dateStr,
+      decision: "disapprove",
+      note: proposal.remarks || "Application formally disapproved.",
+    });
+  } else if (proposal.status === "Returned for Revision") {
+    initial.push({
+      id: `ret-${proposal.id}`,
+      author: proposal.reviewer || "DOST Officer",
+      role: "DOST Focal Person",
+      date: dateStr,
+      decision: "return_revision",
+      note: proposal.remarks || "Returned to proponent for requirement revisions.",
+    });
+  }
+
+  return initial;
 }
 
 function storeReviewLogs(proposalId: string | undefined, logs: ReviewComment[]) {
@@ -51,14 +149,33 @@ function storeReviewLogs(proposalId: string | undefined, logs: ReviewComment[]) 
   window.localStorage.setItem(getReviewStorageKey(proposalId), JSON.stringify(logs));
 }
 
-const quickPresets = [
-  "Documentary requirements complete and validated.",
-  "Equipment quotation verified against lowest compliant bidder.",
-  "Site inspection scheduled for validation.",
-  "Incomplete documentary requirements. Please re-submit valid documents.",
-  "Non-compliant with program qualification criteria.",
-  "Endorsed for Provincial Director final approval.",
-];
+const PRESETS_BY_DECISION: Record<DecisionType, string[]> = {
+  endorse: [
+    "Documentary requirements complete and validated.",
+    "Equipment quotation and Line-Item Budget verified.",
+    "Technical assessment and TNA completed. Recommended for Provincial Director approval.",
+    "Site validation passed with full technical compliance.",
+  ],
+  return_revision: [
+    "Incomplete documentary requirements. Please re-submit valid documents.",
+    "Updated equipment quotation / technical specifications required.",
+    "Clarification needed on Line-Item Budget / Financial records.",
+    "Non-compliant with program qualification criteria.",
+  ],
+  approve: [
+    "Formally approved for project creation and fund scheduling.",
+    "Executive evaluation complete. Proceed to project implementation.",
+    "Full compliance with DOST regional grant guidelines.",
+  ],
+  return_in_process: [
+    "Returned to In Process for technical clarification and re-assessment.",
+    "Financial or equipment adjustments required from Focal Person.",
+  ],
+  disapprove: [
+    "Project scope falls outside current regional priority areas.",
+    "Non-compliant with minimum qualification guidelines.",
+  ],
+};
 
 const decisionOptions: Array<{
   description: string;
@@ -66,7 +183,7 @@ const decisionOptions: Array<{
   id: DecisionType;
   label: string;
   newStatus?: string;
-  tone: "success" | "warning" | "danger" | "neutral";
+  tone: "success" | "warning" | "danger";
 }> = [
   {
     description: "Issue the Provincial Director's final approval and activate the project workflow.",
@@ -75,6 +192,14 @@ const decisionOptions: Array<{
     label: "Approve Application",
     newStatus: "Approved",
     tone: "success",
+  },
+  {
+    description: "Technical or Line-Item Budget adjustments needed. Return dossier back to In Process.",
+    icon: RotateCcw,
+    id: "return_in_process",
+    label: "Return to In Process (Technical Issue)",
+    newStatus: "In Process",
+    tone: "warning",
   },
   {
     description: "Documents complete and verified. Forward for Provincial Director executive approval.",
@@ -93,33 +218,22 @@ const decisionOptions: Array<{
     tone: "warning",
   },
   {
-    description: "Proposal does not meet qualifications or requirements. Mark application as disapproved.",
+    description: "Proposal does not meet qualifications or requirements. Formally disapprove application.",
     icon: XCircle,
     id: "disapprove",
     label: "Disapprove Application",
     newStatus: "Disapproved",
     tone: "danger",
   },
-  {
-    description: "Log internal review observation without changing the current application status.",
-    icon: MessageSquare,
-    id: "note_only",
-    label: "Internal Note Only",
-    tone: "neutral",
-  },
 ];
 
 function getAllowedDecisions(role?: string): DecisionType[] {
   if (role === ROLES.FOCAL) {
-    return ["endorse", "return_revision", "note_only"];
+    return ["endorse", "return_revision"];
   }
 
   if (role === ROLES.PROVINCIAL_DIRECTOR) {
-    return ["approve", "disapprove", "note_only"];
-  }
-
-  if (role === ROLES.PROJECT_STAFF) {
-    return ["note_only"];
+    return ["approve", "return_in_process", "disapprove"];
   }
 
   return [];
@@ -135,24 +249,26 @@ export function ProposalCommentsSection({
   requestedDecision?: { id: number; type: DecisionType } | null;
 }) {
   const currentUser = getMockUser();
+  const allowedDecisions = getAllowedDecisions(currentUser?.role);
   const [comments, setComments] = useState<ReviewComment[]>(() =>
-    readReviewLogs(proposal?.id),
+    getInitialTimeline(proposal),
   );
-  const [selectedDecision, setSelectedDecision] = useState<DecisionType>("note_only");
+  const [selectedDecision, setSelectedDecision] = useState<DecisionType>(
+    () => allowedDecisions[0] || "endorse",
+  );
   const [selectedFinding, setSelectedFinding] = useState("");
   const [newNote, setNewNote] = useState("");
   const [submitNotice, setSubmitNotice] = useState<string | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const allowedDecisions = getAllowedDecisions(currentUser?.role);
   const visibleDecisionOptions = decisionOptions.filter((option) =>
     allowedDecisions.includes(option.id),
   );
 
   useEffect(() => {
-    setComments(readReviewLogs(proposal?.id));
-  }, [proposal?.id]);
+    setComments(getInitialTimeline(proposal));
+  }, [proposal]);
 
   useEffect(() => {
     if (
@@ -164,7 +280,16 @@ export function ProposalCommentsSection({
   }, [currentUser?.role, requestedDecision]);
 
   async function handleAddComment() {
-    if (!newNote.trim() && !selectedFinding && selectedDecision === "note_only") return;
+    if (
+      (selectedDecision === "return_revision" ||
+        selectedDecision === "return_in_process" ||
+        selectedDecision === "disapprove") &&
+      !newNote.trim() &&
+      !selectedFinding
+    ) {
+      setSubmitError("Remarks or a standard reason are required for this decision.");
+      return;
+    }
 
     const chosen = decisionOptions.find((d) => d.id === selectedDecision);
     const remarks = [selectedFinding, newNote.trim()].filter(Boolean).join("\n");
@@ -173,7 +298,7 @@ export function ProposalCommentsSection({
     setIsSubmitting(true);
 
     try {
-      if (proposal && chosen?.newStatus && selectedDecision !== "note_only") {
+      if (proposal && chosen?.newStatus) {
         if (!proposal.proposalId) {
           throw new Error("This application is not linked to a server proposal.");
         }
@@ -224,7 +349,6 @@ export function ProposalCommentsSection({
 
     setSelectedFinding("");
     setNewNote("");
-    setSelectedDecision("note_only");
     
     if (chosen?.newStatus) {
       setSubmitNotice(`Decision recorded: Status updated to "${chosen.newStatus}"`);
@@ -232,6 +356,8 @@ export function ProposalCommentsSection({
     }
     setIsSubmitting(false);
   }
+
+  const currentPresets = PRESETS_BY_DECISION[selectedDecision] || [];
 
   return (
     <section className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
@@ -243,7 +369,7 @@ export function ProposalCommentsSection({
               Review Actions & Assessment Trail ({comments.length})
             </h3>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              Submit formal review decisions, return proposals for revision, or log internal notes.
+              Submit formal review decisions and return proposals for revision.
             </p>
           </div>
           {submitNotice && (
@@ -283,7 +409,7 @@ export function ProposalCommentsSection({
                   </div>
                   
                   <div className="mt-2 pl-8 space-y-1.5">
-                    {decisionMeta && decisionMeta.id !== "note_only" ? (
+                    {decisionMeta ? (
                       <div
                         className={cn(
                           "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold border",
@@ -347,13 +473,14 @@ export function ProposalCommentsSection({
                             ? "border-emerald-500 bg-emerald-50/80 shadow-2xs"
                             : option.tone === "warning"
                               ? "border-amber-500 bg-amber-50/80 shadow-2xs"
-                              : option.tone === "danger"
-                                ? "border-rose-500 bg-rose-50/80 shadow-2xs"
-                                : "border-slate-400 bg-white shadow-2xs"
+                              : "border-rose-500 bg-rose-50/80 shadow-2xs"
                           : "border-slate-200 bg-white hover:border-slate-300",
                       )}
                       key={option.id}
-                      onClick={() => setSelectedDecision(option.id)}
+                      onClick={() => {
+                        setSelectedDecision(option.id);
+                        setSelectedFinding("");
+                      }}
                       type="button"
                     >
                       <span
@@ -364,9 +491,7 @@ export function ProposalCommentsSection({
                               ? "bg-emerald-600 text-white"
                               : option.tone === "warning"
                                 ? "bg-amber-600 text-white"
-                                : option.tone === "danger"
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-slate-700 text-white"
+                                : "bg-rose-600 text-white"
                             : "bg-slate-100 text-slate-500",
                         )}
                       >
@@ -391,7 +516,7 @@ export function ProposalCommentsSection({
               </div>
             </div>
 
-            {/* Step 2: Standard Finding Dropdown */}
+            {/* Step 2: Standard Finding Dropdown (Context-Sensitive) */}
             <div>
               <label htmlFor="remark-preset" className="block text-[11px] font-semibold text-slate-700 mb-1">
                 2. Standard Finding / Reason (Optional)
@@ -405,7 +530,7 @@ export function ProposalCommentsSection({
                 <option value="">
                   -- Select a standard finding / reason --
                 </option>
-                {quickPresets.map((preset) => (
+                {currentPresets.map((preset) => (
                   <option key={preset} value={preset}>
                     {preset}
                   </option>
@@ -422,7 +547,15 @@ export function ProposalCommentsSection({
                 id="comment-text"
                 className="min-h-[85px] w-full resize-none rounded-lg border border-slate-200 bg-white p-2.5 text-xs text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-2 focus:ring-blue-100"
                 onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Specify instructions for applicant, revision details, or internal justification..."
+                placeholder={
+                  selectedDecision === "return_revision"
+                    ? "Specify required revisions or missing documents..."
+                    : selectedDecision === "return_in_process"
+                      ? "Specify technical or financial clarifications needed..."
+                      : selectedDecision === "disapprove"
+                        ? "Specify reason for disapproval..."
+                        : "Optional justification or notes for applicant..."
+                }
                 value={newNote}
               />
             </div>
@@ -431,19 +564,19 @@ export function ProposalCommentsSection({
           <button
             className={cn(
               "mt-3 inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-4 text-xs font-bold text-white transition shadow-xs disabled:opacity-50",
-              selectedDecision === "endorse"
+              selectedDecision === "approve" || selectedDecision === "endorse"
                 ? "bg-emerald-600 hover:bg-emerald-700"
-                : selectedDecision === "return_revision"
-                  ? "bg-amber-600 hover:bg-amber-700"
-                  : selectedDecision === "disapprove"
-                    ? "bg-rose-600 hover:bg-rose-700"
-                    : "bg-[#0f53b7] hover:bg-[#0b3f8b]",
+                : selectedDecision === "disapprove"
+                  ? "bg-rose-600 hover:bg-rose-700"
+                  : "bg-amber-600 hover:bg-amber-700",
             )}
             disabled={
               isSubmitting ||
-              (!newNote.trim() && !selectedFinding && selectedDecision === "note_only") ||
-              (selectedDecision === "return_revision" && !newNote.trim() && !selectedFinding) ||
-              (selectedDecision === "disapprove" && !newNote.trim() && !selectedFinding)
+              ((selectedDecision === "return_revision" ||
+                selectedDecision === "return_in_process" ||
+                selectedDecision === "disapprove") &&
+                !newNote.trim() &&
+                !selectedFinding)
             }
             onClick={handleAddComment}
             type="button"
@@ -453,13 +586,15 @@ export function ProposalCommentsSection({
               ? "Saving decision..."
               : selectedDecision === "approve"
                 ? "Confirm Approval"
-                : selectedDecision === "endorse"
-              ? "Endorse Application"
-              : selectedDecision === "return_revision"
-                ? "Return to Applicant for Revision"
-                : selectedDecision === "disapprove"
-                  ? "Confirm Disapproval"
-                  : "Post Review Note"}
+                : selectedDecision === "return_in_process"
+                  ? "Return to In Process"
+                  : selectedDecision === "endorse"
+                    ? "Endorse for Approval"
+                    : selectedDecision === "return_revision"
+                      ? "Return to Applicant for Revision"
+                      : selectedDecision === "disapprove"
+                        ? "Confirm Disapproval"
+                        : "Submit Decision"}
           </button>
         </div>
         ) : (

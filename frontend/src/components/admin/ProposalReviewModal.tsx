@@ -51,6 +51,7 @@ export function ProposalReviewModal({
   const isDirector = user?.role === ROLES.PROVINCIAL_DIRECTOR;
   const [proposal, setProposal] = useState<ProposalRecord>(initialProposal);
   const [section, setSection] = useState<ReviewSection>(initialSection);
+  const [proponentDocumentsReady, setProponentDocumentsReady] = useState(false);
   const [internalDocumentsReady, setInternalDocumentsReady] = useState(false);
   const [workflowStage, setWorkflowStage] = useState<'initial_review' | 'in_process' | 'endorsed' | 'approved' | 'closed'>(() => {
     if (
@@ -74,7 +75,9 @@ export function ProposalReviewModal({
     ["overview", "Overview"],
     ["documents", "Document Checklist"],
     ["internalDocuments", "Internal Documents"],
-    ["comments", "Review Decision & Remarks"],
+    ...(isFocal || isDirector
+      ? ([["comments", isDirector ? "Executive Decision" : "Review Decision & Remarks"]] as Array<[ReviewSection, string]>)
+      : []),
   ];
   const reviewStatus = workflowStage === 'closed'
     ? String(proposal.status)
@@ -222,7 +225,10 @@ export function ProposalReviewModal({
 
           {section === "documents" ? (
             proposal.proposalId ? (
-              <ProposalDocumentsSection proposalId={proposal.proposalId} />
+              <ProposalDocumentsSection
+                onVerificationCompleteChange={setProponentDocumentsReady}
+                proposalId={proposal.proposalId}
+              />
             ) : (
               <div className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-8 text-center">
                 <FileCheck2 className="size-8 text-slate-400" />
@@ -239,7 +245,15 @@ export function ProposalReviewModal({
 
           {section === "internalDocuments" ? (
             <InternalDocumentsSection
-              mode={isProjectStaff ? "edit" : isFocal ? "review" : "view"}
+              mode={
+                isProjectStaff
+                  ? workflowStage === "in_process"
+                    ? "edit"
+                    : "view"
+                  : isFocal
+                    ? "review"
+                    : "view"
+              }
               onRequiredStatusChange={setInternalDocumentsReady}
               program={proposal.program}
               proposalId={proposal.proposalId}
@@ -297,18 +311,30 @@ export function ProposalReviewModal({
             ) : null}
 
             {isFocal && workflowStage === 'initial_review' ? (
-              <button
-                className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b] disabled:cursor-wait disabled:opacity-60"
-                disabled={isUpdating}
-                onClick={handleMarkInProcess}
-                type="button"
-              >
-                <Send className="size-3.5" />
-                {isUpdating ? 'Updating...' : 'Start Evaluation (Mark In Process)'}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                {!proponentDocumentsReady ? (
+                  <span className="text-xs font-semibold text-amber-700">
+                    Verify all submitted proponent documents to advance to In Process
+                  </span>
+                ) : null}
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b] disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={!proponentDocumentsReady || isUpdating}
+                  onClick={handleMarkInProcess}
+                  title={
+                    !proponentDocumentsReady
+                      ? "All submitted proponent documents must be verified first"
+                      : undefined
+                  }
+                  type="button"
+                >
+                  <Send className="size-3.5" />
+                  {isUpdating ? 'Updating...' : 'Advance to In Process (Assessment & TNA)'}
+                </button>
+              </div>
             ) : null}
 
-            {isProjectStaff && (workflowStage === 'initial_review' || workflowStage === 'in_process') ? (
+            {isProjectStaff && workflowStage === 'in_process' ? (
               <button
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
                 onClick={() => setSection('internalDocuments')}
@@ -317,6 +343,12 @@ export function ProposalReviewModal({
                 <FileCheck2 className="size-3.5" />
                 {internalDocumentsReady ? 'View Internal Documents' : 'Upload Internal Documents'}
               </button>
+            ) : null}
+
+            {isProjectStaff && workflowStage === 'initial_review' ? (
+              <span className="text-xs font-semibold text-slate-500">
+                Waiting for Focal Person to start evaluation before document upload is enabled
+              </span>
             ) : null}
 
             {isFocal && workflowStage === 'in_process' ? (
@@ -342,6 +374,14 @@ export function ProposalReviewModal({
 
             {isDirector && workflowStage === 'endorsed' ? (
               <>
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-amber-700 transition hover:bg-amber-50"
+                  onClick={() => openDecision('return_in_process')}
+                  type="button"
+                >
+                  <RotateCcw className="size-3.5" />
+                  Return to In Process
+                </button>
                 <button
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-rose-700 transition hover:bg-rose-50"
                   onClick={() => openDecision('disapprove')}
