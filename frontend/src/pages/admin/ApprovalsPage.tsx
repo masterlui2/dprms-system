@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Eye, Filter, Check } from "lucide-react";
+import {
+  Eye,
+  Filter,
+  Check,
+  Layers,
+  Inbox,
+  FileCheck,
+  ShieldCheck,
+  CheckCircle2,
+} from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
 import {
@@ -289,22 +298,23 @@ export function ApprovalsPage() {
       />
 
       {/* Lifecycle Stage Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 pb-3.5">
         <button
           className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            "group inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-xs",
             lifecycleTab === "all"
               ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+              : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
           )}
           onClick={() => setLifecycleTab("all")}
           type="button"
         >
-          <span>📁 All Applications</span>
+          <Layers className={cn("size-3.5", lifecycleTab === "all" ? "text-white" : "text-slate-400 group-hover:text-slate-600")} />
+          <span>All</span>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-black",
-              lifecycleTab === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
+              "rounded-md px-1.5 py-0.5 text-[11px] font-black tabular-nums transition",
+              lifecycleTab === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600 group-hover:bg-slate-200/60"
             )}
           >
             {allCount}
@@ -313,19 +323,20 @@ export function ApprovalsPage() {
 
         <button
           className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            "group inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-xs",
             lifecycleTab === "new"
               ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+              : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
           )}
           onClick={() => setLifecycleTab("new")}
           type="button"
         >
-          <span>📥 Newly Submitted</span>
+          <Inbox className={cn("size-3.5", lifecycleTab === "new" ? "text-white" : "text-blue-500 group-hover:text-blue-600")} />
+          <span>Intake Queue</span>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-black",
-              lifecycleTab === "new" ? "bg-white/20 text-white" : "bg-blue-50 text-[#073b82]"
+              "rounded-md px-1.5 py-0.5 text-[11px] font-black tabular-nums transition",
+              lifecycleTab === "new" ? "bg-white/20 text-white" : "bg-blue-50 text-[#073b82] group-hover:bg-blue-100/60"
             )}
           >
             {newCount}
@@ -334,19 +345,20 @@ export function ApprovalsPage() {
 
         <button
           className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            "group inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-xs",
             lifecycleTab === "in_process"
               ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+              : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
           )}
           onClick={() => setLifecycleTab("in_process")}
           type="button"
         >
-          <span>⚙️ In Process (Evaluation)</span>
+          <FileCheck className={cn("size-3.5", lifecycleTab === "in_process" ? "text-white" : "text-amber-500 group-hover:text-amber-600")} />
+          <span>Under Review</span>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-black",
-              lifecycleTab === "in_process" ? "bg-white/20 text-white" : "bg-amber-50 text-amber-800"
+              "rounded-md px-1.5 py-0.5 text-[11px] font-black tabular-nums transition",
+              lifecycleTab === "in_process" ? "bg-white/20 text-white" : "bg-amber-50 text-amber-800 group-hover:bg-amber-100/60"
             )}
           >
             {inProcessCount}
@@ -355,19 +367,20 @@ export function ApprovalsPage() {
 
         <button
           className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            "group inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-xs",
             lifecycleTab === "endorsed"
               ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+              : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
           )}
           onClick={() => setLifecycleTab("endorsed")}
           type="button"
         >
-          <span>⚖️ Endorsed / Executive Approval</span>
+          <ShieldCheck className={cn("size-3.5", lifecycleTab === "endorsed" ? "text-white" : "text-purple-500 group-hover:text-purple-600")} />
+          <span>Executive Approval</span>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-black",
-              lifecycleTab === "endorsed" ? "bg-white/20 text-white" : "bg-purple-50 text-purple-800"
+              "rounded-md px-1.5 py-0.5 text-[11px] font-black tabular-nums transition",
+              lifecycleTab === "endorsed" ? "bg-white/20 text-white" : "bg-purple-50 text-purple-800 group-hover:bg-purple-100/60"
             )}
           >
             {endorsedCount}
@@ -376,19 +389,20 @@ export function ApprovalsPage() {
 
         <button
           className={cn(
-            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            "group inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition shadow-xs",
             lifecycleTab === "approved"
               ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+              : "border border-slate-200/80 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900"
           )}
           onClick={() => setLifecycleTab("approved")}
           type="button"
         >
-          <span>✅ Approved & Completed</span>
+          <CheckCircle2 className={cn("size-3.5", lifecycleTab === "approved" ? "text-white" : "text-emerald-500 group-hover:text-emerald-600")} />
+          <span>Approved</span>
           <span
             className={cn(
-              "rounded-full px-2 py-0.5 text-[11px] font-black",
-              lifecycleTab === "approved" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-800"
+              "rounded-md px-1.5 py-0.5 text-[11px] font-black tabular-nums transition",
+              lifecycleTab === "approved" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-800 group-hover:bg-emerald-100/60"
             )}
           >
             {approvedCount}
