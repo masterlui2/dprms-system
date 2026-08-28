@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
 import { Eye, Filter, Check } from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
@@ -20,7 +19,6 @@ const programFilters = [
 ];
 
 export function ApprovalsPage() {
-  const location = useLocation();
   const currentUser = getMockUser();
   const lockedProgram =
     currentUser?.program === "SETUP" || currentUser?.program === "GIA"
@@ -38,6 +36,7 @@ export function ApprovalsPage() {
           : null;
 
   const [program, setProgram] = useState<string>(lockedProgram || "all");
+  const [lifecycleTab, setLifecycleTab] = useState<"all" | "new" | "in_process" | "endorsed" | "approved">("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [review, setReview] = useState<{
     proposal: ProposalRecord;
@@ -100,7 +99,7 @@ export function ApprovalsPage() {
           ? "Project Leader / Researcher"
           : "Authorized Enterprise Representative",
       program: app.program,
-      reviewer: app.program === "GIA" ? "CEST Focal Officer" : "SSCP Focal Officer",
+      reviewer: app.program === "GIA" ? "Felix (CEST Focal)" : "Faith (SSCP Focal)",
       stage,
       status,
       submitted: new Date(app.createdAt).toLocaleDateString("en-US", {
@@ -113,55 +112,64 @@ export function ApprovalsPage() {
   });
 
   const effectiveProgram = lockedProgram || program;
-  const filteredProposals = applicationProposals.filter((proposal) => {
+  const programScopedProposals = applicationProposals.filter((proposal) => {
     return effectiveProgram === "all" || proposal.program === effectiveProgram;
+  });
+
+  const newCount = programScopedProposals.filter(
+    (p) => p.status === "Pending" || p.status === "Under review" || p.stage <= 1,
+  ).length;
+  const inProcessCount = programScopedProposals.filter(
+    (p) => p.status === "In Process" || p.status === "Returned for Revision" || p.stage === 2,
+  ).length;
+  const endorsedCount = programScopedProposals.filter(
+    (p) => p.status === "Executive Approval" || p.stage === 3,
+  ).length;
+  const approvedCount = programScopedProposals.filter(
+    (p) => p.status === "Approved" || p.status === "Disapproved" || p.stage === 4,
+  ).length;
+  const allCount = programScopedProposals.length;
+
+  const filteredProposals = programScopedProposals.filter((proposal) => {
+    if (lifecycleTab === "new") {
+      return proposal.status === "Pending" || proposal.status === "Under review" || proposal.stage <= 1;
+    }
+    if (lifecycleTab === "in_process") {
+      return proposal.status === "In Process" || proposal.status === "Returned for Revision" || proposal.stage === 2;
+    }
+    if (lifecycleTab === "endorsed") {
+      return proposal.status === "Executive Approval" || proposal.stage === 3;
+    }
+    if (lifecycleTab === "approved") {
+      return proposal.status === "Approved" || proposal.status === "Disapproved" || proposal.stage === 4;
+    }
+    return true;
   });
 
   function openReview(proposal: ProposalRecord, section: ReviewSection) {
     setReview({ proposal, section });
   }
 
-  // Module Header Customization based on Route & Scoped Program
-  const isReviewRoute = location.pathname.includes("/application-review");
-  const isApprovalRoute = location.pathname.includes("/executive-approval");
-
-  const headerEyebrow = isReviewRoute
-    ? lockedProgram === "SETUP"
-      ? "SSCP Technical Review"
+  const headerEyebrow =
+    lockedProgram === "SETUP"
+      ? "SSCP Application & Review Desk"
       : lockedProgram === "GIA"
-        ? "CEST Technical Review"
-        : "Technical Evaluation"
-    : isApprovalRoute
-      ? "Executive Decisions"
-      : lockedProgram === "SETUP"
-        ? "SSCP Application Intake"
-        : lockedProgram === "GIA"
-          ? "CEST Proposal Intake"
-          : "Application Intake";
+        ? "CEST Proposal & Review Desk"
+        : "Application & Review Desk";
 
-  const headerTitle = isReviewRoute
-    ? lockedProgram === "SETUP"
-      ? "SETUP Proposal Review & Verification"
+  const headerTitle =
+    lockedProgram === "SETUP"
+      ? "SETUP Applications & Review"
       : lockedProgram === "GIA"
-        ? "GIA Proposal Review & Verification"
-        : "Proposal Review & Evaluation"
-    : isApprovalRoute
-      ? "Executive Final Approval"
-      : lockedProgram === "SETUP"
-        ? "SETUP Incoming Applications"
-        : lockedProgram === "GIA"
-          ? "GIA Incoming Proposals"
-          : "Incoming Applications";
+        ? "GIA Proposals & Review"
+        : "Applications & Review";
 
-  const headerDescription = isReviewRoute
-    ? "Evaluate proposal eligibility, verify applicant and internal documents, and endorse qualified proposals to the Provincial Director."
-    : isApprovalRoute
-      ? "Inspect endorsed project dossiers and issue official Executive Approval or Disapproval."
-      : lockedProgram === "SETUP"
-        ? "View and process incoming technology upgrading applications from MSME applicants."
-        : lockedProgram === "GIA"
-          ? "View and process incoming research and community S&T proposals from GIA applicants."
-          : "View and cater incoming proposal submissions from SETUP and GIA program applicants.";
+  const headerDescription =
+    lockedProgram === "SETUP"
+      ? "Process newly submitted MSME technology upgrading applications, conduct technical evaluation, verify documents, and endorse to Director."
+      : lockedProgram === "GIA"
+        ? "Process newly submitted R&D and community S&T proposals, evaluate Line-Item Budgets, verify documents, and endorse to Director."
+        : "View, process, evaluate, and manage incoming applications across SETUP and GIA programs.";
 
   const columns: DataColumn<ProposalRecord>[] = [
     {
@@ -279,6 +287,114 @@ export function ApprovalsPage() {
         eyebrow={headerEyebrow}
         title={headerTitle}
       />
+
+      {/* Lifecycle Stage Tabs */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
+        <button
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            lifecycleTab === "all"
+              ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+          )}
+          onClick={() => setLifecycleTab("all")}
+          type="button"
+        >
+          <span>📁 All Applications</span>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-black",
+              lifecycleTab === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-700"
+            )}
+          >
+            {allCount}
+          </span>
+        </button>
+
+        <button
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            lifecycleTab === "new"
+              ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+          )}
+          onClick={() => setLifecycleTab("new")}
+          type="button"
+        >
+          <span>📥 Newly Submitted</span>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-black",
+              lifecycleTab === "new" ? "bg-white/20 text-white" : "bg-blue-50 text-[#073b82]"
+            )}
+          >
+            {newCount}
+          </span>
+        </button>
+
+        <button
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            lifecycleTab === "in_process"
+              ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+          )}
+          onClick={() => setLifecycleTab("in_process")}
+          type="button"
+        >
+          <span>⚙️ In Process (Evaluation)</span>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-black",
+              lifecycleTab === "in_process" ? "bg-white/20 text-white" : "bg-amber-50 text-amber-800"
+            )}
+          >
+            {inProcessCount}
+          </span>
+        </button>
+
+        <button
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            lifecycleTab === "endorsed"
+              ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+          )}
+          onClick={() => setLifecycleTab("endorsed")}
+          type="button"
+        >
+          <span>⚖️ Endorsed / Executive Approval</span>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-black",
+              lifecycleTab === "endorsed" ? "bg-white/20 text-white" : "bg-purple-50 text-purple-800"
+            )}
+          >
+            {endorsedCount}
+          </span>
+        </button>
+
+        <button
+          className={cn(
+            "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition shadow-xs",
+            lifecycleTab === "approved"
+              ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+              : "border border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50/50"
+          )}
+          onClick={() => setLifecycleTab("approved")}
+          type="button"
+        >
+          <span>✅ Approved & Completed</span>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-black",
+              lifecycleTab === "approved" ? "bg-white/20 text-white" : "bg-emerald-50 text-emerald-800"
+            )}
+          >
+            {approvedCount}
+          </span>
+        </button>
+      </div>
 
       <section className="overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
         {error ? (

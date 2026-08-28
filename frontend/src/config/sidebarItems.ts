@@ -151,7 +151,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   focal: [
     "dashboard",
     "applications",
-    "applicationReview",
     "projectMonitoring",
     "repaymentMonitoring",
     "reports",
@@ -159,7 +158,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   provincial_director: [
     "dashboard",
     "applications",
-    "executiveApproval",
     "repaymentMonitoring",
     "projectMonitoring",
     "reports",
