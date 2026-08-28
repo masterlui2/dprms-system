@@ -113,6 +113,12 @@ export async function getAllProposals(): Promise<ApplicationRecord[]> {
     const setup = proposal.setup_proposal[0] ?? null
     const gia = proposal.gia_proposal[0] ?? null
 
+    const location = setup
+      ? [setup.city_municipality, setup.province].filter(Boolean).join(', ') || setup.business_address
+      : gia
+        ? gia.office_address
+        : ''
+
     return {
       applicantName: proposal.user?.name ?? '',
       contactEmail: proposal.user?.email ?? '',
@@ -125,6 +131,13 @@ export async function getAllProposals(): Promise<ApplicationRecord[]> {
       referenceNo: proposal.reference_number,
       remarks: proposal.remarks,
       status: mapProposalStatus(proposal.status),
+      businessType: setup?.business_type,
+      industrySector: setup?.industry_sector,
+      enterpriseSize: setup?.enterprise_size,
+      location: location || undefined,
+      proponentCategory: gia?.proponent_category,
+      researchType: gia?.research_type,
+      researchCategory: gia?.research_category,
     }
   })
 }

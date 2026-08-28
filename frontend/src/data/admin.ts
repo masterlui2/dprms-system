@@ -22,7 +22,15 @@ export interface ProposalRecord {
     | 'Disapproved'
   submitted: string
   title: string
-  proposalId?: number;
+  proposalId?: number
+  businessType?: string
+  industrySector?: string
+  enterpriseSize?: string
+  location?: string
+  proponentCategory?: string
+  researchType?: string
+  researchCategory?: string
+  fundingRequested?: number
 }
 
 export type ProposalReviewStatus =
