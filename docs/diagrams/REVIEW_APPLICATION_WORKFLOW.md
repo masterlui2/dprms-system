@@ -1,215 +1,245 @@
-# Application & Review Proposals Workflow
-
-This document details the end-to-end logical workflow for **Proposal Submission**, **Staff Rapid Review & Internal Uploads**, **Focal Officer Evaluation & Document Verification**, **Provincial Director Executive Approval**, and the **Handover to Project Monitoring** for both **SETUP** and **GIA** programs.
+# DOST DPRMS Master Workflow: Application to Monitoring Handover
+**Standard Operating Procedure for Proposal Intake, Review, Executive Approval & Handover**  
+*Aligned with DOST Davao Region (QMS / ISO Standards) and DPRMS Application Architecture*
 
 ---
 
-## Workflow Diagram
+## 🏛️ Scope & Core Focus
+
+This specification covers the **complete intake-to-handover lifecycle**:
+1. **Application Intake:** Dual-channel submission (Online Proponent Portal & PSTO Assisted Walk-in Encoding).
+2. **Collaborative Unit Desk Intake:** SSCP Desk (SETUP) and CEST Desk (GIA) concurrent preparation.
+3. **Technical Review & Verification:** Focal Officer technical evaluation, document verification, and endorsement.
+4. **Executive Decision:** Provincial Director final executive approval / disapproval.
+5. **Monitoring Handover:** Automated active project creation and routing to monitoring ledgers.
+
+```mermaid
+flowchart LR
+    S1["<b>Phase 1</b><br/>Dual Intake<br/>(Online & Assisted)"] --> S2["<b>Phase 2</b><br/>Collaborative Desk<br/>(SSCP & CEST)"]
+    S2 --> S3["<b>Phase 3</b><br/>Technical Review<br/>(Focal Officer)"]
+    S3 --> S4["<b>Phase 4</b><br/>Final Approval<br/>(Provincial Director)"]
+    S4 --> S5["<b>Phase 5</b><br/>Monitoring Handover<br/>(Active Project)"]
+```
+
+---
+
+## 👑 Organizational Hierarchy & Role Responsibilities
+
+```
+                  ┌───────────────────────────────────────────────────────────┐
+                  │          ⚖️ PROVINCIAL DIRECTOR (Executive Level)         │
+                  │  • Final Executive Approver (APPROVED / DISAPPROVED)      │
+                  │  • Strictly view-only on files; no encoding tasks         │
+                  └─────────────────────────────┬─────────────────────────────┘
+                                                │ (Receives Endorsed Dossiers)
+                  ┌─────────────────────────────▼─────────────────────────────┐
+                  │              👑 FOCAL OFFICER (Review & Endorse)          │
+                  │  • Assisted intake & data entry (same as staff)           │
+                  │  • Scans & uploads (same as staff)                        │
+                  │  • Starts Evaluation & verifies documents                 │
+                  │  • Triggers revision requests & endorses to Director      │
+                  └─────────────────────────────┬─────────────────────────────┘
+                                                │ (Collaborative Desk)
+                  ┌─────────────────────────────▼─────────────────────────────┐
+                  │          📝 PROJECT STAFF (Intake & Uploads)              │
+                  │  • Assisted intake & data entry                           │
+                  │  • Scans & uploads applicant requirements & internal docs │
+                  │  • Pure uploader (no verification or endorsement buttons) │
+                  └───────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 🗺️ Master Intake-to-Handover Workflow Diagram
 
 ```mermaid
 flowchart TD
-    %% Roles Styling
-    classDef proponent fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
+    %% Styling
+    classDef intake fill:#e0f2fe,stroke:#0284c7,stroke-width:2px,color:#0369a1;
     classDef staff fill:#fef3c7,stroke:#d97706,stroke-width:2px,color:#92400e;
     classDef focal fill:#ede9fe,stroke:#7c3aed,stroke-width:2px,color:#5b21b6;
     classDef director fill:#dcfce7,stroke:#16a34a,stroke-width:2px,color:#15803d;
-    classDef monitoring fill:#f1f5f9,stroke:#475569,stroke-width:2px,stroke-dasharray: 5 5,color:#334155;
+    classDef handover fill:#f1f5f9,stroke:#475569,stroke-width:2px,stroke-dasharray: 5 5,color:#334155;
 
-    subgraph PHASE_1 ["Phase 1: Application Intake & Data Ingestion (Proponent)"]
-        A1["Proponent fills Application Form & Uploads Requirements<br/>(/programs/setup/register or /programs/gia/register)"]:::proponent
-        A2["System saves structured fields to DB & JSON snapshot<br/>(proposals, setup_proposals / gia_proposals tables)"]:::proponent
-        A3["System generates unique Reference Number<br/>(e.g., SETUP-2026-XXXX or GIA-2026-XXXX)"]:::proponent
-        A4["Status: SUBMITTED (Pending Review)"]:::proponent
-        A1 --> A2 --> A3 --> A4
+    subgraph PHASE_1 ["Phase 1: Dual Intake Channels"]
+        direction LR
+        IN_ONLINE["🌐 Channel A: Online Portal<br/>Proponent applies directly online via:<br/>/programs/setup or /programs/gia"]:::intake
+        IN_ASSIST["🏢 Channel B: Office-Assisted Intake<br/>PSTO Staff or Focal encodes application<br/>on behalf of walk-in proponents"]:::intake
+
+        IN_ONLINE --> SAVE_DB["System stores relational records & generates Ref No.<br/>(e.g., SETUP-2026-0001 or GIA-2026-0001)<br/>Initial Status: SUBMITTED / Under review"]:::intake
+        IN_ASSIST --> SAVE_DB
     end
 
-    subgraph PHASE_2 ["Phase 2: Rapid Review & Internal Uploads (Project Staff / Encoder)"]
-        B1["Project Staff opens application in Review Workspace"]:::staff
-        B2["Reviews data fields & checks document completeness in Overview tab"]:::staff
-        B3["Staff clicks 'Mark as In Process' -> Status: UNDER_VALIDATION"]:::staff
-        B4{"Program Type?"}:::staff
-        
-        %% SETUP Staff Path
-        B5["SETUP Staff Actions:<br/>- Conducts Site Visit & Technology Needs Assessment (TNA)<br/>- Uploads SET1 Internal Docs (TNA Form 1, GAD Checklist, Hazard Hunter)"]:::staff
-        
-        %% GIA Staff Path
-        B6["GIA Staff Actions:<br/>- Verifies Project Leader & Co-author credentials<br/>- Checks Institution Endorsement & Line-Item Budget (LIB) completeness"]:::staff
+    subgraph PHASE_2 ["Phase 2: Collaborative Unit Desk Intake"]
+        SAVE_DB --> DESK_QUEUE["Applications Module (/dashboard/applications)<br/>👁️ Visible immediately to both Staff & Focal in their assigned unit"]
 
-        A4 --> B1 --> B2 --> B3 --> B4
-        B4 -->|SETUP| B5
-        B4 -->|GIA| B6
+        %% SSCP Desk
+        subgraph SSCP_DESK ["🏛️ SSCP Unit (SETUP Program)"]
+            S_STAFF["Paolo (SSCP Staff):<br/>• Assisted intake & data entry<br/>• Scans & uploads applicant files & permits<br/>• Uploads SET1 internal files (TNA, GAD, Hazard Hunter)"]:::staff
+            S_FOCAL["Faith (SSCP Focal):<br/>• Uploads & data entry (same as staff)<br/>• Evaluates MSME viability & 3 supplier quotes"]:::focal
+            S_STAFF <-->|Collaborative Desk| S_FOCAL
+        end
+
+        %% CEST Desk
+        subgraph CEST_DESK ["🌿 CEST Unit (GIA Program)"]
+            C_STAFF["Carla (CEST Staff):<br/>• Assisted intake & data entry<br/>• Scans & uploads draft Line-Item Budget<br/>• Uploads researcher credentials & IA endorsement"]:::staff
+            C_FOCAL["Felix (CEST Focal):<br/>• Uploads & data entry (same as staff)<br/>• Evaluates S&T methodology & Line-Item Budget"]:::focal
+            C_STAFF <-->|Collaborative Desk| C_FOCAL
+        end
+
+        DESK_QUEUE -->|SETUP Track| SSCP_DESK
+        DESK_QUEUE -->|GIA Track| CEST_DESK
     end
 
-    subgraph PHASE_3 ["Phase 3: Program-Specific Evaluation & Verification (Focal Officer)"]
-        C1{"Program Assignment"}:::focal
-        
-        %% SETUP Focal
-        C2["SETUP Focal Review:<br/>- Evaluates technical viability, 3 supplier equipment quotes & financial capability<br/>- Inspects TNA findings & GAD score"]:::focal
-        
-        %% GIA Focal
-        C3["GIA Focal Review:<br/>- Evaluates research methodology, work plan milestones & S&T outputs<br/>- Assesses Line-Item Budget (LIB) & counter-part funding"]:::focal
+    subgraph PHASE_3 ["Phase 3: Technical Review & Verification (Focal Officer)"]
+        F_MOD["Review Module (/dashboard/application-review)<br/>Focal opens dedicated Technical Review workspace"]:::focal
+        F_START["Focal clicks 'Start Evaluation (Mark In Process)'<br/>Status: UNDER_VALIDATION"]:::focal
+        F_VERIFY["Focal verifies documents individually:<br/>• 'approved' (Mark Verified)<br/>• 'returned_for_revision' (Flag with remarks)"]:::focal
+        F_CHECK{"Any files flagged?"}:::focal
+        F_RETURN["Focal triggers 'Return for Revision'<br/>Status: RETURNED"]:::focal
+        F_RESUBMIT["Staff or Proponent replaces flagged file & resubmits<br/>Status: UNDER_VALIDATION"]:::intake
+        F_ENDORSE["All documents verified & technical evaluation complete<br/>Focal clicks 'Recommend Approval'<br/>Status: ENDORSED_TO_DIRECTOR"]:::focal
 
-        C4["Focal verifies all submitted & internal documents individually:<br/>'approved' or 'returned_for_revision'"]:::focal
-        C5{"Any documents flagged for revision?"}:::focal
-        C6["Focal enters revision comments & triggers 'Return for Revision'<br/>Status: RETURNED"]:::focal
-        C7["Proponent replaces flagged documents & Resubmits<br/>Status: UNDER_VALIDATION"]:::proponent
-        C8["All mandatory documents verified & technical evaluation complete"]:::focal
-        C9["Focal clicks 'Recommend Approval'<br/>Status: ENDORSED_TO_DIRECTOR"]:::focal
-
-        B5 --> C1
-        B6 --> C1
-        C1 -->|SETUP Focal| C2 --> C4
-        C1 -->|GIA Focal| C3 --> C4
-        C4 --> C5
-        C5 -->|Yes| C6 --> C7 --> B2
-        C5 -->|No| C8 --> C9
+        SSCP_DESK --> F_MOD
+        CEST_DESK --> F_MOD
+        F_MOD --> F_START --> F_VERIFY --> F_CHECK
+        F_CHECK -->|Yes| F_RETURN --> F_RESUBMIT --> F_VERIFY
+        F_CHECK -->|No| F_ENDORSE
     end
 
     subgraph PHASE_4 ["Phase 4: Executive Decision (Provincial Director)"]
-        D1["Provincial Director inspects complete dossier & Overview snapshot"]:::director
-        D2{"PD Decision"}:::director
-        D3["Click 'Approve Application'<br/>Status: APPROVED"]:::director
-        D4["Click 'Disapprove'<br/>Status: DISAPPROVED (with reason)"]:::director
+        D_MOD["Final Approval Module (/dashboard/executive-approval)<br/>Pat (Provincial Director) opens dedicated Executive Decision queue"]:::director
+        D_DEC{"Director Decision"}:::director
+        D_APP["Director clicks 'Approve Application'<br/>Status: APPROVED"]:::director
+        D_DIS["Director clicks 'Disapprove Application'<br/>Status: DISAPPROVED (with formal remarks)"]:::director
 
-        C9 --> D1 --> D2
-        D2 -->|Approve| D3
-        D2 -->|Disapprove| D4
+        F_ENDORSE --> D_MOD --> D_DEC
+        D_DEC -->|Approve| D_APP
+        D_DEC -->|Disapprove| D_DIS
     end
 
-    subgraph PHASE_5 ["Phase 5: Project Onboarding & Monitoring Handover"]
-        E1["System creates Project Record linked to Proposal"]:::monitoring
-        E2{"Program Track?"}:::monitoring
-        E3["SETUP Monitoring Workspace:<br/>- Amortization Schedule & Repayment Ledger<br/>- Equipment Registry & Asset Tagging<br/>- Quarterly Progress & Site Inspection Reports"]:::monitoring
-        E4["GIA Monitoring Workspace:<br/>- Deliverable Milestone Tracking<br/>- Line-Item Budget (LIB) & Fund Release Tranches<br/>- Cash Program Logs & Accomplishment Reports"]:::monitoring
+    subgraph PHASE_5 ["Phase 5: Implementation & Monitoring Handover"]
+        H_AUTO["System automatically creates Active Project Record"]:::handover
+        H_STAFF["📝 Project Staff Actions:<br/>• Uploads SET3 docs (Signed MOA, Release of Funds, Payee Form)<br/>• Encodes acquired equipment & generates Asset QR Codes (/dashboard/equipment-tracking)"]:::staff
+        H_FOCAL["📊 Focal Officer Actions:<br/>• SETUP: Activates Amortization Schedule & Repayment Ledger (/dashboard/repayment-monitoring)<br/>• GIA: Activates Milestones & 6Ps Output Scorecards (/dashboard/project-monitoring)"]:::focal
+        H_DIR["📁 Provincial Director & RPMO:<br/>• Portfolio oversight in Projects, Financial Records & Regional Monitoring"]:::director
 
-        D3 --> E1 --> E2
-        E2 -->|SETUP| E3
-        E2 -->|GIA| E4
+        D_APP --> H_AUTO --> H_STAFF & H_FOCAL & H_DIR
     end
 ```
 
 ---
 
-## Program Distinction: SETUP vs. GIA
+## 🏢 Unit & Program Desk Separation (SSCP vs. CEST)
 
-The system supports two distinct DOST flagship programs with dedicated workflows, requirements, and officer responsibilities:
+DPRMS strictly isolates incoming applications and active projects by program domain:
 
-| Program Dimension | SETUP (Small Enterprise Technology Upgrading Program) | GIA (Grants-in-Aid Program) |
+| Dimension | SSCP Unit (SETUP Program) | CEST Unit (GIA Program) |
 | :--- | :--- | :--- |
-| **Target Proponents** | MSMEs (Micro, Small, Medium Enterprises), Cooperatives, Sole Proprietorships | Academic / SUC researchers, LGUs, Non-profit R&D institutions, Innovators |
-| **Core Objective** | Technological upgrading, equipment acquisition, productivity improvements | Research & Development (R&D), community S&T interventions (CEST), Smart Cities (SSCP) |
+| **Flagship Focus** | MSME Technological Upgrading & Innovation | Research & Development (R&D), Community S&T (CEST), Grants |
+| **Assigned Project Staff** | **Paolo SETUP Staff** (`setup.staff@dost.gov.ph`) | **Carla GIA Staff** (`gia.staff@dost.gov.ph`) |
+| **Assigned Focal Officer** | **Faith SETUP Focal** (`setup.focal@dost.gov.ph`) | **Felix GIA Focal** (`gia.focal@dost.gov.ph`) |
+| **Target Proponents** | MSMEs, Cooperatives, Food Processors, Manufacturing | State Universities (SUCs), HEIs, LGUs, Community POs, NGOs |
 | **Reference Number Format** | `SETUP-YYYY-XXXX` (e.g., `SETUP-2026-0001`) | `GIA-YYYY-XXXX` (e.g., `GIA-2026-0001`) |
-| **Project Staff Focus** | Conducts on-site TNA, validates enterprise registration (DTI/SEC/CDA), uploads SET1 internal docs | Validates researcher credentials, co-authors, implementing agency endorsement, LIB draft |
-| **Focal Officer Focus** | Evaluates equipment specs, 3 supplier bids, refundability, financial viability, TNA results | Evaluates S&T methodology, work plan deliverables, counterpart commitments, LIB tranches |
-| **Post-Approval Monitoring** | Refund/amortization tracking, equipment asset registry & tagging, quarterly financial/production metrics | Deliverable milestone tracking, fund release tranches, cash disbursement logs, S&T reports |
+| **Project Staff Focus** | Assisted intake & data entry, scans & uploads | Assisted intake & data entry, scans & uploads |
+| **Focal Officer Focus** | Upload & data entry, review & evaluate 3 quotes, endorse to PD | Upload & data entry, review & evaluate LIB, endorse to PD |
+| **Handover Destination** | Amortization Repayment Ledger & Equipment QR Tagging | Milestone Gantt Chart & **6Ps Output Scorecard** |
 
 ---
 
-## Data Architecture & Storage Clarification
+## 🔒 Master Role-Based Access Control (RBAC) Matrix
 
-### 1. Where are the Submitted Proposal Fields Stored?
-When a proponent registers a proposal, the system saves the information across relational database tables and JSON snapshots:
-
-- **`proposals` table (Core Metadata)**:
-  - `id`: Unique numeric primary key.
-  - `reference_number`: Unique public identifier (e.g., `SETUP-2026-0012` or `GIA-2026-0045`).
-  - `program_type`: `SETUP` or `GIA`.
-  - `title`: Project title.
-  - `status`: Current workflow state (`SUBMITTED`, `UNDER_VALIDATION`, `RETURNED`, `ENDORSED_TO_DIRECTOR`, `APPROVED`, `DISAPPROVED`).
-  - `submitted_by`, `focal_id`, `reviewed_by`: Foreign keys to `users`.
-  - `submitted_at`, `approved_at`, `disapproved_at`, `remarks`: Timestamps and remarks.
-
-- **`setup_proposals` table (SETUP-specific Details)**:
-  - Relational columns: `business_name`, `business_type`, `industry_sector`, `enterprise_size`, `years_in_operation`, `business_address`, `region`, `province`, `city_municipality`.
-  - `form_snapshot` (JSON): Complete point-in-time snapshot of the submitted form (including general objectives, specific objectives, project background, products/services, number of employees).
-
-- **`gia_proposals` table (GIA-specific Details)**:
-  - Relational columns: `organization_name`, `office_address`, `contact_number`, `position`, `proponent_category`, `research_type`, `research_category`.
-  - `form_snapshot` (JSON): Point-in-time snapshot of the submitted form (including project rationale, general/specific objectives, expected outputs, implementation site).
-
-- **`gia_co_authors` & `documents` tables**:
-  - Relational records for co-investigators and all uploaded document requirements with file paths, MIME types, review statuses (`pending`, `approved`, `returned_for_revision`), and focal review notes.
+| Feature / Operation | Proponent | Project Staff (`PROJECT_STAFF`) | Focal Officer (`FOCAL`) | Provincial Director (`PROVINCIAL_DIRECTOR`) | RPMO Officer (`RPMO`) | System Admin (`SYSTEM_ADMIN`) |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Online Proposal Submission** | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Assisted Walk-in Encoding** | ❌ | ✅ (Primary) | ✅ (Can do) | ❌ | ❌ | ❌ |
+| **View Applications Roster** | 👁️ (Self) | ✅ (Unit Desk) | ✅ (Unit Desk) | 👁️ (All Programs) | 👁️ (All Programs) | 👁️ (All) |
+| **Start Evaluation (Mark In Process)**| ❌ | ❌ | ✅ **(Exclusive)** | ❌ | ❌ | ❌ |
+| **Upload SET1 Internal Docs** | ❌ | ✅ (Primary) | ✅ (Can do) | ❌ | ❌ | ❌ |
+| **Verify Applicant & Internal PDFs** | ❌ | ❌ | ✅ **(Exclusive)** | ❌ | ❌ | ❌ |
+| **Flag Documents for Revision** | ❌ | ❌ | ✅ **(Exclusive)** | ❌ | ❌ | ❌ |
+| **Replace Flagged Revision Files** | ✅ (Online) | ✅ (Assisted) | ❌ | ❌ | ❌ | ❌ |
+| **Recommend Approval (Endorse)** | ❌ | ❌ | ✅ **(Exclusive)** | ❌ | ❌ | ❌ |
+| **Executive Final Decision** | ❌ | ❌ | ❌ | ✅ **(Exclusive)** | ❌ | ❌ |
+| **Upload Post-Approval MOA & Fund Docs**| ❌ | ✅ (Primary) | ✅ (Can do) | ❌ | ❌ | ❌ |
+| **Asset QR Tagging & Registry** | ❌ | ✅ | ✅ | 👁️ (View) | 👁️ (View) | ❌ |
+| **Track Physical Milestones & 6Ps** | 👁️ (Self) | ✅ | ✅ **(Lead)** | 👁️ (View) | 👁️ (View) | ❌ |
+| **Manage Financial Records / Ledgers**| 👁️ (Self) | ❌ | ✅ **(Lead)** | 👁️ (View) | 👁️ (View) | ❌ |
 
 ---
 
-## Overview Tab & Application Snapshot Printing
+## 🧭 Sidebar Module Layout & Click-Through by Role
 
-### How the Overview Tab Works:
-1. **Live Data Fetch**: In the Review Workspace, the **Overview Tab** calls the backend endpoint `GET /proposal/reference-number/{referenceNumber}`.
-2. **Unified Data Assembly**: It reads the relational fields (`business_name`, `address`, `status`, `assigned_officer`) and extracts deep submission data (`generalObjective`, `specificObjectives`, `projectBackground`, `enterpriseBackground` / `projectSummary`) directly from the database record and `form_snapshot`.
-3. **One-Click Application Download / Print**:
-   - The top header provides a **"Download Application Details"** action button.
-   - Clicking this button automatically renders a clean, standardized DOST Regional Proposal Application sheet with the official header, project reference number, full project objectives, proponent profile, and timestamp.
-   - Officers can directly print the document or save it as a PDF for offline reference, board packets, or physical signing.
-
----
-
-## Detailed Process Breakdown by Phase
-
-### Phase 1: Application Intake (Proponent)
-1. **Submission**: Proponents apply online via `/programs/setup/register` or `/programs/gia/register`.
-2. **Automated Backend Ingestion**:
-   - Generates a unique reference number (`SETUP-2026-XXXX` or `GIA-2026-XXXX`).
-   - Inserts records into `proposals` and `setup_proposals` / `gia_proposals` with `form_snapshot`.
-   - Attaches uploaded applicant files into the `documents` table.
-   - Sets initial status to `SUBMITTED`.
-
-### Phase 2: Rapid Review & Internal Uploads (Project Staff / Encoder)
-1. **Desk Intake**: Project Staff opens the incoming application in the Review Workspace.
-2. **Overview Check**: Staff verifies proponent background in the Overview Tab and checks initial file uploads.
-3. **Status Transition**: Staff clicks **"Mark as In Process"**, moving status to `UNDER_VALIDATION`.
-4. **Internal Document Uploads**:
-   - **For SETUP**: Staff visits the MSME site, conducts the Technology Needs Assessment (TNA), and uploads the required SET1 internal documents (**TNA Form 1**, **GAD Assessment & Checklist**, and **Hazard Hunter Assessment**).
-   - **For GIA**: Staff validates the research team structure, co-authors, and implementing institution endorsements.
-
-### Phase 3: Technical Evaluation & Document Review (Focal Officer)
-1. **Assigned Focal Evaluation**:
-   - **SETUP Focal**: Reviews technical specs, comparative supplier bids, and enterprise capacity.
-   - **GIA Focal**: Reviews scientific/technical merit, LIB allocations, and project milestones.
-2. **Document-by-Document Verification**:
-   - The Focal officer inspects each document (applicant and internal SET1 documents) via preview.
-   - Each document is individually marked as `approved` or `returned_for_revision`.
-3. **Revision Cycle (If needed)**:
-   - If any document is flagged, Focal provides specific notes and clicks **"Return to Applicant for Revision"** (`RETURNED`).
-   - The proponent updates and resubmits the flagged documents (`UNDER_VALIDATION`).
-4. **Endorsement**:
-   - Once all mandatory documents are approved, the Focal clicks **"Recommend Approval"** (`ENDORSED_TO_DIRECTOR`).
-
-### Phase 4: Executive Decision (Provincial Director)
-1. **Executive Dossier Review**: The Provincial Director inspects the endorsed application dossier and overview details.
-2. **Final Decision**:
-   - **Approve Application** -> Status updates to `APPROVED`.
-   - **Disapprove Application** -> Status updates to `DISAPPROVED` with reasons recorded.
-
-### Phase 5: Project Onboarding & Monitoring Handover
-Upon approval by the Provincial Director:
-- **SETUP Projects**: Onboarded to the SETUP Monitoring module to manage repayment amortization schedules, refund ledgers, equipment tagging, and quarterly site inspection logs.
-- **GIA Projects**: Onboarded to the GIA Monitoring module to manage deliverable milestones, line-item budget releases, cash disbursements, and progress reports.
+```
+┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐
+│   📝 PROJECT STAFF      │  │    👑 FOCAL OFFICER     │  │ ⚖️ PROVINCIAL DIRECTOR  │  │        👁️ RPMO          │
+├─────────────────────────┤  ├─────────────────────────┤  ├─────────────────────────┤  ├─────────────────────────┤
+│ • Dashboard             │  │ • Dashboard             │  │ • Dashboard             │  │ • Dashboard             │
+│ • Applications          │  │ • Applications          │  │ • Applications          │  │ • Applications          │
+│ • Equipment & QR        │  │ • Review                │  │ • Final Approval        │  │ • Regional Monitoring   │
+│ • Project Monitoring    │  │ • Project Monitoring    │  │ • Financial Records     │  │ • Reports               │
+│ • Reports               │  │ • Financial Records     │  │ • Project Monitoring    │  │                         │
+│                         │  │ • Reports               │  │ • Reports               │  │                         │
+└─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘
+```
 
 ---
 
-## Role & Responsibility Matrix
+## 🖱️ Step-by-Step Click-Through Journey
 
-| Role | Assigned Program | Primary Responsibilities | UI Actions | Key Backend Endpoints |
-| :--- | :--- | :--- | :--- | :--- |
-| **Proponent** | SETUP / GIA | Submits proposal, encodes project details, uploads attachments, complies with revision requests | Submit application form, view application status, re-upload documents | `POST /proposal/setup`<br/>`POST /proposal/gia`<br/>`PUT /proposal/{id}/resubmit` |
-| **Project Staff** | SETUP / GIA | Initial intake verification, TNA site visit, SET1 internal document encoding | "Mark as In Process", upload internal documents (TNA, GAD, Hazard Hunter) | `GET /proposal`<br/>`PUT /proposal/advance-stage/{id}`<br/>`POST /documents` |
-| **SETUP Focal** | SETUP | Evaluates MSME technical viability, supplier bids, TNA findings, document review, endorsement | Verify documents, "Return for Revision", "Recommend Approval" | `PATCH /documents/{doc}/review`<br/>`PUT /proposal/{id}/return-for-revision`<br/>`PUT /proposal/advance-stage/{id}` |
-| **GIA Focal** | GIA (R&D / CEST / SSCP) | Evaluates research methodology, LIB budget, milestones, document review, endorsement | Verify documents, "Return for Revision", "Recommend Approval" | `PATCH /documents/{doc}/review`<br/>`PUT /proposal/{id}/return-for-revision`<br/>`PUT /proposal/advance-stage/{id}` |
-| **Provincial Director** | All Programs | Final executive decision and approval authority | "Approve Application", "Disapprove" | `PUT /proposal/{id}/approve`<br/>`PUT /proposal/{id}/disapprove` |
+### 1️⃣ Initial Intake Stage (`SUBMITTED` / `Under review`)
+* **Project Staff clicks $\rightarrow$ 📂 `Applications` (`/dashboard/applications`):**
+  * Opens unit queue (SSCP for SETUP / CEST for GIA).
+  * Scans & encodes documents for walk-in proponents.
+  * Uploads internal SET1 files (TNA Form 1, GAD Checklist, Hazard Hunter).
+* **Focal Officer clicks $\rightarrow$ 📂 `Applications` (`/dashboard/applications`):**
+  * Sees the incoming application concurrently with Staff.
+  * Can assist with uploading/editing files directly.
 
 ---
 
-## Status Transition State Machine
+### 2️⃣ Technical Evaluation Stage (`UNDER_VALIDATION` / `In Process`)
+* **Focal Officer clicks $\rightarrow$ 🔍 `Review` (`/dashboard/application-review`):**
+  * **Dedicated Focal Evaluation Workspace.**
+  * Clicks *"Start Evaluation (Mark In Process)"*.
+  * Evaluates 3 supplier bids (SETUP) or Line-Item Budget (GIA).
+  * Performs document verification (`Mark Verified` / `Needs Revision`).
+  * If files need correction: triggers *"Return for Revision"*.
+  * Once complete: clicks **"Recommend Approval"** (Endorses to Director).
 
-| Current Status | Trigger Action | Executed By | Next Status |
-| :--- | :--- | :--- | :--- |
-| *None* | Submit Proposal Form | Proponent | `SUBMITTED` |
-| `SUBMITTED` | Mark as In Process | Project Staff / Focal | `UNDER_VALIDATION` |
-| `UNDER_VALIDATION` | Return for Revision | Focal Officer | `RETURNED` |
-| `RETURNED` | Resubmit Revised Documents | Proponent | `UNDER_VALIDATION` |
-| `UNDER_VALIDATION` | Recommend Approval / Endorse | Focal Officer | `ENDORSED_TO_DIRECTOR` |
-| `ENDORSED_TO_DIRECTOR` | Approve Application | Provincial Director | `APPROVED` |
-| `ENDORSED_TO_DIRECTOR` | Disapprove Application | Provincial Director | `DISAPPROVED` |
-| `APPROVED` | Onboard to Monitoring | System / Project Staff | Active Project (`SETUP` / `GIA`) |
+---
 
+### 3️⃣ Executive Decision Stage (`ENDORSED_TO_DIRECTOR` / `Executive Approval`)
+* **Provincial Director clicks $\rightarrow$ ⚖️ `Final Approval` (`/dashboard/executive-approval`):**
+  * **Dedicated Executive Queue** (only lists proposals endorsed by Focal).
+  * Inspects complete dossier & prints official proposal form.
+  * Issues decision: **"Approve Application"** (`APPROVED`) or **"Disapprove"** (`DISAPPROVED`).
+
+---
+
+### 4️⃣ Active Project Handover (`APPROVED` $\rightarrow$ `ACTIVE_PROJECT`)
+* **Project Staff clicks $\rightarrow$ 🏷️ `Equipment & QR` & 📈 `Project Monitoring`:**
+  * Uploads SET3 files (Signed & Notarized MOA, Release of Funds, Payee Form).
+  * Registers equipment serial numbers & generates DOST Asset QR Codes.
+* **Focal Officer clicks $\rightarrow$ 📈 `Project Monitoring` & 💰 `Financial Records`:**
+  * Tracks milestone progress and scores **6Ps Deliverables** (*Publications, Patents, Products, People, Places, Policies*).
+  * Monitors the **Amortization Repayment Ledger** (SETUP) or grant tranches (GIA).
+* **Provincial Director clicks $\rightarrow$ 📈 `Project Monitoring` & 💰 `Financial Records`:**
+  * High-level portfolio tracking and provincial repayment health.
+* **RPMO clicks $\rightarrow$ 🌐 `Regional Monitoring`:**
+  * Multi-province analytics and regional budget utilization.
+
+---
+
+## 🔄 State Machine Transition Lifecycle
+
+| Step | State Code | Public Display Badge | Trigger Action | Authorized Persona | Next Stage |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| **1** | `SUBMITTED` | `Under review` | Proponent submits online OR Staff encodes walk-in proposal | Proponent / Staff | Desk Intake |
+| **2** | `UNDER_VALIDATION` | `In Process` | Focal clicks *"Start Evaluation (Mark In Process)"* | Focal Officer | Technical Evaluation |
+| **3** | `RETURNED` | `Returned for Revision` | Focal flags defective document with specific remarks | Focal Officer | Revision Loop |
+| **4** | `UNDER_VALIDATION` | `In Process` | Proponent or Staff replaces flagged file & resubmits | Proponent / Staff | Re-evaluation |
+| **5** | `ENDORSED_TO_DIRECTOR` | `Executive Approval` | Focal verifies all documents & clicks *"Recommend Approval"* | Focal Officer | Executive Gate |
+| **6** | `APPROVED` | `Approved` | Provincial Director clicks *"Approve Application"* | Provincial Director | Monitoring Handover |
+| **7** | `DISAPPROVED` | `Disapproved` | Provincial Director clicks *"Disapprove"* with formal reason | Provincial Director | Closed |
+| **8** | `ACTIVE_PROJECT` | `Active Project` | Staff uploads MOA & Focal activates ledgers / 6Ps scorecards | Staff & Focal | Active Monitoring |

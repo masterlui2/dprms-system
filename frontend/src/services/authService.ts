@@ -62,12 +62,20 @@ function resolveProgram(user: BackendUser): ApplicationProgram | undefined {
   if (user.program === 'GIA' || user.program === 'SETUP') return user.program
   if (user.program_type === 'GIA' || user.program_type === 'SETUP') return user.program_type
 
+  const email = user.email?.toLowerCase() ?? ''
+  if (email.startsWith('gia.') || email.includes('gia') || email.includes('cest')) return 'GIA'
+  if (email.startsWith('setup.') || email.includes('setup') || email.includes('sscp')) return 'SETUP'
+
+  const name = user.name?.toUpperCase() ?? ''
+  if (name.includes('GIA') || name.includes('CEST')) return 'GIA'
+  if (name.includes('SETUP') || name.includes('SSCP')) return 'SETUP'
+
   const role = (user.role ?? user.roles?.[0]?.code ?? user.roles?.[0]?.name)?.toUpperCase()
   const roleProgram = user.roles?.[0]?.program_type
 
   if (roleProgram === 'GIA' || roleProgram === 'SETUP') return roleProgram
-  if (role === 'GIA_PROJECT_LEADER') return 'GIA'
-  if (role === 'MSME_PROPONENT') return 'SETUP'
+  if (role === 'GIA_PROJECT_LEADER' || role === 'CEST_PROJECT_STAFF' || role === 'CEST_FOCAL') return 'GIA'
+  if (role === 'MSME_PROPONENT' || role === 'SSCP_PROJECT_STAFF' || role === 'SSCP_FOCAL' || role === 'SETUP_FOCAL') return 'SETUP'
 
   return undefined
 }

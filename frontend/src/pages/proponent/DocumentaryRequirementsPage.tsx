@@ -91,7 +91,14 @@ function formatSize(bytes: number) {
 }
 
 function extractUploadErrorMessage(error: unknown): string {
-  const response = (error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } })?.response;
+  const axiosErr = error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } };
+  const response = axiosErr?.response;
+  if (response?.status === 413) {
+    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 10MB.";
+  }
+  if (response?.status === 404) {
+    return "The submission endpoint was not found (404 Not Found). Please ensure the backend server is running and your session is active.";
+  }
   if (response?.data?.errors) {
     const backendMessage = Object.values(response.data.errors).flat().join(" ");
     if (backendMessage) return backendMessage;
@@ -796,14 +803,27 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
               <div className="min-w-[280px] flex-1">
                 <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
                   <span className="text-base font-black text-[#073b82]">
-                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application — {isDraftMode ? "Stage 1: Proposal & Documents" : isRevisionMode ? "Revision Required" : "Stage 2: DOST Initial Review"}
+                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application —{" "}
+                    {isDraftMode
+                      ? "Stage 1: Proposal & Documents"
+                      : isRevisionMode
+                        ? "Revision Required"
+                        : activeApplication.status === "Approved"
+                          ? "Stage 4: Approved"
+                          : activeApplication.status === "Executive Approval"
+                            ? "Stage 3: For Executive Approval"
+                            : activeApplication.status === "In Process"
+                              ? "Stage 2: In Process (Assessment & TNA)"
+                              : "Stage 1: DOST Desk Review"}
                   </span>
                   {isDraftMode ? (
                     <span className="font-mono text-xs font-bold text-[#0f53b7]">{overallProgressPercent}% Overall Progress</span>
                   ) : isRevisionMode ? (
                     <span className="text-xs font-bold text-rose-700">Action Required</span>
+                  ) : activeApplication.status === "Approved" ? (
+                    <span className="text-xs font-bold text-emerald-700">Approved</span>
                   ) : (
-                    <span className="text-xs font-bold text-emerald-700">Submitted</span>
+                    <span className="text-xs font-bold text-[#0f53b7]">{activeApplication.status}</span>
                   )}
                 </div>
                 {isDraftMode ? (

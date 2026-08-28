@@ -33,6 +33,13 @@ export interface ApplicationRecord {
     | 'Approved'
     | 'Returned for Revision'
     | 'Disapproved'
+  industrySector?: string | null
+  enterpriseSize?: string | null
+  businessType?: string | null
+  location?: string | null
+  proponentCategory?: string | null
+  researchCategory?: string | null
+  contactNumber?: string | null
 }
 
 export interface CreatedProjectRecord {
