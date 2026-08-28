@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -190,6 +191,20 @@ export function ProgramLanding() {
   }
 
   const content = programContent[normalizedProgram];
+
+  useEffect(() => {
+    if (!location.hash) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      document.querySelector(location.hash)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [location.hash, location.pathname]);
 
   return (
     <div className="min-h-screen bg-white text-slate-950">

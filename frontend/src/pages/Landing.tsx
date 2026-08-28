@@ -15,7 +15,10 @@ export function Landing() {
   const location = useLocation()
 
   useEffect(() => {
-    if (!location.hash) return
+    if (!location.hash) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
 
     window.requestAnimationFrame(() => {
       document.querySelector(location.hash)?.scrollIntoView({
@@ -23,7 +26,7 @@ export function Landing() {
         block: 'start',
       })
     })
-  }, [location.hash])
+  }, [location.hash, location.pathname])
 
   return (
     <div className="min-h-screen bg-white text-slate-950">

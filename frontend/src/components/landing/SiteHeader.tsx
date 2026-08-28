@@ -40,7 +40,7 @@ function getNavigationItems(pathname: string, user?: MockUser | null) {
     homeHref === "/programs/gia" || homeHref === "/programs/setup";
 
   return [
-    { label: "Home", href: homeHref },
+    { label: "Home", href: "/" },
     { label: "Programs", href: "/#programs" },
     {
       label: "How to Apply",
@@ -77,11 +77,21 @@ function TopBar() {
 }
 
 function Logo({ homeHref }: { homeHref: string }) {
+  const location = useLocation();
+
   return (
     <Link
       className="flex min-w-0 items-center gap-3"
       to={homeHref}
       aria-label="DOST GIA and SETUP Portal home"
+      onClick={() => {
+        if (
+          location.pathname === homeHref ||
+          (homeHref === "/" && location.pathname === "/")
+        ) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }}
     >
       <img
         alt="DOST GIA and SETUP Portal"
@@ -324,6 +334,23 @@ export function SiteHeader() {
     return isActive(item.href);
   }
 
+  function handleNavClick(item: { label: string; href: string }) {
+    const [targetPath, targetHash] = item.href.split("#");
+    const isTargetRoot = targetPath === "" || targetPath === "/";
+    const isCurrentRoot = location.pathname === "/";
+
+    if (item.label === "Home" || (isTargetRoot && !targetHash)) {
+      if (isCurrentRoot) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } else if (targetHash && location.pathname === (targetPath || "/")) {
+      const element = document.getElementById(targetHash);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
+  }
+
   return (
     <header className="sticky top-0 z-40 border-b border-[#d6e9f8] bg-white">
       <TopBar />
@@ -404,6 +431,7 @@ export function SiteHeader() {
                     ? "bg-[#eaf6ff] text-[#073b82]"
                     : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
                 }`}
+                onClick={() => handleNavClick(item)}
                 to={item.href}
                 key={item.href}
               >
@@ -584,7 +612,10 @@ export function SiteHeader() {
                   }`}
                   to={item.href}
                   key={item.href}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    handleNavClick(item);
+                  }}
                 >
                   {item.label}
                 </Link>
