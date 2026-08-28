@@ -817,7 +817,17 @@ export function MonitoringPage() {
   const lockedProgram =
     currentUser?.program === "SETUP" || currentUser?.program === "GIA"
       ? (currentUser.program as Program)
-      : null;
+      : currentUser?.email?.toLowerCase().startsWith("gia.") ||
+          currentUser?.email?.toLowerCase().includes("gia") ||
+          currentUser?.name?.toUpperCase().includes("GIA") ||
+          currentUser?.name?.toUpperCase().includes("CEST")
+        ? ("GIA" as Program)
+        : currentUser?.email?.toLowerCase().startsWith("setup.") ||
+            currentUser?.email?.toLowerCase().includes("setup") ||
+            currentUser?.name?.toUpperCase().includes("SETUP") ||
+            currentUser?.name?.toUpperCase().includes("SSCP")
+          ? ("SETUP" as Program)
+          : null;
 
   const [selectedProgram, setSelectedProgram] = useState<Program>(
     lockedProgram || "GIA",

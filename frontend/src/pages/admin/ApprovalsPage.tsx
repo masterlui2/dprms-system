@@ -25,7 +25,17 @@ export function ApprovalsPage() {
   const lockedProgram =
     currentUser?.program === "SETUP" || currentUser?.program === "GIA"
       ? currentUser.program
-      : null;
+      : currentUser?.email?.toLowerCase().startsWith("gia.") ||
+          currentUser?.email?.toLowerCase().includes("gia") ||
+          currentUser?.name?.toUpperCase().includes("GIA") ||
+          currentUser?.name?.toUpperCase().includes("CEST")
+        ? "GIA"
+        : currentUser?.email?.toLowerCase().startsWith("setup.") ||
+            currentUser?.email?.toLowerCase().includes("setup") ||
+            currentUser?.name?.toUpperCase().includes("SETUP") ||
+            currentUser?.name?.toUpperCase().includes("SSCP")
+          ? "SETUP"
+          : null;
 
   const [program, setProgram] = useState<string>(lockedProgram || "all");
   const [filtersOpen, setFiltersOpen] = useState(false);
