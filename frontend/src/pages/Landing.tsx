@@ -10,9 +10,17 @@ import { ProcessSection } from '../components/landing/ProcessSection'
 import { ProgramsSection } from '../components/landing/ProgramsSection'
 import { SiteFooter } from '../components/landing/SiteFooter'
 import { SiteHeader } from '../components/landing/SiteHeader'
+import { ScrollToTopButton } from '../components/landing/ScrollToTopButton'
 
 export function Landing() {
   const location = useLocation()
+
+  useEffect(() => {
+    document.documentElement.classList.add('landing-page-active')
+    return () => {
+      document.documentElement.classList.remove('landing-page-active')
+    }
+  }, [])
 
   useEffect(() => {
     if (!location.hash) {
@@ -29,7 +37,7 @@ export function Landing() {
   }, [location.hash, location.pathname])
 
   return (
-    <div className="min-h-screen bg-white text-slate-950">
+    <div className="landing-page min-h-screen bg-white text-slate-950">
       <SiteHeader />
       <main>
         <HeroSection />
@@ -41,6 +49,7 @@ export function Landing() {
         <ContactSection />
       </main>
       <SiteFooter />
+      <ScrollToTopButton />
     </div>
   )
 }
