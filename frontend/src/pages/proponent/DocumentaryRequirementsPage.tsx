@@ -803,14 +803,27 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
               <div className="min-w-[280px] flex-1">
                 <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
                   <span className="text-base font-black text-[#073b82]">
-                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application — {isDraftMode ? "Stage 1: Proposal & Documents" : isRevisionMode ? "Revision Required" : "Stage 2: DOST Initial Review"}
+                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application —{" "}
+                    {isDraftMode
+                      ? "Stage 1: Proposal & Documents"
+                      : isRevisionMode
+                        ? "Revision Required"
+                        : activeApplication.status === "Approved"
+                          ? "Stage 4: Approved"
+                          : activeApplication.status === "Executive Approval"
+                            ? "Stage 3: For Executive Approval"
+                            : activeApplication.status === "In Process"
+                              ? "Stage 2: In Process (Assessment & TNA)"
+                              : "Stage 1: DOST Desk Review"}
                   </span>
                   {isDraftMode ? (
                     <span className="font-mono text-xs font-bold text-[#0f53b7]">{overallProgressPercent}% Overall Progress</span>
                   ) : isRevisionMode ? (
                     <span className="text-xs font-bold text-rose-700">Action Required</span>
+                  ) : activeApplication.status === "Approved" ? (
+                    <span className="text-xs font-bold text-emerald-700">Approved</span>
                   ) : (
-                    <span className="text-xs font-bold text-emerald-700">Submitted</span>
+                    <span className="text-xs font-bold text-[#0f53b7]">{activeApplication.status}</span>
                   )}
                 </div>
                 {isDraftMode ? (
