@@ -91,7 +91,14 @@ function formatSize(bytes: number) {
 }
 
 function extractUploadErrorMessage(error: unknown): string {
-  const response = (error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } })?.response;
+  const axiosErr = error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } };
+  const response = axiosErr?.response;
+  if (response?.status === 413) {
+    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 10MB.";
+  }
+  if (response?.status === 404) {
+    return "The submission endpoint was not found (404 Not Found). Please ensure the backend server is running and your session is active.";
+  }
   if (response?.data?.errors) {
     const backendMessage = Object.values(response.data.errors).flat().join(" ");
     if (backendMessage) return backendMessage;
