@@ -51,19 +51,7 @@ const item = (
 export const sidebarItems: SidebarItem[] = [
   item("dashboard", "Dashboard", LayoutDashboard, "/dashboard"),
 
-  item("applications", "Data Entry", FilePenLine, "/dashboard/applications"),
-  item(
-    "projectManagement",
-    "Project Monitoring",
-    FolderKanban,
-    "/dashboard/project-management",
-  ),
-  item(
-    "budgetManagement",
-    "Budget Management",
-    Wallet,
-    "/dashboard/budget-management",
-  ),
+  item("applications", "Applications", FilePenLine, "/dashboard/applications"),
   item(
     "equipmentTracking",
     "Equipment & QR",
@@ -72,7 +60,7 @@ export const sidebarItems: SidebarItem[] = [
   ),
   item(
     "repaymentMonitoring",
-    "Finance Records",
+    "Financial Records",
     ReceiptText,
     "/dashboard/repayment-monitoring",
   ),
@@ -84,14 +72,8 @@ export const sidebarItems: SidebarItem[] = [
     "/dashboard/application-review",
   ),
   item(
-    "technicalEvaluation",
-    "Technical Evaluation",
-    ShieldCheck,
-    "/dashboard/technical-evaluation",
-  ),
-  item(
     "projectMonitoring",
-    "Monitoring",
+    "Project Monitoring",
     Activity,
     "/dashboard/project-monitoring",
   ),
@@ -163,11 +145,12 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "dashboard",
     "applications",
     "equipmentTracking",
-    "projectManagement",
+    "projectMonitoring",
     "reports",
   ],
   focal: [
     "dashboard",
+    "applications",
     "applicationReview",
     "projectMonitoring",
     "repaymentMonitoring",
@@ -175,13 +158,15 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   ],
   provincial_director: [
     "dashboard",
+    "applications",
     "executiveApproval",
     "repaymentMonitoring",
-    "projects",
+    "projectMonitoring",
     "reports",
   ],
   rpmo: [
     "dashboard",
+    "applications",
     "regionalMonitoring",
     "reports",
   ],
