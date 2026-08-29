@@ -78,3 +78,7 @@ All demo accounts use `Dprms@123`:
 - **System Administrator**: `admin@dost.gov.ph` (DOST System Admin)
 - **Provincial Director**: `director@dost.gov.ph` (Pat Provincial Director)
 - **RPMO Regional Officer**: `rpmo@dost.gov.ph` (Rico Regional RPMO)
+
+## Documentation & Diagrams
+
+- [Review Application Workflow](docs/diagrams/REVIEW_APPLICATION_WORKFLOW.md) - Comprehensive Mermaid workflow flowchart, role permissions, and status transitions from Application intake through Director approval and Monitoring handover.

@@ -17,22 +17,23 @@ class AuthService implements AuthServiceInterface
     /**
      * Create a new class instance.
      */
-    public function __construct(protected UserRepositoryInterface $userRepository)
-    {
-    }
+    public function __construct(protected UserRepositoryInterface $userRepository) {}
 
     #[Override]
     public function login(string $email, string $password): array
     {
         $user = $this->userRepository->findByEmail($email);
 
-        if(! $user || ! Hash::check($password,$user->password)){
+        if (! $user || ! Hash::check($password, $user->password)) {
             throw new \Exception('Invalid credentials');
         }
 
         $user->load('role');
         $token = $user->createToken('api-token')->plainTextToken;
         $primaryRole = $user->role->first();
+        $program = in_array($primaryRole?->program_type, ['SETUP', 'GIA'], true)
+            ? $primaryRole->program_type
+            : null;
 
         return [
             'user' => [
@@ -40,6 +41,7 @@ class AuthService implements AuthServiceInterface
                 'email' => $user->email,
                 'name' => $user->name,
                 'role' => $primaryRole?->code ?? 'proponent',
+                'program' => $program,
             ],
             'token' => $token,
         ];
@@ -60,20 +62,20 @@ class AuthService implements AuthServiceInterface
         $role = $data['role'];
         unset($data['role']);
 
-        $roleId = Role::query()->where('code', $role)->value('id');
+        $accountRole = Role::query()->where('code', $role)->first();
 
-        if(! $roleId){
+        if (! $accountRole) {
             throw ValidationException::withMessages([
                 'role' => ['The selected account role is not available.'],
             ]);
         }
 
-        return DB::transaction(function () use ($data, $roleId, $role) {
+        return DB::transaction(function () use ($data, $accountRole, $role) {
             $user = $this->userRepository->create($data);
 
             $user->role()->syncWithoutDetaching([
-                $roleId => [
-                    'assigned_at' => now()
+                $accountRole->id => [
+                    'assigned_at' => now(),
                 ],
             ]);
 
@@ -85,6 +87,7 @@ class AuthService implements AuthServiceInterface
                     'email' => $user->email,
                     'name' => $user->name,
                     'role' => $role,
+                    'program' => $accountRole->program_type,
                 ],
                 'token' => $token,
             ];

@@ -12,10 +12,9 @@ use Illuminate\Support\Facades\Storage;
 use Override;
 use Throwable;
 
-class DocumentsService implements DocumentsServiceInterface{
-    public function __construct(protected DocumentsRepositoryInterface $documentsRepository)
-    {
-    }
+class DocumentsService implements DocumentsServiceInterface
+{
+    public function __construct(protected DocumentsRepositoryInterface $documentsRepository) {}
 
     #[Override]
     public function getDocumentsByDocumentTypeId(int $documentTypeId): Collection
@@ -76,8 +75,8 @@ class DocumentsService implements DocumentsServiceInterface{
     {
         $record = $this->documentsRepository->findById($id);
 
-        if(! $record){
-            abort(404,"Document Not Found");
+        if (! $record) {
+            abort(404, 'Document Not Found');
         }
         $record->update($data);
 
@@ -119,15 +118,15 @@ class DocumentsService implements DocumentsServiceInterface{
     {
         $proposal = Proposal::query()->findOrfail($proposalId);
 
-        $documentTypeId = match(strtoupper($proposal->program_type)){
+        $documentTypeId = match (strtoupper($proposal->program_type)) {
             'SETUP' => 1,
             'GIA' => 2,
             default => abort(422, "Unsupported program type: {$proposal->program_type}"),
         };
 
         $document = $this->documentsRepository->findByProposalAndDocumentType($proposalId, $documentTypeId);
-        if(! $document){
-            abort(404,'Project proposal document not found');
+        if (! $document) {
+            abort(404, 'Project proposal document not found');
         }
 
         return $document;

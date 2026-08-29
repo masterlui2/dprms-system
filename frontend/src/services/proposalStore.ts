@@ -113,6 +113,12 @@ export async function getAllProposals(): Promise<ApplicationRecord[]> {
     const setup = proposal.setup_proposal[0] ?? null
     const gia = proposal.gia_proposal[0] ?? null
 
+    const location = setup
+      ? [setup.city_municipality, setup.province].filter(Boolean).join(', ') || setup.business_address
+      : gia
+        ? gia.office_address
+        : null
+
     return {
       applicantName: proposal.user?.name ?? '',
       contactEmail: proposal.user?.email ?? '',
@@ -125,6 +131,13 @@ export async function getAllProposals(): Promise<ApplicationRecord[]> {
       referenceNo: proposal.reference_number,
       remarks: proposal.remarks,
       status: mapProposalStatus(proposal.status),
+      industrySector: setup?.industry_sector ?? null,
+      enterpriseSize: setup?.enterprise_size ?? null,
+      businessType: setup?.business_type ?? null,
+      location,
+      proponentCategory: gia?.proponent_category ?? null,
+      researchCategory: gia?.research_category ?? gia?.research_type ?? null,
+      contactNumber: gia?.contact_number ?? null,
     }
   })
 }
@@ -148,6 +161,7 @@ export type ProposalDecision =
   | 'disapprove'
   | 'endorse'
   | 'return_revision'
+  | 'return_in_process'
 
 export async function applyProposalDecision({
   decision,
@@ -166,6 +180,14 @@ export async function applyProposalDecision({
   if (decision === 'disapprove') {
     await api.put(`/proposal/${proposalId}/disapprove`, { remarks })
     return 'Disapproved'
+  }
+
+  if (decision === 'return_in_process') {
+    await api.put(`/proposal/advance-stage/${proposalId}`, {
+      remarks: remarks || null,
+      status: 'UNDER_VALIDATION',
+    })
+    return 'In Process'
   }
 
   if (decision === 'return_revision') {

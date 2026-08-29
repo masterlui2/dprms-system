@@ -1,4 +1,5 @@
 import {
+  AlertTriangle,
   Check,
   Download,
   ExternalLink,
@@ -11,22 +12,42 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  fetchInternalDocumentTypes,
   fetchProposalDocumentsForStaff,
-  fetchSetupInternalDocumentTypes,
+  reviewProposalDocument,
   uploadInternalDocument,
   viewDocumentBlobForStaff,
 } from "../../../services/documentStore";
+import type { ApplicationProgram } from "../../../types/application";
 import { cn } from "../../../utils/cn";
 import {
+  getInitialInternalDocuments,
   type InternalDocument,
-  mergeSetupInternalDocuments,
-  setupPostInspectionComplete,
+  type InternalDocumentStatus,
+  mergeInternalDocuments,
+  requiredInternalDocumentsComplete,
 } from "./internalDocuments";
+
+type InternalDocumentsMode = "edit" | "review" | "view";
+
+const statusDetails: Record<
+  InternalDocumentStatus,
+  { label: string; textClass: string }
+> = {
+  approved: { label: "Verified", textClass: "text-emerald-700" },
+  not_uploaded: { label: "Pending upload", textClass: "text-slate-500" },
+  pending: { label: "Pending review", textClass: "text-[#0f53b7]" },
+  returned_for_revision: {
+    label: "Needs revision",
+    textClass: "text-amber-700",
+  },
+};
 
 function formatFileSize(bytes?: number) {
   if (bytes == null) return "Unknown size";
   if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  if (bytes < 1024 * 1024)
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
@@ -39,23 +60,38 @@ function formatUpdated(value?: string) {
   });
 }
 
+function stageLabel(document: InternalDocument, program: ApplicationProgram) {
+  if (program === "GIA") return "SET3 · Internal workflow";
+  return document.stage === "post-inspection"
+    ? `${document.setNumber} · Post-inspection`
+    : `${document.setNumber} · Implementation`;
+}
+
 export function InternalDocumentsSection({
   mode = "edit",
   onRequiredStatusChange,
+  program,
   proposalId,
 }: {
-  mode?: "edit" | "view";
+  mode?: InternalDocumentsMode;
   onRequiredStatusChange?: (complete: boolean) => void;
+  program: ApplicationProgram;
   proposalId?: number;
 }) {
-  const [documents, setDocuments] = useState<InternalDocument[]>([]);
-  const [selectedDocumentId, setSelectedDocumentId] = useState(
-    documents[0]?.id ?? null,
+  const [documents, setDocuments] = useState<InternalDocument[]>(() =>
+    getInitialInternalDocuments(program),
+  );
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [reviewingStatus, setReviewingStatus] = useState<
+    "approved" | "returned_for_revision" | null
+  >(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -63,25 +99,29 @@ export function InternalDocumentsSection({
   const [downloading, setDownloading] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
 
-  const readOnly = mode === "view";
+  const canUpload = mode === "edit";
+  const canReview = mode === "review";
   const selectedDocument =
     documents.find((document) => document.id === selectedDocumentId) ?? null;
-  const requiredComplete = setupPostInspectionComplete(documents);
+  const requiredComplete = requiredInternalDocumentsComplete(documents);
 
-  const uploadedCount = useMemo(
-    () => documents.filter((document) => document.status === "Uploaded").length,
+  const verifiedCount = useMemo(
+    () => documents.filter((document) => document.status === "approved").length,
     [documents],
   );
-  const percentComplete = documents.length
-    ? Math.round((uploadedCount / documents.length) * 100)
+  const percentComplete = documents.length > 0
+    ? Math.round((verifiedCount / documents.length) * 100)
     : 0;
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLoadError(null);
+    setActionError(null);
+    setActionNotice(null);
 
     if (!proposalId) {
+      setDocuments(getInitialInternalDocuments(program));
       setLoadError("This application is not linked to a server proposal record.");
       setLoading(false);
       return () => {
@@ -90,19 +130,23 @@ export function InternalDocumentsSection({
     }
 
     Promise.all([
-      fetchSetupInternalDocumentTypes(),
+      fetchInternalDocumentTypes(program),
       fetchProposalDocumentsForStaff(proposalId),
     ])
       .then(([documentTypes, uploadedDocuments]) => {
         if (cancelled) return;
-        const next = mergeSetupInternalDocuments(documentTypes, uploadedDocuments);
+        const next = mergeInternalDocuments(
+          program,
+          documentTypes,
+          uploadedDocuments,
+        );
         setDocuments(next);
         setSelectedDocumentId((current) => {
           if (current && next.some((document) => document.id === current)) {
             return current;
           }
           return (
-            next.find((document) => document.status === "Uploaded")?.id ??
+            next.find((document) => document.status !== "not_uploaded")?.id ??
             next[0]?.id ??
             null
           );
@@ -121,11 +165,16 @@ export function InternalDocumentsSection({
     return () => {
       cancelled = true;
     };
-  }, [proposalId, reloadVersion]);
+  }, [program, proposalId, reloadVersion]);
 
   useEffect(() => {
     onRequiredStatusChange?.(requiredComplete);
   }, [onRequiredStatusChange, requiredComplete]);
+
+  useEffect(() => {
+    setActionError(null);
+    setActionNotice(null);
+  }, [selectedDocument?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -168,23 +217,27 @@ export function InternalDocumentsSection({
   }, [previewVersion, selectedDocument?.backendId]);
 
   async function saveFile(id: string, file?: File) {
-    if (!file || readOnly || !proposalId) return;
+    if (!file || !canUpload || !proposalId) return;
 
     const document = documents.find((item) => item.id === id);
     if (!document?.documentTypeId) {
-      setUploadError(
+      setActionError(
         "The server document type is unavailable. Run the document type seeder and try again.",
       );
       return;
     }
 
-    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
-      setUploadError("Internal documents must be uploaded as PDF files.");
+    if (
+      file.type !== "application/pdf" &&
+      !file.name.toLowerCase().endsWith(".pdf")
+    ) {
+      setActionError("Internal documents must be uploaded as PDF files.");
       return;
     }
 
     setUploadingId(id);
-    setUploadError(null);
+    setActionError(null);
+    setActionNotice(null);
 
     try {
       const uploaded = await uploadInternalDocument(
@@ -200,8 +253,9 @@ export function InternalDocumentsSection({
                 backendId: uploaded.id,
                 fileName: uploaded.file_name,
                 fileSize: uploaded.file_size ?? undefined,
-                fileType: uploaded.mime_type ?? "application/pdf",
-                status: "Uploaded",
+                remarks: uploaded.remarks ?? undefined,
+                reviewedAt: uploaded.reviewed_at ?? undefined,
+                status: uploaded.status,
                 updated: uploaded.updated_at,
               }
             : item,
@@ -209,11 +263,61 @@ export function InternalDocumentsSection({
       );
       setSelectedDocumentId(id);
       setPreviewVersion((version) => version + 1);
+      setActionNotice(`${document.label} was uploaded successfully.`);
     } catch (error) {
       console.error("Failed to upload internal document:", error);
-      setUploadError("The PDF could not be uploaded. Please try again.");
+      setActionError("The internal PDF could not be uploaded. Please try again.");
     } finally {
       setUploadingId(null);
+    }
+  }
+
+  async function saveReview(
+    status: "approved" | "returned_for_revision",
+  ) {
+    if (!selectedDocument?.backendId || !canReview) return;
+
+    setReviewingStatus(status);
+    setActionError(null);
+    setActionNotice(null);
+
+    try {
+      const updated = await reviewProposalDocument(
+        selectedDocument.backendId,
+        status,
+      );
+      const nextDocs = documents.map((document) =>
+        document.id === selectedDocument.id
+          ? {
+              ...document,
+              remarks: updated.remarks ?? undefined,
+              reviewedAt: updated.reviewed_at ?? undefined,
+              status: updated.status,
+              updated: updated.updated_at,
+            }
+          : document,
+      );
+      setDocuments(nextDocs);
+      setActionNotice(
+        status === "approved"
+          ? "Internal document marked as verified."
+          : "Revision instructions saved for Project Staff.",
+      );
+
+      // Auto advance to next unverified document or next in list
+      const currentIndex = nextDocs.findIndex((d) => d.id === selectedDocument.id);
+      const nextDoc =
+        nextDocs.find((d, idx) => idx > currentIndex && d.status !== "approved" && d.status !== "not_uploaded") ??
+        nextDocs.find((d) => d.id !== selectedDocument.id && d.status !== "approved" && d.status !== "not_uploaded") ??
+        nextDocs[currentIndex + 1] ??
+        selectedDocument;
+
+      setSelectedDocumentId(nextDoc.id);
+    } catch (error) {
+      console.error("Failed to review internal document:", error);
+      setActionError("The document review could not be saved. Please try again.");
+    } finally {
+      setReviewingStatus(null);
     }
   }
 
@@ -248,6 +352,10 @@ export function InternalDocumentsSection({
     void saveFile(id, file);
   }
 
+  const selectedStatus = selectedDocument
+    ? statusDetails[selectedDocument.status]
+    : null;
+
   return (
     <div className="grid h-full min-h-[calc(92vh-160px)] gap-3 lg:grid-cols-[minmax(330px,365px)_minmax(0,1fr)]">
       <section className="flex h-full min-h-[calc(92vh-160px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
@@ -256,19 +364,21 @@ export function InternalDocumentsSection({
             <div>
               <h3 className="flex items-center gap-1.5 text-xs font-bold text-[#073b82]">
                 <ShieldCheck className="size-4 text-[#0f53b7]" />
-                Internal Document Checklist
+                Internal Documents
               </h3>
               <p className="mt-0.5 text-[11px] text-slate-500">
-                {uploadedCount} of {documents.length} attached ({percentComplete}%)
+                {verifiedCount} of {documents.length} verified ({percentComplete}%)
               </p>
             </div>
             <span
               className={cn(
-                "shrink-0 whitespace-nowrap text-[10px] font-bold",
-                requiredComplete ? "text-emerald-700" : "text-[#0f53b7]",
+                "whitespace-nowrap shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold",
+                percentComplete === 100
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-blue-50 text-[#0f53b7]",
               )}
             >
-              {requiredComplete ? "Endorsement Ready" : "In Progress"}
+              {percentComplete === 100 ? "Complete" : "In Review"}
             </span>
           </div>
 
@@ -276,15 +386,20 @@ export function InternalDocumentsSection({
             <div
               className={cn(
                 "h-full transition-all duration-300",
-                requiredComplete ? "bg-emerald-600" : "bg-[#0f53b7]",
+                percentComplete === 100 ? "bg-emerald-600" : "bg-[#0f53b7]",
               )}
               style={{ width: `${percentComplete}%` }}
             />
           </div>
 
-          {uploadError ? (
+          {actionError ? (
             <p className="mt-2 text-[11px] font-semibold text-rose-700" role="alert">
-              {uploadError}
+              {actionError}
+            </p>
+          ) : null}
+          {actionNotice ? (
+            <p className="mt-2 text-[11px] font-semibold text-emerald-700" role="status">
+              {actionNotice}
             </p>
           ) : null}
         </div>
@@ -293,11 +408,13 @@ export function InternalDocumentsSection({
           {loading ? (
             <div className="flex items-center justify-center gap-2 p-8 text-xs font-semibold text-slate-500">
               <Loader2 className="size-4 animate-spin" />
-              Loading server documents...
+              Loading internal documents...
             </div>
           ) : loadError ? (
             <div className="p-6 text-center">
-              <p className="text-xs font-semibold leading-5 text-rose-700">{loadError}</p>
+              <p className="text-xs font-semibold leading-5 text-rose-700">
+                {loadError}
+              </p>
               {proposalId ? (
                 <button
                   className="mt-3 text-xs font-bold text-[#0f53b7] hover:underline"
@@ -308,12 +425,22 @@ export function InternalDocumentsSection({
                 </button>
               ) : null}
             </div>
+          ) : documents.length === 0 ? (
+            <div className="p-8 text-center">
+              <FileCheck2 className="mx-auto size-7 text-slate-300" />
+              <p className="mt-3 text-xs font-bold text-slate-700">
+                No internal requirements configured
+              </p>
+              <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                Run the document type seeder to add {program} internal records.
+              </p>
+            </div>
           ) : (
             documents.map((document, index) => {
-              const isUploaded = document.status === "Uploaded";
+              const isAttached = document.status !== "not_uploaded";
               const isSelected = selectedDocument?.id === document.id;
               const isUploading = uploadingId === document.id;
-              const isPostInspection = document.stage === "post-inspection";
+              const status = statusDetails[document.status];
 
               return (
                 <div
@@ -331,19 +458,23 @@ export function InternalDocumentsSection({
                     <span
                       className={cn(
                         "mt-0.5 grid size-6 shrink-0 place-items-center rounded-md text-[11px]",
-                        isUploaded
-                          ? "bg-emerald-100 font-bold text-emerald-700"
-                          : "bg-slate-100 text-slate-500",
+                        document.status === "approved"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : document.status === "returned_for_revision"
+                            ? "bg-amber-100 text-amber-700"
+                            : isAttached
+                              ? "bg-blue-100 text-[#0f53b7]"
+                              : "bg-slate-100 text-slate-500",
                       )}
                     >
                       {isUploading ? (
                         <Loader2 className="size-3.5 animate-spin" />
-                      ) : isUploaded ? (
+                      ) : document.status === "approved" ? (
                         <Check className="size-3.5" />
+                      ) : document.status === "returned_for_revision" ? (
+                        <AlertTriangle className="size-3.5" />
                       ) : (
-                        <span className="text-[10px] font-bold text-slate-500">
-                          {index + 1}
-                        </span>
+                        <span className="text-[10px] font-bold">{index + 1}</span>
                       )}
                     </span>
 
@@ -358,7 +489,7 @@ export function InternalDocumentsSection({
                         {document.label}
                       </p>
                       <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-500">
-                        <span>{isPostInspection ? "Post-Inspection" : "Implementation"}</span>
+                        <span>{stageLabel(document, program)}</span>
                         {document.fileName ? (
                           <>
                             <span>·</span>
@@ -366,23 +497,14 @@ export function InternalDocumentsSection({
                           </>
                         ) : null}
                         <span>·</span>
-                        <span
-                          className={cn(
-                            "font-semibold",
-                            isUploaded ? "text-emerald-700" : "text-amber-600",
-                          )}
-                        >
-                          {isUploading
-                            ? "Uploading"
-                            : isUploaded
-                              ? "Uploaded"
-                              : "Pending Upload"}
+                        <span className={cn("font-bold", status.textClass)}>
+                          {isUploading ? "Uploading" : status.label}
                         </span>
                       </div>
                     </div>
                   </button>
 
-                  {!readOnly ? (
+                  {canUpload ? (
                     <div className="flex shrink-0 items-center">
                       <input
                         accept="application/pdf,.pdf"
@@ -394,21 +516,21 @@ export function InternalDocumentsSection({
                       />
                       <label
                         aria-label={
-                          isUploaded
+                          isAttached
                             ? `Replace ${document.label}`
                             : `Upload ${document.label}`
                         }
                         className={cn(
-                          "inline-flex size-6.5 items-center justify-center rounded transition",
+                          "inline-flex size-7 items-center justify-center rounded-md transition",
                           uploadingId
                             ? "cursor-wait text-slate-300"
-                            : isUploaded
+                            : isAttached
                               ? "cursor-pointer text-slate-400 hover:bg-slate-200 hover:text-slate-800"
                               : "cursor-pointer bg-[#0f53b7] text-white hover:bg-[#0b3f8b]",
                         )}
                         htmlFor={`internal-upload-${document.id}`}
                         onClick={(event) => event.stopPropagation()}
-                        title={isUploaded ? "Replace PDF" : "Upload PDF"}
+                        title={isAttached ? "Replace PDF" : "Upload PDF"}
                       >
                         {isUploading ? (
                           <Loader2 className="size-3 animate-spin" />
@@ -426,28 +548,57 @@ export function InternalDocumentsSection({
       </section>
 
       <section className="flex h-full min-h-[calc(92vh-160px)] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xs">
-        {selectedDocument?.status === "Uploaded" ? (
+        {selectedDocument?.backendId ? (
           <>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-3.5 py-2.5">
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-2">
                   <span
                     className="truncate text-xs font-bold text-slate-900"
                     title={selectedDocument.label}
                   >
                     {selectedDocument.label}
                   </span>
-                  <span className="text-[10px] font-bold text-emerald-700">Attached</span>
+                  {selectedStatus ? (
+                    <span className={cn("text-[10px] font-bold", selectedStatus.textClass)}>
+                      {selectedStatus.label}
+                    </span>
+                  ) : null}
                 </div>
                 <p className="mt-0.5 truncate text-[10px] text-slate-500">
-                  {selectedDocument.fileName} · {formatFileSize(selectedDocument.fileSize)} · Uploaded {formatUpdated(selectedDocument.updated)}
+                  {selectedDocument.fileName} · {formatFileSize(selectedDocument.fileSize)} · Updated {formatUpdated(selectedDocument.updated)}
                 </p>
               </div>
 
               <div className="flex items-center gap-1.5">
+                {canReview && selectedDocument.backendId ? (
+                  <>
+                    <button
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold shadow-2xs transition disabled:opacity-50",
+                        selectedDocument.status === "approved"
+                          ? "bg-emerald-600 text-white hover:bg-emerald-700"
+                          : "border border-slate-300 bg-white text-slate-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800",
+                      )}
+                      disabled={reviewingStatus !== null}
+                      onClick={() => void saveReview("approved")}
+                      title={selectedDocument.status === "approved" ? "Verified" : "Mark as Verified"}
+                      type="button"
+                    >
+                      {reviewingStatus === "approved" ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Check className="size-3.5" />
+                      )}
+                      <span>{selectedDocument.status === "approved" ? "Verified" : "Mark Verified"}</span>
+                    </button>
+                    <div className="mx-0.5 h-4 w-px bg-slate-200" />
+                  </>
+                ) : null}
+
                 <button
                   className="inline-flex size-7 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
-                  disabled={downloading || !selectedDocument.backendId}
+                  disabled={downloading}
                   onClick={() => void handleDownload(selectedDocument)}
                   title="Download PDF"
                   type="button"
@@ -461,7 +612,9 @@ export function InternalDocumentsSection({
                 <button
                   className="inline-flex size-7 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                   disabled={!previewUrl}
-                  onClick={() => previewUrl && window.open(`${previewUrl}#view=FitH`, "_blank")}
+                  onClick={() =>
+                    previewUrl && window.open(`${previewUrl}#view=FitH`, "_blank")
+                  }
                   title="Open PDF in new tab"
                   type="button"
                 >
@@ -470,7 +623,7 @@ export function InternalDocumentsSection({
               </div>
             </div>
 
-            <div className="relative flex h-full min-h-[calc(92vh-220px)] flex-1 flex-col overflow-hidden bg-slate-100">
+            <div className="relative flex min-h-[360px] flex-1 flex-col overflow-hidden bg-slate-100">
               {previewLoading ? (
                 <div className="flex flex-1 items-center justify-center gap-2 text-xs font-semibold text-slate-500">
                   <Loader2 className="size-4 animate-spin" />
@@ -478,7 +631,7 @@ export function InternalDocumentsSection({
                 </div>
               ) : previewUrl ? (
                 <iframe
-                  className="h-full min-h-[calc(92vh-220px)] w-full flex-1 border-0 bg-white"
+                  className="h-full min-h-[360px] w-full flex-1 border-0 bg-white"
                   src={`${previewUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=1`}
                   title={selectedDocument.label}
                 />
@@ -505,10 +658,12 @@ export function InternalDocumentsSection({
             </p>
             <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">
               {loadError
-                ? "Connect this application to its server proposal before uploading internal records."
-                : "This internal requirement has not been uploaded yet."}
+                ? "Connect this application to its server proposal before managing internal records."
+                : canUpload
+                  ? "Upload the staff-prepared PDF to make it available for Focal review."
+                  : "Waiting for Project Staff to upload this internal document."}
             </p>
-            {!readOnly && selectedDocument && !loadError ? (
+            {canUpload && selectedDocument && !loadError ? (
               <div className="mt-4">
                 <input
                   accept="application/pdf,.pdf"
@@ -519,7 +674,7 @@ export function InternalDocumentsSection({
                   type="file"
                 />
                 <label
-                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#0f53b7] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b]"
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b]"
                   htmlFor={`empty-upload-${selectedDocument.id}`}
                 >
                   {uploadingId === selectedDocument.id ? (

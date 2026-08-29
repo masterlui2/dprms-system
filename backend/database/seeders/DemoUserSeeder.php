@@ -18,8 +18,8 @@ class DemoUserSeeder extends Seeder
     {
         $users = [
             ['name' => 'DOST System Administrator', 'email' => 'admin@dost.gov.ph', 'role' => 'SYSTEM_ADMIN'],
-            ['name' => 'Maria SETUP Proponent', 'email' => 'setup.proponent@dost.gov.ph', 'role' => 'PROPONENT'],
-            ['name' => 'Gina GIA Project Leader', 'email' => 'gia.proponent@dost.gov.ph', 'role' => 'PROPONENT'],
+            ['name' => 'Maria SETUP Proponent', 'email' => 'setup.proponent@dost.gov.ph', 'role' => 'MSME_PROPONENT'],
+            ['name' => 'Gina GIA Project Leader', 'email' => 'gia.proponent@dost.gov.ph', 'role' => 'GIA_PROJECT_LEADER'],
             ['name' => 'Paolo SETUP Staff (SSCP)', 'email' => 'setup.staff@dost.gov.ph', 'role' => 'PROJECT_STAFF'],
             ['name' => 'Carla GIA Staff (CEST)', 'email' => 'gia.staff@dost.gov.ph', 'role' => 'PROJECT_STAFF'],
             ['name' => 'Faith SETUP Focal (SSCP)', 'email' => 'setup.focal@dost.gov.ph', 'role' => 'FOCAL'],

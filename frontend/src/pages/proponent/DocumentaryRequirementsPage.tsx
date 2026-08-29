@@ -91,7 +91,14 @@ function formatSize(bytes: number) {
 }
 
 function extractUploadErrorMessage(error: unknown): string {
-  const response = (error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } })?.response;
+  const axiosErr = error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } };
+  const response = axiosErr?.response;
+  if (response?.status === 413) {
+    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 10MB.";
+  }
+  if (response?.status === 404) {
+    return "The submission endpoint was not found (404 Not Found). Please ensure the backend server is running and your session is active.";
+  }
   if (response?.data?.errors) {
     const backendMessage = Object.values(response.data.errors).flat().join(" ");
     if (backendMessage) return backendMessage;
@@ -178,18 +185,27 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }, [user?.id, user?.email, user?.applicationReference]);
 
   const applications = useMemo(() => {
-    const filtered = allApplicationsList.filter((application) =>
-      user?.applicationReference
-        ? application.referenceNo === user.applicationReference
-        : !user?.email ||
-          application.contactEmail.toLowerCase() === user.email.toLowerCase(),
+    const ownedApplications = allApplicationsList.filter(
+      (application) =>
+        !user?.email ||
+        application.contactEmail.toLowerCase() === user.email.toLowerCase(),
     );
-    const matching = filtered.filter((app) => app.program === activeProgram);
-    if (matching.length) return matching;
-    if (filtered.length) return filtered;
+
+    const programApplications = ownedApplications.filter(
+      (application) => application.program === activeProgram,
+    );
+
+    if (user?.applicationReference) {
+      const referencedApplication = programApplications.find(
+        (application) =>
+          application.referenceNo === user.applicationReference,
+      );
+      if (referencedApplication) return [referencedApplication];
+    }
+
     // Do NOT fall back to all applications — a fresh user has no application
-    // and should see the empty / new-application state, not another user's data.
-    return [];
+    // for this program and must not inherit another program's revision state.
+    return programApplications;
   }, [user?.applicationReference, user?.email, activeProgram, allApplicationsList]);
 
   const requestedReference = searchParams.get("proposal");
@@ -197,33 +213,13 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     applications.find((item) => item.referenceNo === requestedReference) ??
     applications[0];
 
-  const activeApplication: ApplicationRecord = useMemo(() => {
-    if (baseApplication && baseApplication.program === activeProgram) {
-      return baseApplication;
-    }
-    return {
-      id: `${activeProgram.toLowerCase()}-app-draft`,
-      applicantName: user?.name ?? "Proponent Representative",
-      referenceNo: `${activeProgram}-DRAFT`,
-      projectTitle:
-        activeProgram === "GIA"
-          ? "Community Empowerment & Technology Transfer Project"
-          : "Enterprise Technology Upgrading Project",
-      organizationName: user?.name
-        ? `${user.name} Organization`
-        : "DOST Proponent Enterprise",
-      program: activeProgram,
-      status: "Draft Submitted",
-      submittedAt: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      contactName: user?.name ?? "Proponent Representative",
-      contactEmail: user?.email ?? "proponent@example.com",
-      contactNumber: "09171234567",
-    };
-  }, [baseApplication, activeProgram, user?.name, user?.email]);
-  const isDraftMode = activeApplication.status === "Draft Submitted";
-  const isRevisionMode = activeApplication.status === "Returned for Revision";
+  const activeApplication = useMemo(
+    () =>
+      baseApplication?.program === activeProgram ? baseApplication : null,
+    [baseApplication, activeProgram],
+  );
+  const isDraftMode = activeApplication?.status === "Draft Submitted";
+  const isRevisionMode = activeApplication?.status === "Returned for Revision";
 
   const [liveSetupProposal, setLiveSetupProposal] = useState<SetupProposalData | null>(null);
   const [liveGiaProposal, setLiveGiaProposal] = useState<GiaProposalData | null>(null);
@@ -234,7 +230,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       setLiveGiaProposal(getGiaDraft() ?? getGiaProposal(activeApplication.referenceNo));
     }
     // SETUP's liveSetupProposal is populated by SetupProposalForm's onDraftChange.
-  }, [activeApplication?.referenceNo, activeApplication?.program]);
+  }, [activeApplication]);
 
   const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([]);
   // Tracks the params of the most recently *issued* requirements fetch
@@ -299,8 +295,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         }
       });
   }, [
-    activeApplication?.referenceNo,
-    activeApplication?.program,
+    activeApplication,
     liveGiaProposal?.proponentCategory,
     liveSetupProposal?.businessSize,
     liveSetupProposal?.organizationType,
@@ -358,12 +353,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     return () => {
       cancelled = true;
     };
-  }, [
-    activeApplication?.referenceNo,
-    activeApplication?.program,
-    activeApplication?.proposalId,
-    activeApplication?.status,
-  ]);
+  }, [activeApplication, baseApplication]);
 
   const requiredRequirements = useMemo(
     () => requirements.filter((item) => item.required),
@@ -651,6 +641,10 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       (req) => !documents[req.id] && !pendingFiles[req.id],
     );
     if (missingRequiredDocs.length > 0) {
+      const firstMissing = missingRequiredDocs[0];
+      setMessage(
+        `Upload ${missingRequiredDocs.length} remaining required document${missingRequiredDocs.length === 1 ? "" : "s"} before submitting.${firstMissing ? ` First required: ${firstMissing.title}.` : ""}`,
+      );
       scrollToMissingRequirement(missingRequiredDocs);
       return;
     }
@@ -809,14 +803,27 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
               <div className="min-w-[280px] flex-1">
                 <div className="flex items-center justify-between gap-3 text-sm font-bold text-slate-800">
                   <span className="text-base font-black text-[#073b82]">
-                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application — {isDraftMode ? "Stage 1: Proposal & Documents" : isRevisionMode ? "Revision Required" : "Stage 2: DOST Initial Review"}
+                    {activeApplication.program === "SETUP" ? "SETUP" : "GIA"} Application —{" "}
+                    {isDraftMode
+                      ? "Stage 1: Proposal & Documents"
+                      : isRevisionMode
+                        ? "Revision Required"
+                        : activeApplication.status === "Approved"
+                          ? "Stage 4: Approved"
+                          : activeApplication.status === "Executive Approval"
+                            ? "Stage 3: For Executive Approval"
+                            : activeApplication.status === "In Process"
+                              ? "Stage 2: In Process (Assessment & TNA)"
+                              : "Stage 1: DOST Desk Review"}
                   </span>
                   {isDraftMode ? (
                     <span className="font-mono text-xs font-bold text-[#0f53b7]">{overallProgressPercent}% Overall Progress</span>
                   ) : isRevisionMode ? (
                     <span className="text-xs font-bold text-rose-700">Action Required</span>
+                  ) : activeApplication.status === "Approved" ? (
+                    <span className="text-xs font-bold text-emerald-700">Approved</span>
                   ) : (
-                    <span className="text-xs font-bold text-emerald-700">Submitted</span>
+                    <span className="text-xs font-bold text-[#0f53b7]">{activeApplication.status}</span>
                   )}
                 </div>
                 {isDraftMode ? (
@@ -1304,7 +1311,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                         : "Resubmit Revised Documents"
                     : isSubmittingApplication
                       ? "Submitting"
-                      : "Submit Application"}
+                      : activeApplication.program === "GIA"
+                        ? "Submit GIA Proposal"
+                        : "Submit SETUP Application"}
                   {isSubmittingApplication || isResubmittingRevision ? null : (
                     <ArrowRight className="size-4" />
                   )}

@@ -6,7 +6,7 @@ import {
   Eye,
   FileCheck2,
   Loader2,
-  ShieldCheck,
+  X,
   XCircle,
 } from "lucide-react";
 
@@ -21,6 +21,7 @@ import {
 } from "../../../services/documentStore";
 
 interface ProposalDocumentsSectionProps {
+  onVerificationCompleteChange?: (complete: boolean) => void;
   proposalId: number;
 }
 
@@ -40,6 +41,7 @@ function formatUpdated(isoDate: string): string {
 }
 
 export function ProposalDocumentsSection({
+  onVerificationCompleteChange,
   proposalId,
 }: ProposalDocumentsSectionProps) {
   const currentUser = getMockUser();
@@ -52,17 +54,17 @@ export function ProposalDocumentsSection({
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const [documentApproved, setDocumentApproved] = useState(false)
-  const [approvingDocument, setApprovingDocument] = useState(false)
-
   // Local verification status state per document
   const [verifiedMap, setVerifiedMap] = useState<Record<number, "approved" | "pending" | "returned_for_revision">>({});
 
   // Tracks in-flight view/download requests per document id
   const [pendingAction, setPendingAction] = useState<{ id: number; type: "view" | "download" } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [reviewRemarks, setReviewRemarks] = useState("");
   const [reviewing, setReviewing] = useState(false);
+
+  // Modal for Revision Remarks
+  const [revisionModalOpen, setRevisionModalOpen] = useState(false);
+  const [modalRemarks, setModalRemarks] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -140,10 +142,6 @@ export function ProposalDocumentsSection({
     };
   }, [selectedDocument]);
 
-  useEffect(() => {
-    setReviewRemarks(selectedDocument?.remarks ?? "");
-  }, [selectedDocument]);
-
   async function handleView(document: DocumentApiRecord) {
     setActionError(null);
     setPendingAction({ id: document.id, type: "view" });
@@ -178,10 +176,11 @@ export function ProposalDocumentsSection({
     }
   }
 
-  async function saveReview(status: "approved" | "returned_for_revision") {
+  async function saveReview(status: "approved" | "returned_for_revision", customRemarks?: string) {
     if (!selectedDocument || !canReview) return;
-    if (status === "returned_for_revision" && !reviewRemarks.trim()) {
-      setActionError("Add clear revision instructions before flagging this document.");
+    const finalRemarks = customRemarks !== undefined ? customRemarks : (selectedDocument.remarks || "");
+    if (status === "returned_for_revision" && !finalRemarks.trim()) {
+      setActionError("Review remarks are required when returning this file for revision.");
       return;
     }
 
@@ -191,15 +190,25 @@ export function ProposalDocumentsSection({
       const updated = await reviewProposalDocument(
         selectedDocument.id,
         status,
-        reviewRemarks,
+        finalRemarks,
       );
-      setDocuments((current) =>
-        current.map((document) =>
-          document.id === updated.id ? updated : document,
-        ),
+      const nextDocs = documents.map((document) =>
+        document.id === updated.id ? updated : document,
       );
-      setSelectedDocument(updated);
+      setDocuments(nextDocs);
       setVerifiedMap((current) => ({ ...current, [updated.id]: updated.status }));
+
+      // Automatically advance to the next unverified document or next in list
+      const currentIndex = nextDocs.findIndex((doc) => doc.id === updated.id);
+      const nextDoc =
+        nextDocs.find((doc, idx) => idx > currentIndex && doc.status !== "approved") ??
+        nextDocs.find((doc) => doc.id !== updated.id && doc.status !== "approved") ??
+        nextDocs[currentIndex + 1] ??
+        updated;
+
+      setSelectedDocument(nextDoc);
+      setRevisionModalOpen(false);
+      setModalRemarks("");
     } catch (error) {
       console.error("Failed to save document review:", error);
       setActionError("The document review could not be saved. Please try again.");
@@ -208,21 +217,17 @@ export function ProposalDocumentsSection({
     }
   }
 
-  async function handleMarkDocumentApproved() {
-    setApprovingDocument(true);
-    try{
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      setDocumentApproved(true);
-    }catch(err){
-      console.error("Failed to approve proposal:", err);
-      setActionError("Could not mark this proposal as approved. Please try again");
-    }finally{
-      setApprovingDocument(false);
-    }
-  }
   const verifiedCount = useMemo(() => {
     return documents.filter((d) => verifiedMap[d.id] === "approved").length;
   }, [documents, verifiedMap]);
+
+  const allVerified = useMemo(() => {
+    return documents.length > 0 && documents.every((d) => (verifiedMap[d.id] ?? d.status) === "approved");
+  }, [documents, verifiedMap]);
+
+  useEffect(() => {
+    onVerificationCompleteChange?.(allVerified);
+  }, [allVerified, onVerificationCompleteChange]);
 
   const percentComplete = documents.length > 0
     ? Math.round((verifiedCount / documents.length) * 100)
@@ -417,46 +422,55 @@ export function ProposalDocumentsSection({
                   {selectedDocument.file_name} · {formatFileSize(selectedDocument.file_size)} · Uploaded {formatUpdated(selectedDocument.created_at)}
                 </p>
               </div>
-                    
-              {/* Action Buttons: Verification & Download */}
+
+              {/* Action Buttons: Verification, Revision, Download, View */}
               <div className="flex items-center gap-1.5">
-                {canReview ? <button
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold shadow-2xs transition",
-                    selectedDocStatus === "approved"
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-800 font-bold"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800",
-                  )}
-                  disabled={reviewing}
-                  onClick={() => void saveReview("approved")}
-                  type="button"
-                >
-                  <Check className="size-3.5 text-emerald-600" />
-                  <span>{selectedDocStatus === "approved" ? "Verified" : "Mark Verified"}</span>
-                </button> : null}
+                {canReview ? (
+                  <>
+                    <button
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold shadow-2xs transition disabled:opacity-50",
+                        selectedDocStatus === "approved"
+                          ? "bg-emerald-600 text-white"
+                          : "border border-slate-300 bg-white text-slate-700 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-800",
+                      )}
+                      disabled={reviewing}
+                      onClick={() => void saveReview("approved")}
+                      title="Mark as verified"
+                      type="button"
+                    >
+                      <Check className="size-3.5" />
+                      <span>{selectedDocStatus === "approved" ? "Verified" : "Verify"}</span>
+                    </button>
 
-                {canReview ? <button
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold shadow-2xs transition",
-                    selectedDocStatus === "returned_for_revision"
-                      ? "border-rose-500 bg-rose-50 text-rose-800 font-bold"
-                      : "border-slate-300 bg-white text-slate-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-800",
-                  )}
-                  disabled={reviewing}
-                  onClick={() => void saveReview("returned_for_revision")}
-                  type="button"
-                >
-                  <XCircle className="size-3.5 text-rose-600" />
-                  <span>{selectedDocStatus === "returned_for_revision" ? "Flagged" : "Flag"}</span>
-                </button> : null}
+                    <button
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold shadow-2xs transition disabled:opacity-50",
+                        selectedDocStatus === "returned_for_revision"
+                          ? "bg-rose-600 text-white"
+                          : "border border-slate-300 bg-white text-slate-700 hover:border-rose-400 hover:bg-rose-50 hover:text-rose-800",
+                      )}
+                      disabled={reviewing}
+                      onClick={() => {
+                        setModalRemarks(selectedDocument.remarks || "");
+                        setRevisionModalOpen(true);
+                      }}
+                      title="Flag for revision"
+                      type="button"
+                    >
+                      <X className="size-3.5" />
+                      <span>{selectedDocStatus === "returned_for_revision" ? "Flagged" : "Needs Revision"}</span>
+                    </button>
 
-                {canReview ? <div className="mx-0.5 h-4 w-px bg-slate-200" /> : null}
+                    <div className="mx-0.5 h-4 w-px bg-slate-200" />
+                  </>
+                ) : null}
 
                 <button
-                  className="inline-flex size-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition disabled:opacity-50"
+                  className="inline-flex size-7 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                   disabled={pendingAction?.id === selectedDocument.id}
                   onClick={() => handleDownload(selectedDocument)}
-                  title="Download file"
+                  title="Download PDF"
                   type="button"
                 >
                   {pendingAction?.id === selectedDocument.id && pendingAction.type === "download" ? (
@@ -466,10 +480,10 @@ export function ProposalDocumentsSection({
                   )}
                 </button>
                 <button
-                  className="inline-flex size-7 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-2xs hover:bg-slate-50 hover:text-slate-900 transition disabled:opacity-50"
+                  className="inline-flex size-7 items-center justify-center rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-40"
                   disabled={pendingAction?.id === selectedDocument.id}
                   onClick={() => handleView(selectedDocument)}
-                  title="Open in new tab"
+                  title="Open PDF in new tab"
                   type="button"
                 >
                   {pendingAction?.id === selectedDocument.id && pendingAction.type === "view" ? (
@@ -481,25 +495,23 @@ export function ProposalDocumentsSection({
               </div>
             </div>
 
-            {canReview ? (
-              <div className="border-b border-slate-200 bg-slate-50/70 px-3.5 py-2.5">
-                <label
-                  className="text-[11px] font-bold text-slate-700"
-                  htmlFor={`document-review-remarks-${selectedDocument.id}`}
-                >
-                  Revision instructions
-                </label>
-                <textarea
-                  className="mt-1 min-h-16 w-full resize-none rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-800 outline-none focus:border-[#0f53b7] focus:ring-2 focus:ring-blue-100"
-                  id={`document-review-remarks-${selectedDocument.id}`}
-                  onChange={(event) => setReviewRemarks(event.target.value)}
-                  placeholder="Explain exactly what the proponent must correct in this file..."
-                  value={reviewRemarks}
-                />
-              </div>
-            ) : selectedDocument.remarks ? (
-              <div className="border-b border-rose-100 bg-rose-50 px-3.5 py-2.5 text-xs text-rose-800">
-                <span className="font-bold">Review remarks:</span> {selectedDocument.remarks}
+            {selectedDocument.remarks ? (
+              <div className="border-b border-amber-100 bg-amber-50/80 px-3.5 py-2 text-xs text-amber-900 flex items-center justify-between gap-2">
+                <p className="truncate">
+                  <span className="font-bold">Revision instructions:</span> {selectedDocument.remarks}
+                </p>
+                {canReview ? (
+                  <button
+                    className="shrink-0 text-[11px] font-bold text-amber-800 hover:underline"
+                    onClick={() => {
+                      setModalRemarks(selectedDocument.remarks || "");
+                      setRevisionModalOpen(true);
+                    }}
+                    type="button"
+                  >
+                    Edit
+                  </button>
+                ) : null}
               </div>
             ) : null}
 
@@ -559,6 +571,72 @@ export function ProposalDocumentsSection({
           </div>
         )}
       </section>
+
+      {/* Pop-up Modal for Revision Remarks & Confirmation */}
+      {revisionModalOpen && selectedDocument ? (
+        <div
+          aria-labelledby="revision-modal-title"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
+          role="dialog"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl border border-slate-200">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900" id="revision-modal-title">
+                  Return Requirement for Revision
+                </h4>
+                <p className="mt-0.5 text-xs text-slate-500 truncate max-w-xs">
+                  {selectedDocument.document_type?.name || selectedDocument.file_name}
+                </p>
+              </div>
+              <button
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => setRevisionModalOpen(false)}
+                type="button"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label
+                className="block text-xs font-bold text-slate-700"
+                htmlFor="modal-revision-remarks"
+              >
+                Reason for Revision <span className="text-rose-500">*</span>
+              </label>
+              <textarea
+                className="mt-1.5 min-h-24 w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs leading-5 text-slate-900 outline-none transition focus:border-[#0f53b7] focus:bg-white focus:ring-2 focus:ring-blue-100"
+                id="modal-revision-remarks"
+                onChange={(e) => setModalRemarks(e.target.value)}
+                placeholder="Explain what the proponent needs to update, replace, or clarify..."
+                rows={3}
+                value={modalRemarks}
+              />
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                className="rounded-xl px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                onClick={() => setRevisionModalOpen(false)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className="inline-flex items-center gap-1.5 rounded-xl bg-rose-600 px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-rose-700 transition disabled:opacity-50"
+                disabled={!modalRemarks.trim() || reviewing}
+                onClick={() => void saveReview("returned_for_revision", modalRemarks.trim())}
+                type="button"
+              >
+                {reviewing ? <Loader2 className="size-3.5 animate-spin" /> : <X className="size-3.5" />}
+                Confirm Return for Revision
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

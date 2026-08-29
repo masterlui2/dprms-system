@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Activity,
   AlertTriangle,
@@ -32,6 +32,7 @@ import {
   type ProjectRecord,
 } from "../../data/admin";
 import { getProjects } from "../../services/applicationStore";
+import { getMockUser } from "../../lib/mockAuth";
 import { cn } from "../../utils/cn";
 
 type GiaProject = ProjectRecord & { gia: GiaMonitoringDetails };
@@ -812,7 +813,32 @@ function SiteVisitCalendarModal({
 }
 
 export function MonitoringPage() {
-  const [selectedProgram, setSelectedProgram] = useState<Program>("GIA");
+  const currentUser = getMockUser();
+  const lockedProgram =
+    currentUser?.program === "SETUP" || currentUser?.program === "GIA"
+      ? (currentUser.program as Program)
+      : currentUser?.email?.toLowerCase().startsWith("gia.") ||
+          currentUser?.email?.toLowerCase().includes("gia") ||
+          currentUser?.name?.toUpperCase().includes("GIA") ||
+          currentUser?.name?.toUpperCase().includes("CEST")
+        ? ("GIA" as Program)
+        : currentUser?.email?.toLowerCase().startsWith("setup.") ||
+            currentUser?.email?.toLowerCase().includes("setup") ||
+            currentUser?.name?.toUpperCase().includes("SETUP") ||
+            currentUser?.name?.toUpperCase().includes("SSCP")
+          ? ("SETUP" as Program)
+          : null;
+
+  const [selectedProgram, setSelectedProgram] = useState<Program>(
+    lockedProgram || "GIA",
+  );
+
+  useEffect(() => {
+    if (lockedProgram) {
+      setSelectedProgram(lockedProgram);
+    }
+  }, [lockedProgram]);
+
   const createdProjects = getProjects().filter(
     (project) => project.program === selectedProgram,
   );
@@ -839,6 +865,27 @@ export function MonitoringPage() {
     programProjects.reduce((total, project) => total + project.progress, 0) /
       Math.max(programProjects.length, 1),
   );
+
+  const headerEyebrow =
+    lockedProgram === "SETUP"
+      ? "SSCP Implementation Monitoring"
+      : lockedProgram === "GIA"
+        ? "CEST Implementation Monitoring"
+        : "Project Operations";
+
+  const headerTitle =
+    lockedProgram === "SETUP"
+      ? "SETUP Project Monitoring"
+      : lockedProgram === "GIA"
+        ? "GIA Project Monitoring"
+        : "Project Monitoring";
+
+  const headerDescription =
+    lockedProgram === "SETUP"
+      ? "Monitor MSME technological adoption progress, repayment amortization schedules, and site visit logs."
+      : lockedProgram === "GIA"
+        ? "Monitor research deliverable milestones, Line-Item Budget releases, and 6Ps accomplishment scorecards."
+        : "Monitor implementation progress, approved funding, schedules, and project status.";
 
   const projectColumns: DataColumn<ProjectRecord>[] = [
     {
@@ -919,9 +966,9 @@ export function MonitoringPage() {
   return (
     <div className="space-y-7">
       <AdminPageHeader
-        description="Monitor implementation progress, approved funding, schedules, and project status."
-        eyebrow="Project Operations"
-        title="Project Monitoring"
+        description={headerDescription}
+        eyebrow={headerEyebrow}
+        title={headerTitle}
       />
 
       {createdProjects.length > 0 ? (
@@ -992,32 +1039,39 @@ export function MonitoringPage() {
             `${project.id} ${project.title} ${project.gia?.agency ?? project.enterprise} ${project.manager} ${projectLocation(project)} ${project.status}`
           }
           toolbar={
-            <div
-              aria-label="Project program filter"
-              className="inline-flex rounded-lg border border-[#d8e1ee] bg-[#f8fbff] p-1"
-              role="tablist"
-            >
-              {projectProgramTabs.map((tab) => (
-                <button
-                  aria-selected={selectedProgram === tab.value}
-                  className={cn(
-                    "h-8 rounded-md px-3 text-xs font-black transition",
-                    selectedProgram === tab.value
-                      ? "bg-[#0f53b7] text-white shadow-sm"
-                      : "text-[#073b82] hover:bg-white",
-                  )}
-                  key={tab.value}
-                  onClick={() => {
-                    setSelectedProgram(tab.value);
-                    setSelectedProject(null);
-                  }}
-                  role="tab"
-                  type="button"
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+            lockedProgram ? (
+              <span className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-black text-[#073b82]">
+                <span className="size-2 rounded-full bg-[#0f53b7]" />
+                {lockedProgram === "SETUP" ? "SSCP / SETUP Track" : "CEST / GIA Track"}
+              </span>
+            ) : (
+              <div
+                aria-label="Project program filter"
+                className="inline-flex rounded-lg border border-[#d8e1ee] bg-[#f8fbff] p-1"
+                role="tablist"
+              >
+                {projectProgramTabs.map((tab) => (
+                  <button
+                    aria-selected={selectedProgram === tab.value}
+                    className={cn(
+                      "h-8 rounded-md px-3 text-xs font-black transition",
+                      selectedProgram === tab.value
+                        ? "bg-[#0f53b7] text-white shadow-sm"
+                        : "text-[#073b82] hover:bg-white",
+                    )}
+                    key={tab.value}
+                    onClick={() => {
+                      setSelectedProgram(tab.value);
+                      setSelectedProject(null);
+                    }}
+                    role="tab"
+                    type="button"
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            )
           }
         />
       </section>

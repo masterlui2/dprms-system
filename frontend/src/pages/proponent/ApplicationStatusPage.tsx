@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ClipboardCheck } from 'lucide-react'
+import { useLocation } from 'react-router-dom'
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { ProposalProgress } from '../../components/proponent/ProposalProgress'
@@ -12,25 +13,41 @@ import {
 } from '../../services/documentStore'
 import { getApplications } from '../../services/applicationStore'
 import { getGiaProposal } from '../../services/giaProposalStore'
+import type { ApplicationRecord } from '../../types/application'
 
 export function ApplicationStatusPage() {
   const user = getMockUser()
-  const applications = getApplications()
-  const application = applications.find((item) =>
-    user?.applicationReference ? item.referenceNo === user.applicationReference : item.contactEmail.toLowerCase() === user?.email.toLowerCase(),
+  const location = useLocation()
+  const activeProgram: ApplicationRecord['program'] = location.pathname.startsWith('/gia')
+    ? 'GIA'
+    : location.pathname.startsWith('/setup')
+      ? 'SETUP'
+      : (user?.program ?? 'SETUP')
+  const applications = getApplications().filter(
+    (item) =>
+      item.program === activeProgram &&
+      (!user?.email || item.contactEmail.toLowerCase() === user.email.toLowerCase()),
   )
-  const documents = application ? getDocuments(application.referenceNo) : {}
-  const giaProposal = application?.program === 'GIA' ? getGiaProposal(application.referenceNo) : null
+  const application =
+    applications.find(
+      (item) => item.referenceNo === user?.applicationReference,
+    ) ?? applications[0]
+  const applicationProgram = application?.program
+  const applicationReferenceNo = application?.referenceNo
+  const documents = applicationReferenceNo ? getDocuments(applicationReferenceNo) : {}
+  const giaProposal = applicationProgram === 'GIA' && applicationReferenceNo
+    ? getGiaProposal(applicationReferenceNo)
+    : null
 
   const [requirements, setRequirements] = useState<DocumentaryRequirement[]>([])
 
   useEffect(() => {
-    if (!application) {
+    if (!applicationProgram) {
       setRequirements([])
       return
     }
     let cancelled = false
-    if (application.program === 'SETUP') {
+    if (applicationProgram === 'SETUP') {
       // Note: no organizationType/businessSize filter available here yet, so this
       // returns the unfiltered SETUP checklist. Wire this up to a real proposal
       // lookup once one exists.
@@ -43,7 +60,7 @@ export function ApplicationStatusPage() {
         .catch(() => { if (!cancelled) setRequirements([]) })
     }
     return () => { cancelled = true }
-  }, [application?.referenceNo, application?.program, giaProposal?.proponentCategory])
+  }, [applicationReferenceNo, applicationProgram, giaProposal?.proponentCategory])
 
   const requiredRequirements = requirements.filter((item) => item.required)
   const complete = requiredRequirements.length > 0 && requiredRequirements.every((item) => documents[item.id])

@@ -24,8 +24,10 @@ import {
 } from "../../services/profileStore";
 
 function getProgramHomePath(pathname: string, user?: MockUser | null) {
-  if (pathname.startsWith("/programs/gia")) return "/programs/gia";
-  if (pathname.startsWith("/programs/setup")) return "/programs/setup";
+  if (pathname.startsWith("/programs/gia") || pathname.startsWith("/gia"))
+    return "/programs/gia";
+  if (pathname.startsWith("/programs/setup") || pathname.startsWith("/setup"))
+    return "/programs/setup";
   if (user?.program === "GIA") return "/programs/gia";
   if (user?.program === "SETUP") return "/programs/setup";
 
@@ -38,7 +40,7 @@ function getNavigationItems(pathname: string, user?: MockUser | null) {
     homeHref === "/programs/gia" || homeHref === "/programs/setup";
 
   return [
-    { label: "Home", href: homeHref },
+    { label: "Home", href: "/" },
     { label: "Programs", href: "/#programs" },
     {
       label: "How to Apply",
@@ -75,11 +77,21 @@ function TopBar() {
 }
 
 function Logo({ homeHref }: { homeHref: string }) {
+  const location = useLocation();
+
   return (
     <Link
       className="flex min-w-0 items-center gap-3"
       to={homeHref}
       aria-label="DOST GIA and SETUP Portal home"
+      onClick={() => {
+        if (
+          location.pathname === homeHref ||
+          (homeHref === "/" && location.pathname === "/")
+        ) {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }}
     >
       <img
         alt="DOST GIA and SETUP Portal"
@@ -121,15 +133,17 @@ function AccountDropdown({
   onNavigate,
   onSignOut,
   profile,
+  program,
   user,
 }: {
   onNavigate: () => void;
   onSignOut: () => void;
   profile: ProponentProfile | null;
+  program: "SETUP" | "GIA";
   user: MockUser;
 }) {
   const isProponent = user.role === "proponent";
-  const isGia = user.program === "GIA";
+  const isGia = program === "GIA";
   const programPrefix = isGia ? "/gia" : "/setup";
   const displayName = profile?.fullName || user.name;
   const moduleItems = [
@@ -244,6 +258,14 @@ export function SiteHeader() {
   const [profileRevision, setProfileRevision] = useState(0);
   const isProponent = user?.role === "proponent";
   const [profile, setProfile] = useState<ProponentProfile | null>(null);
+  const activeProgram: "SETUP" | "GIA" =
+    location.pathname.startsWith("/gia") ||
+    location.pathname.startsWith("/programs/gia")
+    ? "GIA"
+    : location.pathname.startsWith("/setup") ||
+        location.pathname.startsWith("/programs/setup")
+      ? "SETUP"
+      : user?.program ?? "SETUP";
   const navigationItems = getNavigationItems(location.pathname, user);
   const programsActive =
     location.pathname.startsWith("/programs/gia") ||
@@ -310,6 +332,23 @@ export function SiteHeader() {
       );
     }
     return isActive(item.href);
+  }
+
+  function handleNavClick(item: { label: string; href: string }) {
+    const [targetPath, targetHash] = item.href.split("#");
+    const isTargetRoot = targetPath === "" || targetPath === "/";
+    const isCurrentRoot = location.pathname === "/";
+
+    if (item.label === "Home" || (isTargetRoot && !targetHash)) {
+      if (isCurrentRoot) {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } else if (targetHash && location.pathname === (targetPath || "/")) {
+      const element = document.getElementById(targetHash);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }
   }
 
   return (
@@ -392,6 +431,7 @@ export function SiteHeader() {
                     ? "bg-[#eaf6ff] text-[#073b82]"
                     : "text-slate-700 hover:bg-[#eaf6ff] hover:text-[#073b82]"
                 }`}
+                onClick={() => handleNavClick(item)}
                 to={item.href}
                 key={item.href}
               >
@@ -451,6 +491,7 @@ export function SiteHeader() {
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
                     profile={profile}
+                    program={activeProgram}
                     user={user}
                   />
                 ) : null}
@@ -517,6 +558,7 @@ export function SiteHeader() {
                     onNavigate={() => setAccountOpen(false)}
                     onSignOut={handleSignOut}
                     profile={profile}
+                    program={activeProgram}
                     user={user}
                   />
                 ) : null}
@@ -570,7 +612,10 @@ export function SiteHeader() {
                   }`}
                   to={item.href}
                   key={item.href}
-                  onClick={() => setOpen(false)}
+                  onClick={() => {
+                    setOpen(false);
+                    handleNavClick(item);
+                  }}
                 >
                   {item.label}
                 </Link>

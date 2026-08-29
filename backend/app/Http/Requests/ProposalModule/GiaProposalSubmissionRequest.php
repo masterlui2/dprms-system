@@ -38,7 +38,9 @@ class GiaProposalSubmissionRequest extends FormRequest
                 'integer',
                 'distinct',
                 Rule::exists('document_types', 'id')
-                    ->where(fn ($query) => $query->whereIn('applicable_program', ['GIA', 'BOTH'])),
+                    ->where(fn ($query) => $query
+                        ->where('set_number', 'GIA1')
+                        ->whereIn('applicable_program', ['GIA', 'BOTH'])),
             ],
             'documents.*.file' => 'required_with:documents|file|mimes:pdf|max:10240',
         ];
@@ -46,7 +48,7 @@ class GiaProposalSubmissionRequest extends FormRequest
 
     /**
      * Cross-checks the submitted 'documents' against every applicant-visible,
-     * required DocumentType applicable to this submission's project_category
+     * required GIA1 DocumentType applicable to this submission's proponent category
      * (program GIA or BOTH). The auto-generated proposal PDF
      * (set_number=PROPOSAL, is_applicant_visible=false) and any
      * internal-only document types are intentionally excluded — the
@@ -59,11 +61,16 @@ class GiaProposalSubmissionRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator) {
-            if ($validator->errors()->has('project_category')) {
+            if ($validator->errors()->has('proponent_category')) {
                 return;
             }
 
-            $projectCategory = $this->input('project_category');
+            $giaCategory = match ($this->input('proponent_category')) {
+                'Private Sector' => 'PRIVATE-SECTOR',
+                'Higher Education Institution' => 'HEI',
+                'Barangay LGU' => 'BARANGAY-LGU',
+                default => null,
+            };
 
             $submittedTypeIds = collect($this->input('documents', []))
                 ->pluck('document_type_id')
@@ -74,10 +81,11 @@ class GiaProposalSubmissionRequest extends FormRequest
             $missingRequired = DocumentType::query()
                 ->where('is_required', true)
                 ->where('is_applicant_visible', true)
+                ->where('set_number', 'GIA1')
                 ->whereIn('applicable_program', ['GIA', 'BOTH'])
                 ->where(fn ($query) => $query
                     ->whereNull('applicable_gia_categories')
-                    ->orWhereJsonContains('applicable_gia_categories', $projectCategory))
+                    ->orWhereJsonContains('applicable_gia_categories', $giaCategory))
                 ->whereNotIn('id', $submittedTypeIds)
                 ->pluck('name');
 

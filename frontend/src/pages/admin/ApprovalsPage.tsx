@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { Eye, Filter, Check } from "lucide-react";
-import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
+import {
+  Eye,
+  Check,
+  X,
+  Loader2,
+} from "lucide-react";
+import Swal from "sweetalert2";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
 import {
   ProposalReviewModal,
@@ -8,24 +13,173 @@ import {
 } from "../../components/admin/ProposalReviewModal";
 import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
-import { getAllProposals } from "../../services/proposalStore";
+import { getAllProposals, applyProposalDecision } from "../../services/proposalStore";
+import { getMockUser } from "../../lib/mockAuth";
 import type { ApplicationRecord } from "../../types/application";
 
-const programFilters = [
-  { label: "All Programs", value: "all" },
-  { label: "SETUP Program", value: "SETUP" },
-  { label: "GIA Program", value: "GIA" },
-];
-
 export function ApprovalsPage() {
-  const [program, setProgram] = useState("all");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const currentUser = getMockUser();
+  const lockedProgram =
+    currentUser?.program === "SETUP" || currentUser?.program === "GIA"
+      ? currentUser.program
+      : currentUser?.email?.toLowerCase().startsWith("gia.") ||
+          currentUser?.email?.toLowerCase().includes("gia") ||
+          currentUser?.name?.toUpperCase().includes("GIA") ||
+          currentUser?.name?.toUpperCase().includes("CEST")
+        ? "GIA"
+        : currentUser?.email?.toLowerCase().startsWith("setup.") ||
+            currentUser?.email?.toLowerCase().includes("setup") ||
+            currentUser?.name?.toUpperCase().includes("SETUP") ||
+            currentUser?.name?.toUpperCase().includes("SSCP")
+          ? "SETUP"
+          : null;
+
+  const getDefaultLifecycleTab = (): "all" | "review" | "in_process" | "for_approval" | "approved" | "disapproved" => {
+    if (currentUser?.role === "project_staff") return "review";
+    if (currentUser?.role === "focal") return "in_process";
+    if (currentUser?.role === "provincial_director") return "for_approval";
+    return "all";
+  };
+
+  const [lifecycleTab, setLifecycleTab] = useState<"all" | "review" | "in_process" | "for_approval" | "approved" | "disapproved">(getDefaultLifecycleTab);
   const [review, setReview] = useState<{
     proposal: ProposalRecord;
     section: ReviewSection;
   } | null>(null);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // Direct Row Action Modal (Disapprove / Return)
+  const [directActionModal, setDirectActionModal] = useState<{
+    proposal: ProposalRecord;
+    type: "disapprove" | "return_in_process";
+  } | null>(null);
+  const [directRemarks, setDirectRemarks] = useState("");
+  const [directSubmitting, setDirectSubmitting] = useState(false);
+  const [directError, setDirectError] = useState<string | null>(null);
+
+  async function handleApproveConfirmation(proposal: ProposalRecord) {
+    if (!proposal.proposalId) return;
+
+    const result = await Swal.fire({
+      title: "Approve Application?",
+      text: `Are you sure you want to officially approve "${proposal.title}" (${proposal.id})? This will approve the project for grant allocation.`,
+      icon: "question",
+      showCancelButton: true,
+      confirmButtonColor: "#059669",
+      cancelButtonColor: "#64748b",
+      confirmButtonText: "Yes, Approve",
+      cancelButtonText: "Cancel",
+      reverseButtons: true,
+    });
+
+    if (result.isConfirmed) {
+      try {
+        Swal.fire({
+          title: "Approving application...",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        const savedStatus = await applyProposalDecision({
+          decision: "approve",
+          proposalId: proposal.proposalId,
+        });
+
+        setApplications((current) =>
+          current.map((app) =>
+            app.referenceNo === proposal.id || String(app.proposalId) === String(proposal.proposalId)
+              ? { ...app, status: savedStatus as ApplicationRecord["status"] }
+              : app,
+          ),
+        );
+
+        await Swal.fire({
+          icon: "success",
+          title: "Application Approved!",
+          text: `Application "${proposal.id}" has been officially approved.`,
+          timer: 2000,
+          showConfirmButton: false,
+        });
+      } catch (err) {
+        console.error("Failed to approve application:", err);
+        const serverMessage = (
+          err as { response?: { data?: { message?: string } } }
+        ).response?.data?.message;
+        await Swal.fire({
+          icon: "error",
+          title: "Approval Failed",
+          text: serverMessage || "The application could not be approved. Please try again.",
+        });
+      }
+    }
+  }
+
+  async function handleDirectDecision() {
+    if (!directActionModal) return;
+    const { proposal, type } = directActionModal;
+    if (!directRemarks.trim()) {
+      setDirectError("Remarks are required for this action.");
+      return;
+    }
+
+    if (!proposal.proposalId) {
+      setDirectError("Proposal ID is missing.");
+      return;
+    }
+
+    setDirectSubmitting(true);
+    setDirectError(null);
+
+    try {
+      const savedStatus = await applyProposalDecision({
+        decision: type,
+        proposalId: proposal.proposalId,
+        remarks: directRemarks.trim() || undefined,
+      });
+
+      // Update in applications state
+      setApplications((current) =>
+        current.map((app) =>
+          app.referenceNo === proposal.id || String(app.proposalId) === String(proposal.proposalId)
+            ? {
+                ...app,
+                status: savedStatus as ApplicationRecord["status"],
+                remarks: directRemarks.trim() || app.remarks,
+              }
+            : app,
+        ),
+      );
+
+      const isReturn = type === "return_in_process";
+      setDirectActionModal(null);
+      setDirectRemarks("");
+
+      await Swal.fire({
+        icon: isReturn ? "info" : "warning",
+        title: isReturn ? "Returned for Re-assessment" : "Application Disapproved",
+        text: isReturn
+          ? `Application "${proposal.id}" returned to In Process for technical clarification.`
+          : `Application "${proposal.id}" has been formally disapproved.`,
+        timer: 2200,
+        showConfirmButton: false,
+      });
+    } catch (err) {
+      console.error("Failed to execute direct action:", err);
+      const serverMessage = (
+        err as { response?: { data?: { message?: string } } }
+      ).response?.data?.message;
+      setDirectError(serverMessage || "Failed to update application status.");
+    } finally {
+      setDirectSubmitting(false);
+    }
+  }
+
+  useEffect(() => {
+    setLifecycleTab(getDefaultLifecycleTab());
+  }, [currentUser?.role]);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,150 +221,452 @@ export function ApprovalsPage() {
       organization: app.organizationName,
       organizationType:
         app.program === "GIA"
-          ? "HEI / SUC / LGU Proponent"
-          : "MSME Enterprise (Private Sector)",
+          ? (app.proponentCategory || "HEI / SUC / LGU Proponent")
+          : (app.businessType || "MSME Enterprise"),
       proponentName: app.applicantName || "Maria Proponent",
       proponentRole:
         app.program === "GIA"
           ? "Project Leader / Researcher"
-          : "Authorized Enterprise Representative",
-      program: app.program,
-      reviewer: app.program === "GIA" ? "CEST Focal Officer" : "SSCP Focal Officer",
+          : "Business Owner / Enterprise Lead",
+      program: app.program as "SETUP" | "GIA",
+      reviewer:
+        app.program === "GIA"
+          ? "Felix GIA Focal"
+          : "Faith SETUP Focal",
       stage,
       status,
+      remarks: app.remarks,
       submitted: new Date(app.createdAt).toLocaleDateString("en-US", {
-        month: "short",
         day: "numeric",
+        month: "short",
         year: "numeric",
       }),
       title: app.projectTitle,
+      industrySector: app.industrySector,
+      enterpriseSize: app.enterpriseSize,
+      businessType: app.businessType,
+      location: app.location,
+      proponentCategory: app.proponentCategory,
+      researchCategory: app.researchCategory,
+      contactNumber: app.contactNumber,
     };
   });
 
-  const filteredProposals = applicationProposals.filter((proposal) => {
-    return program === "all" || proposal.program === program;
+  const programScopedProposals = lockedProgram
+    ? applicationProposals.filter((proposal) => proposal.program === lockedProgram)
+    : applicationProposals;
+
+  const newCount = programScopedProposals.filter(
+    (p) => p.status === "Pending" || p.status === "Under review" || p.stage <= 1,
+  ).length;
+  const inProcessCount = programScopedProposals.filter(
+    (p) => p.status === "In Process" || p.status === "Returned for Revision" || p.stage === 2,
+  ).length;
+  const endorsedCount = programScopedProposals.filter(
+    (p) => p.status === "Executive Approval" || p.stage === 3,
+  ).length;
+  const approvedCount = programScopedProposals.filter(
+    (p) => p.status === "Approved",
+  ).length;
+  const disapprovedCount = programScopedProposals.filter(
+    (p) => p.status === "Disapproved" || p.status === "Rejected",
+  ).length;
+  const allCount = programScopedProposals.length;
+
+  const filteredProposals = programScopedProposals.filter((proposal) => {
+    if (lifecycleTab === "review") {
+      return proposal.status === "Pending" || proposal.status === "Under review" || proposal.stage <= 1;
+    }
+    if (lifecycleTab === "in_process") {
+      return proposal.status === "In Process" || proposal.status === "Returned for Revision" || proposal.stage === 2;
+    }
+    if (lifecycleTab === "for_approval") {
+      return proposal.status === "Executive Approval" || proposal.stage === 3;
+    }
+    if (lifecycleTab === "approved") {
+      return proposal.status === "Approved";
+    }
+    if (lifecycleTab === "disapproved") {
+      return proposal.status === "Disapproved" || proposal.status === "Rejected";
+    }
+    return true;
   });
 
   function openReview(proposal: ProposalRecord, section: ReviewSection) {
     setReview({ proposal, section });
   }
 
+
+
   const columns: DataColumn<ProposalRecord>[] = [
     {
       id: "id",
-      header: "Application",
-      className: "w-[30%]",
+      header: "Reference",
+      className: "min-w-[105px] whitespace-nowrap",
+      sortValue: (proposal) => proposal.id,
+      render: (proposal) => (
+        <span className="font-mono text-[11px] font-bold text-slate-600 whitespace-nowrap block tracking-tight">
+          {proposal.id}
+        </span>
+      ),
+    },
+    {
+      id: "title",
+      header: "Project Title",
+      className: "min-w-[230px]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
-        <div>
-          <p className="font-semibold leading-5 text-slate-900">{proposal.title}</p>
-          <p className="mt-1 font-mono text-xs font-bold text-[#0f53b7]">{proposal.id}</p>
-        </div>
+        <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2">
+          {proposal.title}
+        </p>
       ),
     },
     {
       id: "proponent",
       header: "Proponent",
-      className: "w-[22%]",
-      sortValue: (proposal) => proposal.proponentName ?? proposal.organization,
-      render: (proposal) => {
-        const showOrganization =
-          proposal.organization.trim().toLowerCase() !==
-            proposal.title.trim().toLowerCase() &&
-          proposal.organization.trim().toLowerCase() !==
-            proposal.proponentName?.trim().toLowerCase();
-
-        return (
-          <div>
-            <p className="font-bold text-slate-900">
-              {proposal.proponentName ?? "Maria Proponent"}
-            </p>
-            {showOrganization ? (
-              <p className="mt-1 text-xs leading-5 text-slate-500">{proposal.organization}</p>
-            ) : null}
-          </div>
-        );
-      },
+      className: "min-w-[140px]",
+      sortValue: (proposal) => proposal.proponentName ?? "",
+      render: (proposal) => (
+        <p className="font-bold text-sm text-slate-900 leading-snug">
+          {proposal.proponentName ?? "Maria Proponent"}
+        </p>
+      ),
     },
     {
-      id: "reviewer",
-      header: "Assigned Officer",
-      className: "w-[15%]",
-      sortValue: (proposal) => proposal.reviewer,
+      id: "organization",
+      header: "Organization",
+      className: "min-w-[160px]",
+      sortValue: (proposal) => proposal.organization,
       render: (proposal) => (
-        <span className="text-xs font-semibold text-slate-700">
-          {proposal.reviewer || "Project Staff"}
+        <div className="space-y-0.5">
+          <p className="text-xs font-semibold text-slate-800 leading-snug">
+            {proposal.organization || "—"}
+          </p>
+          {proposal.organizationType ? (
+            <p className="text-[11px] text-slate-500 font-medium">
+              {proposal.organizationType}
+            </p>
+          ) : null}
+        </div>
+      ),
+    },
+    {
+      id: "classification",
+      header: "Sector / Scale",
+      className: "min-w-[160px]",
+      sortValue: (proposal) =>
+        proposal.program === "SETUP"
+          ? proposal.industrySector ?? ""
+          : proposal.proponentCategory ?? "",
+      render: (proposal) => (
+        <div className="space-y-0.5">
+          {proposal.program === "SETUP" ? (
+            <>
+              {proposal.industrySector ? (
+                <p className="text-xs font-semibold text-slate-800 leading-snug">
+                  {proposal.industrySector}
+                </p>
+              ) : (
+                <span className="text-xs text-slate-400 font-medium">—</span>
+              )}
+              {proposal.enterpriseSize ? (
+                <p className="text-[11px] font-medium text-slate-500">
+                  {proposal.enterpriseSize} Enterprise
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <>
+              {proposal.proponentCategory ? (
+                <p className="text-xs font-semibold text-slate-800 leading-snug">
+                  {proposal.proponentCategory}
+                </p>
+              ) : null}
+              {proposal.researchCategory ? (
+                <p className="text-[11px] font-medium text-slate-500">
+                  {proposal.researchCategory}
+                </p>
+              ) : null}
+            </>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: "location",
+      header: "Address",
+      className: "min-w-[130px]",
+      sortValue: (proposal) => proposal.location ?? "",
+      render: (proposal) => (
+        <span className="text-xs font-medium text-slate-600 block leading-snug">
+          {proposal.location || "Davao Oriental"}
+        </span>
+      ),
+    },
+    {
+      id: "submitted",
+      header: "Submission Date",
+      className: "min-w-[120px]",
+      sortValue: (proposal) => proposal.submitted,
+      render: (proposal) => (
+        <span className="text-xs font-medium text-slate-600 whitespace-nowrap block">
+          {proposal.submitted}
         </span>
       ),
     },
     {
       id: "status",
       header: "Status",
-      className: "w-[11%]",
+      className: "min-w-[100px]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
         let toneClass = "text-[#0f53b7]";
         if (proposal.status === "Approved") {
-          toneClass = "text-emerald-700";
+          toneClass = "text-emerald-600";
         } else if (
           proposal.status === "Rejected" ||
           proposal.status === "Disapproved"
         ) {
-          toneClass = "text-rose-700";
+          toneClass = "text-rose-600";
         } else if (
           proposal.status === "Pending" ||
           proposal.status === "Returned for Revision"
         ) {
-          toneClass = "text-amber-700";
+          toneClass = "text-amber-600";
+        } else if (proposal.status === "Executive Approval") {
+          toneClass = "text-purple-600";
         }
 
         return (
-          <span className={cn("text-xs font-bold", toneClass)}>
+          <span className={cn("text-xs font-bold whitespace-nowrap", toneClass)}>
             {proposal.status}
           </span>
         );
       },
     },
     {
-      id: "submitted",
-      header: "Received",
-      className: "w-[11%]",
-      sortValue: (proposal) => proposal.submitted,
-      render: (proposal) => (
-        <span className="whitespace-nowrap text-xs font-medium text-slate-600">
-          {proposal.submitted}
-        </span>
-      ),
-    },
-    {
       id: "action",
       header: "Action",
-      className: "w-[11%] text-right whitespace-nowrap",
-      render: (proposal) => (
-        <div className="flex justify-end">
-          <button
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0b3f8b] transition hover:shadow-md"
-            onClick={(event) => {
-              event.stopPropagation();
-              openReview(proposal, "overview");
-            }}
-            type="button"
-          >
-            <Eye className="size-3.5" />
-            Review
-          </button>
-        </div>
-      ),
+      className: "min-w-[120px] text-right whitespace-nowrap",
+      render: (proposal) => {
+        const canDecide =
+          currentUser?.role === "provincial_director" &&
+          (proposal.status === "Executive Approval" || proposal.stage === 3);
+
+        const canReview =
+          currentUser?.role === "focal" &&
+          (proposal.status === "Pending" || proposal.status === "Under review" || proposal.status === "In Process");
+
+        const actionLabel = canReview ? "Review" : "View";
+
+        if (canDecide) {
+          return (
+            <div className="flex items-center justify-end gap-1.5">
+              <button
+                className="inline-flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs hover:bg-emerald-700 transition"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void handleApproveConfirmation(proposal);
+                }}
+                title="Approve Application"
+                type="button"
+              >
+                <Check className="size-4" />
+              </button>
+              <button
+                className="inline-flex size-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs hover:bg-rose-700 transition"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setDirectRemarks("");
+                  setDirectError(null);
+                  setDirectActionModal({ proposal, type: "disapprove" });
+                }}
+                title="Disapprove / Return for Technical Issue"
+                type="button"
+              >
+                <X className="size-4" />
+              </button>
+              <button
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openReview(proposal, "overview");
+                }}
+                title="View Full Dossier"
+                type="button"
+              >
+                <Eye className="size-4" />
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <div className="flex justify-end">
+            <button
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0b3f8b] transition hover:shadow-md"
+              onClick={(event) => {
+                event.stopPropagation();
+                openReview(proposal, "overview");
+              }}
+              type="button"
+            >
+              <Eye className="size-3.5" />
+              {actionLabel}
+            </button>
+          </div>
+        );
+      },
     },
   ];
 
   return (
-    <div className="space-y-7">
-      <AdminPageHeader
-        description="View and cater incoming proposal submissions from SETUP and GIA program applicants."
-        eyebrow="Application Intake"
-        title="Incoming Applications"
-      />
+    <div className="space-y-6">
+      {/* Executive Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="h-7 w-1.5 rounded-full bg-[#0f53b7]" />
+            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-slate-900">
+              APPLICATIONS
+            </h1>
+          </div>
+          <p className="mt-1 text-xs font-medium text-slate-500 pl-4.5">
+            Technical review, evaluation, and endorsement queue
+          </p>
+        </div>
+      </div>
+
+      {/* Modern Segmented Lifecycle Tabs */}
+      <div>
+        <div className="inline-flex flex-wrap items-center gap-1.5 rounded-2xl bg-slate-100/90 p-1.5 border border-slate-200/80 shadow-xs">
+          <button
+            className={cn(
+              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
+              lifecycleTab === "all"
+                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+            )}
+            onClick={() => setLifecycleTab("all")}
+            type="button"
+          >
+            <span>All</span>
+            <span
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
+                lifecycleTab === "all" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
+              )}
+            >
+              {allCount}
+            </span>
+          </button>
+
+          <button
+            className={cn(
+              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
+              lifecycleTab === "review"
+                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+            )}
+            onClick={() => setLifecycleTab("review")}
+            type="button"
+          >
+            <span>Under Review</span>
+            <span
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
+                lifecycleTab === "review" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
+              )}
+            >
+              {newCount}
+            </span>
+          </button>
+
+          <button
+            className={cn(
+              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
+              lifecycleTab === "in_process"
+                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+            )}
+            onClick={() => setLifecycleTab("in_process")}
+            type="button"
+          >
+            <span>In Process</span>
+            <span
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
+                lifecycleTab === "in_process" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
+              )}
+            >
+              {inProcessCount}
+            </span>
+          </button>
+
+          <button
+            className={cn(
+              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
+              lifecycleTab === "for_approval"
+                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+            )}
+            onClick={() => setLifecycleTab("for_approval")}
+            type="button"
+          >
+            <span>For Approval</span>
+            <span
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
+                lifecycleTab === "for_approval" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
+              )}
+            >
+              {endorsedCount}
+            </span>
+          </button>
+
+          <button
+            className={cn(
+              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
+              lifecycleTab === "approved"
+                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+            )}
+            onClick={() => setLifecycleTab("approved")}
+            type="button"
+          >
+            <span>Approved</span>
+            <span
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
+                lifecycleTab === "approved" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
+              )}
+            >
+              {approvedCount}
+            </span>
+          </button>
+
+          <button
+            className={cn(
+              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
+              lifecycleTab === "disapproved"
+                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
+                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+            )}
+            onClick={() => setLifecycleTab("disapproved")}
+            type="button"
+          >
+            <span>Disapproved</span>
+            <span
+              className={cn(
+                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
+                lifecycleTab === "disapproved" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
+              )}
+            >
+              {disapprovedCount}
+            </span>
+          </button>
+        </div>
+      </div>
 
       <section className="overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
         {error ? (
@@ -232,54 +688,123 @@ export function ApprovalsPage() {
           searchText={(proposal) =>
             `${proposal.id} ${proposal.title} ${proposal.organization} ${proposal.proponentName ?? ""} ${proposal.organizationType ?? ""} ${proposal.program}`
           }
-          toolbar={
-            <div className="relative">
-              <button
-                aria-expanded={filtersOpen}
-                aria-label="Filter by Program"
-                className="relative inline-flex items-center gap-2 rounded-xl border border-[#d8e1ee] bg-white px-3.5 py-2 text-xs font-bold text-[#073b82] shadow-sm transition hover:border-blue-300 hover:bg-blue-50"
-                onClick={() => setFiltersOpen((open) => !open)}
-                type="button"
-              >
-                <Filter className="size-3.5" />
-                <span>{program === "all" ? "Filter Program" : program}</span>
-              </button>
-
-              {filtersOpen ? (
-                <div className="absolute right-0 top-11 z-30 w-56 overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-xl shadow-slate-900/10">
-                  <div className="border-b border-slate-100 px-4 py-2.5">
-                    <p className="text-xs font-black text-[#073b82]">Filter by Program</p>
-                  </div>
-
-                  <div className="p-2 space-y-1">
-                    {programFilters.map((item) => (
-                      <button
-                        className={cn(
-                          "flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold transition",
-                          program === item.value
-                            ? "bg-blue-50 text-[#073b82]"
-                            : "text-slate-600 hover:bg-slate-50",
-                        )}
-                        key={item.value}
-                        onClick={() => {
-                          setProgram(item.value);
-                          setFiltersOpen(false);
-                        }}
-                        type="button"
-                      >
-                        <span>{item.label}</span>
-                        {program === item.value ? (
-                          <Check className="size-3.5 text-[#0f53b7]" />
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          }
         />
       </section>
+
+      {/* Direct Row Decision Confirmation Modal (Disapprove / Return for Technical Issue) */}
+      {directActionModal ? (
+        <div
+          aria-labelledby="direct-decision-title"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-xs"
+          role="dialog"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl border border-slate-200">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900" id="direct-decision-title">
+                  {directActionModal.type === "return_in_process"
+                    ? "Return for Technical Issue"
+                    : "Confirm Application Disapproval"}
+                </h4>
+                <p className="mt-0.5 text-xs text-slate-500 truncate max-w-xs font-mono">
+                  {directActionModal.proposal.title} ({directActionModal.proposal.id})
+                </p>
+              </div>
+              <button
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                onClick={() => setDirectActionModal(null)}
+                type="button"
+              >
+                <X className="size-4" />
+              </button>
+            </div>
+
+            <div className="mt-3 flex items-center gap-2 rounded-xl bg-slate-100 p-1 border border-slate-200">
+              <button
+                className={cn(
+                  "flex-1 rounded-lg py-1.5 text-xs font-bold transition",
+                  directActionModal.type === "return_in_process"
+                    ? "bg-amber-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900",
+                )}
+                onClick={() => setDirectActionModal({ ...directActionModal, type: "return_in_process" })}
+                type="button"
+              >
+                Return for Technical Issue
+              </button>
+              <button
+                className={cn(
+                  "flex-1 rounded-lg py-1.5 text-xs font-bold transition",
+                  directActionModal.type === "disapprove"
+                    ? "bg-rose-600 text-white shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900",
+                )}
+                onClick={() => setDirectActionModal({ ...directActionModal, type: "disapprove" })}
+                type="button"
+              >
+                Disapprove
+              </button>
+            </div>
+
+            <div className="mt-4">
+              <label
+                className="block text-xs font-bold text-slate-700"
+                htmlFor="direct-remarks"
+              >
+                Remarks / Reason
+                <span className="text-rose-500"> *</span>
+              </label>
+              <textarea
+                className="mt-1.5 min-h-24 w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3 text-xs leading-5 text-slate-900 outline-none transition focus:border-[#0f53b7] focus:bg-white focus:ring-2 focus:ring-blue-100"
+                id="direct-remarks"
+                onChange={(e) => setDirectRemarks(e.target.value)}
+                placeholder={
+                  directActionModal.type === "return_in_process"
+                    ? "Specify technical or financial clarifications needed from focal person..."
+                    : "State formal reason for disapproving this application..."
+                }
+                rows={3}
+                value={directRemarks}
+              />
+            </div>
+
+            {directError ? (
+              <p className="mt-2 text-xs font-semibold text-rose-600">{directError}</p>
+            ) : null}
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                className="rounded-xl px-3.5 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+                onClick={() => setDirectActionModal(null)}
+                type="button"
+              >
+                Cancel
+              </button>
+              <button
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-xs transition disabled:opacity-50",
+                  directActionModal.type === "return_in_process"
+                    ? "bg-amber-600 hover:bg-amber-700"
+                    : "bg-rose-600 hover:bg-rose-700",
+                )}
+                disabled={directSubmitting || !directRemarks.trim()}
+                onClick={handleDirectDecision}
+                type="button"
+              >
+                {directSubmitting ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <X className="size-3.5" />
+                )}
+                {directActionModal.type === "return_in_process"
+                  ? "Return for Technical Issue"
+                  : "Confirm Disapproval"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {review ? (
         <ProposalReviewModal
