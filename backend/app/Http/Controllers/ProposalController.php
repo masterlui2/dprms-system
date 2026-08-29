@@ -7,6 +7,7 @@ use App\Http\Requests\ProposalApproveRequest;
 use App\Http\Requests\ProposalDisapproveRequest;
 use App\Http\Requests\ReturnProposalForRevisionRequest;
 use App\Http\Requests\StoreProposalRequest;
+use App\Http\Requests\UpdateProposalStatusRequest;
 use App\Models\Proposal;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use Illuminate\Http\Request;
@@ -120,5 +121,25 @@ class ProposalController extends Controller
             'message' => 'Proposal returned to the applicant for revision.',
             'data' => $updated,
         ]);
+    }
+
+    public function assignProjectStaff(int $proposalId){
+        return response()->json([
+            'message' => 'Project Staff assigned',
+            'data' => $this->proposalService->assignProjectStaff($proposalId),
+        ],201);
+    }
+
+    public function update(int $proposalId, UpdateProposalStatusRequest $request){
+        $updated = $this->proposalService->advanceStage(
+            $proposalId,
+            $request->validated('status'),
+            $request->validated('remarks'),
+        );
+
+        return response()->json([
+            'message' => 'Proposal Status Updated',
+            'data' => $updated,
+        ], 200);
     }
 }

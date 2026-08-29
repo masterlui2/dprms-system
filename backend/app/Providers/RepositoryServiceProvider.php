@@ -17,6 +17,7 @@ use App\Repositories\Contracts\ProposalModule\DocumentsRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\GiaCoAuthorRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\GiaDocumentRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\GiaProposalRepositoryInterface;
+use App\Repositories\Contracts\ProposalModule\ProposalAuditRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\ProposalRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\ProposalTemplateRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\SetupEquipmentQuotationRepositoryInterface;
@@ -27,6 +28,7 @@ use App\Repositories\ProposalModule\DocumentsRepository;
 use App\Repositories\ProposalModule\GiaCoAuthorRepository;
 use App\Repositories\ProposalModule\GiaDocumentRepository;
 use App\Repositories\ProposalModule\GiaProposalRepository;
+use App\Repositories\ProposalModule\ProposalAuditRepository;
 use App\Repositories\ProposalModule\ProposalRepository;
 use App\Repositories\ProposalModule\ProposalTemplateRepository;
 use App\Repositories\ProposalModule\SetupEquipmentQuotationRepository;
@@ -56,6 +58,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(GiaDocumentRepositoryInterface::class, GiaDocumentRepository::class);
         $this->app->bind(GiaProposalRepositoryInterface::class, GiaProposalRepository::class);
         $this->app->bind(DocumentsRepositoryInterface::class, DocumentsRepository::class);
+        $this->app->bind(ProposalAuditRepositoryInterface::class, ProposalAuditRepository::class);
     }
 
     /**
