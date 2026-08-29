@@ -56,4 +56,14 @@ class Proposal extends Model
     public function documents():HasMany{
         return $this->hasMany(Document::class);
     }
+
+    public function review_logs(): HasMany
+    {
+        return $this->hasMany(ProposalReviewLog::class);
+    }
+
+    public function audits(): HasMany
+    {
+        return $this->hasMany(ProposalAudit::class);
+    }
 }

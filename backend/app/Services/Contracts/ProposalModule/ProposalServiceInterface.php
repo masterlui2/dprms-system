@@ -14,6 +14,8 @@ interface ProposalServiceInterface{
     public function getSubmitterProposals(int $userId): Collection;
     public function getIndex(): Collection;
     public function assignProjectStaff(int $proposalId): Proposal;
+    public function reviewDecision(int $proposalId, array $data): Proposal;
     public function update(int $proposalId, array $data): Proposal;
     public function delete(int $proposalId, ?string $remarks = null): bool;
 }
+

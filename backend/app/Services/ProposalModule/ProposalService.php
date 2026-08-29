@@ -101,11 +101,26 @@ class ProposalService implements ProposalServiceInterface{
     #[Override]
     public function advanceStage(int $proposalId, string $newStatus, ?string $remarks = null): Proposal
     {
-        $updated = $this->proposalRepository->updateStatus($proposalId,$newStatus,$remarks);
+        $existing = $this->proposalRepository->findById($proposalId);
 
-        if(! $updated){
-            abort(404,'Proposal not Found');
+        if (! $existing) {
+            abort(404, 'Proposal not Found');
         }
+
+        $previousStatus = $existing->status;
+        $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
+
+        if (! $updated) {
+            abort(404, 'Proposal not Found');
+        }
+
+        $this->recordAudit(
+            proposalId: $proposalId,
+            action: 'ADVANCE_STAGE',
+            previousStatus: $previousStatus,
+            newStatus: $newStatus,
+            remarks: $remarks,
+        );
 
         return $this->proposalRepository->findById($proposalId);
     }
@@ -120,6 +135,75 @@ class ProposalService implements ProposalServiceInterface{
     public function approve(int $proposalId, ?string $remarks = null): Proposal
     {
         return $this->applyLoggedDecision($proposalId, 'APPROVE', 'APPROVED', $remarks);
+    }
+
+    #[Override]
+    public function reviewDecision(int $proposalId, array $data): Proposal
+    {
+        return DB::transaction(function () use ($proposalId, $data) {
+            $existing = $this->proposalRepository->findById($proposalId);
+
+            if (! $existing) {
+                abort(404, 'Proposal not Found');
+            }
+
+            $decision = $data['decision'];
+            $findings = $data['findings'] ?? null;
+            $remarks = $data['remarks'] ?? $findings;
+            $evaluatorId = $data['focal_id'] ?? $data['assigned_evaluator_id'] ?? null;
+            $previousStatus = $existing->status;
+
+            if ($decision === 'return_for_revision' || $decision === 'RETURNED') {
+                $newStatus = 'RETURNED';
+                $this->proposalRepository->returnForRevision($proposalId, $remarks);
+
+                $this->recordAudit(
+                    proposalId: $proposalId,
+                    action: 'return_for_revision',
+                    previousStatus: $previousStatus,
+                    newStatus: $newStatus,
+                    remarks: $remarks,
+                    assignedEvaluatorId: null,
+                    findings: $findings,
+                );
+            } elseif ($decision === 'endorse_to_focal' || $decision === 'ENDORSED_TO_FOCAL') {
+                $newStatus = 'ENDORSED_TO_FOCAL';
+                if ($evaluatorId) {
+                    $this->proposalRepository->endorseToFocal($proposalId, $evaluatorId, $remarks);
+                } else {
+                    $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
+                }
+
+                $this->recordAudit(
+                    proposalId: $proposalId,
+                    action: 'endorse_to_focal',
+                    previousStatus: $previousStatus,
+                    newStatus: $newStatus,
+                    remarks: $remarks,
+                    assignedEvaluatorId: $evaluatorId,
+                    findings: null,
+                );
+            } elseif ($decision === 'approve') {
+                return $this->approve($proposalId, $remarks);
+            } elseif ($decision === 'disapprove') {
+                return $this->disapprove($proposalId, $remarks ?? 'Disapproved');
+            } else {
+                $newStatus = $data['status'] ?? $existing->status;
+                $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
+
+                $this->recordAudit(
+                    proposalId: $proposalId,
+                    action: $decision,
+                    previousStatus: $previousStatus,
+                    newStatus: $newStatus,
+                    remarks: $remarks,
+                    assignedEvaluatorId: $evaluatorId,
+                    findings: $findings,
+                );
+            }
+
+            return $this->proposalRepository->findById($proposalId);
+        });
     }
 
     #[Override]
@@ -146,8 +230,8 @@ class ProposalService implements ProposalServiceInterface{
         ]);
     }
 
-    protected function applyLoggedDecision(int $proposalId, string $action, string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null): Proposal{
-        return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId) {
+    protected function applyLoggedDecision(int $proposalId, string $action, string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): Proposal{
+        return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId, $findings) {
             $existing = $this->proposalRepository->findById($proposalId);
 
             if(! $existing){
@@ -164,13 +248,14 @@ class ProposalService implements ProposalServiceInterface{
                 newStatus: $newStatus,
                 remarks: $remarks,
                 assignedEvaluatorId: $assignedEvaluatorId,
+                findings: $findings,
             );
 
             return $updated_proposal;
         });
     }
 
-    protected function recordAudit(int $proposalId, string $action, ?string $previousStatus, ?string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null): void
+    protected function recordAudit(int $proposalId, string $action, ?string $previousStatus, ?string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): void
     {
         $this->proposalAuditRepository->create([
             "proposal_id" => $proposalId,
@@ -179,6 +264,18 @@ class ProposalService implements ProposalServiceInterface{
             "previous_status" => $previousStatus,
             "new_status" => $newStatus,
             "remarks" => $remarks,
+            "findings" => $findings,
+            "assigned_evaluator_id" => $assignedEvaluatorId,
+        ]);
+
+        \App\Models\ProposalReviewLog::create([
+            "proposal_id" => $proposalId,
+            "reviewed_by" => Auth::id(),
+            "action" => $action,
+            "previous_status" => $previousStatus,
+            "new_status" => $newStatus,
+            "remarks" => $remarks,
+            "findings" => $findings,
             "assigned_evaluator_id" => $assignedEvaluatorId,
         ]);
     }
@@ -214,3 +311,4 @@ class ProposalService implements ProposalServiceInterface{
         });
     }
 }
+

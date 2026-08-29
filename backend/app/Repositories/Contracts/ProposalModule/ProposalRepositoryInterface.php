@@ -13,4 +13,7 @@ interface ProposalRepositoryInterface extends BaseRepositoryInterface{
     public function updateStatus(int $id, string $status, ?string $remarks = null): bool;
     public function findIndex(array $with=[]):Collection;
     public function assignProjectStaff(int $userId, int $proposalId): bool;
+    public function endorseToFocal(int $proposalId, int $focalId, ?string $remarks = null): bool;
+    public function returnForRevision(int $proposalId, ?string $remarks = null): bool;
 }
+

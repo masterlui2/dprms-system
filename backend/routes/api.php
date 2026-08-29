@@ -66,11 +66,21 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::get('/', [ProposalController::class, 'index']);
     Route::patch('/{proposalId}/assign-staff',[ProposalController::class,'assignProjectStaff']);
     Route::patch('/{proposalId}/update',[ProposalController::class, 'update']);
+    Route::post('/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
+});
+
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->group(function () {
+    Route::post('v1/proposals/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
+    Route::get('v1/proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
+    Route::get('v1/proposals/{proposalId}/review-logs', [ProposalAuditController::class, 'index']);
+    Route::post('proposals/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
+    Route::get('proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
 });
 
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal-audit')->group(function (){
     Route::get('/{proposalId}/list',[ProposalAuditController::class,'index']);
 });
+
 
 Route::middleware('auth:sanctum')->prefix('gia')->group(function () {
     Route::get('/gia/proposals', [GiaProposalController::class, 'getGiaProposalDetials']);

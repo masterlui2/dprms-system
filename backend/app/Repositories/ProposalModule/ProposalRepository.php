@@ -74,4 +74,34 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
         $proposal->status = "UNDER_VALIDATION";
         return $proposal->save();
     }
+
+    #[Override]
+    public function endorseToFocal(int $proposalId, int $focalId, ?string $remarks = null): bool
+    {
+        $proposal = $this->model->newQuery()->find($proposalId);
+
+        if (! $proposal) {
+            return false;
+        }
+
+        $proposal->focal_id = $focalId;
+        $proposal->status = 'ENDORSED_TO_FOCAL';
+        $proposal->remarks = $remarks;
+        return $proposal->save();
+    }
+
+    #[Override]
+    public function returnForRevision(int $proposalId, ?string $remarks = null): bool
+    {
+        $proposal = $this->model->newQuery()->find($proposalId);
+
+        if (! $proposal) {
+            return false;
+        }
+
+        $proposal->status = 'RETURNED';
+        $proposal->remarks = $remarks;
+        return $proposal->save();
+    }
 }
+

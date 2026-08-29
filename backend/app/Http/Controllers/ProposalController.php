@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AdvanceStageRequest;
 use App\Http\Requests\ProposalApproveRequest;
 use App\Http\Requests\ProposalDisapproveRequest;
+use App\Http\Requests\ProposalReviewDecisionRequest;
 use App\Http\Requests\ReturnProposalForRevisionRequest;
 use App\Http\Requests\StoreProposalRequest;
 use App\Http\Requests\UpdateProposalStatusRequest;
@@ -24,6 +25,17 @@ class ProposalController extends Controller
             'data' => $proposal
         ],201);
     }
+
+    public function reviewDecision(ProposalReviewDecisionRequest $request, int $proposalId)
+    {
+        $proposal = $this->proposalService->reviewDecision($proposalId, $request->validated());
+
+        return response()->json([
+            'message' => 'Review decision processed successfully',
+            'data' => $proposal,
+        ], 200);
+    }
+
 
     public function advanceStage(AdvanceStageRequest $request, int $id){
         $updated = $this->proposalService->advanceStage(
