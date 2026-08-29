@@ -1,7 +1,6 @@
 import { useState, useRef, useLayoutEffect } from 'react'
 import {
   ArrowLeft,
-  Check,
   Plus,
   Save,
   Trash2,
@@ -93,8 +92,6 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
   const mon = (project as any)?.setupMonitoring
   const isSetup = project?.program === 'SETUP'
   const gia = project?.gia
-
-  const [saveSuccess, setSaveSuccess] = useState(false)
 
   const reportingPeriod = gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : 'CY 2026 (Semi-Annual)')
   const [projectLeaderGender, setProjectLeaderGender] = useState(
@@ -341,8 +338,7 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
   const pct6pY1 = total6pTargetY1 > 0 ? Math.round((total6pActualY1 / total6pTargetY1) * 100) : 0
 
   const handleSave = () => {
-    setSaveSuccess(true)
-    setTimeout(() => setSaveSuccess(false), 3000)
+    // Save handler
   }
 
   return (
@@ -384,12 +380,6 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
                 <Save className="size-3.5 text-[#285497]" />
                 <span>Save Changes</span>
               </button>
-
-              {saveSuccess && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800 border border-emerald-200">
-                  <Check className="size-3.5" /> Saved
-                </span>
-              )}
             </div>
           </div>
         </div>
@@ -868,6 +858,20 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
                 <p className="text-[11px] text-[#285497] font-bold mt-1">Regional Director, DOST XI</p>
               </div>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-[#B5BFCD] pt-6 print:hidden">
+            <p className="text-xs font-semibold text-slate-500">
+              DOST-GIA Form 10 · Executive Summary of Technical Progress Report
+            </p>
+            <button
+              type="button"
+              onClick={handleSave}
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#B5BFCD] bg-white px-5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95"
+            >
+              <Save className="size-4 text-[#285497]" />
+              <span>Save Changes</span>
+            </button>
           </div>
         </div>
       </div>

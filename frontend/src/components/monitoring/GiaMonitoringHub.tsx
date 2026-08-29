@@ -2,8 +2,8 @@ import { useState } from 'react'
 import {
   ArrowLeft,
   BarChart3,
+  Check,
   FileDown,
-  SlidersHorizontal,
   X,
 } from 'lucide-react'
 
@@ -18,11 +18,13 @@ interface Props {
 
 export function GiaMonitoringHub({ project, onBack }: Props) {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('CY 2026 (Semi-Annual)')
-  const [showSummarySidebar, setShowSummarySidebar] = useState(true)
+  const [showSummarySidebar, setShowSummarySidebar] = useState(false)
+  const [isAutoSaving] = useState(false)
+  const [lastSavedTime] = useState('just now')
   const gia = project.gia
 
   return (
-    <div className="w-full space-y-5 pb-20 font-sans text-slate-900">
+    <div className="w-full space-y-4 pb-20 font-sans text-slate-900">
       <div className="rounded-2xl border border-[#B5BFCD]/80 bg-white p-5 shadow-sm">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -79,15 +81,6 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
 
             <button
               type="button"
-              onClick={() => setShowSummarySidebar(true)}
-              className="inline-flex size-8.5 items-center justify-center rounded-xl border border-[#B5BFCD] bg-white text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95"
-              title="GIA Settings & Overview"
-            >
-              <SlidersHorizontal className="size-3.5" />
-            </button>
-
-            <button
-              type="button"
               onClick={() => window.print()}
               className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:bg-[#0f53b7] active:text-white active:scale-95"
             >
@@ -95,6 +88,22 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
               <span>Generate Report</span>
             </button>
           </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end pr-1">
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          {isAutoSaving ? (
+            <>
+              <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+              <span>Saving draft...</span>
+            </>
+          ) : (
+            <>
+              <Check className="size-3 text-emerald-600" />
+              <span>Autosaved {lastSavedTime}</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -188,7 +197,6 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
             </div>
           </aside>
         )}
-
       </div>
     </div>
   )
