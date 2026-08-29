@@ -3,18 +3,24 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Override;
+
 
 class Proposal extends Model
 {
     protected $fillable = [
         'submitted_by',
+        'focal_id',
+        'reviewed_by',
+        'assigned_staff_id',
+        'assigned_focal_id',
         'program_type',
         'reference_number',
         'title',
         'status',
-        'current_stage',
         'submitted_at',
         'approved_at',
         'disapproved_at',
@@ -35,11 +41,50 @@ class Proposal extends Model
         return $this->belongsTo(User::class, "submitted_by");
     }
 
+    public function focal():BelongsTo{
+        return $this->belongsTo(User::class,'focal_id');
+    }
+
+    public function reviewed():BelongsTo{
+        return $this->belongsTo(User::class,'reviewed_by');
+    }
+
+    public function assigned_staff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_staff_id');
+    }
+
+    public function assigned_focal(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_focal_id');
+    }
+
     public function setup_proposal():HasMany{
         return $this->hasMany(SetupProposal::class);
     }
 
+
     public function gia_proposal():HasMany{
         return $this->hasMany(GiaProposal::class);
     }
+
+    public function documents():HasMany{
+        return $this->hasMany(Document::class);
+    }
+
+    public function review_logs(): HasMany
+    {
+        return $this->hasMany(ProposalReviewLog::class);
+    }
+
+    public function audits(): HasMany
+    {
+        return $this->hasMany(ProposalAudit::class);
+    }
+
+    public function project(): HasOne
+    {
+        return $this->hasOne(Project::class);
+    }
 }
+

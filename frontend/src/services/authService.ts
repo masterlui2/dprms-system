@@ -1,13 +1,17 @@
+import axios, { AxiosError } from 'axios'
+import api, { ensureCsrfCookie } from '../lib/axios'
 import type { MockUser } from '../lib/mockAuth'
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000/api'
+import type { ApplicationProgram } from '../types/application'
+import { normalizeUserRole } from '../config/permissions'
 
 interface BackendUser {
+  id?: number
   email: string
   name: string
+  program?: ApplicationProgram
+  program_type?: ApplicationProgram
   role?: string
-  roles?: Array<{ name?: string; code?: string }>
+  roles?: Array<{ name?: string; code?: string; program_type?: ApplicationProgram }>
 }
 
 interface LoginResponse {
@@ -20,12 +24,15 @@ interface LoginResponse {
 
 interface RegisterPayload {
   email: string
-  mobile_number: string
   name: string
-  organization_name: string
   password: string
   password_confirmation: string
-  proponent_type: string
+  role: 'MSME_PROPONENT' | 'GIA_PROJECT_LEADER'
+}
+
+interface ValidationErrorPayload {
+  errors?: Record<string, string[]>
+  message?: string
 }
 
 export class AuthError extends Error {
@@ -36,19 +43,8 @@ export class AuthError extends Error {
 }
 
 function resolveRole(user: BackendUser): MockUser['role'] {
-  const explicitRole = user.role?.toLowerCase()
   const relationRole = user.roles?.[0]?.code ?? user.roles?.[0]?.name
-  const normalizedRelationRole = relationRole?.toLowerCase()
-
-  if (
-    explicitRole === 'admin' ||
-    normalizedRelationRole === 'admin' ||
-    normalizedRelationRole === 'administrator'
-  ) {
-    return 'admin'
-  }
-
-  return 'proponent'
+  return normalizeUserRole(user.role ?? relationRole)
 }
 
 function getInitials(name: string) {
@@ -62,70 +58,109 @@ function getInitials(name: string) {
   return initials || 'US'
 }
 
+function resolveProgram(user: BackendUser): ApplicationProgram | undefined {
+  if (user.program === 'GIA' || user.program === 'SETUP') return user.program
+  if (user.program_type === 'GIA' || user.program_type === 'SETUP') return user.program_type
+
+  const email = user.email?.toLowerCase() ?? ''
+  if (email.startsWith('gia.') || email.includes('gia') || email.includes('cest')) return 'GIA'
+  if (email.startsWith('setup.') || email.includes('setup') || email.includes('sscp')) return 'SETUP'
+
+  const name = user.name?.toUpperCase() ?? ''
+  if (name.includes('GIA') || name.includes('CEST')) return 'GIA'
+  if (name.includes('SETUP') || name.includes('SSCP')) return 'SETUP'
+
+  const role = (user.role ?? user.roles?.[0]?.code ?? user.roles?.[0]?.name)?.toUpperCase()
+  const roleProgram = user.roles?.[0]?.program_type
+
+  if (roleProgram === 'GIA' || roleProgram === 'SETUP') return roleProgram
+  if (role === 'GIA_PROJECT_LEADER' || role === 'CEST_PROJECT_STAFF' || role === 'CEST_FOCAL') return 'GIA'
+  if (role === 'MSME_PROPONENT' || role === 'SSCP_PROJECT_STAFF' || role === 'SSCP_FOCAL' || role === 'SETUP_FOCAL') return 'SETUP'
+
+  return undefined
+}
+
 export async function loginWithBackend(email: string, password: string) {
-  const response = await fetch(`${API_BASE_URL}/login`, {
-    body: JSON.stringify({ email, password }),
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    method: 'POST',
-  })
-
-  if (!response.ok) {
+  try {
+    await ensureCsrfCookie()
+    const response = await api.post<LoginResponse>('/login', {
+      email,
+      password,
+    })
+ 
+    const backendUser = response.data.data.user
+    const user: MockUser = {
+      id: backendUser.id,
+      email: backendUser.email,
+      initials: getInitials(backendUser.name),
+      name: backendUser.name,
+      program: resolveProgram(backendUser),
+      role: resolveRole(backendUser),
+    }
+ 
+    return {
+      token: response.data.data.token,
+      user,
+    }
+  } catch (error) {
+    // Any non-2xx (401, 422, 500, etc.) lands here as an AxiosError.
     throw new AuthError()
-  }
-
-  const payload = (await response.json()) as LoginResponse
-  const backendUser = payload.data.user
-  const user: MockUser = {
-    email: backendUser.email,
-    initials: getInitials(backendUser.name),
-    name: backendUser.name,
-    role: resolveRole(backendUser),
-  }
-
-  return {
-    token: payload.data.token,
-    user,
   }
 }
 
-export async function registerWithBackend(payload: RegisterPayload) {
-  const response = await fetch(`${API_BASE_URL}/register`, {
-    body: JSON.stringify(payload),
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    method: 'POST',
-  })
+interface RegisterResponse {
+  data: {
+    token: string
+    user: BackendUser
+  }
+  message: string
+}
 
-  if (!response.ok) {
-    if (response.status === 422) {
-      const errorPayload = await response.json().catch(() => null)
-      const firstError = errorPayload?.errors
-        ? Object.values(errorPayload.errors)[0]
-        : null
-      const message = Array.isArray(firstError)
-        ? firstError[0]
-        : 'Please review the registration details.'
-
-      throw new AuthError(message)
+export async function registerWithBackend(payload: RegisterPayload): Promise<{ token: string; user: MockUser }> {
+  try {
+    await ensureCsrfCookie()
+    const response = await api.post<RegisterResponse>('/register', payload)
+    const backendUser = response.data.data.user
+    const user: MockUser = {
+      id: backendUser.id,
+      email: backendUser.email,
+      initials: getInitials(backendUser.name),
+      name: backendUser.name,
+      program: resolveProgram(backendUser),
+      role: resolveRole(backendUser),
     }
 
+    return {
+      token: response.data.data.token,
+      user,
+    }
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const axiosError = error as AxiosError<ValidationErrorPayload>
+ 
+      if (axiosError.response?.status === 422) {
+        const errors = axiosError.response.data?.errors
+        const firstError = errors ? Object.values(errors)[0] : null
+        const message = Array.isArray(firstError)
+          ? firstError[0]
+          : 'Please review the registration details.'
+ 
+        throw new AuthError(message)
+      }
+    }
+ 
     throw new AuthError('Registration failed. Please try again.')
   }
-
-  return response.json()
 }
 
 export async function logoutFromBackend(token: string) {
-  await fetch(`${API_BASE_URL}/logout`, {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
+  await api.post(
+    '/logout',
+    {},
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
     },
-    method: 'POST',
-  })
+  )
 }

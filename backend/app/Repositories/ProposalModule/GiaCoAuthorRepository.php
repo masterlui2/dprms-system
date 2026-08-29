@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class GiaCoAuthorRepository extends BaseRepository implements GiaCoAuthorRepositoryInterface{
-    #[Override]
     public function __construct(GiaCoAuthor $model)
     {
         parent::__construct($model);

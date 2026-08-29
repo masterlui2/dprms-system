@@ -32,8 +32,8 @@ class ProposalTemplateController extends Controller
         ],200);
     }
 
-    public function deleteTempate(Request $request){
-        $this->proposalTemplateService->deleteTemplate($request->id());
+    public function deleteTemplate(int $id){
+        $this->proposalTemplateService->deleteTemplate($id);
         return response()->json([
             'message' => 'template deleted',
         ],200);

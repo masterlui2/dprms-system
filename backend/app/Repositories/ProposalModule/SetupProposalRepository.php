@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class SetupProposalRepository extends BaseRepository implements SetupProposalRepositoryInterface{
-    #[Override]
     public function __construct(SetupProposal $model)
     {
         parent::__construct($model);

@@ -135,8 +135,8 @@ export function DataTable<T>({
         ) : null}
       </div>
 
-      <div className="hidden overflow-hidden xl:block">
-        <table className="w-full table-fixed text-left text-sm">
+      <div className="hidden overflow-x-auto xl:block">
+        <table className="w-full min-w-[1000px] text-left text-sm">
           <thead
             className={cn(
               'text-xs text-slate-500',

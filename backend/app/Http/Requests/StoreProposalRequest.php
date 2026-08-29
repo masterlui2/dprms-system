@@ -12,7 +12,7 @@ class StoreProposalRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -23,7 +23,9 @@ class StoreProposalRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'program_type' => 'required|in:SETUP,GIA',
+            'title' => 'required|string|max:500',
+            'remarks' => 'nullable|string',
         ];
     }
 }

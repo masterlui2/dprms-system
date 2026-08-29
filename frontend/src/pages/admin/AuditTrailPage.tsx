@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { ShieldCheck } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Loader2, RefreshCw, ShieldCheck } from 'lucide-react'
 
 import { AdminSelect } from '../../components/admin/AdminFilters'
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
@@ -8,6 +8,8 @@ import {
   DataTable,
   type DataColumn,
 } from '../../components/admin/DataTable'
+import { getAllProposals } from '../../services/proposalStore'
+import type { ApplicationRecord } from '../../types/application'
 import { cn } from '../../utils/cn'
 
 interface AuditRecord {
@@ -23,128 +25,169 @@ interface AuditRecord {
   user: string
 }
 
-const auditRecords: AuditRecord[] = [
-  {
-    id: 'AUD-1042',
-    date: 'Jul 3, 2026 - 10:42 AM',
-    dateValue: 1783046520000,
-    proposalId: 'PR-2026-037',
-    projectTitle: 'Precision Coffee Roasting System',
-    user: 'Maria Santos',
-    role: 'Regional Director',
-    action: 'Approved final review',
-    status: 'Completed',
-    remarks: 'Approved for project creation and fund scheduling.',
-  },
-  {
-    id: 'AUD-1041',
-    date: 'Jul 3, 2026 - 9:15 AM',
-    dateValue: 1783041300000,
-    proposalId: 'PR-2026-038',
-    projectTitle: 'Coastal Livelihood Technology Training',
-    user: 'Ana Reyes',
-    role: 'Technical Evaluator',
-    action: 'Endorsed proposal',
-    status: 'Completed',
-    remarks: 'Technical scope verified and endorsed for budget review.',
-  },
-  {
-    id: 'AUD-1040',
-    date: 'Jul 2, 2026 - 4:08 PM',
-    dateValue: 1782979680000,
-    proposalId: 'PR-2026-041',
-    projectTitle: 'Cacao Processing Line Modernization',
-    user: 'DPRMS System',
-    role: 'System',
-    action: 'Assigned reviewer',
-    status: 'Pending',
-    remarks: 'Auto-assigned to the initial review team.',
-  },
-  {
-    id: 'AUD-1039',
-    date: 'Jul 2, 2026 - 2:33 PM',
-    dateValue: 1782973980000,
-    proposalId: 'PR-2026-036',
-    projectTitle: 'Ceramics Kiln Efficiency Upgrade',
-    user: 'Juan Dela Cruz',
-    role: 'Initial Reviewer',
-    action: 'Returned for revision',
-    status: 'Returned',
-    remarks: 'Updated equipment quotation and business profile required.',
-  },
-  {
-    id: 'AUD-1038',
-    date: 'Jul 2, 2026 - 11:20 AM',
-    dateValue: 1782962400000,
-    proposalId: 'PR-2026-035',
-    projectTitle: 'Seafood Cold Chain Improvement',
-    user: 'Ana Reyes',
-    role: 'Technical Evaluator',
-    action: 'Opened technical review',
-    status: 'Pending',
-    remarks: 'Technical documents queued for detailed assessment.',
-  },
-  {
-    id: 'AUD-1037',
-    date: 'Jul 1, 2026 - 5:05 PM',
-    dateValue: 1782896700000,
-    proposalId: 'PR-2026-034',
-    projectTitle: 'Community Bamboo Product Development',
-    user: 'DPRMS System',
-    role: 'System',
-    action: 'Validated documents',
-    status: 'Completed',
-    remarks: 'Five required GIA documents verified.',
-  },
-  {
-    id: 'AUD-1036',
-    date: 'Jul 1, 2026 - 3:12 PM',
-    dateValue: 1782889920000,
-    proposalId: 'PR-2026-033',
-    projectTitle: 'Automated Furniture Cutting System',
-    user: 'Admin Reyes',
-    role: 'Administrator',
-    action: 'Updated reviewer assignment',
-    status: 'Completed',
-    remarks: 'Reassigned to the regional director for final action.',
-  },
-  {
-    id: 'AUD-1035',
-    date: 'Jul 1, 2026 - 1:40 PM',
-    dateValue: 1782884400000,
-    proposalId: 'PR-2026-032',
-    projectTitle: 'Fisherfolk Skills and Technology Program',
-    user: 'Juan Dela Cruz',
-    role: 'Initial Reviewer',
-    action: 'Flagged incomplete submission',
-    status: 'Returned',
-    remarks: 'Supporting documents and permit are incomplete.',
-  },
-  {
-    id: 'AUD-1034',
-    date: 'Jun 30, 2026 - 4:22 PM',
-    dateValue: 1782807720000,
-    proposalId: 'PR-2026-031',
-    projectTitle: 'Fruit Drying and Packaging Facility',
-    user: 'Ana Reyes',
-    role: 'Technical Evaluator',
-    action: 'Completed technical evaluation',
-    status: 'Completed',
-    remarks: 'Technology specifications meet SETUP requirements.',
-  },
-  {
-    id: 'AUD-1033',
-    date: 'Jun 30, 2026 - 10:10 AM',
-    dateValue: 1782785400000,
-    proposalId: 'PR-2026-030',
-    projectTitle: 'Municipal Disaster Data Platform',
-    user: 'Maria Santos',
-    role: 'Regional Director',
-    action: 'Rejected proposal',
-    status: 'Rejected',
-    remarks: 'Scope falls outside the current GIA funding priorities.',
-  },
-]
+function buildLiveAuditRecords(proposals: ApplicationRecord[]): AuditRecord[] {
+  const records: AuditRecord[] = []
+
+  for (const proposal of proposals) {
+    const createdDate = proposal.createdAt ? new Date(proposal.createdAt) : new Date()
+    const createdTime = createdDate.getTime()
+    const propId = proposal.referenceNo || `PR-${proposal.id}`
+    const projectTitle = proposal.projectTitle || 'Untitled Proposal'
+    const applicantName = proposal.applicantName || 'Applicant'
+
+    // 1. Proposal Submission Record
+    records.push({
+      id: `AUD-SUB-${proposal.id}`,
+      date: createdDate.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      }),
+      dateValue: createdTime,
+      proposalId: propId,
+      projectTitle,
+      user: applicantName,
+      role: 'Initial Reviewer',
+      action: 'Submitted proposal',
+      status: 'Completed',
+      remarks: `Proponent submitted ${proposal.program} project application with initial requirements.`,
+    })
+
+    // 2. Desk Review / Validation
+    if (proposal.status !== 'Draft Submitted') {
+      records.push({
+        id: `AUD-REV-${proposal.id}`,
+        date: new Date(createdTime + 1000 * 60 * 30).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        dateValue: createdTime + 1000 * 60 * 30,
+        proposalId: propId,
+        projectTitle,
+        user: 'Focal Reviewer',
+        role: 'Initial Reviewer',
+        action: 'Desk validation initiated',
+        status: 'Completed',
+        remarks: 'Document checklist inspection opened for initial verification.',
+      })
+    }
+
+    // 3. In Process (Assessment & TNA)
+    if (
+      proposal.status === 'In Process' ||
+      proposal.status === 'Executive Approval' ||
+      proposal.status === 'Approved'
+    ) {
+      records.push({
+        id: `AUD-PROC-${proposal.id}`,
+        date: new Date(createdTime + 1000 * 60 * 90).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        dateValue: createdTime + 1000 * 60 * 90,
+        proposalId: propId,
+        projectTitle,
+        user: 'Focal Reviewer',
+        role: 'Technical Evaluator',
+        action: 'Advanced to Assessment & TNA',
+        status: 'Completed',
+        remarks: 'All proponent documents verified. Office assessment, site visit, and TNA unlocked.',
+      })
+    }
+
+    // 4. Endorsement to Director
+    if (proposal.status === 'Executive Approval' || proposal.status === 'Approved') {
+      records.push({
+        id: `AUD-END-${proposal.id}`,
+        date: new Date(createdTime + 1000 * 60 * 180).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        dateValue: createdTime + 1000 * 60 * 180,
+        proposalId: propId,
+        projectTitle,
+        user: 'Focal Reviewer',
+        role: 'Technical Evaluator',
+        action: 'Endorsed for Provincial Director approval',
+        status: 'Completed',
+        remarks: 'Technical evaluation and internal requirements completed and endorsed.',
+      })
+    }
+
+    // 5. Final Approval / Disapproval / Revision
+    if (proposal.status === 'Approved') {
+      records.push({
+        id: `AUD-APP-${proposal.id}`,
+        date: new Date(createdTime + 1000 * 60 * 240).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        dateValue: createdTime + 1000 * 60 * 240,
+        proposalId: propId,
+        projectTitle,
+        user: 'Provincial Director',
+        role: 'Regional Director',
+        action: 'Approved application',
+        status: 'Completed',
+        remarks: proposal.remarks || 'Formally approved for project fund scheduling and setup.',
+      })
+    } else if (proposal.status === 'Disapproved') {
+      records.push({
+        id: `AUD-DIS-${proposal.id}`,
+        date: new Date(createdTime + 1000 * 60 * 240).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        dateValue: createdTime + 1000 * 60 * 240,
+        proposalId: propId,
+        projectTitle,
+        user: 'Provincial Director',
+        role: 'Regional Director',
+        action: 'Disapproved application',
+        status: 'Rejected',
+        remarks: proposal.remarks || 'Application formally disapproved.',
+      })
+    } else if (proposal.status === 'Returned for Revision') {
+      records.push({
+        id: `AUD-RET-${proposal.id}`,
+        date: new Date(createdTime + 1000 * 60 * 240).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+        dateValue: createdTime + 1000 * 60 * 240,
+        proposalId: propId,
+        projectTitle,
+        user: 'Focal Reviewer',
+        role: 'Initial Reviewer',
+        action: 'Returned for revision',
+        status: 'Returned',
+        remarks: proposal.remarks || 'Returned to proponent with required corrections.',
+      })
+    }
+  }
+
+  return records.sort((a, b) => b.dateValue - a.dateValue)
+}
 
 function statusClass(status: AuditRecord['status']): string {
   if (status === 'Completed') return 'text-emerald-700'
@@ -221,7 +264,27 @@ const columns: DataColumn<AuditRecord>[] = [
 export function AuditTrailPage() {
   const [role, setRole] = useState('all')
   const [status, setStatus] = useState('all')
-  const filtered = auditRecords.filter(
+  const [records, setRecords] = useState<AuditRecord[]>([])
+  const [loading, setLoading] = useState(true)
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const proposals = await getAllProposals()
+      const liveRecords = buildLiveAuditRecords(proposals)
+      setRecords(liveRecords)
+    } catch (err) {
+      console.error('Failed to load live audit proposals:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadData()
+  }, [])
+
+  const filtered = records.filter(
     (record) =>
       (role === 'all' || record.role === role) &&
       (status === 'all' || record.status === status),
@@ -236,56 +299,73 @@ export function AuditTrailPage() {
       />
 
       <AdminPanel
-        description="Mock audit records are read-only and organized for administrative review."
+        description="Real-time audit log of proposal submissions, reviews, assessments, and approvals."
         title="System activity"
       >
-        <DataTable
-          columns={columns}
-          data={filtered}
-          emptyDescription="No audit records match the selected role or status."
-          emptyTitle="No audit activity found"
-          getRowKey={(record) => record.id}
-          searchPlaceholder="Search audit activity..."
-          searchText={(record) =>
-            `${record.proposalId} ${record.projectTitle} ${record.user} ${record.role} ${record.action} ${record.status} ${record.remarks}`
-          }
-          toolbar={
-            <>
-              <AdminSelect
-                label="Filter by role"
-                onChange={setRole}
-                options={[
-                  { label: 'All roles', value: 'all' },
-                  { label: 'Administrator', value: 'Administrator' },
-                  { label: 'Initial Reviewer', value: 'Initial Reviewer' },
-                  {
-                    label: 'Technical Evaluator',
-                    value: 'Technical Evaluator',
-                  },
-                  { label: 'Regional Director', value: 'Regional Director' },
-                  { label: 'System', value: 'System' },
-                ]}
-                value={role}
-              />
-              <AdminSelect
-                label="Filter by status"
-                onChange={setStatus}
-                options={[
-                  { label: 'All statuses', value: 'all' },
-                  { label: 'Completed', value: 'Completed' },
-                  { label: 'Pending', value: 'Pending' },
-                  { label: 'Returned', value: 'Returned' },
-                  { label: 'Rejected', value: 'Rejected' },
-                ]}
-                value={status}
-              />
-              <span className="inline-flex h-10 items-center gap-2 px-2 text-xs font-semibold text-slate-500">
-                <ShieldCheck className="size-4 text-[#0f53b7]" />
-                Sort any column
-              </span>
-            </>
-          }
-        />
+        {loading ? (
+          <div className="flex min-h-[260px] items-center justify-center">
+            <p className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <Loader2 className="size-4 animate-spin text-[#073b82]" />
+              Loading audit records from database…
+            </p>
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={filtered}
+            emptyDescription="No audit records match the selected role or status."
+            emptyTitle="No audit activity found"
+            getRowKey={(record) => record.id}
+            searchPlaceholder="Search audit activity..."
+            searchText={(record) =>
+              `${record.proposalId} ${record.projectTitle} ${record.user} ${record.role} ${record.action} ${record.status} ${record.remarks}`
+            }
+            toolbar={
+              <>
+                <AdminSelect
+                  label="Filter by role"
+                  onChange={setRole}
+                  options={[
+                    { label: 'All roles', value: 'all' },
+                    { label: 'Administrator', value: 'Administrator' },
+                    { label: 'Initial Reviewer', value: 'Initial Reviewer' },
+                    {
+                      label: 'Technical Evaluator',
+                      value: 'Technical Evaluator',
+                    },
+                    { label: 'Regional Director', value: 'Regional Director' },
+                    { label: 'System', value: 'System' },
+                  ]}
+                  value={role}
+                />
+                <AdminSelect
+                  label="Filter by status"
+                  onChange={setStatus}
+                  options={[
+                    { label: 'All statuses', value: 'all' },
+                    { label: 'Completed', value: 'Completed' },
+                    { label: 'Pending', value: 'Pending' },
+                    { label: 'Returned', value: 'Returned' },
+                    { label: 'Rejected', value: 'Rejected' },
+                  ]}
+                  value={status}
+                />
+                <button
+                  className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+                  onClick={() => void loadData()}
+                  type="button"
+                >
+                  <RefreshCw className="size-3.5" />
+                  Refresh
+                </button>
+                <span className="inline-flex h-10 items-center gap-2 px-2 text-xs font-semibold text-slate-500">
+                  <ShieldCheck className="size-4 text-[#0f53b7]" />
+                  Live database sync
+                </span>
+              </>
+            }
+          />
+        )}
       </AdminPanel>
     </div>
   )

@@ -12,7 +12,7 @@ class StoreSetupProposalRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -29,8 +29,6 @@ class StoreSetupProposalRequest extends FormRequest
 
             'business_type' => 'required|in:SOLE_PROPRIETORSHIP,PARTNERSHIP,CORPORATION,COOPERATIVE',
 
-            'dti_sec_number' => 'required|string|max:100',
-
             'industry_sector' => 'required|string|max:255',
 
             'enterprise_size' => 'required|in:MICRO,SMALL,MEDIUM',
@@ -39,17 +37,6 @@ class StoreSetupProposalRequest extends FormRequest
 
             'business_address' => 'required|string',
 
-            'region' => 'required|string|max:100',
-
-            'province' => 'required|string|max:100',
-
-            'city_municipality' => 'required|string|max:100',
-
-            'total_assets' => 'nullable|numeric|min:0',
-
-            'number_of_employees' => 'nullable|integer|min:0',
-
-            'annual_revenue' => 'nullable|numeric|min:0',
         ];
     }
 }

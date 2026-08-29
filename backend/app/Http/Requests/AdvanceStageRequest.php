@@ -13,7 +13,7 @@ class AdvanceStageRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -28,9 +28,11 @@ class AdvanceStageRequest extends FormRequest
                 'required',
                 Rule::in(['DRAFT', 'SUBMITTED','UNDER_VALIDATION','ENDORSED_TO_RPMO','UNDER_SCREENING', 'ENDORSED_TO_RTEC', 'UNDER_EVALUATION', 'ENDORSED_TO_DIRECTOR', 'APPROVED','DISAPPROVED', 'RETURNED']),
             ],
-            'stage' =>[
-                'required',
-                Rule::in(['DRAFT', 'SUBMITTED','UNDER_VALIDATION','ENDORSED_TO_RPMO','UNDER_SCREENING', 'ENDORSED_TO_RTEC', 'UNDER_EVALUATION', 'ENDORSED_TO_DIRECTOR', 'APPROVED','DISAPPROVED', 'RETURNED']),
+            'remarks' => [
+                'nullable',
+                'string',
+                'max:1000',
+                'required_if:status,RETURNED',
             ],
         ];
     }

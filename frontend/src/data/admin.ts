@@ -5,12 +5,32 @@ export interface ProposalRecord {
   completeness: number
   id: string
   organization: string
+  organizationType?: string
+  proponentName?: string
+  proponentRole?: string
   program: Program
   reviewer: string
   stage: 0 | 1 | 2 | 3 | 4
-  status: 'Pending' | 'Under review' | 'Approved' | 'Rejected'
+  status:
+    | 'Pending'
+    | 'Under review'
+    | 'In Process'
+    | 'Executive Approval'
+    | 'Approved'
+    | 'Rejected'
+    | 'Returned for Revision'
+    | 'Disapproved'
   submitted: string
   title: string
+  proposalId?: number
+  remarks?: string | null
+  industrySector?: string | null
+  enterpriseSize?: string | null
+  businessType?: string | null
+  location?: string | null
+  proponentCategory?: string | null
+  researchCategory?: string | null
+  contactNumber?: string | null
 }
 
 export type ProposalReviewStatus =
@@ -22,6 +42,48 @@ export type ProposalReviewStatus =
   | 'Approved'
   | 'Disapproved'
 
+export type GiaOutputCategory =
+  | 'Publications'
+  | 'Patents / IP'
+  | 'Products'
+  | 'People Services'
+  | 'Places & Partnerships'
+  | 'Policy'
+
+export interface GiaOutputMetric {
+  actual: number
+  category: GiaOutputCategory
+  description: string
+  target: number
+}
+
+export interface GiaMonitoringDetails {
+  actualAccomplishment: string
+  agency: string
+  baseStation: string
+  catchUpPlan: string
+  cooperatingAgencies: string[]
+  durationMonths: number
+  endDate: string
+  issueSummary: string
+  latestReport: {
+    period: string
+    status: 'Approved' | 'Under review' | 'Pending'
+    submitted: string
+  }
+  location: string
+  objective: string
+  outputs: GiaOutputMetric[]
+  reportingPeriod: string
+  startDate: string
+  suggestedSolution: string
+  targetProgress: number
+  yearlyBudgets: Array<{
+    amount: number
+    label: string
+  }>
+}
+
 export interface ProjectRecord {
   budget: number
   compliance: 'Compliant' | 'Due soon' | 'Overdue'
@@ -31,6 +93,7 @@ export interface ProjectRecord {
   manager: string
   program: Program
   progress: number
+  gia?: GiaMonitoringDetails
   status: 'Active' | 'At risk' | 'Completed'
   title: string
   used: number
@@ -64,6 +127,9 @@ export const proposalRecords: ProposalRecord[] = [
     id: 'PR-2026-041',
     title: 'Cacao Processing Line Modernization',
     organization: 'Bright Foods Cooperative',
+    organizationType: 'Cooperative (Private Sector)',
+    proponentName: 'Maria Proponent',
+    proponentRole: 'General Manager',
     program: 'SETUP',
     amount: 1250000,
     submitted: 'Jun 24, 2026',
@@ -76,6 +142,9 @@ export const proposalRecords: ProposalRecord[] = [
     id: 'PR-2026-040',
     title: 'Community Water Quality Monitoring',
     organization: 'Davao Oriental State University',
+    organizationType: 'Higher Education Institution (SUC)',
+    proponentName: 'Dr. Ricardo Santos',
+    proponentRole: 'Project Leader / Researcher',
     program: 'GIA',
     amount: 2180000,
     submitted: 'Jun 23, 2026',
@@ -87,7 +156,10 @@ export const proposalRecords: ProposalRecord[] = [
   {
     id: 'PR-2026-039',
     title: 'Cold Storage Facility Upgrade',
-    organization: 'GreenHarvest Producers',
+    organization: 'GreenHarvest Producers Enterprise',
+    organizationType: 'Sole Proprietorship (Private Sector)',
+    proponentName: 'Juan Dela Cruz',
+    proponentRole: 'Proprietor',
     program: 'SETUP',
     amount: 950000,
     submitted: 'Jun 21, 2026',
@@ -100,6 +172,9 @@ export const proposalRecords: ProposalRecord[] = [
     id: 'PR-2026-038',
     title: 'Coastal Livelihood Technology Training',
     organization: 'Baganga Fisherfolk Federation',
+    organizationType: 'Non-Profit / NGO Association',
+    proponentName: 'Captain Roberto Diaz',
+    proponentRole: 'Federation Head',
     program: 'GIA',
     amount: 780000,
     submitted: 'Jun 19, 2026',
@@ -112,6 +187,9 @@ export const proposalRecords: ProposalRecord[] = [
     id: 'PR-2026-037',
     title: 'Precision Coffee Roasting System',
     organization: 'Highland Coffee Works',
+    organizationType: 'Partnership (Private Sector)',
+    proponentName: 'Elena Torres',
+    proponentRole: 'Operations Manager',
     program: 'SETUP',
     amount: 680000,
     submitted: 'Jun 16, 2026',
@@ -124,6 +202,9 @@ export const proposalRecords: ProposalRecord[] = [
     id: 'PR-2026-036',
     title: 'Ceramics Kiln Efficiency Upgrade',
     organization: 'Lakeside Ceramics',
+    organizationType: 'Corporation (Private Sector)',
+    proponentName: 'Gabriel Mendoza',
+    proponentRole: 'Managing Director',
     program: 'SETUP',
     amount: 680000,
     submitted: 'Jun 14, 2026',
@@ -135,7 +216,10 @@ export const proposalRecords: ProposalRecord[] = [
   {
     id: 'PR-2026-035',
     title: 'Seafood Cold Chain Improvement',
-    organization: 'Mariner Seafoods',
+    organization: 'Mariner Seafoods Corp.',
+    organizationType: 'Corporation (Private Sector)',
+    proponentName: 'Sarah Jenkins',
+    proponentRole: 'Vice President for Ops',
     program: 'GIA',
     amount: 3100000,
     submitted: 'Jun 12, 2026',
@@ -148,6 +232,9 @@ export const proposalRecords: ProposalRecord[] = [
     id: 'PR-2026-034',
     title: 'Community Bamboo Product Development',
     organization: 'Cateel Bamboo Association',
+    organizationType: 'Community Association',
+    proponentName: 'Manuel Carpio',
+    proponentRole: 'Association President',
     program: 'GIA',
     amount: 920000,
     submitted: 'Jun 10, 2026',
@@ -159,7 +246,10 @@ export const proposalRecords: ProposalRecord[] = [
   {
     id: 'PR-2026-033',
     title: 'Automated Furniture Cutting System',
-    organization: 'Mati Woodcraft',
+    organization: 'Mati Woodcraft Enterprise',
+    organizationType: 'Sole Proprietorship (Private Sector)',
+    proponentName: 'Ramon Woodcraft',
+    proponentRole: 'Proprietor',
     program: 'SETUP',
     amount: 1450000,
     submitted: 'Jun 8, 2026',
@@ -172,6 +262,9 @@ export const proposalRecords: ProposalRecord[] = [
     id: 'PR-2026-032',
     title: 'Fisherfolk Skills and Technology Program',
     organization: 'Boston Coastal Cooperative',
+    organizationType: 'Cooperative (Private Sector)',
+    proponentName: 'Liza Garcia',
+    proponentRole: 'Cooperative Secretary',
     program: 'GIA',
     amount: 840000,
     submitted: 'Jun 6, 2026',
@@ -183,7 +276,10 @@ export const proposalRecords: ProposalRecord[] = [
   {
     id: 'PR-2026-031',
     title: 'Fruit Drying and Packaging Facility',
-    organization: 'Tarragona Fruit Growers',
+    organization: 'Tarragona Fruit Growers Co-op',
+    organizationType: 'Cooperative (Private Sector)',
+    proponentName: 'Antonio Flores',
+    proponentRole: 'Board Chairman',
     program: 'SETUP',
     amount: 1180000,
     submitted: 'Jun 4, 2026',
@@ -195,7 +291,10 @@ export const proposalRecords: ProposalRecord[] = [
   {
     id: 'PR-2026-030',
     title: 'Municipal Disaster Data Platform',
-    organization: 'LGU San Isidro',
+    organization: 'Barangay LGU San Isidro',
+    organizationType: 'Barangay LGU',
+    proponentName: 'Hon. Fernando Cruz',
+    proponentRole: 'Barangay Chairman',
     program: 'GIA',
     amount: 2350000,
     submitted: 'Jun 2, 2026',
@@ -264,26 +363,162 @@ export const projectRecords: ProjectRecord[] = [
     title: 'Water Quality Monitoring',
     enterprise: 'DOrSU Research Center',
     program: 'GIA',
-    manager: 'Kevin Lim',
+    manager: 'Dr. Kevin Lim',
     progress: 44,
     status: 'Active',
     compliance: 'Due soon',
     dueDate: 'Sep 12, 2026',
     budget: 2180000,
     used: 960000,
+    gia: {
+      actualAccomplishment:
+        'Installed six community sampling stations and completed baseline testing in four priority barangays. The first validation dataset is under technical review.',
+      agency: 'Davao Oriental State University',
+      baseStation: 'DOrSU Research and Extension Center, Mati City',
+      catchUpPlan: 'Not required. Activities remain within the approved work plan.',
+      cooperatingAgencies: [
+        'Provincial Government of Davao Oriental',
+        'Municipality of Baganga',
+      ],
+      durationMonths: 24,
+      endDate: 'Jan 14, 2028',
+      issueSummary: 'No critical issue reported.',
+      latestReport: {
+        period: 'January-June 2026',
+        status: 'Approved',
+        submitted: 'Jul 18, 2026',
+      },
+      location: 'Baganga, Davao Oriental, Region XI',
+      objective:
+        'Establish a community-operated water quality monitoring system and produce validated data for local environmental decisions.',
+      outputs: [
+        {
+          actual: 1,
+          category: 'Publications',
+          description: 'Baseline methods paper in preparation.',
+          target: 2,
+        },
+        {
+          actual: 0,
+          category: 'Patents / IP',
+          description: 'No IP output due in the current period.',
+          target: 1,
+        },
+        {
+          actual: 1,
+          category: 'Products',
+          description: 'Field data collection toolkit deployed.',
+          target: 3,
+        },
+        {
+          actual: 64,
+          category: 'People Services',
+          description: 'Community monitors trained and supported.',
+          target: 120,
+        },
+        {
+          actual: 2,
+          category: 'Places & Partnerships',
+          description: 'Two LGU implementation partnerships active.',
+          target: 4,
+        },
+        {
+          actual: 0,
+          category: 'Policy',
+          description: 'Drafting begins after dataset validation.',
+          target: 1,
+        },
+      ],
+      reportingPeriod: 'Annual 2026',
+      startDate: 'Jan 15, 2026',
+      suggestedSolution:
+        'Continue monthly data-quality checks and validate the remaining sampling sites before the next milestone.',
+      targetProgress: 40,
+      yearlyBudgets: [
+        { amount: 1090000, label: 'Year 1' },
+        { amount: 1090000, label: 'Year 2' },
+      ],
+    },
   },
   {
     id: 'P-192',
     title: 'Bamboo Product Development',
     enterprise: 'Cateel Bamboo Association',
     program: 'GIA',
-    manager: 'Kevin Lim',
+    manager: 'Maria Torres',
     progress: 36,
-    status: 'Active',
-    compliance: 'Compliant',
+    status: 'At risk',
+    compliance: 'Due soon',
     dueDate: 'Oct 18, 2026',
     budget: 920000,
     used: 331000,
+    gia: {
+      actualAccomplishment:
+        'Completed product-design workshops and three initial prototypes. Equipment commissioning is pending delivery of specialized cutting components.',
+      agency: 'Cateel Bamboo Producers Association',
+      baseStation: 'Municipal Livelihood Center, Cateel',
+      catchUpPlan:
+        'Complete parallel skills training while replacement components are in transit, then add two supervised fabrication runs in October.',
+      cooperatingAgencies: [
+        'Municipality of Cateel',
+        'Davao Oriental State University',
+      ],
+      durationMonths: 12,
+      endDate: 'Feb 28, 2027',
+      issueSummary: 'Equipment delivery is delaying prototype validation.',
+      latestReport: {
+        period: 'January-June 2026',
+        status: 'Under review',
+        submitted: 'Jul 29, 2026',
+      },
+      location: 'Cateel, Davao Oriental, Region XI',
+      objective:
+        'Develop market-ready bamboo products and improve the association members\' design, fabrication, and quality-control capability.',
+      outputs: [
+        {
+          actual: 0,
+          category: 'Publications',
+          description: 'Production guide scheduled for final quarter.',
+          target: 1,
+        },
+        {
+          actual: 0,
+          category: 'Patents / IP',
+          description: 'Design registration follows prototype validation.',
+          target: 1,
+        },
+        {
+          actual: 3,
+          category: 'Products',
+          description: 'Three prototype furniture products completed.',
+          target: 8,
+        },
+        {
+          actual: 28,
+          category: 'People Services',
+          description: 'Association members completed design workshops.',
+          target: 50,
+        },
+        {
+          actual: 2,
+          category: 'Places & Partnerships',
+          description: 'LGU and university partnerships active.',
+          target: 3,
+        },
+        {
+          actual: 0,
+          category: 'Policy',
+          description: 'No policy output committed for this project.',
+          target: 0,
+        },
+      ],
+      reportingPeriod: 'Annual 2026',
+      startDate: 'Mar 1, 2026',
+      suggestedSolution:
+        'Expedite the supplier replacement and document the revised commissioning date for approval during the next monitoring review.',
+      targetProgress: 50,
+      yearlyBudgets: [{ amount: 920000, label: 'Year 1' }],
+    },
   },
   {
     id: 'P-187',

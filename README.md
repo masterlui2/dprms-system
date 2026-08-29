@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # DPRMS
 
 DOST Project and Resource Management System monorepo.
@@ -58,6 +57,28 @@ cd frontend
 npm run build
 npm run lint
 ```
-=======
-# dprms-system
->>>>>>> 4156807a196d6483fbc76e1dc91a38bb8d7e79f0
+
+## Demo role accounts
+
+Run the Laravel seeders to create one local account for each DPRMS role:
+
+```bash
+cd backend
+php artisan db:seed
+```
+
+All demo accounts use `Dprms@123`:
+
+- **SETUP Proponent**: `setup.proponent@dost.gov.ph` (Maria SETUP Proponent)
+- **GIA Proponent**: `gia.proponent@dost.gov.ph` (Gina GIA Project Leader)
+- **SETUP Staff (SSCP Officer)**: `setup.staff@dost.gov.ph` (Paolo SETUP Staff)
+- **GIA Staff (CEST Officer)**: `gia.staff@dost.gov.ph` (Carla GIA Staff)
+- **SETUP Focal (SSCP Evaluator)**: `setup.focal@dost.gov.ph` (Faith SETUP Focal)
+- **GIA Focal (CEST Evaluator)**: `gia.focal@dost.gov.ph` (Felix GIA Focal)
+- **System Administrator**: `admin@dost.gov.ph` (DOST System Admin)
+- **Provincial Director**: `director@dost.gov.ph` (Pat Provincial Director)
+- **RPMO Regional Officer**: `rpmo@dost.gov.ph` (Rico Regional RPMO)
+
+## Documentation & Diagrams
+
+- [Review Application Workflow](docs/diagrams/REVIEW_APPLICATION_WORKFLOW.md) - Comprehensive Mermaid workflow flowchart, role permissions, and status transitions from Application intake through Director approval and Monitoring handover.

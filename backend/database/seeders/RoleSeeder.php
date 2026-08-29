@@ -11,6 +11,36 @@ class RoleSeeder extends Seeder
     {
         $roles = [
             [
+                'name' => 'Project Staff',
+                'code' => 'PROJECT_STAFF',
+                'program_type' => 'BOTH',
+                'description' => 'Manages applications, projects, budgets, equipment, repayments, and records.',
+            ],
+            [
+                'name' => 'Focal (Reviewer)',
+                'code' => 'FOCAL',
+                'program_type' => 'BOTH',
+                'description' => 'Reviews applications, technical evaluations, monitoring, and quarterly reports.',
+            ],
+            [
+                'name' => 'Provincial Director',
+                'code' => 'PROVINCIAL_DIRECTOR',
+                'program_type' => 'BOTH',
+                'description' => 'Approves projects and views provincial reports and analytics.',
+            ],
+            [
+                'name' => 'RPMO (Regional Viewer)',
+                'code' => 'RPMO',
+                'program_type' => 'BOTH',
+                'description' => 'Has read-only regional monitoring, project, analytics, and report access.',
+            ],
+            [
+                'name' => 'Proponent / Beneficiary',
+                'code' => 'PROPONENT',
+                'program_type' => 'BOTH',
+                'description' => 'Submits applications and monitors their own project and requirements.',
+            ],
+            [
                 'name' => 'MSME Proponent',
                 'code' => 'MSME_PROPONENT',
                 'program_type' => 'SETUP',

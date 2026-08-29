@@ -1,7 +1,7 @@
 import { useState } from 'react'
 
 import { initialProposalFormData } from '../data/proposal'
-import { submitProposal } from '../services/proposalService'
+import { submitProposal } from '../services/proposalStore'
 import type { ApplicationRecord } from '../types/application'
 import type {
   ProposalDocumentKey,
@@ -11,9 +11,12 @@ import type {
   ProposalNotification,
   ProposalType,
 } from '../types/proposal'
-import { validateEntireProposal } from '../utils/proposalValidation'
+import {
+  validateEntireProposal,
+  validateProposalStep,
+} from '../utils/proposalValidation'
 
-const finalStep = 5
+const finalStep = 3
 
 export function useProposalForm(program: Exclude<ProposalType, ''>) {
   const [currentStep, setCurrentStep] = useState(1)
@@ -65,6 +68,22 @@ export function useProposalForm(program: Exclude<ProposalType, ''>) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  function continueToNextStep() {
+    const nextErrors = validateProposalStep(currentStep, formData)
+
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors)
+      setNotification({
+        type: 'error',
+        title: 'Please review this step',
+        message: 'Complete the highlighted information before continuing.',
+      })
+      return
+    }
+
+    moveToStep(currentStep + 1)
+  }
+
   function requestSubmission() {
     const result = validateEntireProposal(formData)
 
@@ -109,6 +128,7 @@ export function useProposalForm(program: Exclude<ProposalType, ''>) {
 
   return {
     confirmSubmission,
+    continueToNextStep,
     currentStep,
     dismissNotification: () => setNotification(null),
     errors,

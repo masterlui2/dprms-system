@@ -1,8 +1,11 @@
 import type { ApplicationProgram, ApplicationRecord } from '../types/application'
+import { normalizeUserRole, ROLES, type UserRole } from '../config/permissions'
 
-export type UserRole = "admin" | "applicant" | "proponent";
+export type { UserRole } from '../config/permissions'
+export { ROLE_LABEL } from '../config/permissions'
 
 export type MockUser = {
+  id?: number;
   applicationReference?: string;
   email: string;
   initials: string;
@@ -15,42 +18,80 @@ const STORAGE_KEY = "dprms.mock-user";
 const TOKEN_STORAGE_KEY = "dprms.auth-token";
 const ACTIVATED_USERS_KEY = "dprms.mock-activated-users";
 
-export const ROLE_LABEL: Record<UserRole, string> = {
-  admin: "DOST Operations Administrator",
-  applicant: "Beneficiary Portal User",
-  proponent: "Project Proponent",
-};
-
 export const ADMIN_USER: MockUser = {
   email: "admin@dost.gov.ph",
   initials: "AD",
   name: "DOST Admin",
-  role: "admin",
+  role: ROLES.SYSTEM_ADMIN,
 };
 
-export const PROPONENT_USER: MockUser = {
-  email: "proponent@dost.gov.ph",
-  initials: "PR",
-  name: "Maria Proponent",
+export const SETUP_PROPONENT_USER: MockUser = {
+  email: "setup.proponent@dost.gov.ph",
+  initials: "MS",
+  name: "Maria SETUP Proponent",
   program: "SETUP",
-  role: "proponent",
+  role: ROLES.PROPONENT,
+};
+
+export const PROPONENT_USER: MockUser = SETUP_PROPONENT_USER;
+
+export const GIA_PROPONENT_USER: MockUser = {
+  email: "gia.proponent@dost.gov.ph",
+  initials: "GP",
+  name: "Gina GIA Project Leader",
+  program: "GIA",
+  role: ROLES.PROPONENT,
+};
+
+const SETUP_STAFF_USER: MockUser = {
+  email: 'setup.staff@dost.gov.ph',
+  initials: 'SS',
+  name: 'Paolo SETUP Staff (SSCP)',
+  program: 'SETUP',
+  role: ROLES.PROJECT_STAFF,
+};
+
+const GIA_STAFF_USER: MockUser = {
+  email: 'gia.staff@dost.gov.ph',
+  initials: 'GS',
+  name: 'Carla GIA Staff (CEST)',
+  program: 'GIA',
+  role: ROLES.PROJECT_STAFF,
+};
+
+const SETUP_FOCAL_USER: MockUser = {
+  email: 'setup.focal@dost.gov.ph',
+  initials: 'SF',
+  name: 'Faith SETUP Focal (SSCP)',
+  program: 'SETUP',
+  role: ROLES.FOCAL,
+};
+
+const GIA_FOCAL_USER: MockUser = {
+  email: 'gia.focal@dost.gov.ph',
+  initials: 'GF',
+  name: 'Felix GIA Focal (CEST)',
+  program: 'GIA',
+  role: ROLES.FOCAL,
+};
+
+const DIRECTOR_USER: MockUser = {
+  email: 'director@dost.gov.ph', initials: 'PD', name: 'Pat Director Approver', role: ROLES.PROVINCIAL_DIRECTOR,
+};
+const RPMO_USER: MockUser = {
+  email: 'rpmo@dost.gov.ph', initials: 'RV', name: 'Rico Regional', role: ROLES.RPMO,
 };
 
 const MOCK_USERS = [
-  {
-    credentials: {
-      email: "admin",
-      password: "Admin@",
-    },
-    user: ADMIN_USER,
-  },
-  {
-    credentials: {
-      email: "proponent",
-      password: "Proponent@",
-    },
-    user: PROPONENT_USER,
-  },
+  { credentials: { email: "admin@dost.gov.ph", password: "Dprms@123" }, user: ADMIN_USER },
+  { credentials: { email: "setup.proponent@dost.gov.ph", password: "Dprms@123" }, user: SETUP_PROPONENT_USER },
+  { credentials: { email: "gia.proponent@dost.gov.ph", password: "Dprms@123" }, user: GIA_PROPONENT_USER },
+  { credentials: { email: "setup.staff@dost.gov.ph", password: "Dprms@123" }, user: SETUP_STAFF_USER },
+  { credentials: { email: "gia.staff@dost.gov.ph", password: "Dprms@123" }, user: GIA_STAFF_USER },
+  { credentials: { email: "setup.focal@dost.gov.ph", password: "Dprms@123" }, user: SETUP_FOCAL_USER },
+  { credentials: { email: "gia.focal@dost.gov.ph", password: "Dprms@123" }, user: GIA_FOCAL_USER },
+  { credentials: { email: 'director@dost.gov.ph', password: 'Dprms@123' }, user: DIRECTOR_USER },
+  { credentials: { email: 'rpmo@dost.gov.ph', password: 'Dprms@123' }, user: RPMO_USER },
 ];
 
 export const MOCK_CREDENTIAL_HINTS = MOCK_USERS.map(({ credentials, user }) => {
@@ -71,6 +112,10 @@ type ActivatedAccount = {
 
 function normalizeCredentialEmail(email: string) {
   return email.trim().toLowerCase();
+}
+
+function normalizeStoredUser(user: MockUser): MockUser {
+  return { ...user, role: normalizeUserRole(user.role) };
 }
 
 function getActivatedAccounts(): ActivatedAccount[] {
@@ -119,7 +164,7 @@ export function authenticateMockUser(email: string, password: string) {
     );
   });
 
-  return activatedAccount?.user ?? null;
+  return activatedAccount ? normalizeStoredUser(activatedAccount.user) : null;
 }
 
 export function isValidLogin(email: string, password: string) {
@@ -127,10 +172,21 @@ export function isValidLogin(email: string, password: string) {
 }
 
 export const DEFAULT_REDIRECT_BY_ROLE: Record<UserRole, string> = {
-  admin: "/dashboard",
-  applicant: "/",
-  proponent: "/",
+  [ROLES.SYSTEM_ADMIN]: "/dashboard",
+  [ROLES.PROJECT_STAFF]: "/dashboard",
+  [ROLES.FOCAL]: "/dashboard",
+  [ROLES.PROVINCIAL_DIRECTOR]: "/dashboard",
+  [ROLES.RPMO]: "/dashboard",
+  [ROLES.PROPONENT]: "/dashboard",
 };
+
+export function getDefaultRedirect(user: MockUser) {
+  if (user.role === ROLES.PROPONENT) {
+    return user.program ? `/programs/${user.program.toLowerCase()}` : "/";
+  }
+
+  return DEFAULT_REDIRECT_BY_ROLE[user.role];
+}
 
 function getInitials(name: string) {
   const [first = "B", second = "P"] = name
@@ -139,6 +195,45 @@ function getInitials(name: string) {
     .filter(Boolean);
 
   return `${first[0] ?? "B"}${second[0] ?? first[1] ?? "P"}`.toUpperCase();
+}
+
+export function registerUserAccount({
+  email,
+  name,
+  password,
+  program,
+}: {
+  email: string;
+  name: string;
+  password: string;
+  program: ApplicationProgram;
+}): MockUser {
+  const user: MockUser = {
+    email: email.trim().toLowerCase(),
+    initials: getInitials(name),
+    name: name.trim(),
+    program,
+    role: ROLES.PROPONENT,
+  };
+
+  const accounts = getActivatedAccounts().filter(
+    (account) =>
+      normalizeCredentialEmail(account.credentials.email) !==
+      normalizeCredentialEmail(email),
+  );
+
+  saveActivatedAccounts([
+    {
+      credentials: {
+        email: email.trim().toLowerCase(),
+        password,
+      },
+      user,
+    },
+    ...accounts,
+  ]);
+
+  return user;
 }
 
 export function activateApplicantAccount({
@@ -156,7 +251,7 @@ export function activateApplicantAccount({
     initials: getInitials(application.applicantName || application.organizationName),
     name: application.applicantName || application.organizationName,
     program: application.program,
-    role: "applicant",
+    role: ROLES.PROPONENT,
   };
   const accounts = getActivatedAccounts().filter(
     (account) =>
@@ -197,7 +292,7 @@ export function getMockUser(): MockUser | null {
   }
 
   try {
-    return JSON.parse(rawUser) as MockUser;
+    return normalizeStoredUser(JSON.parse(rawUser) as MockUser);
   } catch {
     window.localStorage.removeItem(STORAGE_KEY);
     return null;

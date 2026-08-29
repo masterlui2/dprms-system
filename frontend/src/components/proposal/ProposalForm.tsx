@@ -1,7 +1,6 @@
 import { ArrowLeft, ArrowRight, CheckCircle2, MailCheck, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
-import { areRequiredDocumentsComplete } from '../../data/proposal'
 import { useProposalForm } from '../../hooks/useProposalForm'
 import type { ProposalType } from '../../types/proposal'
 import { Button } from '../ui/button'
@@ -9,19 +8,27 @@ import { Card, CardContent } from '../ui/card'
 import { ConfirmationDialog } from './ConfirmationDialog'
 import { NotificationToast } from './NotificationToast'
 import { ProposalStepper } from './ProposalStepper'
-import { ApplicantOrganizationStep } from './steps/ApplicantOrganizationStep'
-import { BudgetEquipmentStep } from './steps/BudgetEquipmentStep'
 import { DocumentsStep } from './steps/DocumentsStep'
-import { ProjectDetailsStep } from './steps/ProjectDetailsStep'
+import { ProposalInformationStep } from './steps/ProposalInformationStep'
 import { ReviewStep } from './steps/ReviewStep'
+import { SetupProposalForm } from './SetupProposalForm'
 
 export function ProposalForm({
   program,
 }: {
   program: Exclude<ProposalType, ''>
 }) {
+  if (program === 'SETUP') {
+    return <SetupProposalForm />
+  }
+
+  return <GiaProposalForm program={program} />
+}
+
+function GiaProposalForm({ program }: { program: Exclude<ProposalType, ''> }) {
   const {
     confirmSubmission,
+    continueToNextStep,
     currentStep,
     dismissNotification,
     errors,
@@ -37,7 +44,6 @@ export function ProposalForm({
     updateDocument,
     updateField,
   } = useProposalForm(program)
-  const requirementsComplete = areRequiredDocumentsComplete(formData)
 
   if (isSubmitted) {
     return (
@@ -105,7 +111,6 @@ export function ProposalForm({
         <ProposalStepper
           currentStep={currentStep}
           onStepChange={moveToStep}
-          program={program}
         />
       </div>
 
@@ -115,8 +120,8 @@ export function ProposalForm({
           onSubmit={(event) => {
             event.preventDefault()
 
-            if (currentStep < 5) {
-              moveToStep(currentStep + 1)
+            if (currentStep < 3) {
+              continueToNextStep()
             } else {
               requestSubmission()
             }
@@ -133,37 +138,24 @@ export function ProposalForm({
             ) : null}
 
             {currentStep === 1 ? (
-              <ApplicantOrganizationStep
+              <ProposalInformationStep
                 data={formData}
                 errors={errors}
                 onFieldChange={updateField}
               />
             ) : null}
             {currentStep === 2 ? (
-              <ProjectDetailsStep
-                data={formData}
-                errors={errors}
-                onFieldChange={updateField}
-              />
-            ) : null}
-            {currentStep === 3 ? (
-              <BudgetEquipmentStep
-                data={formData}
-                errors={errors}
-                onFieldChange={updateField}
-              />
-            ) : null}
-            {currentStep === 4 ? (
               <DocumentsStep
                 data={formData}
                 errors={errors}
                 onDocumentChange={updateDocument}
               />
             ) : null}
-            {currentStep === 5 ? (
+            {currentStep === 3 ? (
               <ReviewStep
                 data={formData}
                 errors={errors}
+                onEditSection={moveToStep}
                 onFieldChange={updateField}
               />
             ) : null}
@@ -182,21 +174,15 @@ export function ProposalForm({
             </Button>
 
             <p className="text-center text-xs font-bold text-slate-500">
-              Step {currentStep} of 5
+              Step {currentStep} of 3
             </p>
 
-            {currentStep < 5 ? (
+            {currentStep < 3 ? (
               <Button
                 className="h-11"
-                disabled={currentStep === 4 && !requirementsComplete}
-                title={
-                  currentStep === 4 && !requirementsComplete
-                    ? 'Upload all required documents to continue.'
-                    : undefined
-                }
                 type="submit"
               >
-                Continue
+                {currentStep === 1 ? 'Continue to Documents' : 'Review Submission'}
                 <ArrowRight className="size-4" />
               </Button>
             ) : (

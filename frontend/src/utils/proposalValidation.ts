@@ -1,4 +1,4 @@
-import { getDocumentRequirements } from '../data/proposal'
+import { getVisibleDocumentRequirements } from '../data/proposal'
 import type { ProposalFormData, ProposalFormErrors } from '../types/proposal'
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -22,10 +22,17 @@ function compactErrors(
   return compactedErrors
 }
 
-export function validateApplicantStep(data: ProposalFormData): ProposalFormErrors {
-  return compactErrors({
-    applicantFullName: required(data.applicantFullName, 'Enter the applicant or representative name.'),
-    applicantPosition: required(data.applicantPosition, 'Enter the applicant position.'),
+export function validateProposalInformationStep(
+  data: ProposalFormData,
+): ProposalFormErrors {
+  const sharedErrors = {
+    applicantFullName: required(
+      data.applicantFullName,
+      data.proposalType === 'GIA'
+        ? 'Enter the project leader or contact person.'
+        : 'Enter the owner or authorized representative.',
+    ),
+    applicantPosition: required(data.applicantPosition, 'Enter the position or designation.'),
     emailAddress:
       required(data.emailAddress, 'Enter an email address.') ??
       (!emailPattern.test(data.emailAddress) ? 'Enter a valid email address.' : undefined),
@@ -34,88 +41,61 @@ export function validateApplicantStep(data: ProposalFormData): ProposalFormError
       (!phonePattern.test(data.contactNumber.replace(/[\s-]/g, ''))
         ? 'Use a valid Philippine number, such as 09171234567.'
         : undefined),
-    organizationName: required(data.organizationName, 'Enter the registered organization name.'),
-    organizationType: required(data.organizationType, 'Select an organization type.'),
-    industryCategory: required(data.industryCategory, 'Select an industry category.'),
-    yearEstablished:
-      required(data.yearEstablished, 'Enter the year established.') ??
-      (Number(data.yearEstablished) < 1900 ||
-      Number(data.yearEstablished) > new Date().getFullYear()
-        ? 'Enter a valid four-digit year.'
-        : undefined),
-    employeeCount:
-      required(data.employeeCount, 'Enter the number of employees.') ??
-      (Number(data.employeeCount) < 1 ? 'Enter at least one employee.' : undefined),
-    municipality: required(data.municipality, 'Select a municipality.'),
-    businessAddress: required(data.businessAddress, 'Enter the complete business address.'),
-  })
-}
-
-export function validateProjectStep(data: ProposalFormData): ProposalFormErrors {
-  const sharedErrors = {
-    proposalType: required(data.proposalType, 'Please select a program.'),
-    projectTitle: required(data.projectTitle, 'Project title is required.'),
-    projectCategory: required(
-      data.projectCategory,
-      data.proposalType === 'SETUP'
-        ? 'Please select an industry sector.'
-        : 'Please select a project category.',
+    organizationName: required(
+      data.organizationName,
+      data.proposalType === 'GIA'
+        ? 'Enter the implementing agency or organization.'
+        : 'Enter the business name.',
     ),
-    projectType: required(data.projectType, 'Please select a project type.'),
-    targetBeneficiary: required(
-      data.targetBeneficiary,
-      data.proposalType === 'SETUP'
-        ? 'Please select the business size or entity type.'
-        : 'Please select the target beneficiaries.',
+    businessAddress: required(
+      data.businessAddress,
+      data.proposalType === 'GIA'
+        ? 'Enter the office address.'
+        : 'Enter the business address.',
     ),
+    municipality: required(data.municipality, 'Select a municipality or city.'),
+    projectTitle: required(data.projectTitle, 'Enter the project title.'),
+    siteOfImplementation: required(
+      data.siteOfImplementation,
+      'Enter the site of implementation.',
+    ),
+    projectObjectives: required(data.projectObjectives, 'Enter the project objectives.'),
+    expectedOutputs: required(data.expectedOutputs, 'Enter the expected outputs or results.'),
   }
 
   if (data.proposalType === 'GIA') {
     return compactErrors({
       ...sharedErrors,
-      cooperatingAgency: required(data.cooperatingAgency, 'Enter the cooperating agency.'),
-      siteOfImplementation: required(
-        data.siteOfImplementation,
-        'Enter the site of implementation.',
+      organizationType: required(data.organizationType, 'Select the organization type.'),
+      projectCategory: required(data.projectCategory, 'Select the project category.'),
+      projectType: required(data.projectType, 'Select the project type.'),
+      projectDescription: required(
+        data.projectDescription,
+        'Enter a brief project summary or need.',
       ),
-      projectDuration: required(data.projectDuration, 'Enter the project duration.'),
-      projectObjectives: required(
-        data.projectObjectives,
-        'Please enter the project objectives.',
-      ),
-      methodology: required(data.methodology, 'Please describe the methodology.'),
-      expectedOutputs: required(
-        data.expectedOutputs,
-        'Please describe the expected outputs or 6Ps.',
-      ),
-      workplanSummary: required(
-        data.workplanSummary,
-        'Please provide a workplan summary.',
-      ),
-      personnelInvolved: required(
-        data.personnelInvolved,
-        'Please list personnel involved.',
-      ),
+      targetBeneficiary: required(data.targetBeneficiary, 'Select the target beneficiaries.'),
     })
   }
 
   return compactErrors({
     ...sharedErrors,
-    projectDescription: required(
-      data.projectDescription,
-      'Please enter the business background.',
-    ),
+    businessType: required(data.businessType, 'Select a business type.'),
+    lineOfBusiness: required(data.lineOfBusiness, 'Select the line of business.'),
+    enterpriseSize: required(data.enterpriseSize, 'Select the enterprise size.'),
+    industryCategory: required(data.industryCategory, 'Select an industry sector.'),
+    yearEstablished:
+      required(data.yearEstablished, 'Enter years in operation.') ??
+      (!Number.isFinite(Number(data.yearEstablished)) || Number(data.yearEstablished) < 0
+        ? 'Enter a valid number of years.'
+        : undefined),
+    scopeOfAssistance: required(data.scopeOfAssistance, 'Select the type of assistance needed.'),
     currentOperationalProblem: required(
       data.currentOperationalProblem,
-      'Please describe the current operational problem.',
+      'Describe the business problem or need.',
     ),
     proposedTechnologyAssistance: required(
       data.proposedTechnologyAssistance,
-      'Please describe the proposed technology assistance.',
-    ),
-    expectedBusinessImprovement: required(
-      data.expectedBusinessImprovement,
-      'Please describe the expected business improvement.',
+      'Describe the technology or equipment requested.',
     ),
   })
 }
@@ -123,46 +103,13 @@ export function validateProjectStep(data: ProposalFormData): ProposalFormErrors 
 export function validateDocumentsStep(data: ProposalFormData): ProposalFormErrors {
   const errors: ProposalFormErrors = {}
 
-  getDocumentRequirements(data.proposalType).forEach((document) => {
-    if (document.required && !data.documents[document.key]) {
+  getVisibleDocumentRequirements(data).forEach((document) => {
+    if (!data.documents[document.key]) {
       errors[`documents.${document.key}`] = document.validationMessage
     }
   })
 
   return errors
-}
-
-export function validateBudgetEquipmentStep(
-  data: ProposalFormData,
-): ProposalFormErrors {
-  return compactErrors({
-    totalBusinessAssets:
-      required(
-        data.totalBusinessAssets,
-        data.proposalType === 'SETUP'
-          ? 'Enter the project cost or assistance amount.'
-          : 'Enter the budget summary amount.',
-      ) ??
-      (Number(data.totalBusinessAssets) < 1
-        ? 'Enter an amount greater than zero.'
-        : undefined),
-    annualNetProfit:
-      required(
-        data.annualNetProfit,
-        data.proposalType === 'SETUP'
-          ? 'Enter the counterpart fund or annual net profit.'
-          : 'Enter the counterpart fund amount, or 0 if not applicable.',
-      ) ??
-      (Number(data.annualNetProfit) < 0
-        ? 'Enter a valid amount.'
-        : undefined),
-    equipmentNeeds: required(
-      data.equipmentNeeds,
-      data.proposalType === 'SETUP'
-        ? 'Describe the requested equipment and expected business improvement.'
-        : 'Describe the equipment or resource requirements.',
-    ),
-  })
 }
 
 export function validateReviewStep(data: ProposalFormData): ProposalFormErrors {
@@ -175,10 +122,8 @@ export function validateProposalStep(
   step: number,
   data: ProposalFormData,
 ): ProposalFormErrors {
-  if (step === 1) return validateApplicantStep(data)
-  if (step === 2) return validateProjectStep(data)
-  if (step === 3) return validateBudgetEquipmentStep(data)
-  if (step === 4) return validateDocumentsStep(data)
+  if (step === 1) return validateProposalInformationStep(data)
+  if (step === 2) return validateDocumentsStep(data)
   return validateReviewStep(data)
 }
 
@@ -186,7 +131,7 @@ export function validateEntireProposal(data: ProposalFormData): {
   errors: ProposalFormErrors
   firstInvalidStep: number
 } {
-  for (let step = 1; step <= 5; step += 1) {
+  for (let step = 1; step <= 3; step += 1) {
     const errors = validateProposalStep(step, data)
 
     if (Object.keys(errors).length > 0) {
@@ -194,5 +139,5 @@ export function validateEntireProposal(data: ProposalFormData): {
     }
   }
 
-  return { errors: {}, firstInvalidStep: 5 }
+  return { errors: {}, firstInvalidStep: 3 }
 }

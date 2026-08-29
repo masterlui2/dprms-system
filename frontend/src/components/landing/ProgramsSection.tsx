@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { getProgramRegistrationUrl } from '../../lib/programAccess'
 
 const programs: Array<{
   accent: string
@@ -18,13 +19,14 @@ const programs: Array<{
   icon: LucideIcon
   items: Array<{ icon: LucideIcon; label: string }>
   label: string
+  linkLabel: string
   title: string
 }> = [
   {
     accent: 'bg-[#0f53b7]',
     description:
       'Choose this if you own or manage a business and need equipment, process improvement, packaging support, training, or technology assistance.',
-    detailsTo: '/programs/setup',
+    detailsTo: getProgramRegistrationUrl('SETUP'),
     icon: Wrench,
     items: [
       { icon: Building2, label: 'For MSMEs and enterprises' },
@@ -32,13 +34,14 @@ const programs: Array<{
       { icon: FileText, label: 'Business profile and quotations are usually needed' },
     ],
     label: 'SETUP',
+    linkLabel: 'Register SETUP Proposal',
     title: 'Business technology assistance',
   },
   {
     accent: 'bg-[#f59e0b]',
     description:
       'Choose this if your school, organization, community group, or local office will submit a project for public benefit, research, training, or community development.',
-    detailsTo: '/programs/gia',
+    detailsTo: getProgramRegistrationUrl('GIA'),
     icon: GraduationCap,
     items: [
       { icon: UsersRound, label: 'For schools, LGUs, organizations, or groups' },
@@ -46,6 +49,7 @@ const programs: Array<{
       { icon: FileText, label: 'Project proposal, budget, and endorsements are usually needed' },
     ],
     label: 'GIA',
+    linkLabel: 'View GIA Details',
     title: 'Project proposal support',
   },
 ]
@@ -56,6 +60,7 @@ export function ProgramsSection() {
       className="scroll-mt-32 border-y border-[#d8e5f2] bg-[#eef5fb] px-4 py-16 sm:px-6 lg:px-8"
       id="programs"
     >
+      <span className="block scroll-mt-32" id="requirements" />
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-6 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)] lg:items-end">
           <div>
@@ -131,7 +136,7 @@ function ProgramCard({
             className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-[#d8e1ee] px-4 text-sm font-black text-[#073b82] transition hover:border-blue-300 hover:bg-blue-50"
             to={program.detailsTo}
           >
-            View {program.label} details
+            {program.linkLabel}
             <ArrowRight className="size-4" />
           </Link>
         </div>

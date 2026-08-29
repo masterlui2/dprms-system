@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class DocumentRequirementRepository extends BaseRepository implements DocumentRequirementRepositoryInterface{
-    #[Override]
     public function __construct(DocumentRequirement $model)
     {
         parent::__construct($model);

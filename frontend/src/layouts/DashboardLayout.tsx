@@ -1,10 +1,12 @@
 import { useState } from 'react'
-import { Bell, ChevronDown, Home, PanelLeft, Search, UserCircle2 } from 'lucide-react'
-import { Link, Navigate, Outlet, useNavigate } from 'react-router-dom'
+import { Bell, ChevronDown, PanelLeft, Search, UserCircle2 } from 'lucide-react'
+import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 
 import { AdminSidebar } from '../components/dashboard/AdminSidebar'
 import { NotificationPanel } from '../components/admin/NotificationPanel'
-import { ROLE_LABEL, clearMockUser, getMockUser } from '../lib/mockAuth'
+import { SiteHeader } from '../components/landing/SiteHeader'
+import { ROLE_LABEL, ROLES } from '../config/permissions'
+import { clearMockUser, getMockUser } from '../lib/mockAuth'
 import { cn } from '../utils/cn'
 
 export function DashboardLayout() {
@@ -19,10 +21,23 @@ export function DashboardLayout() {
     return <Navigate replace to="/login" />
   }
 
+  // The beneficiary portal keeps its existing header-based experience.
+  // The AdminSidebar is reserved for internal DPRMS roles.
+  if (user.role === ROLES.PROPONENT) {
+    return (
+      <div className="min-h-screen bg-[#f4f8fc] text-slate-950">
+        <SiteHeader />
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <Outlet />
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn(
-        'min-h-screen bg-[#eef5fb] text-slate-900 lg:grid',
+        'h-screen overflow-hidden bg-[#eef5fb] text-slate-900 lg:grid',
         sidebarCollapsed
           ? 'lg:grid-cols-[84px_minmax(0,1fr)]'
           : 'lg:grid-cols-[280px_minmax(0,1fr)]',
@@ -44,8 +59,8 @@ export function DashboardLayout() {
         user={user}
       />
 
-      <div className="min-w-0">
-        <header className="sticky top-0 z-20 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
+      <div className="min-w-0 flex flex-col h-screen overflow-hidden bg-[#eef5fb]">
+        <header className="shrink-0 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
           <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
             <button
               aria-expanded={mobileSidebarOpen}
@@ -69,22 +84,13 @@ export function DashboardLayout() {
               <input
                 className="h-11 w-full rounded-2xl border border-[#d8e1ee] bg-[#fbfdff] pl-12 pr-4 text-[15px] text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-4 focus:ring-blue-100"
                 placeholder={
-                  user.role === 'admin'
+                  user.role === ROLES.SYSTEM_ADMIN
                     ? 'Search projects, MSMEs, equipment...'
                     : 'Search proposal status, notices, reports...'
                 }
                 type="text"
               />
             </label>
-
-            <Link
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#d8e1ee] bg-white px-3 text-sm font-bold text-[#073b82] shadow-sm transition hover:border-blue-300 hover:bg-blue-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 sm:px-4"
-              title="Back to landing page"
-              to="/"
-            >
-              <Home className="h-4 w-4" />
-              <span className="hidden sm:inline">Public Portal</span>
-            </Link>
 
             <div className="relative">
               <button
@@ -162,7 +168,7 @@ export function DashboardLayout() {
           </div>
         </header>
 
-        <main className="px-4 py-6 sm:px-6">
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 bg-[#eef5fb]">
           <Outlet />
         </main>
       </div>

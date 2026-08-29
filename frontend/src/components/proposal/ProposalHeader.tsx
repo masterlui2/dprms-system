@@ -2,6 +2,7 @@ import { ArrowLeft, CircleHelp } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 import logoImage from '../../assets/logo2.png'
+import { getMockUser } from '../../lib/mockAuth'
 import type { ProposalType } from '../../types/proposal'
 
 export function ProposalHeader({
@@ -9,6 +10,10 @@ export function ProposalHeader({
 }: {
   program: Exclude<ProposalType, ''>
 }) {
+  const user = getMockUser()
+  const homeProgram = user?.program ?? program
+  const programHomeUrl = `/programs/${homeProgram.toLowerCase()}`
+
   return (
     <header className="border-b border-blue-950 bg-[#073b82] text-white">
       <div className="mx-auto flex min-h-20 max-w-5xl items-center justify-between gap-5 px-4 py-4 sm:px-6">
@@ -42,10 +47,10 @@ export function ProposalHeader({
             Need help?
           </a>
           <Link
-            aria-label="Back to home"
+            aria-label={`Back to ${homeProgram} home`}
             className="inline-flex size-10 items-center justify-center rounded-lg text-white/80 transition hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/30"
-            title="Back to home"
-            to="/"
+            title={`Back to ${homeProgram} home`}
+            to={programHomeUrl}
           >
             <ArrowLeft className="size-5" />
           </Link>

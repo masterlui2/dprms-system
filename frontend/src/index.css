@@ -19,6 +19,10 @@
 html {
   min-width: 320px;
   min-height: 100%;
+}
+
+html:has(.landing-page),
+html.landing-page-active {
   scroll-behavior: smooth;
 }
 

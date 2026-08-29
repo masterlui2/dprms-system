@@ -7,11 +7,39 @@ export interface ApplicationRecord {
   contactEmail: string
   createdAt: string
   id: string
+  /**
+   * Numeric backend `proposals.id`. Only guaranteed present for SETUP
+   * applications created via submitSetupProposal() and GIA applications
+   * created via submitGiaProposal(), after this field was added. Older,
+   * local-only, or backend-submission-failed-and-fell-back records may not
+   * have it — code that needs it (document upload/list) should fall back
+   * to resolving it via getSetupProposalId(referenceNo) /
+   * getGiaProposalId(referenceNo) in setupProposalStore.ts /
+   * giaProposalStore.ts.
+   */
+  proposalId?: number
   organizationName: string
   program: ApplicationProgram
   projectTitle: string
   referenceNo: string
-  status: 'Submitted' | 'Under review' | 'Approved'
+  remarks?: string | null
+  status:
+    | 'Submitted'
+    | 'Draft Submitted'
+    | 'Under review'
+    | 'Technical evaluation'
+    | 'In Process'
+    | 'Executive Approval'
+    | 'Approved'
+    | 'Returned for Revision'
+    | 'Disapproved'
+  industrySector?: string | null
+  enterpriseSize?: string | null
+  businessType?: string | null
+  location?: string | null
+  proponentCategory?: string | null
+  researchCategory?: string | null
+  contactNumber?: string | null
 }
 
 export interface CreatedProjectRecord {

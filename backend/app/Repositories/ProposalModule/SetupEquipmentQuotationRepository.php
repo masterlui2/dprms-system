@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class SetupEquipmentQuotationRepository extends BaseRepository implements SetupEquipmentQuotationRepositoryInterface{
-    #[Override]
     public function __construct(SetupEquipmentQuotation $model)
     {
         parent::__construct($model);

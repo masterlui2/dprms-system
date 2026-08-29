@@ -9,7 +9,6 @@ interface AdminPageHeaderProps {
 
 export function AdminPageHeader({
   action,
-  description,
   eyebrow,
   title,
 }: AdminPageHeaderProps) {
@@ -24,9 +23,6 @@ export function AdminPageHeader({
         <h1 className="text-3xl font-black tracking-tight text-[#073b82] sm:text-4xl">
           {title}
         </h1>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
-          {description}
-        </p>
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
     </header>
