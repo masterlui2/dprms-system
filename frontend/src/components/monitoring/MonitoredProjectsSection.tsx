@@ -1,7 +1,9 @@
 import {
+  FileSpreadsheet,
   MapPin,
   Store,
 } from 'lucide-react'
+
 import type { ProjectRecord } from '../../data/admin'
 
 interface Props {
@@ -95,24 +97,36 @@ export function MonitoredProjectsSection({
     )
   }
 
+  const isGia = projects.some((p) => p.program === 'GIA')
+
   return (
     <div className="space-y-4 font-sans">
       {/* Subheader */}
+
       <div className="flex items-center justify-between border-b border-[#B5BFCD]/50 pb-2.5">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 leading-snug">SETUP Monitoring Active Projects</h2>
-          <p className="text-xs text-slate-400 font-normal">Showing monitored records for DOST-assisted enterprises.</p>
+          <h2 className="text-base font-semibold text-slate-900 leading-snug">
+            {isGia ? 'Grants-In-Aid (GIA) Monitoring Active Projects' : 'SETUP Monitoring Active Projects'}
+          </h2>
+          <p className="text-xs text-slate-400 font-normal">
+            {isGia
+              ? 'Showing monitored records for DOST-assisted projects.'
+              : 'Showing monitored records for DOST-assisted enterprises.'}
+          </p>
         </div>
         <span className="rounded-lg bg-[#E6EEF4] px-3 py-1 text-xs font-semibold text-[#285497]">
           {projects.length} active projects
         </span>
       </div>
 
+
       {/* VIEW MODE: BOX (GRID) */}
       {viewMode === 'box' && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
             const meta = getEnterpriseData(p)
+            const isGiaItem = p.program === 'GIA'
+
             return (
               <div
                 key={p.id}
@@ -122,12 +136,13 @@ export function MonitoredProjectsSection({
                   {/* Icon + Pill */}
                   <div className="flex items-center justify-between">
                     <div className="flex size-10 items-center justify-center rounded-xl bg-[#E6EEF4] text-[#285497]">
-                      <Store className="size-5" />
+                      {isGiaItem ? <FileSpreadsheet className="size-5" /> : <Store className="size-5" />}
                     </div>
                     <span className="rounded-full bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-semibold text-[#285497]">
-                      Compliant
+                      {isGiaItem ? 'In Progress' : 'Compliant'}
                     </span>
                   </div>
+
 
                   {/* Title & Code */}
                   <h3 className="mt-3 text-base font-semibold text-slate-900 truncate">
@@ -146,24 +161,43 @@ export function MonitoredProjectsSection({
                   {/* 2-Column Info Grid */}
                   <div className="grid grid-cols-2 gap-y-2.5 text-xs">
                     <div>
-                      <span className="block text-[11px] text-slate-400 font-normal">Assigned manager</span>
+                      <span className="block text-[11px] text-slate-400 font-normal">
+                        {isGiaItem ? 'Project Leader' : 'Assigned manager'}
+                      </span>
                       <span className="font-semibold text-slate-900 truncate block">{meta.manager}</span>
                     </div>
                     <div>
-                      <span className="block text-[11px] text-slate-400 font-normal">Reporting quarter</span>
-                      <span className="font-semibold text-slate-900 block">{meta.quarter}</span>
+                      <span className="block text-[11px] text-slate-400 font-normal">
+                        {isGiaItem ? 'Program Type' : 'Reporting quarter'}
+                      </span>
+                      <span className="font-semibold text-slate-900 block">
+                        {isGiaItem ? 'Grants-In-Aid (GIA)' : meta.quarter}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="block text-[11px] text-slate-400 font-normal">
+                        {isGiaItem ? 'Implementing Agency' : 'Workforce'}
+                      </span>
+                      <span className="font-semibold text-slate-900 block truncate">
+                        {isGiaItem ? (p.gia?.agency || p.enterprise || 'LGU / Community') : `${meta.workforce} employees`}
+                      </span>
                     </div>
                     <div>
-                      <span className="block text-[11px] text-slate-400 font-normal">Workforce</span>
-                      <span className="font-semibold text-slate-900 block">{meta.workforce} employees</span>
+                      <span className="block text-[11px] text-slate-400 font-normal">
+                        {isGiaItem ? 'Total Grant / Budget' : 'Net profit margin'}
+                      </span>
+                      <span className="font-semibold text-[#285497] block">
+                        {isGiaItem ? `₱${(p.budget / 1000000).toFixed(2)}M` : `${meta.netMargin}%`}
+                      </span>
                     </div>
                     <div>
-                      <span className="block text-[11px] text-slate-400 font-normal">Net profit margin</span>
-                      <span className="font-semibold text-[#285497] block">{meta.netMargin}%</span>
-                    </div>
-                    <div>
-                      <span className="block text-[11px] text-slate-400 font-normal">Asset book value</span>
-                      <span className="font-semibold text-slate-900 block">₱{(meta.assetValue / 1000000).toFixed(2)}M</span>
+                      <span className="block text-[11px] text-slate-400 font-normal">
+                        {isGiaItem ? 'Reporting Period' : 'Asset book value'}
+                      </span>
+                      <span className="font-semibold text-slate-900 block">
+                        {isGiaItem ? (p.gia?.reportingPeriod || 'CY 2026') : `₱${(meta.assetValue / 1000000).toFixed(2)}M`}
+                      </span>
                     </div>
                     <div>
                       <span className="block text-[11px] text-slate-400 font-normal">Last monitoring</span>
@@ -172,13 +206,13 @@ export function MonitoredProjectsSection({
                   </div>
                 </div>
 
-                {/* Open Quarterly Report Button with Applications Color #0f53b7 */}
+                {/* Open Report Button */}
                 <button
                   type="button"
                   onClick={() => onSelectProject(p)}
                   className="mt-5 flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#0f53b7] py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0b3f8b] active:scale-[0.99]"
                 >
-                  <span>Open Quarterly Report</span>
+                  <span>Open report</span>
                   <span className="text-xs">↗</span>
                 </button>
               </div>
@@ -194,14 +228,13 @@ export function MonitoredProjectsSection({
             <table className="w-full text-left text-xs">
               <thead className="border-b border-[#B5BFCD]/80 bg-[#E6EEF4] text-[11px] font-semibold uppercase tracking-wider text-[#285497]">
                 <tr>
-                  <th className="py-3.5 pl-5 pr-3">Enterprise Name ↕</th>
+                  <th className="py-3.5 pl-5 pr-3">{isGia ? 'Project / Organization ↕' : 'Enterprise Name ↕'}</th>
                   <th className="px-3 py-3.5">Code ↕</th>
                   <th className="px-3 py-3.5">Address / Location</th>
-                  <th className="px-3 py-3.5">Assigned Manager</th>
-                  <th className="px-3 py-3.5">Quarter</th>
-                  <th className="px-3 py-3.5">Workforce</th>
-                  <th className="px-3 py-3.5">Net Margin</th>
-                  <th className="px-3 py-3.5">Asset Book Value</th>
+                  <th className="px-3 py-3.5">{isGia ? 'Project Leader' : 'Assigned Manager'}</th>
+                  <th className="px-3 py-3.5">{isGia ? 'Period' : 'Quarter'}</th>
+                  <th className="px-3 py-3.5">{isGia ? 'Grant Budget' : 'Workforce'}</th>
+                  <th className="px-3 py-3.5">{isGia ? 'Status' : 'Net Margin'}</th>
                   <th className="px-3 py-3.5">Last Monitoring</th>
                   <th className="py-3.5 pl-3 pr-5 text-right">Action</th>
                 </tr>
@@ -209,6 +242,8 @@ export function MonitoredProjectsSection({
               <tbody className="divide-y divide-[#B5BFCD]/30 text-slate-700">
                 {projects.map((p) => {
                   const meta = getEnterpriseData(p)
+                  const isGiaItem = p.program === 'GIA'
+
                   return (
                     <tr key={p.id} className="hover:bg-[#E6EEF4]/30 transition">
                       <td className="py-3.5 pl-5 pr-3 font-semibold text-slate-900 whitespace-nowrap">
@@ -219,15 +254,14 @@ export function MonitoredProjectsSection({
                       </td>
                       <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">{meta.location}</td>
                       <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">{meta.manager}</td>
-                      <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">{meta.quarter}</td>
+                      <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">
+                        {isGiaItem ? (p.gia?.reportingPeriod || 'CY 2026') : meta.quarter}
+                      </td>
                       <td className="px-3 py-3.5 font-semibold text-slate-900 whitespace-nowrap">
-                        {meta.workforce}
+                        {isGiaItem ? `₱${(p.budget / 1000000).toFixed(2)}M` : `${meta.workforce} employees`}
                       </td>
                       <td className="px-3 py-3.5 font-semibold text-[#285497] whitespace-nowrap">
-                        {meta.netMargin}%
-                      </td>
-                      <td className="px-3 py-3.5 font-semibold text-slate-900 whitespace-nowrap">
-                        ₱{(meta.assetValue / 1000000).toFixed(2)}M
+                        {isGiaItem ? (p.status || 'Active') : `${meta.netMargin}%`}
                       </td>
                       <td className="px-3 py-3.5 text-slate-500 whitespace-nowrap font-normal">
                         {meta.lastMonitoring}
@@ -244,13 +278,15 @@ export function MonitoredProjectsSection({
                     </tr>
                   )
                 })}
+
               </tbody>
             </table>
           </div>
 
+
           {/* Table Pagination */}
           <div className="flex items-center justify-between border-t border-[#B5BFCD]/40 px-5 py-2.5 text-xs text-slate-500 bg-[#E6EEF4]/30">
-            <span>Showing 1-{projects.length} of {projects.length} monitored enterprises</span>
+            <span>Showing 1-{projects.length} of {projects.length} monitored {isGia ? 'community projects' : 'enterprises'}</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -260,6 +296,7 @@ export function MonitoredProjectsSection({
               </button>
             </div>
           </div>
+
         </div>
       )}
     </div>

@@ -12,22 +12,23 @@ import {
 
 import { ModalShell } from "../../components/admin/ModalShell";
 import { SetupMonitoringHub } from "../../components/monitoring/SetupMonitoringHub";
+import { GiaMonitoringHub } from "../../components/monitoring/GiaMonitoringHub";
 import { MonitoringOverviewSection } from "../../components/monitoring/MonitoringOverviewSection";
+import { GiaMonitoringOverviewSection } from "../../components/monitoring/GiaMonitoringOverviewSection";
 import { MonitoredProjectsSection } from "../../components/monitoring/MonitoredProjectsSection";
 import { ROLES } from "../../config/permissions";
+
 import {
-  formatCurrency,
   projectRecords,
-  type GiaMonitoringDetails,
   type Program,
   type ProjectRecord,
 } from "../../data/admin";
 import { getMockUser } from "../../lib/mockAuth";
 import { cn } from "../../utils/cn";
 
-type GiaProject = ProjectRecord & { gia: GiaMonitoringDetails };
-
 const visits = [
+
+
   {
     program: "GIA" as Program,
     agency: "PSTO-Davao Oriental",
@@ -60,64 +61,6 @@ const visits = [
   },
 ];
 
-function isGiaProject(p: ProjectRecord): p is GiaProject {
-  return p.program === "GIA" && !!p.gia;
-}
-
-function ProjectDetailsModal({
-  onClose,
-  project,
-}: {
-  onClose: () => void;
-  project: GiaProject;
-}) {
-  const gia = project.gia;
-  return (
-    <ModalShell
-      onClose={onClose}
-      title={`Project Details · ${project.id}`}
-      description={project.enterprise || project.title}
-      width="lg"
-    >
-      <div className="space-y-6">
-        <div className="rounded-2xl border border-[#B5BFCD]/80 bg-[#E6EEF4]/40 p-4 text-xs">
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <div>
-              <p className="font-semibold text-slate-400">Enterprise / Proponent</p>
-              <p className="font-bold text-slate-900">{project.enterprise || project.title}</p>
-            </div>
-            <div>
-              <p className="font-semibold text-slate-400">Location</p>
-              <p className="font-bold text-slate-900">{gia.location}</p>
-            </div>
-            <div>
-              <p className="font-semibold text-slate-400">Allocated Budget</p>
-              <p className="font-bold text-[#285497]">
-                {formatCurrency(project.budget)}
-              </p>
-            </div>
-            <div>
-              <p className="font-semibold text-slate-400">Overall Status</p>
-              <span className="inline-flex rounded-full bg-[#E6EEF4] px-2.5 py-0.5 text-[11px] font-bold text-[#285497]">
-                {project.status}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            Project Objective
-          </h4>
-          <p className="mt-2 text-xs text-slate-700 leading-relaxed">
-            {gia.objective}
-          </p>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
 function SiteVisitCalendarModal({
   onClose,
   program,
@@ -126,6 +69,7 @@ function SiteVisitCalendarModal({
   program: Program;
 }) {
   const [currentMonth, setCurrentMonth] = useState(7);
+
 
   const monthNames = [
     "January", "February", "March", "April", "May", "June",
@@ -232,6 +176,23 @@ export function MonitoringPage() {
       </div>
     );
   }
+
+  if (selectedProject && (selectedProgram === "GIA" || selectedProject.program === "GIA")) {
+    return (
+      <div className="space-y-6 font-sans">
+        <GiaMonitoringHub
+          project={selectedProject}
+          readOnly={currentUser?.role !== ROLES.FOCAL}
+          onBack={() => {
+            setSelectedProject(null);
+            setSearchParams({ view: "projects" });
+          }}
+        />
+      </div>
+    );
+  }
+
+
 
   return (
     <div className="space-y-5 font-sans">
@@ -354,16 +315,29 @@ export function MonitoringPage() {
       </header>
 
       {currentView === "overview" ? (
-        <MonitoringOverviewSection
-          projects={programProjects}
-          period={globalQuarter}
-          onOpenCalendar={() => setSiteVisitCalendarOpen(true)}
-          onSelectProject={(project) => {
-            setSelectedProject(project);
-            setSearchParams({ projectId: project.id });
-          }}
-        />
+        selectedProgram === "GIA" ? (
+          <GiaMonitoringOverviewSection
+            projects={programProjects}
+            period={globalQuarter}
+            onOpenCalendar={() => setSiteVisitCalendarOpen(true)}
+            onSelectProject={(project) => {
+              setSelectedProject(project);
+              setSearchParams({ projectId: project.id });
+            }}
+          />
+        ) : (
+          <MonitoringOverviewSection
+            projects={programProjects}
+            period={globalQuarter}
+            onOpenCalendar={() => setSiteVisitCalendarOpen(true)}
+            onSelectProject={(project) => {
+              setSelectedProject(project);
+              setSearchParams({ projectId: project.id });
+            }}
+          />
+        )
       ) : (
+
         <MonitoredProjectsSection
           projects={programProjects}
           viewMode={globalViewMode}
@@ -374,22 +348,13 @@ export function MonitoringPage() {
         />
       )}
 
-      {selectedProject && isGiaProject(selectedProject) ? (
-        <ProjectDetailsModal
-          onClose={() => {
-            setSelectedProject(null);
-            setSearchParams({ view: "projects" });
-          }}
-          project={selectedProject}
-        />
-      ) : null}
-
       {siteVisitCalendarOpen ? (
         <SiteVisitCalendarModal
           onClose={() => setSiteVisitCalendarOpen(false)}
           program={selectedProgram}
         />
       ) : null}
+
     </div>
   );
 }
