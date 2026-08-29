@@ -38,6 +38,28 @@ interface ProposalReviewModalProps {
   proposal: ProposalRecord;
 }
 
+type WorkflowStage =
+  | "submitted"
+  | "in_process"
+  | "focal_review"
+  | "director_review"
+  | "approved"
+  | "closed";
+
+  function resolveWorkflowStage(status: ProposalRecord["status"]): WorkflowStage {
+  if (status === "Disapproved" || status === "Returned for Revision") {
+    return "closed";
+  }
+  if (status === "Approved") return "approved";
+  if (status === "Executive Approval" || status === "Endorsed to Director") {
+    return "director_review";
+  }
+  if (status === "Endorsed to Focal" || status === "Under Screening") {
+    return "focal_review";
+  }
+  if (status === "In Process") return "in_process";
+  return "submitted"; // Draft Submitted / Submitted
+}
 export function ProposalReviewModal({
   initialSection = "overview",
   onClose,
@@ -54,17 +76,9 @@ export function ProposalReviewModal({
   const [internalDocumentsReady, setInternalDocumentsReady] = useState(
     initialProposal.program !== "SETUP",
   );
-  const [workflowStage, setWorkflowStage] = useState<'initial_review' | 'in_process' | 'endorsed' | 'approved' | 'closed'>(() => {
-    if (
-      initialProposal.status === 'Disapproved' ||
-      initialProposal.status === 'Rejected' ||
-      initialProposal.status === 'Returned for Revision'
-    ) return 'closed';
-    if (initialProposal.status === 'Approved' || initialProposal.stage === 4) return 'approved';
-    if (initialProposal.stage === 3) return 'endorsed';
-    if (initialProposal.stage === 2) return 'in_process';
-    return 'initial_review';
-  });
+  const [workflowStage, setWorkflowStage] = useState<WorkflowStage>(() =>
+    resolveWorkflowStage(initialProposal.status)
+  );
   const [decisionRequest, setDecisionRequest] = useState<{
     id: number;
     type: DecisionType;
@@ -86,7 +100,7 @@ export function ProposalReviewModal({
     ? String(proposal.status)
     : workflowStage === 'approved'
     ? 'Approved'
-    : workflowStage === 'endorsed'
+    : workflowStage === 'director_review'
     ? 'Executive Approval'
     : workflowStage === 'in_process'
     ? 'In Process'
@@ -269,7 +283,7 @@ export function ProposalReviewModal({
                   status,
                 }));
                 if (newStatus === "Approved") setWorkflowStage("approved");
-                else if (newStatus === "Executive Approval") setWorkflowStage("endorsed");
+                else if (newStatus === "Executive Approval") setWorkflowStage("director_review");
                 else if (newStatus === "In Process") setWorkflowStage("in_process");
                 else if (
                   newStatus === "Disapproved" ||
@@ -301,7 +315,7 @@ export function ProposalReviewModal({
               </span>
             ) : null}
 
-            {isProjectStaff && workflowStage === 'initial_review' ? (
+            {isProjectStaff && workflowStage === 'submitted' ? (
               <button
                 className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-[#0f53b7] px-4 text-xs font-bold text-white transition hover:bg-[#0b3f8b] disabled:cursor-wait disabled:opacity-60"
                 disabled={isUpdating}
@@ -356,7 +370,7 @@ export function ProposalReviewModal({
               </>
             ) : null}
 
-            {isDirector && workflowStage === 'endorsed' ? (
+            {isDirector && workflowStage === 'director_review' ? (
               <>
                 <button
                   className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold text-rose-700 transition hover:bg-rose-50"
@@ -377,19 +391,19 @@ export function ProposalReviewModal({
               </>
             ) : null}
 
-            {isFocal && workflowStage === 'initial_review' ? (
+            {isFocal && workflowStage === 'submitted' ? (
               <span className="text-xs font-semibold text-slate-500">
                 Waiting for Project Staff processing
               </span>
             ) : null}
 
-            {isDirector && workflowStage !== 'endorsed' && workflowStage !== 'approved' && workflowStage !== 'closed' ? (
+            {isDirector && workflowStage !== 'director_review' && workflowStage !== 'approved' && workflowStage !== 'closed' ? (
               <span className="text-xs font-semibold text-slate-500">
                 Waiting for Focal recommendation
               </span>
             ) : null}
 
-            {workflowStage === 'endorsed' && !isDirector ? (
+            {workflowStage === 'director_review' && !isDirector ? (
               <span className="text-xs font-bold text-[#0f53b7]">
                 Endorsed to the Provincial Director
               </span>

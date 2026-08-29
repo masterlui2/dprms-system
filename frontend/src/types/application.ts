@@ -24,15 +24,16 @@ export interface ApplicationRecord {
   referenceNo: string
   remarks?: string | null
   status:
-    | 'Submitted'
     | 'Draft Submitted'
-    | 'Under review'
-    | 'Technical evaluation'
+    | 'Submitted'
     | 'In Process'
+    | 'Endorsed to Focal'
+    | 'Under Screening'
+    | 'Endorsed to Director'
     | 'Executive Approval'
     | 'Approved'
-    | 'Returned for Revision'
     | 'Disapproved'
+    | 'Returned for Revision'
 }
 
 export interface CreatedProjectRecord {

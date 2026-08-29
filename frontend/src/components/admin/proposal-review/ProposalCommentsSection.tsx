@@ -16,6 +16,8 @@ import { getMockUser } from "../../../lib/mockAuth";
 import { updateApplicationStatus } from "../../../services/applicationStore";
 import {
   applyProposalDecision,
+  getProposalAudit,
+  type ProposalAuditApiRecord,
   type ProposalDecision,
 } from "../../../services/proposalStore";
 import { cn } from "../../../utils/cn";
@@ -30,6 +32,7 @@ interface ReviewComment {
   decision?: DecisionType;
   finding?: string;
   note?: string;
+  sortKey: number;
 }
 
 function getReviewStorageKey(proposalId?: string) {
@@ -49,6 +52,28 @@ function readReviewLogs(proposalId?: string): ReviewComment[] {
 function storeReviewLogs(proposalId: string | undefined, logs: ReviewComment[]) {
   if (typeof window === "undefined" || !proposalId) return;
   window.localStorage.setItem(getReviewStorageKey(proposalId), JSON.stringify(logs));
+}
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function auditEntryToComment(entry: ProposalAuditApiRecord): ReviewComment {
+  const createdAt = new Date(entry.created_at);
+  return {
+    id: `audit-${entry.id}`,
+    author: entry.reviewer?.name ?? "System",
+    role: entry.action.replace(/_/g, " "),
+    date: formatDate(createdAt),
+    note: entry.remarks ?? undefined,
+    sortKey: createdAt.getTime(),
+  };
 }
 
 const quickPresets = [
@@ -135,9 +160,11 @@ export function ProposalCommentsSection({
   requestedDecision?: { id: number; type: DecisionType } | null;
 }) {
   const currentUser = getMockUser();
-  const [comments, setComments] = useState<ReviewComment[]>(() =>
+  const [localComments, setLocalComments] = useState<ReviewComment[]>(() =>
     readReviewLogs(proposal?.id),
   );
+  const [auditEntries, setAuditEntries] = useState<ProposalAuditApiRecord[]>([]);
+  const [auditError, setAuditError] = useState<string | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<DecisionType>("note_only");
   const [selectedFinding, setSelectedFinding] = useState("");
   const [newNote, setNewNote] = useState("");
@@ -151,8 +178,28 @@ export function ProposalCommentsSection({
   );
 
   useEffect(() => {
-    setComments(readReviewLogs(proposal?.id));
+    setLocalComments(readReviewLogs(proposal?.id));
   }, [proposal?.id]);
+
+  useEffect(() => {
+    if (!proposal?.proposalId) {
+      setAuditEntries([]);
+      return;
+    }
+    let cancelled = false;
+    setAuditError(null);
+    getProposalAudit(proposal.proposalId)
+      .then((entries) => {
+        if (!cancelled) setAuditEntries(entries);
+      })
+      .catch((err) => {
+        console.error("Failed to load proposal audit trail:", err);
+        if (!cancelled) setAuditError("Could not load the audit trail.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [proposal?.proposalId]);
 
   useEffect(() => {
     if (
@@ -162,6 +209,11 @@ export function ProposalCommentsSection({
       setSelectedDecision(requestedDecision.type);
     }
   }, [currentUser?.role, requestedDecision]);
+
+  const combinedTrail = [
+    ...localComments,
+    ...auditEntries.map(auditEntryToComment),
+  ].sort((a, b) => b.sortKey - a.sortKey);
 
   async function handleAddComment() {
     if (!newNote.trim() && !selectedFinding && selectedDecision === "note_only") return;
@@ -186,6 +238,9 @@ export function ProposalCommentsSection({
 
         updateApplicationStatus(proposal.id, savedStatus);
         onDecisionApplied?.(savedStatus, remarks);
+
+        const refreshedAudit = await getProposalAudit(proposal.proposalId);
+        setAuditEntries(refreshedAudit);
       }
     } catch (error) {
       console.error("Failed to apply proposal decision:", error);
@@ -200,32 +255,26 @@ export function ProposalCommentsSection({
     }
 
     const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
 
     const comment: ReviewComment = {
       author: currentUser?.name || "Reviewing Officer",
-      date: formattedDate,
+      date: formatDate(now),
       decision: selectedDecision,
       finding: selectedFinding || undefined,
       id: String(Date.now()),
       note: newNote.trim() || undefined,
       role: (currentUser?.role && ROLE_LABEL[currentUser.role]) || "Internal Review",
+      sortKey: now.getTime(),
     };
 
-    const next = [comment, ...comments];
-    setComments(next);
+    const next = [comment, ...localComments];
+    setLocalComments(next);
     storeReviewLogs(proposal?.id, next);
 
     setSelectedFinding("");
     setNewNote("");
     setSelectedDecision("note_only");
-    
+
     if (chosen?.newStatus) {
       setSubmitNotice(`Decision recorded: Status updated to "${chosen.newStatus}"`);
       setTimeout(() => setSubmitNotice(null), 5000);
@@ -240,7 +289,7 @@ export function ProposalCommentsSection({
           <div>
             <h3 className="flex items-center gap-1.5 text-xs font-bold text-[#073b82]">
               <MessageSquare className="size-4 text-[#0f53b7]" />
-              Review Actions & Assessment Trail ({comments.length})
+              Review Actions & Assessment Trail ({combinedTrail.length})
             </h3>
             <p className="mt-0.5 text-[11px] text-slate-500">
               Submit formal review decisions, return proposals for revision, or log internal notes.
@@ -257,14 +306,18 @@ export function ProposalCommentsSection({
               {submitError}
             </span>
           ) : null}
+          {auditError ? (
+            <span className="text-xs font-bold text-rose-700" role="alert">
+              {auditError}
+            </span>
+          ) : null}
         </div>
       </div>
 
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(330px,0.95fr)]">
-        {/* Comment / Audit Trail List */}
         <div className="divide-y divide-slate-100 border-b border-slate-200 lg:border-b-0 lg:border-r max-h-[560px] overflow-y-auto">
-          {comments.length > 0 ? (
-            comments.map((comment) => {
+          {combinedTrail.length > 0 ? (
+            combinedTrail.map((comment) => {
               const decisionMeta = decisionOptions.find((d) => d.id === comment.decision);
 
               return (
@@ -281,7 +334,7 @@ export function ProposalCommentsSection({
                     </div>
                     <span className="text-[10px] font-medium text-slate-400">{comment.date}</span>
                   </div>
-                  
+
                   <div className="mt-2 pl-8 space-y-1.5">
                     {decisionMeta && decisionMeta.id !== "note_only" ? (
                       <div
@@ -324,11 +377,9 @@ export function ProposalCommentsSection({
           )}
         </div>
 
-        {/* Review Decision & Remarks Form */}
         {visibleDecisionOptions.length > 0 ? (
         <div className="flex flex-col justify-between p-3.5 bg-slate-50/40">
           <div className="space-y-3">
-            {/* Step 1: Decision Action */}
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 1. Review Action / Decision
@@ -391,7 +442,6 @@ export function ProposalCommentsSection({
               </div>
             </div>
 
-            {/* Step 2: Standard Finding Dropdown */}
             <div>
               <label htmlFor="remark-preset" className="block text-[11px] font-semibold text-slate-700 mb-1">
                 2. Standard Finding / Reason (Optional)
@@ -413,7 +463,6 @@ export function ProposalCommentsSection({
               </select>
             </div>
 
-            {/* Step 3: Remarks Textarea */}
             <div>
               <label htmlFor="comment-text" className="block text-[11px] font-semibold text-slate-700 mb-1">
                 3. Remarks / Decision Instructions
@@ -477,4 +526,3 @@ export function ProposalCommentsSection({
     </section>
   );
 }
-

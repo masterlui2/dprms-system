@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, Filter, Check } from "lucide-react";
+import { Eye, Filter, Check, UserPlus } from "lucide-react";
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
 import {
@@ -8,8 +8,10 @@ import {
 } from "../../components/admin/ProposalReviewModal";
 import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
-import { getAllProposals } from "../../services/proposalStore";
+import { getAllProposals, assignProjectStaffToProposal } from "../../services/proposalStore";
 import type { ApplicationRecord } from "../../types/application";
+import { ROLES } from "../../config/permissions";
+import { getMockUser } from "../../lib/mockAuth";
 
 const programFilters = [
   { label: "All Programs", value: "all" },
@@ -17,7 +19,21 @@ const programFilters = [
   { label: "GIA Program", value: "GIA" },
 ];
 
+const STAGE_BY_STATUS: Record<ApplicationRecord['status'], ProposalRecord['stage']> = {
+  'Draft Submitted': 0,
+  'Submitted': 1,
+  'In Process': 2,
+  'Endorsed to Focal': 3,
+  'Under Screening': 4,
+  'Endorsed to Director': 5,
+  'Executive Approval': 6,
+  'Approved': 7,
+  'Disapproved': 7,
+  'Returned for Revision': 4,
+}
+
 export function ApprovalsPage() {
+  const currentUser = getMockUser();
   const [program, setProgram] = useState("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [review, setReview] = useState<{
@@ -26,6 +42,7 @@ export function ApprovalsPage() {
   } | null>(null);
   const [applications, setApplications] = useState<ApplicationRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [assigningId, setAssigningId] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,49 +60,32 @@ export function ApprovalsPage() {
     };
   }, []);
 
-  const applicationProposals: ProposalRecord[] = applications.map((app) => {
-    let stage: 0 | 1 | 2 | 3 | 4 = 1;
-    if (app.status === "Submitted" || app.status === "Draft Submitted") stage = 0;
-    else if (app.status === "Under review") stage = 1;
-    else if (app.status === "Technical evaluation" || app.status === "In Process") stage = 2;
-    else if (app.status === "Executive Approval") stage = 3;
-    else if (app.status === "Approved") stage = 4;
-
-    let status: ProposalRecord["status"] = "Under review";
-    if (app.status === "Approved") status = "Approved";
-    else if (app.status === "Returned for Revision") status = "Returned for Revision";
-    else if (app.status === "Disapproved") status = "Disapproved";
-    else if (app.status === "In Process") status = "In Process";
-    else if (app.status === "Executive Approval") status = "Executive Approval";
-    else if (stage === 0) status = "Pending";
-
-    return {
-      amount: 1500000,
-      completeness: 100,
-      id: app.referenceNo,
-      proposalId: app.proposalId, // numeric backend id, needed by ProposalDocumentsSection
-      organization: app.organizationName,
-      organizationType:
-        app.program === "GIA"
-          ? "HEI / SUC / LGU Proponent"
-          : "MSME Enterprise (Private Sector)",
-      proponentName: app.applicantName || "Maria Proponent",
-      proponentRole:
-        app.program === "GIA"
-          ? "Project Leader / Researcher"
-          : "Authorized Enterprise Representative",
-      program: app.program,
-      reviewer: app.program === "GIA" ? "CEST Focal Officer" : "SSCP Focal Officer",
-      stage,
-      status,
-      submitted: new Date(app.createdAt).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      }),
-      title: app.projectTitle,
-    };
-  });
+  const applicationProposals: ProposalRecord[] = applications.map((app) => ({
+    amount: 1500000,
+    completeness: 100,
+    id: app.referenceNo,
+    proposalId: app.proposalId,
+    organization: app.organizationName,
+    organizationType:
+      app.program === "GIA"
+        ? "HEI / SUC / LGU Proponent"
+        : "MSME Enterprise (Private Sector)",
+    proponentName: app.applicantName || "Maria Proponent",
+    proponentRole:
+      app.program === "GIA"
+        ? "Project Leader / Researcher"
+        : "Authorized Enterprise Representative",
+    program: app.program,
+    reviewer: app.program === "GIA" ? "CEST Focal Officer" : "SSCP Focal Officer",
+    stage: STAGE_BY_STATUS[app.status],
+    status: app.status,
+    submitted: new Date(app.createdAt).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    title: app.projectTitle,
+  }));
 
   const filteredProposals = applicationProposals.filter((proposal) => {
     return program === "all" || proposal.program === program;
@@ -95,11 +95,32 @@ export function ApprovalsPage() {
     setReview({ proposal, section });
   }
 
+  async function handleAssignToMe(proposal: ProposalRecord) {
+    if (!proposal.proposalId) {
+      setError("This application is not linked to a server proposal.");
+      return;
+    }
+
+    setAssigningId(proposal.proposalId);
+    setError(null);
+
+    try {
+      await assignProjectStaffToProposal(proposal.proposalId);
+      const refreshed = await getAllProposals();
+      setApplications(refreshed);
+    } catch (err) {
+      console.error("Failed to assign project staff:", err);
+      setError("Could not assign yourself to this application.");
+    } finally {
+      setAssigningId(null);
+    }
+  }
+
   const columns: DataColumn<ProposalRecord>[] = [
     {
       id: "id",
       header: "Application",
-      className: "w-[30%]",
+      className: "w-[28%]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
         <div>
@@ -111,7 +132,7 @@ export function ApprovalsPage() {
     {
       id: "proponent",
       header: "Proponent",
-      className: "w-[22%]",
+      className: "w-[20%]",
       sortValue: (proposal) => proposal.proponentName ?? proposal.organization,
       render: (proposal) => {
         const showOrganization =
@@ -135,7 +156,7 @@ export function ApprovalsPage() {
     {
       id: "reviewer",
       header: "Assigned Officer",
-      className: "w-[15%]",
+      className: "w-[14%]",
       sortValue: (proposal) => proposal.reviewer,
       render: (proposal) => (
         <span className="text-xs font-semibold text-slate-700">
@@ -146,21 +167,15 @@ export function ApprovalsPage() {
     {
       id: "status",
       header: "Status",
-      className: "w-[11%]",
+      className: "w-[10%]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
         let toneClass = "text-[#0f53b7]";
         if (proposal.status === "Approved") {
           toneClass = "text-emerald-700";
-        } else if (
-          proposal.status === "Rejected" ||
-          proposal.status === "Disapproved"
-        ) {
+        } else if (proposal.status === "Disapproved") {
           toneClass = "text-rose-700";
-        } else if (
-          proposal.status === "Pending" ||
-          proposal.status === "Returned for Revision"
-        ) {
+        } else if (proposal.status === "Returned for Revision") {
           toneClass = "text-amber-700";
         }
 
@@ -174,7 +189,7 @@ export function ApprovalsPage() {
     {
       id: "submitted",
       header: "Received",
-      className: "w-[11%]",
+      className: "w-[10%]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="whitespace-nowrap text-xs font-medium text-slate-600">
@@ -185,9 +200,23 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[11%] text-right whitespace-nowrap",
+      className: "w-[18%] text-right whitespace-nowrap",
       render: (proposal) => (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          {currentUser?.role === ROLES.PROJECT_STAFF ? (
+            <button
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[#0f53b7] px-3 py-2 text-xs font-bold text-[#0f53b7] hover:bg-blue-50 transition disabled:opacity-50"
+              disabled={assigningId === proposal.proposalId}
+              onClick={(event) => {
+                event.stopPropagation();
+                void handleAssignToMe(proposal);
+              }}
+              type="button"
+            >
+              <UserPlus className="size-3.5" />
+              {assigningId === proposal.proposalId ? "Assigning..." : "Assign to Me"}
+            </button>
+          ) : null}
           <button
             className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0b3f8b] transition hover:shadow-md"
             onClick={(event) => {

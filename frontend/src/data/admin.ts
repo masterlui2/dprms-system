@@ -10,29 +10,34 @@ export interface ProposalRecord {
   proponentRole?: string
   program: Program
   reviewer: string
-  stage: 0 | 1 | 2 | 3 | 4
+  stage: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7
   status:
-    | 'Pending'
-    | 'Under review'
+    | 'Draft Submitted'
+    | 'Submitted'
     | 'In Process'
+    | 'Endorsed to Focal'
+    | 'Under Screening'
+    | 'Endorsed to Director'
     | 'Executive Approval'
     | 'Approved'
-    | 'Rejected'
-    | 'Returned for Revision'
     | 'Disapproved'
+    | 'Returned for Revision'
   submitted: string
   title: string
-  proposalId?: number;
+  proposalId?: number
 }
 
 export type ProposalReviewStatus =
+  | 'Draft Submitted'
   | 'Submitted'
-  | 'Document Validation'
-  | 'Technical Review'
-  | 'Finance Review'
+  | 'In Process'
+  | 'Endorsed to Focal'
+  | 'Under Screening'
+  | 'Endorsed to Director'
   | 'Executive Approval'
   | 'Approved'
   | 'Disapproved'
+  | 'Returned for Revision'
 
 export type GiaOutputCategory =
   | 'Publications'
@@ -113,189 +118,6 @@ export interface PredictionRecord {
     | 'Moderately sustainable'
     | 'Unsustainable'
 }
-
-export const proposalRecords: ProposalRecord[] = [
-  {
-    id: 'PR-2026-041',
-    title: 'Cacao Processing Line Modernization',
-    organization: 'Bright Foods Cooperative',
-    organizationType: 'Cooperative (Private Sector)',
-    proponentName: 'Maria Proponent',
-    proponentRole: 'General Manager',
-    program: 'SETUP',
-    amount: 1250000,
-    submitted: 'Jun 24, 2026',
-    completeness: 100,
-    reviewer: 'Initial Review Team',
-    stage: 1,
-    status: 'Pending',
-  },
-  {
-    id: 'PR-2026-040',
-    title: 'Community Water Quality Monitoring',
-    organization: 'Davao Oriental State University',
-    organizationType: 'Higher Education Institution (SUC)',
-    proponentName: 'Dr. Ricardo Santos',
-    proponentRole: 'Project Leader / Researcher',
-    program: 'GIA',
-    amount: 2180000,
-    submitted: 'Jun 23, 2026',
-    completeness: 100,
-    reviewer: 'Ana Reyes',
-    stage: 2,
-    status: 'Under review',
-  },
-  {
-    id: 'PR-2026-039',
-    title: 'Cold Storage Facility Upgrade',
-    organization: 'GreenHarvest Producers Enterprise',
-    organizationType: 'Sole Proprietorship (Private Sector)',
-    proponentName: 'Juan Dela Cruz',
-    proponentRole: 'Proprietor',
-    program: 'SETUP',
-    amount: 950000,
-    submitted: 'Jun 21, 2026',
-    completeness: 80,
-    reviewer: 'Document Screening Team',
-    stage: 1,
-    status: 'Pending',
-  },
-  {
-    id: 'PR-2026-038',
-    title: 'Coastal Livelihood Technology Training',
-    organization: 'Baganga Fisherfolk Federation',
-    organizationType: 'Non-Profit / NGO Association',
-    proponentName: 'Captain Roberto Diaz',
-    proponentRole: 'Federation Head',
-    program: 'GIA',
-    amount: 780000,
-    submitted: 'Jun 19, 2026',
-    completeness: 100,
-    reviewer: 'Budget Review Unit',
-    stage: 3,
-    status: 'Under review',
-  },
-  {
-    id: 'PR-2026-037',
-    title: 'Precision Coffee Roasting System',
-    organization: 'Highland Coffee Works',
-    organizationType: 'Partnership (Private Sector)',
-    proponentName: 'Elena Torres',
-    proponentRole: 'Operations Manager',
-    program: 'SETUP',
-    amount: 680000,
-    submitted: 'Jun 16, 2026',
-    completeness: 100,
-    reviewer: 'Regional Director',
-    stage: 4,
-    status: 'Approved',
-  },
-  {
-    id: 'PR-2026-036',
-    title: 'Ceramics Kiln Efficiency Upgrade',
-    organization: 'Lakeside Ceramics',
-    organizationType: 'Corporation (Private Sector)',
-    proponentName: 'Gabriel Mendoza',
-    proponentRole: 'Managing Director',
-    program: 'SETUP',
-    amount: 680000,
-    submitted: 'Jun 14, 2026',
-    completeness: 100,
-    reviewer: 'Technical Evaluation Team',
-    stage: 2,
-    status: 'Rejected',
-  },
-  {
-    id: 'PR-2026-035',
-    title: 'Seafood Cold Chain Improvement',
-    organization: 'Mariner Seafoods Corp.',
-    organizationType: 'Corporation (Private Sector)',
-    proponentName: 'Sarah Jenkins',
-    proponentRole: 'Vice President for Ops',
-    program: 'GIA',
-    amount: 3100000,
-    submitted: 'Jun 12, 2026',
-    completeness: 100,
-    reviewer: 'Ana Reyes',
-    stage: 2,
-    status: 'Under review',
-  },
-  {
-    id: 'PR-2026-034',
-    title: 'Community Bamboo Product Development',
-    organization: 'Cateel Bamboo Association',
-    organizationType: 'Community Association',
-    proponentName: 'Manuel Carpio',
-    proponentRole: 'Association President',
-    program: 'GIA',
-    amount: 920000,
-    submitted: 'Jun 10, 2026',
-    completeness: 100,
-    reviewer: 'Initial Review Team',
-    stage: 1,
-    status: 'Pending',
-  },
-  {
-    id: 'PR-2026-033',
-    title: 'Automated Furniture Cutting System',
-    organization: 'Mati Woodcraft Enterprise',
-    organizationType: 'Sole Proprietorship (Private Sector)',
-    proponentName: 'Ramon Woodcraft',
-    proponentRole: 'Proprietor',
-    program: 'SETUP',
-    amount: 1450000,
-    submitted: 'Jun 8, 2026',
-    completeness: 100,
-    reviewer: 'Regional Director',
-    stage: 4,
-    status: 'Approved',
-  },
-  {
-    id: 'PR-2026-032',
-    title: 'Fisherfolk Skills and Technology Program',
-    organization: 'Boston Coastal Cooperative',
-    organizationType: 'Cooperative (Private Sector)',
-    proponentName: 'Liza Garcia',
-    proponentRole: 'Cooperative Secretary',
-    program: 'GIA',
-    amount: 840000,
-    submitted: 'Jun 6, 2026',
-    completeness: 60,
-    reviewer: 'Document Screening Team',
-    stage: 0,
-    status: 'Pending',
-  },
-  {
-    id: 'PR-2026-031',
-    title: 'Fruit Drying and Packaging Facility',
-    organization: 'Tarragona Fruit Growers Co-op',
-    organizationType: 'Cooperative (Private Sector)',
-    proponentName: 'Antonio Flores',
-    proponentRole: 'Board Chairman',
-    program: 'SETUP',
-    amount: 1180000,
-    submitted: 'Jun 4, 2026',
-    completeness: 100,
-    reviewer: 'Budget Review Unit',
-    stage: 3,
-    status: 'Under review',
-  },
-  {
-    id: 'PR-2026-030',
-    title: 'Municipal Disaster Data Platform',
-    organization: 'Barangay LGU San Isidro',
-    organizationType: 'Barangay LGU',
-    proponentName: 'Hon. Fernando Cruz',
-    proponentRole: 'Barangay Chairman',
-    program: 'GIA',
-    amount: 2350000,
-    submitted: 'Jun 2, 2026',
-    completeness: 100,
-    reviewer: 'Technical Evaluation Team',
-    stage: 2,
-    status: 'Rejected',
-  },
-]
 
 export const projectRecords: ProjectRecord[] = [
   {
@@ -725,14 +547,18 @@ export function getProposalReviewStatus(
   proposal: ProposalRecord,
 ): ProposalReviewStatus {
   if (proposal.status === 'Approved') return 'Approved'
-  if (proposal.status === 'Rejected') return 'Disapproved'
+  if (proposal.status === 'Disapproved') return 'Disapproved'
+  if (proposal.status === 'Returned for Revision') return 'Returned for Revision'
 
   const stageStatus: Record<ProposalRecord['stage'], ProposalReviewStatus> = {
-    0: 'Submitted',
-    1: 'Document Validation',
-    2: 'Technical Review',
-    3: 'Finance Review',
-    4: 'Executive Approval',
+    0: 'Draft Submitted',
+    1: 'Submitted',
+    2: 'In Process',
+    3: 'Endorsed to Focal',
+    4: 'Under Screening',
+    5: 'Endorsed to Director',
+    6: 'Executive Approval',
+    7: 'Approved', // unreachable — early return above catches this first; kept only so the Record type-checks
   }
 
   return stageStatus[proposal.stage]

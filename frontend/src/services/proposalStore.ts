@@ -71,21 +71,16 @@ interface ProposalIndexResponse {
  * UNVERIFIED. Update this map once other statuses are confirmed.
  */
 const BACKEND_STATUS_TO_APPLICATION_STATUS: Record<string, ApplicationRecord['status']> = {
+  DRAFT: 'Draft Submitted',
   SUBMITTED: 'Submitted',
-  UNDER_REVIEW: 'Under review',
   UNDER_VALIDATION: 'In Process',
-  ENDORSED_TO_RPMO: 'Under review',
-  UNDER_SCREENING: 'Under review',
-  ENDORSED_TO_RTEC: 'Technical evaluation',
-  UNDER_EVALUATION: 'Technical evaluation',
-  ENDORSED_TO_DIRECTOR: 'Executive Approval',
-  TECHNICAL_EVALUATION: 'Technical evaluation',
-  IN_PROCESS: 'In Process',
-  EXECUTIVE_APPROVAL: 'Executive Approval',
+  ENDORSED_TO_FOCAL: 'Endorsed to Focal',
+  UNDER_SCREENING: 'Under Screening',
+  ENDORSED_TO_DIRECTOR: 'Endorsed to Director',
+  UNDER_EVALUATION: 'Executive Approval',
   APPROVED: 'Approved',
   DISAPPROVED: 'Disapproved',
   RETURNED: 'Returned for Revision',
-  RETURNED_FOR_REVISION: 'Returned for Revision',
 }
 
 function mapProposalStatus(status: string): ApplicationRecord['status'] {
@@ -176,13 +171,43 @@ export async function applyProposalDecision({
     return mapProposalStatus(response.data.data.status)
   }
 
+  // 'endorse' — Focal recommending to the Director
   await api.put(`/proposal/advance-stage/${proposalId}`, {
     remarks: remarks || null,
     status: 'ENDORSED_TO_DIRECTOR',
   })
-  return 'Executive Approval'
+  return 'Endorsed to Director'
 }
 
 export async function resubmitProposal(proposalId: number) {
   await api.put(`/proposal/${proposalId}/resubmit`)
+}
+export async function assignProjectStaffToProposal(proposalId: number): Promise<ApplicationRecord['status']> {
+  const response = await api.patch<{ data: ProposalIndexApiRecord }>(
+    `/proposal/${proposalId}/assign-staff`,
+  )
+  return mapProposalStatus(response.data.data.status)
+}
+
+export interface ProposalAuditApiRecord {
+  id: number
+  proposal_id: number
+  reviewed_by: number
+  reviewer: ProposalUserApiRecord | null
+  action: string
+  previous_status: string | null
+  new_status: string | null
+  remarks: string | null
+  assigned_evaluator_id: number | null
+  assigned_evaluator: ProposalUserApiRecord | null
+  created_at: string
+}
+
+interface ProposalAuditListResponse {
+  data: ProposalAuditApiRecord[]
+}
+
+export async function getProposalAudit(proposalId: number): Promise<ProposalAuditApiRecord[]> {
+  const response = await api.get<ProposalAuditListResponse>(`/proposal-audit/${proposalId}/list`)
+  return response.data.data
 }
