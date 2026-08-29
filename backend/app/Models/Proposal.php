@@ -5,7 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Override;
+
 
 class Proposal extends Model
 {
@@ -79,4 +81,10 @@ class Proposal extends Model
     {
         return $this->hasMany(ProposalAudit::class);
     }
+
+    public function project(): HasOne
+    {
+        return $this->hasOne(Project::class);
+    }
 }
+

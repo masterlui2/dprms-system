@@ -2,8 +2,10 @@
 
 namespace App\Services\ProposalModule;
 
+use App\Models\Project;
 use App\Models\Proposal;
 use App\Repositories\Contracts\ProposalModule\ProposalAuditRepositoryInterface;
+
 use App\Repositories\Contracts\ProposalModule\ProposalRepositoryInterface;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterface;
@@ -174,6 +176,18 @@ class ProposalService implements ProposalServiceInterface{
                 abort(404, 'Proposal not Found');
             }
 
+            Project::firstOrCreate(
+                ['proposal_id' => $proposalId],
+                [
+                    'created_by' => $existing->submitted_by ?? Auth::id(),
+                    'approved_by' => Auth::id(),
+                    'program_type' => $existing->program_type,
+                    'status' => 'active',
+                    'notes' => $remarks,
+                    'approved_at' => now(),
+                ]
+            );
+
             $proposal = $this->proposalRepository->findById($proposalId);
 
             $this->recordAudit(
@@ -188,6 +202,7 @@ class ProposalService implements ProposalServiceInterface{
             return $proposal;
         });
     }
+
 
 
     #[Override]
