@@ -44,15 +44,22 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     #[Override]
     public function updateStatus(int $id, string $status, ?string $remarks = null): bool
     {
-        $user = $this->model->newQuery()->find($id);
+        $proposal = $this->model->newQuery()->find($id);
 
-        if(! $user){
+        if (! $proposal) {
             return false;
         }
 
-        $user->status = $status;
-        $user->remarks = $remarks;
-        return $user->save();
+        $proposal->status = $status;
+        $proposal->remarks = $remarks;
+
+        if ($status === 'APPROVED' && ! $proposal->approved_at) {
+            $proposal->approved_at = now();
+        } elseif ($status === 'DISAPPROVED') {
+            $proposal->disapproved_at = now();
+        }
+
+        return $proposal->save();
     }
 
     #[Override]

@@ -6,14 +6,19 @@ import {
   Send,
   Tag,
   UserRound,
+  UserPlus,
   XCircle,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { ROLE_LABEL, ROLES } from "../../../config/permissions";
+import { ROLES } from "../../../config/permissions";
 import type { ProposalRecord } from "../../../data/admin";
 import { getMockUser } from "../../../lib/mockAuth";
 import { updateApplicationStatus } from "../../../services/applicationStore";
+import {
+  fetchProposalAuditLogs,
+  type ProposalAuditRecord,
+} from "../../../services/proposalAuditStore";
 import {
   applyProposalDecision,
   type ProposalDecision,
@@ -22,131 +27,80 @@ import { cn } from "../../../utils/cn";
 
 export type DecisionType = ProposalDecision | "return_in_process";
 
+type Tone = "success" | "warning" | "danger" | "neutral";
+
 interface ReviewComment {
   id: string;
   author: string;
-  role: string;
   date: string;
-  decision?: DecisionType;
+  actionLabel: string;
+  actionIcon: typeof CheckCircle2;
+  tone: Tone;
   finding?: string;
   note?: string;
+  previousStatus: string | null;
+  newStatus: string | null;
+  assignedEvaluatorName?: string | null;
 }
 
-function getReviewStorageKey(proposalId?: string) {
-  return `dprms.proposal-review-logs.${proposalId || "general"}`;
-}
-
-function isActionValidForStage(decision: DecisionType | undefined, stage: number, status: string): boolean {
-  if (!decision) return true;
-  if (decision === "approve" && stage < 4 && status !== "Approved") return false;
-  if (decision === "disapprove" && status !== "Disapproved") return false;
-  if (decision === "endorse" && stage < 3 && status !== "Executive Approval" && status !== "Approved") return false;
-  return true;
-}
-
-function readReviewLogs(proposal?: ProposalRecord): ReviewComment[] {
-  if (typeof window === "undefined" || !proposal?.id) return [];
-  try {
-    const raw = window.localStorage.getItem(getReviewStorageKey(proposal.id));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as ReviewComment[];
-    // Filter out inconsistent/stale test decisions that don't match the current database stage
-    return parsed.filter((comment) =>
-      isActionValidForStage(comment.decision, proposal.stage, proposal.status),
-    );
-  } catch {
-    return [];
-  }
-}
-
-function getInitialTimeline(proposal?: ProposalRecord): ReviewComment[] {
-  if (!proposal) return [];
-  const stored = readReviewLogs(proposal);
-  if (stored.length > 0) return stored;
-
-  const initial: ReviewComment[] = [];
-  const dateStr = proposal.submitted
-    ? new Date(proposal.submitted).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      })
-    : "Recently";
-
-  initial.push({
-    id: `sub-${proposal.id}`,
-    author: proposal.proponentName || "Applicant",
-    role: "Applicant",
-    date: dateStr,
-    note: `Submitted application for ${proposal.program} project: "${proposal.title}".`,
+function formatAuditDate(raw?: string): string {
+  if (!raw) return "";
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleDateString("en-US", {
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    year: "numeric",
   });
-
-  if (proposal.stage >= 1) {
-    initial.push({
-      id: `rev-${proposal.id}`,
-      author: proposal.reviewer || "DOST Focal Person",
-      role: "DOST Focal Person",
-      date: dateStr,
-      note: "Initial documentary requirements submitted and opened for desk validation.",
-    });
-  }
-
-  if (proposal.stage >= 2) {
-    initial.push({
-      id: `proc-${proposal.id}`,
-      author: proposal.reviewer || "DOST Focal Person",
-      role: "DOST Focal Person",
-      date: dateStr,
-      note: "Requirements verified. Advanced to technical assessment, site validation, and TNA.",
-    });
-  }
-
-  if (proposal.stage >= 3) {
-    initial.push({
-      id: `end-${proposal.id}`,
-      author: proposal.reviewer || "DOST Focal Person",
-      role: "DOST Focal Person",
-      date: dateStr,
-      decision: "endorse",
-      note: "Technical evaluation and documentary requirements complete. Endorsed for Provincial Director approval.",
-    });
-  }
-
-  if (proposal.stage === 4 || proposal.status === "Approved") {
-    initial.push({
-      id: `app-${proposal.id}`,
-      author: "Provincial Director",
-      role: "Provincial Director",
-      date: dateStr,
-      decision: "approve",
-      note: proposal.remarks || "Application approved for project implementation and fund release.",
-    });
-  } else if (proposal.status === "Disapproved") {
-    initial.push({
-      id: `dis-${proposal.id}`,
-      author: "Provincial Director",
-      role: "Provincial Director",
-      date: dateStr,
-      decision: "disapprove",
-      note: proposal.remarks || "Application formally disapproved.",
-    });
-  } else if (proposal.status === "Returned for Revision") {
-    initial.push({
-      id: `ret-${proposal.id}`,
-      author: proposal.reviewer || "DOST Officer",
-      role: "DOST Focal Person",
-      date: dateStr,
-      decision: "return_revision",
-      note: proposal.remarks || "Returned to proponent for requirement revisions.",
-    });
-  }
-
-  return initial;
 }
 
-function storeReviewLogs(proposalId: string | undefined, logs: ReviewComment[]) {
-  if (typeof window === "undefined" || !proposalId) return;
-  window.localStorage.setItem(getReviewStorageKey(proposalId), JSON.stringify(logs));
+// Humanizes an unrecognized backend action string, e.g.
+// "ASSIGN_PROJECT_STAFF" -> "Assign Project Staff"
+function humanizeAction(action: string): string {
+  return action
+    .toLowerCase()
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+// Known backend `action` values -> display metadata. Extend this as you
+// discover more action strings being logged (e.g. via the controller/enum).
+const ACTION_META: Record<string, { icon: typeof CheckCircle2; tone: Tone; label: string }> = {
+  SUBMIT: { icon: Send, tone: "neutral", label: "Submitted" },
+  UPDATE: { icon: RotateCcw, tone: "neutral", label: "Updated" },
+  DELETE: { icon: XCircle, tone: "danger", label: "Deleted" },
+  APPROVE: { icon: CheckCircle2, tone: "success", label: "Approved" },
+  DISAPPROVE: { icon: XCircle, tone: "danger", label: "Disapproved" },
+  ASSIGN_PROJECT_STAFF: { icon: UserPlus, tone: "neutral", label: "Assigned Project Staff" },
+};
+
+function getActionMeta(action: string | null) {
+  if (!action) {
+    return { icon: MessageSquare, tone: "neutral" as Tone, label: "Review Note" };
+  }
+  const known = ACTION_META[action];
+  if (known) return known;
+  return { icon: MessageSquare, tone: "neutral" as Tone, label: humanizeAction(action) };
+}
+
+function mapAuditRecord(record: ProposalAuditRecord): ReviewComment {
+  const meta = getActionMeta(record.action);
+  return {
+    id: String(record.id),
+    author: record.reviewer?.name || "Unknown Reviewer",
+    date: formatAuditDate(record.created_at),
+    actionLabel: meta.label,
+    actionIcon: meta.icon,
+    tone: meta.tone,
+    finding: record.findings || undefined,
+    note: record.remarks || undefined,
+    previousStatus: record.previous_status,
+    newStatus: record.new_status,
+    assignedEvaluatorName: record.assigned_evaluator?.name,
+  };
 }
 
 const PRESETS_BY_DECISION: Record<DecisionType, string[]> = {
@@ -239,6 +193,25 @@ function getAllowedDecisions(role?: string): DecisionType[] {
   return [];
 }
 
+const TONE_CLASSES: Record<Tone, { badge: string; iconWrap: string }> = {
+  success: {
+    badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    iconWrap: "bg-emerald-600 text-white",
+  },
+  warning: {
+    badge: "bg-amber-50 text-amber-800 border-amber-200",
+    iconWrap: "bg-amber-600 text-white",
+  },
+  danger: {
+    badge: "bg-rose-50 text-rose-800 border-rose-200",
+    iconWrap: "bg-rose-600 text-white",
+  },
+  neutral: {
+    badge: "bg-slate-100 text-slate-700 border-slate-200",
+    iconWrap: "bg-slate-500 text-white",
+  },
+};
+
 export function ProposalCommentsSection({
   onDecisionApplied,
   proposal,
@@ -250,9 +223,9 @@ export function ProposalCommentsSection({
 }) {
   const currentUser = getMockUser();
   const allowedDecisions = getAllowedDecisions(currentUser?.role);
-  const [comments, setComments] = useState<ReviewComment[]>(() =>
-    getInitialTimeline(proposal),
-  );
+  const [comments, setComments] = useState<ReviewComment[]>([]);
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [selectedDecision, setSelectedDecision] = useState<DecisionType>(
     () => allowedDecisions[0] || "endorse",
   );
@@ -266,9 +239,28 @@ export function ProposalCommentsSection({
     allowedDecisions.includes(option.id),
   );
 
+  const loadAuditTrail = useCallback(async () => {
+    if (!proposal?.proposalId) {
+      setComments([]);
+      return;
+    }
+
+    setIsLoadingComments(true);
+    setLoadError(null);
+    try {
+      const records = await fetchProposalAuditLogs(proposal.proposalId);
+      setComments(records.map(mapAuditRecord));
+    } catch (error) {
+      console.error("Failed to load proposal audit trail:", error);
+      setLoadError("Could not load the review history. Please try refreshing.");
+    } finally {
+      setIsLoadingComments(false);
+    }
+  }, [proposal?.proposalId]);
+
   useEffect(() => {
-    setComments(getInitialTimeline(proposal));
-  }, [proposal]);
+    loadAuditTrail();
+  }, [loadAuditTrail]);
 
   useEffect(() => {
     if (
@@ -311,6 +303,10 @@ export function ProposalCommentsSection({
 
         updateApplicationStatus(proposal.id, savedStatus);
         onDecisionApplied?.(savedStatus, remarks);
+
+        // The decision + previous/new status are persisted and audited
+        // server-side — re-fetch so the trail reflects the authoritative record.
+        await loadAuditTrail();
       }
     } catch (error) {
       console.error("Failed to apply proposal decision:", error);
@@ -324,32 +320,9 @@ export function ProposalCommentsSection({
       return;
     }
 
-    const now = new Date();
-    const formattedDate = now.toLocaleDateString("en-US", {
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-
-    const comment: ReviewComment = {
-      author: currentUser?.name || "Reviewing Officer",
-      date: formattedDate,
-      decision: selectedDecision,
-      finding: selectedFinding || undefined,
-      id: String(Date.now()),
-      note: newNote.trim() || undefined,
-      role: (currentUser?.role && ROLE_LABEL[currentUser.role]) || "Internal Review",
-    };
-
-    const next = [comment, ...comments];
-    setComments(next);
-    storeReviewLogs(proposal?.id, next);
-
     setSelectedFinding("");
     setNewNote("");
-    
+
     if (chosen?.newStatus) {
       setSubmitNotice(`Decision recorded: Status updated to "${chosen.newStatus}"`);
       setTimeout(() => setSubmitNotice(null), 5000);
@@ -389,38 +362,62 @@ export function ProposalCommentsSection({
       <div className="grid gap-0 lg:grid-cols-[minmax(0,1.15fr)_minmax(330px,0.95fr)]">
         {/* Comment / Audit Trail List */}
         <div className="divide-y divide-slate-100 border-b border-slate-200 lg:border-b-0 lg:border-r max-h-[560px] overflow-y-auto">
-          {comments.length > 0 ? (
+          {isLoadingComments ? (
+            <div className="flex min-h-[360px] flex-col items-center justify-center p-8 text-center">
+              <span className="grid size-12 place-items-center rounded-xl bg-slate-100 text-slate-400">
+                <Clock3 className="size-6 animate-pulse" />
+              </span>
+              <p className="mt-3 text-sm font-bold text-slate-800">Loading review history…</p>
+            </div>
+          ) : loadError ? (
+            <div className="flex min-h-[360px] flex-col items-center justify-center p-8 text-center">
+              <p className="text-sm font-bold text-rose-700">{loadError}</p>
+              <button
+                className="mt-3 text-xs font-bold text-[#0f53b7] underline"
+                onClick={loadAuditTrail}
+                type="button"
+              >
+                Retry
+              </button>
+            </div>
+          ) : comments.length > 0 ? (
             comments.map((comment) => {
-              const decisionMeta = decisionOptions.find((d) => d.id === comment.decision);
+              const toneClasses = TONE_CLASSES[comment.tone];
+              const Icon = comment.actionIcon;
 
               return (
                 <article className="p-3.5 transition hover:bg-slate-50/50" key={comment.id}>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="grid size-6 place-items-center rounded-full bg-blue-50 text-[#0f53b7]">
+                      <span className={cn("grid size-6 place-items-center rounded-full", toneClasses.iconWrap)}>
                         <UserRound className="size-3" />
                       </span>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">{comment.author}</p>
-                        <span className="text-[10px] font-medium text-slate-400">{comment.role}</span>
-                      </div>
+                      <p className="text-xs font-bold text-slate-900">{comment.author}</p>
                     </div>
                     <span className="text-[10px] font-medium text-slate-400">{comment.date}</span>
                   </div>
-                  
+
                   <div className="mt-2 pl-8 space-y-1.5">
-                    {decisionMeta ? (
-                      <div
-                        className={cn(
-                          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold border",
-                          decisionMeta.tone === "success" && "bg-emerald-50 text-emerald-800 border-emerald-200",
-                          decisionMeta.tone === "warning" && "bg-amber-50 text-amber-800 border-amber-200",
-                          decisionMeta.tone === "danger" && "bg-rose-50 text-rose-800 border-rose-200",
-                        )}
-                      >
-                        <decisionMeta.icon className="size-3" />
-                        <span>{decisionMeta.label}</span>
-                      </div>
+                    <div
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold border",
+                        toneClasses.badge,
+                      )}
+                    >
+                      <Icon className="size-3" />
+                      <span>{comment.actionLabel}</span>
+                    </div>
+
+                    <div className="flex items-center gap-1 text-[10px] font-semibold text-slate-500">
+                      <span>{comment.previousStatus ?? ""}</span>
+                      <span aria-hidden="true">→</span>
+                      <span className="text-slate-700">{comment.newStatus ?? ""}</span>
+                    </div>
+
+                    {comment.assignedEvaluatorName ? (
+                      <p className="text-[10px] font-semibold text-slate-500">
+                        Assigned to: <span className="text-slate-700">{comment.assignedEvaluatorName}</span>
+                      </p>
                     ) : null}
 
                     {comment.finding ? (
@@ -454,7 +451,6 @@ export function ProposalCommentsSection({
         {visibleDecisionOptions.length > 0 ? (
         <div className="flex flex-col justify-between p-3.5 bg-slate-50/40">
           <div className="space-y-3">
-            {/* Step 1: Decision Action */}
             <div>
               <label className="block text-xs font-bold text-slate-800 mb-1.5">
                 1. Review Action / Decision
@@ -516,7 +512,6 @@ export function ProposalCommentsSection({
               </div>
             </div>
 
-            {/* Step 2: Standard Finding Dropdown (Context-Sensitive) */}
             <div>
               <label htmlFor="remark-preset" className="block text-[11px] font-semibold text-slate-700 mb-1">
                 2. Standard Finding / Reason (Optional)
@@ -538,7 +533,6 @@ export function ProposalCommentsSection({
               </select>
             </div>
 
-            {/* Step 3: Remarks Textarea */}
             <div>
               <label htmlFor="comment-text" className="block text-[11px] font-semibold text-slate-700 mb-1">
                 3. Remarks / Decision Instructions
@@ -612,4 +606,3 @@ export function ProposalCommentsSection({
     </section>
   );
 }
-

@@ -99,15 +99,29 @@ class ProposalService implements ProposalServiceInterface{
     }
 
     #[Override]
-    public function advanceStage(int $proposalId, string $newStatus, ?string $remarks = null): Proposal
+    public function advanceStage(int $proposalId, string $newStatus, ?string $remarks = null, ?string $action = null): Proposal
     {
-        $updated = $this->proposalRepository->updateStatus($proposalId,$newStatus,$remarks);
-
-        if(! $updated){
-            abort(404,'Proposal not Found');
+        $existing = $this->proposalRepository->findById($proposalId);
+        if (! $existing) {
+            abort(404, 'Proposal not Found');
         }
 
-        return $this->proposalRepository->findById($proposalId);
+        $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
+        if (! $updated) {
+            abort(404, 'Proposal not Found');
+        }
+
+        $proposal = $this->proposalRepository->findById($proposalId);
+
+        $this->recordAudit(
+            proposalId: $proposalId,
+            action: $action ?? 'ADVANCE_STAGE',
+            previousStatus: $existing->status,
+            newStatus: $newStatus,
+            remarks: $remarks,
+        );
+
+        return $proposal;
     }
 
     #[Override]
@@ -149,22 +163,10 @@ class ProposalService implements ProposalServiceInterface{
     protected function applyLoggedDecision(int $proposalId, string $action, string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null): Proposal{
         return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId) {
             $existing = $this->proposalRepository->findById($proposalId);
-
             if(! $existing){
                 abort(404, "Not Found");
             }
-
-            $previous_status = $existing->status;
-            $updated_proposal = $this->advanceStage($proposalId,$newStatus,$remarks);
-
-            $this->recordAudit(
-                proposalId: $proposalId,
-                action: $action,
-                previousStatus: $previous_status,
-                newStatus: $newStatus,
-                remarks: $remarks,
-                assignedEvaluatorId: $assignedEvaluatorId,
-            );
+            $updated_proposal = $this->advanceStage($proposalId, $newStatus, $remarks, $action);
 
             return $updated_proposal;
         });

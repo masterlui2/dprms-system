@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('proposal_id')->constrained("proposals")->restrictOnDelete();
             $table->foreignId('reviewed_by')->constrained("users")->restrictOnDelete();
             $table->string('action',50);
-            $table->string('previous_status',100);
+            $table->string('previous_status',100)->nullable();
             $table->string('new_status',100);
             $table->text("remarks")->nullable();
             $table->string("findings")->nullable();
