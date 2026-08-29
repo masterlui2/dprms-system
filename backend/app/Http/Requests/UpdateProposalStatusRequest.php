@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class UpdateProposalStatusRequest extends FormRequest
 {
@@ -12,7 +13,7 @@ class UpdateProposalStatusRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return Auth::check();
     }
 
     /**
@@ -23,7 +24,8 @@ class UpdateProposalStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            "status" => "required|string|max:300",
+            "remarks" => "string|max:500"
         ];
     }
 }

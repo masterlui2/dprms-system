@@ -8,6 +8,7 @@ use App\Http\Controllers\ProposalTemplateController;
 use App\Models\DocumentRequirement;
 use App\Http\Controllers\GiaProposalController;
 use App\Http\Controllers\GiaProposalSubmissionController;
+use App\Http\Controllers\ProposalAuditController;
 use App\Http\Controllers\SetupProposalController;
 use App\Http\Controllers\SetupProposalSubmissionController;
 use Illuminate\Support\Facades\Route;
@@ -64,6 +65,12 @@ Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'
 
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal')->group(function (){
     Route::get('/', [ProposalController::class, 'index']);
+    Route::patch('/{proposalId}/assign-staff',[ProposalController::class,'assignProjectStaff']);
+    Route::patch('/{proposalId}/update',[ProposalController::class, 'update']);
+});
+
+Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal-audit')->group(function (){
+    Route::get('/{proposalId}/list',[ProposalAuditController::class,'index']);
 });
 
 Route::middleware('auth:sanctum')->prefix('gia')->group(function (){

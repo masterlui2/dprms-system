@@ -60,4 +60,18 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     {
         return $this->model->newQuery()->with($with)->get();
     }
+
+    #[Override]
+    public function assignProjectStaff(int $userId, int $proposalId): bool
+    {
+        $proposal = $this->model->newQuery()->find($proposalId);
+
+        if(! $proposal){
+            return false;
+        }
+
+        $proposal->reviewed_by = $userId;
+        $proposal->status = "UNDER_VALIDATION";
+        return $proposal->save();
+    }
 }
