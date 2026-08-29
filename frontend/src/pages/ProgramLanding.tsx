@@ -176,6 +176,20 @@ export function ProgramLanding() {
   const normalizedProgram = normalizeProgram(program);
   const user = getMockUser();
 
+  useEffect(() => {
+    if (!location.hash) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      document.querySelector(location.hash)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }, [location.hash, location.pathname]);
+
   if (!normalizedProgram) {
     return <Navigate replace to="/" />;
   }
@@ -191,20 +205,6 @@ export function ProgramLanding() {
   }
 
   const content = programContent[normalizedProgram];
-
-  useEffect(() => {
-    if (!location.hash) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
-
-    window.requestAnimationFrame(() => {
-      document.querySelector(location.hash)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    });
-  }, [location.hash, location.pathname]);
 
   return (
     <div className="min-h-screen bg-white text-slate-950">
