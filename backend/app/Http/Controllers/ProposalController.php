@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AdvanceStageRequest;
+use App\Http\Requests\AssignOfficerRequest;
 use App\Http\Requests\ProposalApproveRequest;
 use App\Http\Requests\ProposalDisapproveRequest;
 use App\Http\Requests\ProposalReviewDecisionRequest;
@@ -35,6 +36,17 @@ class ProposalController extends Controller
             'data' => $proposal,
         ], 200);
     }
+
+    public function assignOfficer(AssignOfficerRequest $request, int $proposalId)
+    {
+        $proposal = $this->proposalService->assignOfficers($proposalId, $request->validated());
+
+        return response()->json([
+            'message' => 'Officer assigned successfully',
+            'data' => $proposal,
+        ], 200);
+    }
+
 
 
     public function advanceStage(AdvanceStageRequest $request, int $id){

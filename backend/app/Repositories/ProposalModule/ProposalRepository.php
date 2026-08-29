@@ -103,5 +103,32 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
         $proposal->remarks = $remarks;
         return $proposal->save();
     }
+
+    #[Override]
+    public function assignOfficers(int $proposalId, ?int $staffId = null, ?int $focalId = null, ?string $remarks = null): bool
+    {
+        $proposal = $this->model->newQuery()->find($proposalId);
+
+        if (! $proposal) {
+            return false;
+        }
+
+        if ($staffId !== null) {
+            $proposal->assigned_staff_id = $staffId;
+            $proposal->reviewed_by = $staffId;
+        }
+
+        if ($focalId !== null) {
+            $proposal->assigned_focal_id = $focalId;
+            $proposal->focal_id = $focalId;
+        }
+
+        if ($remarks !== null) {
+            $proposal->remarks = $remarks;
+        }
+
+        return $proposal->save();
+    }
 }
+
 

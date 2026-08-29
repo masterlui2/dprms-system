@@ -65,17 +65,21 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal')->group(function () {
     Route::get('/', [ProposalController::class, 'index']);
     Route::patch('/{proposalId}/assign-staff',[ProposalController::class,'assignProjectStaff']);
+    Route::patch('/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
     Route::patch('/{proposalId}/update',[ProposalController::class, 'update']);
     Route::post('/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
 });
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->group(function () {
     Route::post('v1/proposals/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
+    Route::patch('v1/proposals/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
     Route::get('v1/proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
     Route::get('v1/proposals/{proposalId}/review-logs', [ProposalAuditController::class, 'index']);
     Route::post('proposals/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
+    Route::patch('proposals/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
     Route::get('proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
 });
+
 
 Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal-audit')->group(function (){
     Route::get('/{proposalId}/list',[ProposalAuditController::class,'index']);

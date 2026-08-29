@@ -207,6 +207,41 @@ class ProposalService implements ProposalServiceInterface{
     }
 
     #[Override]
+    public function assignOfficers(int $proposalId, array $data): Proposal
+    {
+        return DB::transaction(function () use ($proposalId, $data) {
+            $existing = $this->proposalRepository->findById($proposalId);
+
+            if (! $existing) {
+                abort(404, 'Proposal not Found');
+            }
+
+            $staffId = $data['assigned_staff_id'] ?? $data['staff_id'] ?? null;
+            $focalId = $data['assigned_focal_id'] ?? $data['focal_id'] ?? null;
+            $remarks = $data['remarks'] ?? null;
+
+            $updated = $this->proposalRepository->assignOfficers($proposalId, $staffId, $focalId, $remarks);
+
+            if (! $updated) {
+                abort(404, 'Proposal not Found');
+            }
+
+            $proposal = $this->proposalRepository->findById($proposalId);
+
+            $this->recordAudit(
+                proposalId: $proposalId,
+                action: 'ASSIGN_OFFICER',
+                previousStatus: $existing->status,
+                newStatus: $proposal->status,
+                remarks: $remarks ?? 'Assigned officer(s) to proposal',
+                assignedEvaluatorId: $focalId ?? $staffId,
+            );
+
+            return $proposal;
+        });
+    }
+
+    #[Override]
     public function getByReferenceNumber(string $referenceNumber): ?Proposal
     {
         return $this->proposalRepository->findByReferenceNumber($referenceNumber);
@@ -226,9 +261,12 @@ class ProposalService implements ProposalServiceInterface{
             'setup_proposal',
             'gia_proposal',
             'reviewed',
-            'focal'
+            'focal',
+            'assigned_staff',
+            'assigned_focal',
         ]);
     }
+
 
     protected function applyLoggedDecision(int $proposalId, string $action, string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): Proposal{
         return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId, $findings) {

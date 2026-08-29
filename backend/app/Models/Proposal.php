@@ -13,6 +13,8 @@ class Proposal extends Model
         'submitted_by',
         'focal_id',
         'reviewed_by',
+        'assigned_staff_id',
+        'assigned_focal_id',
         'program_type',
         'reference_number',
         'title',
@@ -45,9 +47,20 @@ class Proposal extends Model
         return $this->belongsTo(User::class,'reviewed_by');
     }
 
+    public function assigned_staff(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_staff_id');
+    }
+
+    public function assigned_focal(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_focal_id');
+    }
+
     public function setup_proposal():HasMany{
         return $this->hasMany(SetupProposal::class);
     }
+
 
     public function gia_proposal():HasMany{
         return $this->hasMany(GiaProposal::class);
