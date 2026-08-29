@@ -44,16 +44,17 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     #[Override]
     public function updateStatus(int $id, string $status, ?string $remarks = null): bool
     {
-        $user = $this->model->newQuery()->find($id);
+        $proposal = $this->model->newQuery()->find($id);
 
-        if(! $user){
+        if(! $proposal){
             return false;
         }
 
-        $user->status = $status;
-        $user->remarks = $remarks;
-        return $user->save();
+        $proposal->status = $status;
+        $proposal->remarks = $remarks;
+        return $proposal->save();
     }
+
 
     #[Override]
     public function findIndex(array $with = []): Collection
@@ -129,6 +130,39 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
 
         return $proposal->save();
     }
+
+    #[Override]
+    public function approve(int $proposalId, int $directorId, ?string $remarks = null): bool
+    {
+        $proposal = $this->model->newQuery()->find($proposalId);
+
+        if (! $proposal) {
+            return false;
+        }
+
+        $proposal->status = 'APPROVED';
+        $proposal->approved_at = now();
+        $proposal->reviewed_by = $directorId;
+        $proposal->remarks = $remarks;
+        return $proposal->save();
+    }
+
+    #[Override]
+    public function disapprove(int $proposalId, int $directorId, ?string $remarks = null): bool
+    {
+        $proposal = $this->model->newQuery()->find($proposalId);
+
+        if (! $proposal) {
+            return false;
+        }
+
+        $proposal->status = 'DISAPPROVED';
+        $proposal->disapproved_at = now();
+        $proposal->reviewed_by = $directorId;
+        $proposal->remarks = $remarks;
+        return $proposal->save();
+    }
 }
+
 
 

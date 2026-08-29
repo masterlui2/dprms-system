@@ -128,14 +128,67 @@ class ProposalService implements ProposalServiceInterface{
     #[Override]
     public function disapprove(int $proposalId, string $remarks): Proposal
     {
-        return $this->applyLoggedDecision($proposalId, 'DISAPPROVE', 'DISAPPROVED', $remarks);
+        return DB::transaction(function () use ($proposalId, $remarks) {
+            $existing = $this->proposalRepository->findById($proposalId);
+
+            if (! $existing) {
+                abort(404, 'Proposal not Found');
+            }
+
+            $previousStatus = $existing->status;
+            $updated = $this->proposalRepository->disapprove($proposalId, Auth::id(), $remarks);
+
+            if (! $updated) {
+                abort(404, 'Proposal not Found');
+            }
+
+            $proposal = $this->proposalRepository->findById($proposalId);
+
+            $this->recordAudit(
+                proposalId: $proposalId,
+                action: 'DISAPPROVE',
+                previousStatus: $previousStatus,
+                newStatus: 'DISAPPROVED',
+                remarks: $remarks,
+                assignedEvaluatorId: Auth::id(),
+            );
+
+            return $proposal;
+        });
     }
 
     #[Override]
     public function approve(int $proposalId, ?string $remarks = null): Proposal
     {
-        return $this->applyLoggedDecision($proposalId, 'APPROVE', 'APPROVED', $remarks);
+        return DB::transaction(function () use ($proposalId, $remarks) {
+            $existing = $this->proposalRepository->findById($proposalId);
+
+            if (! $existing) {
+                abort(404, 'Proposal not Found');
+            }
+
+            $previousStatus = $existing->status;
+            $updated = $this->proposalRepository->approve($proposalId, Auth::id(), $remarks);
+
+            if (! $updated) {
+                abort(404, 'Proposal not Found');
+            }
+
+            $proposal = $this->proposalRepository->findById($proposalId);
+
+            $this->recordAudit(
+                proposalId: $proposalId,
+                action: 'APPROVE',
+                previousStatus: $previousStatus,
+                newStatus: 'APPROVED',
+                remarks: $remarks,
+                assignedEvaluatorId: Auth::id(),
+            );
+
+            return $proposal;
+        });
     }
+
 
     #[Override]
     public function reviewDecision(int $proposalId, array $data): Proposal

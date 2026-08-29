@@ -160,5 +160,71 @@ class ProposalReviewDecisionTest extends TestCase
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['findings']);
     }
+
+    public function test_director_approve_records_timestamp_and_reviewer_id(): void
+    {
+        $directorRole = Role::create([
+            'name' => 'Provincial Director',
+            'code' => 'PROVINCIAL_DIRECTOR',
+            'program_type' => 'BOTH',
+            'description' => 'Provincial Director',
+        ]);
+
+        $director = User::factory()->create();
+        $director->role()->attach($directorRole->id, ['assigned_at' => now()]);
+
+        Sanctum::actingAs($director);
+
+        $response = $this->putJson("/api/proposal/{$this->proposal->id}/approve", [
+            'remarks' => 'Approved by Provincial Director.',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->proposal->refresh();
+        $this->assertSame('APPROVED', $this->proposal->status);
+        $this->assertNotNull($this->proposal->approved_at);
+        $this->assertSame($director->id, $this->proposal->reviewed_by);
+
+        $this->assertDatabaseHas('proposal_review_logs', [
+            'proposal_id' => $this->proposal->id,
+            'reviewed_by' => $director->id,
+            'action' => 'APPROVE',
+            'new_status' => 'APPROVED',
+        ]);
+    }
+
+    public function test_director_disapprove_records_timestamp_and_reviewer_id(): void
+    {
+        $directorRole = Role::firstOrCreate(['code' => 'PROVINCIAL_DIRECTOR'], [
+            'name' => 'Provincial Director',
+            'program_type' => 'BOTH',
+            'description' => 'Provincial Director',
+        ]);
+
+        $director = User::factory()->create();
+        $director->role()->attach($directorRole->id, ['assigned_at' => now()]);
+
+        Sanctum::actingAs($director);
+
+        $response = $this->putJson("/api/proposal/{$this->proposal->id}/disapprove", [
+            'remarks' => 'Does not meet program criteria.',
+        ]);
+
+        $response->assertStatus(200);
+
+        $this->proposal->refresh();
+        $this->assertSame('DISAPPROVED', $this->proposal->status);
+        $this->assertNotNull($this->proposal->disapproved_at);
+        $this->assertSame($director->id, $this->proposal->reviewed_by);
+
+        $this->assertDatabaseHas('proposal_review_logs', [
+            'proposal_id' => $this->proposal->id,
+            'reviewed_by' => $director->id,
+            'action' => 'DISAPPROVE',
+            'new_status' => 'DISAPPROVED',
+        ]);
+    }
 }
+
 

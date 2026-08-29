@@ -16,6 +16,10 @@ interface ProposalRepositoryInterface extends BaseRepositoryInterface{
     public function endorseToFocal(int $proposalId, int $focalId, ?string $remarks = null): bool;
     public function returnForRevision(int $proposalId, ?string $remarks = null): bool;
     public function assignOfficers(int $proposalId, ?int $staffId = null, ?int $focalId = null, ?string $remarks = null): bool;
+    public function approve(int $proposalId, int $directorId, ?string $remarks = null): bool;
+    public function disapprove(int $proposalId, int $directorId, ?string $remarks = null): bool;
 }
+
+
 
 
