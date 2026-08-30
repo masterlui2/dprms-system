@@ -145,31 +145,30 @@ export async function syncUserApplicationsFromBackend(user: {
       proposals = response.data.data ?? []
     }
 
-    if (proposals.length > 0) {
-      const mappedApps: ApplicationRecord[] = proposals.map((p) => ({
-        id: String(p.id),
-        proposalId: p.id,
-        applicantName: user.name,
-        contactEmail: user.email,
-        organizationName: `${user.name} Organization`,
-        program: p.program_type,
-        projectTitle: p.title,
-        referenceNo: p.reference_number,
-        remarks: p.remarks,
-        status: mapBackendProposalStatus(p.status),
-        submittedAt: p.submitted_at || p.created_at,
-        createdAt: p.created_at,
-        updatedAt: p.updated_at,
-      }))
+    const mappedApps: ApplicationRecord[] = proposals.map((p) => ({
+      id: String(p.id),
+      proposalId: p.id,
+      applicantName: user.name,
+      contactEmail: user.email,
+      organizationName: `${user.name} Organization`,
+      program: p.program_type,
+      projectTitle: p.title,
+      referenceNo: p.reference_number,
+      remarks: p.remarks,
+      status: mapBackendProposalStatus(p.status),
+      submittedAt: p.submitted_at || p.created_at,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    }))
 
-      for (const app of mappedApps) {
-        saveApplication(app)
-      }
-      return mappedApps
-    }
+    const remainingOtherApps = readApplications().filter(
+      (app) => app.contactEmail.toLowerCase() !== user.email.toLowerCase(),
+    )
+    writeApplications([...mappedApps, ...remainingOtherApps])
+
+    return mappedApps
   } catch (error) {
     console.error('Failed to sync applications from backend:', error)
+    return readApplications()
   }
-
-  return readApplications()
 }
