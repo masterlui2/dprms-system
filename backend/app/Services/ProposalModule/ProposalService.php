@@ -4,9 +4,11 @@ namespace App\Services\ProposalModule;
 
 use App\Models\Project;
 use App\Models\Proposal;
+use App\Repositories\Contracts\ProjectModule\ProjectRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\ProposalAuditRepositoryInterface;
 
 use App\Repositories\Contracts\ProposalModule\ProposalRepositoryInterface;
+use App\Services\Contracts\ProjectModule\ProjectServiceInterface;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -16,7 +18,7 @@ use Override;
 
 class ProposalService implements ProposalServiceInterface{
 
-    public function __construct(protected ProposalRepositoryInterface $proposalRepository,protected ReferenceNumberGeneratorServiceInterface $referenceNumberGeneratorService,protected ProposalAuditRepositoryInterface $proposalAuditRepository){}
+    public function __construct(protected ProposalRepositoryInterface $proposalRepository,protected ReferenceNumberGeneratorServiceInterface $referenceNumberGeneratorService,protected ProposalAuditRepositoryInterface $proposalAuditRepository, protected ProjectServiceInterface $projectService){}
 
     #[Override]
     public function submit(array $data): Proposal
@@ -101,30 +103,29 @@ class ProposalService implements ProposalServiceInterface{
     }
 
     #[Override]
-    public function advanceStage(int $proposalId, string $newStatus, ?string $remarks = null): Proposal
+    public function advanceStage(int $proposalId, string $newStatus, ?string $remarks = null, ?string $action = null): Proposal
     {
         $existing = $this->proposalRepository->findById($proposalId);
-
         if (! $existing) {
             abort(404, 'Proposal not Found');
         }
 
-        $previousStatus = $existing->status;
         $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
-
         if (! $updated) {
             abort(404, 'Proposal not Found');
         }
 
+        $proposal = $this->proposalRepository->findById($proposalId);
+
         $this->recordAudit(
             proposalId: $proposalId,
-            action: 'ADVANCE_STAGE',
-            previousStatus: $previousStatus,
+            action: $action ?? 'ADVANCE_STAGE',
+            previousStatus: $existing->status,
             newStatus: $newStatus,
             remarks: $remarks,
         );
 
-        return $this->proposalRepository->findById($proposalId);
+        return $proposal;
     }
 
     #[Override]
@@ -176,17 +177,9 @@ class ProposalService implements ProposalServiceInterface{
                 abort(404, 'Proposal not Found');
             }
 
-            Project::firstOrCreate(
-                ['proposal_id' => $proposalId],
-                [
-                    'created_by' => $existing->submitted_by ?? Auth::id(),
-                    'approved_by' => Auth::id(),
-                    'program_type' => $existing->program_type,
-                    'status' => 'active',
-                    'notes' => $remarks,
-                    'approved_at' => now(),
-                ]
-            );
+            if ($this->projectService->getByProposalId($proposalId)->isEmpty()) {
+                $this->projectService->createFromProposal($existing);
+            }
 
             $proposal = $this->proposalRepository->findById($proposalId);
 
@@ -336,30 +329,35 @@ class ProposalService implements ProposalServiceInterface{
     }
 
 
-    protected function applyLoggedDecision(int $proposalId, string $action, string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): Proposal{
-        return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId, $findings) {
-            $existing = $this->proposalRepository->findById($proposalId);
+    protected function applyLoggedDecision(int $proposalId, string $action, string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): Proposal
+      {
+          return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId, $findings) {
+              $existing = $this->proposalRepository->findById($proposalId);
+              if (! $existing) {
+                  abort(404, "Not Found");
+              }
 
-            if(! $existing){
-                abort(404, "Not Found");
-            }
+              $previousStatus = $existing->status;
+              $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
+              if (! $updated) {
+                  abort(404, "Not Found");
+              }
 
-            $previous_status = $existing->status;
-            $updated_proposal = $this->advanceStage($proposalId,$newStatus,$remarks);
+              $updated_proposal = $this->proposalRepository->findById($proposalId);
 
-            $this->recordAudit(
-                proposalId: $proposalId,
-                action: $action,
-                previousStatus: $previous_status,
-                newStatus: $newStatus,
-                remarks: $remarks,
-                assignedEvaluatorId: $assignedEvaluatorId,
-                findings: $findings,
-            );
+              $this->recordAudit(
+                  proposalId: $proposalId,
+                  action: $action,
+                  previousStatus: $previousStatus,
+                  newStatus: $newStatus,
+                  remarks: $remarks,
+                  assignedEvaluatorId: $assignedEvaluatorId,
+                  findings: $findings,
+              );
 
-            return $updated_proposal;
-        });
-    }
+              return $updated_proposal;
+          });
+      }
 
     protected function recordAudit(int $proposalId, string $action, ?string $previousStatus, ?string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): void
     {

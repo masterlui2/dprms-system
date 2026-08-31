@@ -46,12 +46,19 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     {
         $proposal = $this->model->newQuery()->find($id);
 
-        if(! $proposal){
+        if (! $proposal) {
             return false;
         }
 
         $proposal->status = $status;
         $proposal->remarks = $remarks;
+
+        if ($status === 'APPROVED' && ! $proposal->approved_at) {
+            $proposal->approved_at = now();
+        } elseif ($status === 'DISAPPROVED') {
+            $proposal->disapproved_at = now();
+        }
+
         return $proposal->save();
     }
 
