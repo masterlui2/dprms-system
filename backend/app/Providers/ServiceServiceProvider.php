@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\AuthorizationModule\AuthService;
 use App\Services\Contracts\AuthorizationModule\AuthServiceInterface;
+use App\Services\Contracts\ProjectModule\ProjectServiceInterface;
 use App\Services\Contracts\ProposalModule\DocumentsServiceInterface;
 use App\Services\Contracts\ProposalModule\GiaProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\GiaSubmissionServiceInterface;
@@ -13,6 +14,7 @@ use App\Services\Contracts\ProposalModule\ProposalTemplateServiceInterface;
 use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterface;
 use App\Services\Contracts\ProposalModule\SetupProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\SetupSubmissionServiceInterface;
+use App\Services\ProjectModule\ProjectService;
 use App\Services\ProposalModule\DocumentsService;
 use App\Services\ProposalModule\GiaProposalService;
 use App\Services\ProposalModule\GiaSubmissionService;
@@ -38,5 +40,6 @@ class ServiceServiceProvider extends ServiceProvider
         $this->app->bind(GiaSubmissionServiceInterface::class, GiaSubmissionService::class);
         $this->app->bind(GiaProposalServiceInterface::class, GiaProposalService::class);
         $this->app->bind(ProposalAuditServiceInterface::class,ProposalAuditService::class);
+        $this->app->bind(ProjectServiceInterface::class, ProjectService::class);
     }
 }

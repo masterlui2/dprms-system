@@ -3,8 +3,10 @@
 namespace App\Services\ProposalModule;
 
 use App\Models\Proposal;
+use App\Repositories\Contracts\ProjectModule\ProjectRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\ProposalAuditRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\ProposalRepositoryInterface;
+use App\Services\Contracts\ProjectModule\ProjectServiceInterface;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
@@ -14,7 +16,7 @@ use Override;
 
 class ProposalService implements ProposalServiceInterface{
 
-    public function __construct(protected ProposalRepositoryInterface $proposalRepository,protected ReferenceNumberGeneratorServiceInterface $referenceNumberGeneratorService,protected ProposalAuditRepositoryInterface $proposalAuditRepository){}
+    public function __construct(protected ProposalRepositoryInterface $proposalRepository,protected ReferenceNumberGeneratorServiceInterface $referenceNumberGeneratorService,protected ProposalAuditRepositoryInterface $proposalAuditRepository, protected ProjectServiceInterface $projectService){}
 
     #[Override]
     public function submit(array $data): Proposal
@@ -133,7 +135,20 @@ class ProposalService implements ProposalServiceInterface{
     #[Override]
     public function approve(int $proposalId, ?string $remarks = null): Proposal
     {
-        return $this->applyLoggedDecision($proposalId, 'APPROVE', 'APPROVED', $remarks);
+        return DB::transaction(function () use($proposalId,$remarks) {
+            $existing = $this->proposalRepository->findById($proposalId);
+            if(! $existing){
+                abort(404,"Not Found");
+            }
+
+            $proposal = $this->advanceStage($proposalId,'APPROVED',$remarks,'APPROVE');
+            if($this->projectService->getByProposalId($proposalId)->isEmpty()){
+                $this->projectService->createFromProposal($proposal);
+            }
+
+            return $proposal;
+        });
+
     }
 
     #[Override]
