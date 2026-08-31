@@ -1,108 +1,106 @@
+import { useEffect, useState } from 'react'
 import {
   FileSpreadsheet,
   MapPin,
   Store,
 } from 'lucide-react'
 
-import type { ProjectRecord } from '../../data/admin'
+import {
+  fetchProjects,
+  type ProjectRecord,
+  type SetupProposalRecord,
+} from '../../services/projectStore'
 
 interface Props {
-  projects: ProjectRecord[]
   onSelectProject: (project: ProjectRecord) => void
   viewMode?: 'box' | 'list'
 }
 
+function formatLocation(setup?: SetupProposalRecord): string {
+  if (!setup) return 'Location not specified'
+  return [setup.business_address, setup.city_municipality, setup.province]
+    .filter(Boolean)
+    .join(', ')
+}
+
+function formatQuarter(dateStr: string | null): string {
+  if (!dateStr) return '—'
+  const d = new Date(dateStr)
+  const q = Math.floor(d.getMonth() / 3) + 1
+  return `Q${q} ${d.getFullYear()}`
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return 'Not yet monitored'
+  return new Date(dateStr).toLocaleDateString('en-PH', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function getProjectDisplayData(p: ProjectRecord) {
+  const isGiaItem = p.program_type === 'GIA'
+  const setup = p.proposal.setup_proposal?.[0]
+  const gia = p.proposal.gia_proposal?.[0]
+
+  const workforceRaw = setup?.form_snapshot?.numberOfEmployees
+  const workforce = workforceRaw ? Number(workforceRaw) : null
+
+  return {
+    title: setup?.business_name || p.proposal.title,
+    code: p.proposal.reference_number,
+    location: isGiaItem ? (gia?.location || 'Location not specified') : formatLocation(setup),
+    manager: p.user.name,
+    quarter: formatQuarter(p.approved_at),
+    workforce,
+    netMargin: null as number | null,
+    assetValue: p.budget ?? null,
+    lastMonitoring: formatDate(p.approved_at),
+    agency: gia?.agency,
+    reportingPeriod: gia?.reporting_period,
+  }
+}
+
 export function MonitoredProjectsSection({
-  projects,
   onSelectProject,
   viewMode = 'box',
 }: Props) {
-  const enterpriseMetadata: Record<
-    string,
-    {
-      code: string
-      location: string
-      manager: string
-      quarter: string
-      workforce: number
-      netMargin: number
-      assetValue: number
-      lastMonitoring: string
+  const [projects, setProjects] = useState<ProjectRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+
+    fetchProjects()
+      .then((data) => {
+        if (!cancelled) setProjects(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err?.message ?? 'Failed to load projects')
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
     }
-  > = {
-    'P-214': {
-      code: 'DOST-MAT-2024-001',
-      location: 'Lower Kapayas, Mati City',
-      manager: 'Maria Dela Cruz',
-      quarter: 'Q3 2024',
-      workforce: 18,
-      netMargin: 22.4,
-      assetValue: 1840000,
-      lastMonitoring: '30 Sep 2024',
-    },
-    'P-203': {
-      code: 'DOST-DVO-2024-014',
-      location: 'Calinan, Davao City',
-      manager: 'Jonas Villanueva',
-      quarter: 'Q3 2024',
-      workforce: 34,
-      netMargin: 16.8,
-      assetValue: 3260000,
-      lastMonitoring: '24 Sep 2024',
-    },
-    'P-187': {
-      code: 'DOST-MAT-2024-006',
-      location: 'Mati City, Davao Oriental',
-      manager: 'Ana Mae Flores',
-      quarter: 'Q3 2024',
-      workforce: 12,
-      netMargin: 19.2,
-      assetValue: 980000,
-      lastMonitoring: '18 Sep 2024',
-    },
-    'P-208': {
-      code: 'DOST-TAG-2024-009',
-      location: 'Apokon, Tagum City',
-      manager: 'Rogelio Santos',
-      quarter: 'Q3 2024',
-      workforce: 27,
-      netMargin: 11.6,
-      assetValue: 2120000,
-      lastMonitoring: '06 Aug 2024',
-    },
-    'P-211': {
-      code: 'DOST-MAT-2024-011',
-      location: 'Dahican, Mati City',
-      manager: 'Leah Manalo',
-      quarter: 'Q3 2024',
-      workforce: 21,
-      netMargin: 24.1,
-      assetValue: 1470000,
-      lastMonitoring: '12 Sep 2024',
-    },
+  }, [])
+
+  const isGia = projects.some((p) => p.program_type === 'GIA')
+
+  if (isLoading) {
+    return <div className="py-10 text-center text-sm text-slate-400">Loading projects…</div>
   }
 
-  const getEnterpriseData = (p: ProjectRecord) => {
-    return (
-      enterpriseMetadata[p.id] || {
-        code: `DOST-MAT-2024-0${p.id.slice(-2)}`,
-        location: p.gia?.location || 'Mati City, Davao Oriental',
-        manager: p.manager || 'Maria Dela Cruz',
-        quarter: 'Q3 2024',
-        workforce: 16,
-        netMargin: 18.5,
-        assetValue: p.budget || 1200000,
-        lastMonitoring: '15 Sep 2024',
-      }
-    )
+  if (error) {
+    return <div className="py-10 text-center text-sm text-red-500">{error}</div>
   }
-
-  const isGia = projects.some((p) => p.program === 'GIA')
 
   return (
     <div className="space-y-4 font-sans">
-      {/* Subheader */}
-
       <div className="flex items-center justify-between border-b border-[#B5BFCD]/50 pb-2.5">
         <div>
           <h2 className="text-base font-semibold text-slate-900 leading-snug">
@@ -119,13 +117,11 @@ export function MonitoredProjectsSection({
         </span>
       </div>
 
-
-      {/* VIEW MODE: BOX (GRID) */}
       {viewMode === 'box' && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
-            const meta = getEnterpriseData(p)
-            const isGiaItem = p.program === 'GIA'
+            const meta = getProjectDisplayData(p)
+            const isGiaItem = p.program_type === 'GIA'
 
             return (
               <div
@@ -133,24 +129,20 @@ export function MonitoredProjectsSection({
                 className="flex flex-col justify-between rounded-2xl border border-[#B5BFCD]/80 bg-white p-5 shadow-sm transition hover:border-[#285497] hover:shadow-md"
               >
                 <div>
-                  {/* Icon + Pill */}
                   <div className="flex items-center justify-between">
                     <div className="flex size-10 items-center justify-center rounded-xl bg-[#E6EEF4] text-[#285497]">
                       {isGiaItem ? <FileSpreadsheet className="size-5" /> : <Store className="size-5" />}
                     </div>
                     <span className="rounded-full bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-semibold text-[#285497]">
-                      {isGiaItem ? 'In Progress' : 'Compliant'}
+                      {p.status === 'active' ? 'Active' : p.status}
                     </span>
                   </div>
 
-
-                  {/* Title & Code */}
                   <h3 className="mt-3 text-base font-semibold text-slate-900 truncate">
-                    {p.enterprise || p.title}
+                    {meta.title}
                   </h3>
                   <p className="text-xs font-normal text-slate-400">{meta.code}</p>
 
-                  {/* Location */}
                   <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500 font-normal">
                     <MapPin className="size-3.5 text-[#285497] shrink-0" />
                     <span className="truncate">{meta.location}</span>
@@ -158,7 +150,6 @@ export function MonitoredProjectsSection({
 
                   <hr className="my-3.5 border-[#B5BFCD]/40" />
 
-                  {/* 2-Column Info Grid */}
                   <div className="grid grid-cols-2 gap-y-2.5 text-xs">
                     <div>
                       <span className="block text-[11px] text-slate-400 font-normal">
@@ -180,7 +171,9 @@ export function MonitoredProjectsSection({
                         {isGiaItem ? 'Implementing Agency' : 'Workforce'}
                       </span>
                       <span className="font-semibold text-slate-900 block truncate">
-                        {isGiaItem ? (p.gia?.agency || p.enterprise || 'LGU / Community') : `${meta.workforce} employees`}
+                        {isGiaItem
+                          ? (meta.agency || meta.title || 'LGU / Community')
+                          : (meta.workforce !== null ? `${meta.workforce} employees` : 'Not specified')}
                       </span>
                     </div>
                     <div>
@@ -188,7 +181,9 @@ export function MonitoredProjectsSection({
                         {isGiaItem ? 'Total Grant / Budget' : 'Net profit margin'}
                       </span>
                       <span className="font-semibold text-[#285497] block">
-                        {isGiaItem ? `₱${(p.budget / 1000000).toFixed(2)}M` : `${meta.netMargin}%`}
+                        {isGiaItem
+                          ? (p.budget ? `₱${(p.budget / 1000000).toFixed(2)}M` : 'Not specified')
+                          : (meta.netMargin !== null ? `${meta.netMargin}%` : 'Not yet available')}
                       </span>
                     </div>
                     <div>
@@ -196,7 +191,9 @@ export function MonitoredProjectsSection({
                         {isGiaItem ? 'Reporting Period' : 'Asset book value'}
                       </span>
                       <span className="font-semibold text-slate-900 block">
-                        {isGiaItem ? (p.gia?.reportingPeriod || 'CY 2026') : `₱${(meta.assetValue / 1000000).toFixed(2)}M`}
+                        {isGiaItem
+                          ? (meta.reportingPeriod || 'Not specified')
+                          : (meta.assetValue !== null ? `₱${(meta.assetValue / 1000000).toFixed(2)}M` : 'Not yet available')}
                       </span>
                     </div>
                     <div>
@@ -206,7 +203,6 @@ export function MonitoredProjectsSection({
                   </div>
                 </div>
 
-                {/* Open Report Button */}
                 <button
                   type="button"
                   onClick={() => onSelectProject(p)}
@@ -221,7 +217,6 @@ export function MonitoredProjectsSection({
         </div>
       )}
 
-      {/* VIEW MODE: LIST (TABLE) */}
       {viewMode === 'list' && (
         <div className="overflow-hidden rounded-2xl border border-[#B5BFCD]/80 bg-white shadow-sm">
           <div className="overflow-x-auto">
@@ -241,13 +236,13 @@ export function MonitoredProjectsSection({
               </thead>
               <tbody className="divide-y divide-[#B5BFCD]/30 text-slate-700">
                 {projects.map((p) => {
-                  const meta = getEnterpriseData(p)
-                  const isGiaItem = p.program === 'GIA'
+                  const meta = getProjectDisplayData(p)
+                  const isGiaItem = p.program_type === 'GIA'
 
                   return (
                     <tr key={p.id} className="hover:bg-[#E6EEF4]/30 transition">
                       <td className="py-3.5 pl-5 pr-3 font-semibold text-slate-900 whitespace-nowrap">
-                        {p.enterprise || p.title}
+                        {meta.title}
                       </td>
                       <td className="px-3 py-3.5 font-mono text-slate-500 whitespace-nowrap font-normal">
                         {meta.code}
@@ -255,13 +250,15 @@ export function MonitoredProjectsSection({
                       <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">{meta.location}</td>
                       <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">{meta.manager}</td>
                       <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">
-                        {isGiaItem ? (p.gia?.reportingPeriod || 'CY 2026') : meta.quarter}
+                        {isGiaItem ? (meta.reportingPeriod || 'Not specified') : meta.quarter}
                       </td>
                       <td className="px-3 py-3.5 font-semibold text-slate-900 whitespace-nowrap">
-                        {isGiaItem ? `₱${(p.budget / 1000000).toFixed(2)}M` : `${meta.workforce} employees`}
+                        {isGiaItem
+                          ? (p.budget ? `₱${(p.budget / 1000000).toFixed(2)}M` : 'Not specified')
+                          : (meta.workforce !== null ? `${meta.workforce} employees` : 'Not specified')}
                       </td>
                       <td className="px-3 py-3.5 font-semibold text-[#285497] whitespace-nowrap">
-                        {isGiaItem ? (p.status || 'Active') : `${meta.netMargin}%`}
+                        {isGiaItem ? (p.status || 'Active') : (meta.netMargin !== null ? `${meta.netMargin}%` : 'Not yet available')}
                       </td>
                       <td className="px-3 py-3.5 text-slate-500 whitespace-nowrap font-normal">
                         {meta.lastMonitoring}
@@ -278,13 +275,10 @@ export function MonitoredProjectsSection({
                     </tr>
                   )
                 })}
-
               </tbody>
             </table>
           </div>
 
-
-          {/* Table Pagination */}
           <div className="flex items-center justify-between border-t border-[#B5BFCD]/40 px-5 py-2.5 text-xs text-slate-500 bg-[#E6EEF4]/30">
             <span>Showing 1-{projects.length} of {projects.length} monitored {isGia ? 'community projects' : 'enterprises'}</span>
             <div className="flex items-center gap-1">
@@ -296,7 +290,6 @@ export function MonitoredProjectsSection({
               </button>
             </div>
           </div>
-
         </div>
       )}
     </div>

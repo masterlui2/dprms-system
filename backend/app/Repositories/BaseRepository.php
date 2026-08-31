@@ -12,9 +12,9 @@ class BaseRepository implements BaseRepositoryInterface{
     public function __construct(protected Model $model){}
 
     #[Override]
-    public function all(): Collection
+    public function all(array $relations = []): Collection
     {
-        return $this->model->newQuery()->get();
+        return $this->model->newQuery()->with($relations)->get();
     }
 
     #[Override]

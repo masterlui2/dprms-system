@@ -108,3 +108,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/setup/financials', [SetupProposalController::class, 'getFinancialDocuments']);
     Route::get('/setup/equipments',[SetupProposalController::class, 'getEquipmentQuotations']);
 });
+
+Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('projects')->group(function (){
+    Route::get('/',[ProjectController::class,'index']);
+});

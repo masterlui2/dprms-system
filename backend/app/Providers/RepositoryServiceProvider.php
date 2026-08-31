@@ -8,10 +8,12 @@ use App\Repositories\AuthorizationModule\RoleRepository;
 use App\Repositories\AuthorizationModule\UserRepository;
 use App\Repositories\AuthorizationModule\UserRoleRepository;
 use App\Repositories\AuthorizationModule\AuditLogRepository;
+use App\Repositories\BaseRepository;
 use App\Repositories\Contracts\AuthorizationModule\UserRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\RoleRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\UserRoleRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\AuditLogRepositoryInterface;
+use App\Repositories\Contracts\BaseRepositoryInterface;
 use App\Repositories\Contracts\ProjectModule\ProjectRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\DocumentRequirementRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\DocumentsRepositoryInterface;
@@ -62,6 +64,8 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(DocumentsRepositoryInterface::class, DocumentsRepository::class);
         $this->app->bind(ProposalAuditRepositoryInterface::class, ProposalAuditRepository::class);
         $this->app->bind(ProjectRepositoryInterface::class,ProjectRepository::class);
+
+        $this->app->bind(BaseRepositoryInterface::class, BaseRepository::class);
     }
 
     /**
