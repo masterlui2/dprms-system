@@ -85,14 +85,18 @@ export interface GiaMonitoringDetails {
 }
 
 export interface ProjectRecord {
+  approvedAt?: string | null
+  backendId?: number
   budget: number
   compliance: 'Compliant' | 'Due soon' | 'Overdue'
   dueDate: string
   enterprise: string
   id: string
+  location?: string
   manager: string
   program: Program
   progress: number
+  referenceNumber?: string
   gia?: GiaMonitoringDetails
   status: 'Active' | 'At risk' | 'Completed'
   title: string

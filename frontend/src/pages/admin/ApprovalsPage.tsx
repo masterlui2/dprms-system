@@ -302,7 +302,7 @@ export function ApprovalsPage() {
     {
       id: "id",
       header: "Reference",
-      className: "min-w-[105px] whitespace-nowrap",
+      className: "w-[10%]",
       sortValue: (proposal) => proposal.id,
       render: (proposal) => (
         <span className="font-mono text-[11px] font-bold text-slate-600 whitespace-nowrap block tracking-tight">
@@ -313,7 +313,7 @@ export function ApprovalsPage() {
     {
       id: "title",
       header: "Project Title",
-      className: "min-w-[230px]",
+      className: "w-[17%]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
         <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2">
@@ -324,7 +324,7 @@ export function ApprovalsPage() {
     {
       id: "proponent",
       header: "Proponent",
-      className: "min-w-[140px]",
+      className: "w-[13%]",
       sortValue: (proposal) => proposal.proponentName ?? "",
       render: (proposal) => (
         <p className="font-bold text-sm text-slate-900 leading-snug">
@@ -335,7 +335,7 @@ export function ApprovalsPage() {
     {
       id: "organization",
       header: "Organization",
-      className: "min-w-[160px]",
+      className: "w-[19%]",
       sortValue: (proposal) => proposal.organization,
       render: (proposal) => (
         <div className="space-y-0.5">
@@ -347,13 +347,19 @@ export function ApprovalsPage() {
               {proposal.organizationType}
             </p>
           ) : null}
+          <p
+            className="truncate text-[11px] font-medium text-slate-500"
+            title={proposal.location || "Location not recorded"}
+          >
+            {proposal.location || "Location not recorded"}
+          </p>
         </div>
       ),
     },
     {
       id: "classification",
       header: "Sector / Scale",
-      className: "min-w-[160px]",
+      className: "w-[14%]",
       sortValue: (proposal) =>
         proposal.program === "SETUP"
           ? proposal.industrySector ?? ""
@@ -393,20 +399,9 @@ export function ApprovalsPage() {
       ),
     },
     {
-      id: "location",
-      header: "Address",
-      className: "min-w-[130px]",
-      sortValue: (proposal) => proposal.location ?? "",
-      render: (proposal) => (
-        <span className="text-xs font-medium text-slate-600 block leading-snug">
-          {proposal.location || "Davao Oriental"}
-        </span>
-      ),
-    },
-    {
       id: "submitted",
       header: "Submission Date",
-      className: "min-w-[120px]",
+      className: "w-[9%]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="text-xs font-medium text-slate-600 whitespace-nowrap block">
@@ -417,7 +412,7 @@ export function ApprovalsPage() {
     {
       id: "status",
       header: "Status",
-      className: "min-w-[100px]",
+      className: "w-[7%]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
         let toneClass = "text-[#0f53b7]";
@@ -438,7 +433,7 @@ export function ApprovalsPage() {
         }
 
         return (
-          <span className={cn("text-xs font-bold whitespace-nowrap", toneClass)}>
+          <span className={cn("text-xs font-bold leading-snug", toneClass)}>
             {proposal.status}
           </span>
         );
@@ -447,7 +442,7 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "min-w-[120px] text-right whitespace-nowrap",
+      className: "w-[11%] text-right",
       render: (proposal) => {
         const canDecide =
           currentUser?.role === "provincial_director" &&
@@ -682,6 +677,7 @@ export function ApprovalsPage() {
           data={filteredProposals}
           emptyDescription="No applications match the selected filter."
           emptyTitle="No applications found"
+          fitColumns
           getRowKey={(proposal) => proposal.id}
           onRowClick={(proposal) => openReview(proposal, "overview")}
           searchPlaceholder="Search applications..."

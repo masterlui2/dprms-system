@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import {
   BarChart3,
   ChevronLeft,
@@ -8,6 +8,8 @@ import {
   Grid2X2,
   List,
   ListFilter,
+  LoaderCircle,
+  RefreshCw,
 } from "lucide-react";
 
 import { ModalShell } from "../../components/admin/ModalShell";
@@ -19,11 +21,11 @@ import { MonitoredProjectsSection } from "../../components/monitoring/MonitoredP
 import { ROLES } from "../../config/permissions";
 
 import {
-  projectRecords,
   type Program,
   type ProjectRecord,
 } from "../../data/admin";
 import { getMockUser } from "../../lib/mockAuth";
+import { fetchActiveProjects } from "../../services/projectStore";
 import { cn } from "../../utils/cn";
 
 const visits = [
@@ -130,39 +132,80 @@ function SiteVisitCalendarModal({
 
 export function MonitoringPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const currentUser = getMockUser();
 
-  const selectedProgram: Program =
+  const lockedProgram: Program | null =
     currentUser?.program === "SETUP" || currentUser?.program === "GIA"
       ? currentUser.program
-      : "SETUP";
+      : null;
+  const selectedProgram: Program = lockedProgram ??
+    (searchParams.get("program") === "GIA" ? "GIA" : "SETUP");
 
-  const currentView = searchParams.get("view") === "projects" ? "projects" : "overview";
+  const requestedView = searchParams.get("view");
+  const currentView = requestedView === "projects" ||
+    (!requestedView && location.pathname.endsWith("/projects"))
+    ? "projects"
+    : "overview";
   const projectIdParam = searchParams.get("projectId");
 
   const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(null);
+  const [projects, setProjects] = useState<ProjectRecord[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
 
-  const programProjects = projectRecords.filter(
+  const loadProjects = useCallback(async () => {
+    setIsLoadingProjects(true);
+    setProjectsError(null);
+
+    try {
+      setProjects(await fetchActiveProjects());
+    } catch (error) {
+      console.error("Failed to load approved projects:", error);
+      setProjectsError("Approved projects could not be loaded from the server.");
+    } finally {
+      setIsLoadingProjects(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProjects();
+  }, [loadProjects]);
+
+  const programProjects = projects.filter(
     (p) => p.program === selectedProgram,
   );
 
   useEffect(() => {
     if (projectIdParam) {
-      const found = projectRecords.find((p) => p.id === projectIdParam);
+      const found = projects.find(
+        (p) => p.id === projectIdParam && p.program === selectedProgram,
+      );
       if (found) {
         setSelectedProject(found);
+      } else if (!isLoadingProjects) {
+        setSelectedProject(null);
       }
     } else {
       setSelectedProject(null);
     }
-  }, [projectIdParam]);
+  }, [isLoadingProjects, projectIdParam, projects, selectedProgram]);
 
   const [globalQuarter, setGlobalQuarter] = useState("Q3 2024");
   const [globalViewMode, setGlobalViewMode] = useState<"box" | "list">("box");
   const [siteVisitCalendarOpen, setSiteVisitCalendarOpen] = useState(false);
   const isOverview = currentView === "overview";
 
-  if (selectedProject && (selectedProgram === "SETUP" || selectedProject.program === "SETUP")) {
+  const updateSearchParams = (updates: Record<string, string | null>) => {
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null) next.delete(key);
+      else next.set(key, value);
+    }
+    setSearchParams(next);
+  };
+
+  if (selectedProject?.program === "SETUP") {
     return (
       <div className="space-y-6 font-sans">
         <SetupMonitoringHub
@@ -170,14 +213,14 @@ export function MonitoringPage() {
           readOnly={currentUser?.role !== ROLES.FOCAL}
           onBack={() => {
             setSelectedProject(null);
-            setSearchParams({ view: "projects" });
+            updateSearchParams({ projectId: null, view: "projects" });
           }}
         />
       </div>
     );
   }
 
-  if (selectedProject && (selectedProgram === "GIA" || selectedProject.program === "GIA")) {
+  if (selectedProject?.program === "GIA") {
     return (
       <div className="space-y-6 font-sans">
         <GiaMonitoringHub
@@ -185,7 +228,7 @@ export function MonitoringPage() {
           readOnly={currentUser?.role !== ROLES.FOCAL}
           onBack={() => {
             setSelectedProject(null);
-            setSearchParams({ view: "projects" });
+            updateSearchParams({ projectId: null, view: "projects" });
           }}
         />
       </div>
@@ -215,7 +258,7 @@ export function MonitoringPage() {
           <div className="flex items-center gap-1 rounded-xl border border-[#B5BFCD]/80 bg-[#E6EEF4]/50 p-1">
             <button
               type="button"
-              onClick={() => setSearchParams({ view: "overview" })}
+              onClick={() => updateSearchParams({ projectId: null, view: "overview" })}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition",
                 currentView === "overview"
@@ -228,7 +271,7 @@ export function MonitoringPage() {
             </button>
             <button
               type="button"
-              onClick={() => setSearchParams({ view: "projects" })}
+              onClick={() => updateSearchParams({ projectId: null, view: "projects" })}
               className={cn(
                 "flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition",
                 currentView === "projects"
@@ -254,6 +297,29 @@ export function MonitoringPage() {
 
         {/* Right: Reporting Period Dropdown + Export Report + Grid/List View */}
         <div className="flex flex-wrap items-center gap-3">
+          {!lockedProgram ? (
+            <div className="flex items-center gap-1 rounded-xl border border-[#B5BFCD]/80 bg-[#E6EEF4]/50 p-1 shadow-sm">
+              {(["SETUP", "GIA"] as const).map((program) => (
+                <button
+                  key={program}
+                  type="button"
+                  onClick={() => {
+                    setSelectedProject(null);
+                    updateSearchParams({ program, projectId: null });
+                  }}
+                  className={cn(
+                    "rounded-lg px-3 py-1 text-xs font-bold transition",
+                    selectedProgram === program
+                      ? "bg-[#0f53b7] text-white shadow-sm"
+                      : "text-slate-600 hover:text-[#285497]",
+                  )}
+                >
+                  {program}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {/* Reporting Period */}
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -314,7 +380,24 @@ export function MonitoringPage() {
         </div>
       </header>
 
-      {currentView === "overview" ? (
+      {isLoadingProjects ? (
+        <div className="flex min-h-52 items-center justify-center rounded-2xl border border-[#B5BFCD]/80 bg-white text-sm font-semibold text-slate-500 shadow-sm">
+          <LoaderCircle className="mr-2 size-5 animate-spin text-[#285497]" />
+          Loading approved projects...
+        </div>
+      ) : projectsError ? (
+        <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-rose-200 bg-white px-6 text-center shadow-sm">
+          <p className="text-sm font-bold text-rose-700">{projectsError}</p>
+          <button
+            type="button"
+            onClick={() => void loadProjects()}
+            className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#0f53b7] px-4 py-2 text-xs font-bold text-white hover:bg-[#0b3f8b]"
+          >
+            <RefreshCw className="size-3.5" />
+            Retry
+          </button>
+        </div>
+      ) : currentView === "overview" ? (
         selectedProgram === "GIA" ? (
           <GiaMonitoringOverviewSection
             projects={programProjects}
@@ -322,7 +405,7 @@ export function MonitoringPage() {
             onOpenCalendar={() => setSiteVisitCalendarOpen(true)}
             onSelectProject={(project) => {
               setSelectedProject(project);
-              setSearchParams({ projectId: project.id });
+              updateSearchParams({ projectId: project.id });
             }}
           />
         ) : (
@@ -332,7 +415,7 @@ export function MonitoringPage() {
             onOpenCalendar={() => setSiteVisitCalendarOpen(true)}
             onSelectProject={(project) => {
               setSelectedProject(project);
-              setSearchParams({ projectId: project.id });
+              updateSearchParams({ projectId: project.id });
             }}
           />
         )
@@ -343,7 +426,7 @@ export function MonitoringPage() {
           viewMode={globalViewMode}
           onSelectProject={(project) => {
             setSelectedProject(project);
-            setSearchParams({ projectId: project.id });
+            updateSearchParams({ projectId: project.id });
           }}
         />
       )}

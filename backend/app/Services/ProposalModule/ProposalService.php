@@ -105,27 +105,29 @@ class ProposalService implements ProposalServiceInterface{
     #[Override]
     public function advanceStage(int $proposalId, string $newStatus, ?string $remarks = null, ?string $action = null): Proposal
     {
-        $existing = $this->proposalRepository->findById($proposalId);
-        if (! $existing) {
-            abort(404, 'Proposal not Found');
-        }
+        return DB::transaction(function () use ($proposalId, $newStatus, $remarks, $action) {
+            $existing = $this->proposalRepository->findById($proposalId);
+            if (! $existing) {
+                abort(404, 'Proposal not Found');
+            }
 
-        $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
-        if (! $updated) {
-            abort(404, 'Proposal not Found');
-        }
+            $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
+            if (! $updated) {
+                abort(404, 'Proposal not Found');
+            }
 
-        $proposal = $this->proposalRepository->findById($proposalId);
+            $proposal = $this->proposalRepository->findById($proposalId);
 
-        $this->recordAudit(
-            proposalId: $proposalId,
-            action: $action ?? 'ADVANCE_STAGE',
-            previousStatus: $existing->status,
-            newStatus: $newStatus,
-            remarks: $remarks,
-        );
+            $this->recordAudit(
+                proposalId: $proposalId,
+                action: $action ?? 'ADVANCE_STAGE',
+                previousStatus: $existing->status,
+                newStatus: $newStatus,
+                remarks: $remarks,
+            );
 
-        return $proposal;
+            return $proposal;
+        });
     }
 
     #[Override]
@@ -178,7 +180,7 @@ class ProposalService implements ProposalServiceInterface{
             }
 
             if ($this->projectService->getByProposalId($proposalId)->isEmpty()) {
-                $this->projectService->createFromProposal($existing);
+                $this->projectService->createFromProposal($existing, $remarks);
             }
 
             $proposal = $this->proposalRepository->findById($proposalId);
@@ -415,4 +417,3 @@ class ProposalService implements ProposalServiceInterface{
         });
     }
 }
-

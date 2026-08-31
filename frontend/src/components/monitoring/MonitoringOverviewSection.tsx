@@ -267,7 +267,7 @@ export function MonitoringOverviewSection({
             </span>
           </div>
           <p className="mt-2.5 text-xs font-normal text-slate-500">Active monitored projects</p>
-          <p className="mt-0.5 text-2xl font-black text-slate-900">{current.activeProjects}</p>
+          <p className="mt-0.5 text-2xl font-black text-slate-900">{projects.length}</p>
           <p className="text-[11px] text-slate-400 font-normal">of {current.totalPortfolio} portfolio projects</p>
         </div>
 

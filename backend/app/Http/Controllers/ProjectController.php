@@ -14,11 +14,14 @@ class ProjectController extends Controller
         $query = Project::query()
             ->with([
                 'proposal.user:id,name,email',
+                'proposal.assigned_staff:id,name,email',
+                'proposal.assigned_focal:id,name,email',
                 'proposal.setup_proposal',
                 'proposal.gia_proposal',
                 'user:id,name,email',
-                'approved_by:id,name,email',
-            ]);
+                'approver:id,name,email',
+            ])
+            ->orderByDesc('approved_at');
 
         if ($status) {
             $query->where('status', strtolower($status));

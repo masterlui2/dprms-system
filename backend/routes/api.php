@@ -77,10 +77,13 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::patch('v1/proposals/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
     Route::get('v1/proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
     Route::get('v1/proposals/{proposalId}/review-logs', [ProposalAuditController::class, 'index']);
-    Route::get('v1/projects', [ProjectController::class, 'index']);
     Route::post('proposals/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
     Route::patch('proposals/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
     Route::get('proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
+});
+
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO'])->group(function () {
+    Route::get('v1/projects', [ProjectController::class, 'index']);
     Route::get('projects', [ProjectController::class, 'index']);
 });
 

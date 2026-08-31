@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Project;
 use App\Models\Proposal;
 use App\Models\Role;
+use App\Models\SetupProposal;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -74,6 +75,22 @@ class ProjectCreationOnApprovalTest extends TestCase
 
     public function test_get_v1_projects_endpoint_returns_active_projects(): void
     {
+        SetupProposal::create([
+            'proposal_id' => $this->proposal->id,
+            'business_name' => 'Test Enterprise',
+            'business_type' => 'SOLE-PROPRIETORSHIP',
+            'industry_sector' => 'Food Processing',
+            'enterprise_size' => 'MICRO',
+            'years_in_operation' => 3,
+            'business_address' => 'Mati City',
+            'region' => 'Region XI',
+            'province' => 'Davao Oriental',
+            'city_municipality' => 'Mati City',
+            'form_snapshot' => [
+                'contactPerson' => 'Maria Enterprise Owner',
+            ],
+        ]);
+
         Sanctum::actingAs($this->director);
 
         $this->putJson("/api/proposal/{$this->proposal->id}/approve", [
@@ -87,6 +104,34 @@ class ProjectCreationOnApprovalTest extends TestCase
         $response->assertJsonPath('data.0.proposal_id', $this->proposal->id);
         $response->assertJsonPath('data.0.status', 'active');
         $response->assertJsonPath('data.0.program_type', 'SETUP');
+        $response->assertJsonPath('data.0.proposal.reference_number', 'SETUP-PROJECT-001');
         $response->assertJsonPath('data.0.proposal.title', 'SETUP Modernization Project');
+        $response->assertJsonPath('data.0.proposal.setup_proposal.0.business_name', 'Test Enterprise');
+        $response->assertJsonPath('data.0.proposal.setup_proposal.0.form_snapshot.contactPerson', 'Maria Enterprise Owner');
+    }
+
+    public function test_rpmo_can_view_projects_without_receiving_review_permissions(): void
+    {
+        Sanctum::actingAs($this->director);
+
+        $this->putJson("/api/proposal/{$this->proposal->id}/approve");
+
+        $rpmoRole = Role::create([
+            'name' => 'Regional Project Management Office',
+            'code' => 'RPMO',
+            'program_type' => 'BOTH',
+            'description' => 'Regional project viewer',
+        ]);
+        $rpmo = User::factory()->create();
+        $rpmo->role()->attach($rpmoRole->id, ['assigned_at' => now()]);
+
+        Sanctum::actingAs($rpmo);
+
+        $this->getJson('/api/v1/projects')
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $this->patchJson("/api/v1/proposals/{$this->proposal->id}/assign-officer", [])
+            ->assertForbidden();
     }
 }
