@@ -37,7 +37,7 @@ export function DashboardLayout() {
   return (
     <div
       className={cn(
-        'min-h-screen bg-[#eef5fb] text-slate-900 lg:grid',
+        'h-screen overflow-hidden bg-[#eef5fb] text-slate-900 lg:grid',
         sidebarCollapsed
           ? 'lg:grid-cols-[84px_minmax(0,1fr)]'
           : 'lg:grid-cols-[280px_minmax(0,1fr)]',
@@ -59,8 +59,8 @@ export function DashboardLayout() {
         user={user}
       />
 
-      <div className="min-w-0">
-        <header className="sticky top-0 z-20 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
+      <div className="min-w-0 flex flex-col h-screen overflow-hidden bg-[#eef5fb]">
+        <header className="shrink-0 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
           <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
             <button
               aria-expanded={mobileSidebarOpen}
@@ -168,7 +168,7 @@ export function DashboardLayout() {
           </div>
         </header>
 
-        <main className="px-4 py-6 sm:px-6">
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 bg-[#eef5fb]">
           <Outlet />
         </main>
       </div>

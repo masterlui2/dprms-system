@@ -2,7 +2,7 @@ import { LogOut, X } from 'lucide-react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 
 import logoImage from '../../assets/logo.png'
-import { getSidebarItems, type SidebarItem } from '../../config/sidebarItems'
+import { getSidebarItems, type SidebarItem, type SidebarSubItem } from '../../config/sidebarItems'
 import { ROLE_LABEL } from '../../config/permissions'
 import { clearMockUser, type MockUser } from '../../lib/mockAuth'
 import { cn } from '../../utils/cn'
@@ -18,6 +18,13 @@ function SidebarItem({
   item: SidebarItem
   onNavigate?: () => void
 }) {
+  const location = useLocation()
+  const hasSubItems = Boolean(item.subItems && item.subItems.length > 0)
+  const isParentActive =
+    item.route === '/dashboard'
+      ? location.pathname === '/dashboard'
+      : location.pathname.startsWith(item.route)
+
   const className = cn(
     'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition',
     collapsed && 'justify-center px-0',
@@ -27,10 +34,39 @@ function SidebarItem({
   )
 
   return (
-    <NavLink className={className} onClick={onNavigate} title={item.label} to={item.route}>
-      <item.icon className="h-4 w-4 shrink-0" />
-      {!collapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
-    </NavLink>
+    <div className="space-y-1">
+      <NavLink className={className} onClick={onNavigate} title={item.label} to={item.route}>
+        <item.icon className="h-4 w-4 shrink-0" />
+        {!collapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
+      </NavLink>
+
+      {!collapsed && hasSubItems && isParentActive && item.subItems ? (
+        <div className="ml-4 space-y-0.5 border-l-2 border-[#d8e1ee] pl-2 pt-1">
+          {item.subItems.map((sub: SidebarSubItem) => {
+            const queryParam = sub.route.split('?')[1]
+            const isSubActive = queryParam
+              ? location.search.includes(queryParam)
+              : !location.search || location.search === ''
+
+            return (
+              <NavLink
+                key={sub.label}
+                to={sub.route}
+                onClick={onNavigate}
+                className={cn(
+                  'flex h-8 items-center rounded-md px-2.5 text-xs font-semibold transition',
+                  isSubActive
+                    ? 'bg-blue-50/90 font-bold text-[#073b82]'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900',
+                )}
+              >
+                <span className="truncate">{sub.label}</span>
+              </NavLink>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -60,7 +96,7 @@ export function AdminSidebar({
 
   return (
     <aside className={cn(
-      'fixed inset-y-0 left-0 z-40 w-[280px] border-r border-[#d8e1ee] bg-[#f7fbff] shadow-xl transition-transform lg:sticky lg:top-0 lg:z-auto lg:h-screen lg:w-auto lg:translate-x-0 lg:shadow-none',
+      'fixed inset-y-0 left-0 z-40 w-[280px] border-r border-[#d8e1ee] bg-[#f7fbff] shadow-xl transition-transform lg:static lg:z-auto lg:h-full lg:w-auto lg:translate-x-0 lg:shadow-none',
       mobileOpen ? 'translate-x-0' : '-translate-x-full',
     )}>
       <div className="flex h-full flex-col">

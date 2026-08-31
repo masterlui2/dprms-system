@@ -25,6 +25,13 @@ import {
   type UserRole,
 } from "./permissions";
 
+export type SidebarSubItem = {
+  id: ModuleId;
+  label: string;
+  route: string;
+  icon?: LucideIcon;
+};
+
 /** One menu record per internal DPRMS module. Shared roles use the same record. */
 export type SidebarItem = {
   id: ModuleId;
@@ -32,6 +39,7 @@ export type SidebarItem = {
   icon: LucideIcon;
   route: string;
   allowedRoles: readonly UserRole[];
+  subItems?: SidebarSubItem[];
 };
 
 const item = (
@@ -39,12 +47,14 @@ const item = (
   label: string,
   icon: LucideIcon,
   route: string,
+  subItems?: SidebarSubItem[],
 ): SidebarItem => ({
   id,
   label,
   icon,
   route,
   allowedRoles: modulePermissions[id],
+  subItems,
 });
 
 export const sidebarItems: SidebarItem[] = [
@@ -69,6 +79,18 @@ export const sidebarItems: SidebarItem[] = [
     "Project Monitoring",
     Activity,
     "/dashboard/project-monitoring",
+    [
+      {
+        id: "projectMonitoring",
+        label: "Overview",
+        route: "/dashboard/project-monitoring?view=overview",
+      },
+      {
+        id: "projectMonitoring",
+        label: "Monitored Projects",
+        route: "/dashboard/project-monitoring?view=projects",
+      },
+    ],
   ),
   item("projects", "Projects", FolderKanban, "/dashboard/projects"),
   item(
@@ -132,7 +154,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "dashboard",
     "applications",
     "equipmentTracking",
-    "projectMonitoring",
     "reports",
   ],
   focal: [
@@ -146,7 +167,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "dashboard",
     "applications",
     "repaymentMonitoring",
-    "projectMonitoring",
+    "projects",
     "reports",
   ],
   rpmo: [
