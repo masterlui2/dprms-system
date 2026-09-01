@@ -26,6 +26,9 @@ class Project extends Model
     {
         return [
             'approved_at' => 'datetime',
+            'start_date' => 'date',
+            'expected_end_date' => 'date',
+            'actual_end_date' => 'date',
         ];
     }
 

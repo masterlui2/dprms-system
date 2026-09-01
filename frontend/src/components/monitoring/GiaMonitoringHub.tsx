@@ -4,6 +4,7 @@ import {
   BarChart3,
   Check,
   FileDown,
+  LockKeyhole,
   X,
 } from 'lucide-react'
 
@@ -14,10 +15,20 @@ interface Props {
   project: ProjectRecord
   onBack?: () => void
   readOnly?: boolean
+  initialSemester?: 1 | 2
+  initialYear?: number
 }
 
-export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('CY 2026 (Semi-Annual)')
+export function GiaMonitoringHub({
+  project,
+  onBack,
+  readOnly = false,
+  initialSemester = 1,
+  initialYear = new Date().getFullYear(),
+}: Props) {
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(
+    `${initialSemester === 1 ? '1st' : '2nd'} Semester ${initialYear}`,
+  )
   const [showSummarySidebar, setShowSummarySidebar] = useState(false)
   const [isAutoSaving] = useState(false)
   const [lastSavedTime] = useState('just now')
@@ -46,7 +57,7 @@ export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
                   {project.enterprise || project.title}
                 </h1>
                 <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-bold text-[#285497]">
-                  {project.id}
+                  {project.referenceNumber || project.id}
                 </span>
               </div>
               <p className="text-xs font-semibold text-slate-500 mt-0.5">
@@ -61,9 +72,10 @@ export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
               onChange={(e) => setSelectedPeriod(e.target.value)}
               className="h-8.5 rounded-xl border border-[#B5BFCD] bg-white px-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:border-[#0f53b7] focus:outline-none cursor-pointer"
             >
-              <option value="CY 2026 (Semi-Annual)">CY 2026 (Semi-Annual)</option>
-              <option value="CY 2026 (Quarterly)">CY 2026 (Quarterly)</option>
-              <option value="CY 2025 (Annual)">CY 2025 (Annual)</option>
+              <option value={`1st Semester ${initialYear}`}>1st Semester {initialYear}</option>
+              <option value={`2nd Semester ${initialYear}`}>2nd Semester {initialYear}</option>
+              <option value={`1st Semester ${initialYear - 1}`}>1st Semester {initialYear - 1}</option>
+              <option value={`2nd Semester ${initialYear - 1}`}>2nd Semester {initialYear - 1}</option>
             </select>
 
             <button
@@ -94,7 +106,12 @@ export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
 
       <div className="flex items-center justify-end pr-1">
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-          {isAutoSaving ? (
+          {readOnly ? (
+            <>
+              <LockKeyhole className="size-3.5 text-[#285497]" />
+              <span>Provincial Director read-only view</span>
+            </>
+          ) : isAutoSaving ? (
             <>
               <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
               <span>Saving draft...</span>
@@ -115,6 +132,7 @@ export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
             onBack={onBack || (() => {})}
             hideTopBar={true}
             readOnly={readOnly}
+            selectedReportingPeriod={selectedPeriod}
           />
         </div>
 
@@ -123,7 +141,7 @@ export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
             <div className="flex items-center justify-between border-b border-[#B5BFCD]/50 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">GIA (CEST) Summary</h3>
-                <p className="text-xs text-slate-400 font-normal">{project.id} · {project.enterprise || project.title}</p>
+                <p className="text-xs text-slate-400 font-normal">{project.referenceNumber || project.id} · {project.enterprise || project.title}</p>
               </div>
               <button
                 type="button"
@@ -154,7 +172,7 @@ export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Project Leader:</span>
-                  <span className="font-bold text-slate-900">{project.manager || 'Dr. Kevin Lim'}</span>
+                  <span className="font-bold text-slate-900">{project.manager || 'Not assigned'}</span>
                 </div>
               </div>
             </div>

@@ -3,13 +3,16 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentTypeController;
+use App\Http\Controllers\EquipmentInspectionController;
 use App\Http\Controllers\GiaProposalController;
 use App\Http\Controllers\GiaProposalSubmissionController;
+use App\Http\Controllers\GiaMonitoringProjectController;
 use App\Http\Controllers\ProposalController;
 use App\Http\Controllers\ProposalTemplateController;
 use App\Http\Controllers\ProposalAuditController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\SetupProposalController;
+use App\Http\Controllers\SetupMonitoringProjectController;
 
 use App\Http\Controllers\SetupProposalSubmissionController;
 use Illuminate\Support\Facades\Route;
@@ -85,6 +88,18 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO'])->group(function () {
     Route::get('v1/projects', [ProjectController::class, 'index']);
     Route::get('projects', [ProjectController::class, 'index']);
+});
+
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO'])
+    ->get('setup/monitoring/projects', [SetupMonitoringProjectController::class, 'index']);
+
+Route::middleware(['auth:sanctum', 'role:FOCAL,PROVINCIAL_DIRECTOR'])
+    ->get('gia/monitoring/projects', [GiaMonitoringProjectController::class, 'index']);
+
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL'])->prefix('v1/equipment')->group(function () {
+    Route::get('/', [EquipmentInspectionController::class, 'index']);
+    Route::post('/qr/resolve', [EquipmentInspectionController::class, 'resolveQr']);
+    Route::post('/{equipment}/inspections', [EquipmentInspectionController::class, 'storeInspection']);
 });
 
 

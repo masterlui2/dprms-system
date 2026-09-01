@@ -166,7 +166,7 @@ export function SetupMonitoringHub({
                   {project.enterprise || project.title || record.enterpriseName}
                 </h1>
                 <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-bold text-[#285497]">
-                  {project.id}
+                  {project.referenceNumber || project.id}
                 </span>
               </div>
               <p className="text-xs font-semibold text-slate-500 mt-0.5">

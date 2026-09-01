@@ -31,9 +31,11 @@ class AuthService implements AuthServiceInterface
         $user->load('role');
         $token = $user->createToken('api-token')->plainTextToken;
         $primaryRole = $user->role->first();
-        $program = in_array($primaryRole?->program_type, ['SETUP', 'GIA'], true)
-            ? $primaryRole->program_type
-            : null;
+        $program = in_array($user->program_type, ['SETUP', 'GIA'], true)
+            ? $user->program_type
+            : (in_array($primaryRole?->program_type, ['SETUP', 'GIA'], true)
+                ? $primaryRole->program_type
+                : null);
 
         return [
             'user' => [
@@ -71,6 +73,7 @@ class AuthService implements AuthServiceInterface
         }
 
         return DB::transaction(function () use ($data, $accountRole, $role) {
+            $data['program_type'] = $accountRole->program_type;
             $user = $this->userRepository->create($data);
 
             $user->role()->syncWithoutDetaching([
