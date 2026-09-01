@@ -5,6 +5,63 @@ import type {
 
 const STORAGE_PREFIX = 'dprms_setup_monitoring_record_'
 
+function createEmptyQuarterRecord(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+): SetupMonitoringQuarterRecord {
+  return {
+    id: `${projectId}-${year}-${quarter}`,
+    projectId,
+    enterpriseName: '',
+    enterpriseAddress: '',
+    year,
+    quarter,
+    dateOfVisit: '',
+    status: 'Draft',
+    buildingAssets: [],
+    equipmentAssets: [],
+    workingCapital: [],
+    internationalMarkets: [],
+    localMarkets: [],
+    forwardDistributors: [],
+    forwardSuppliers: [],
+    directEmployees: [],
+    indirectEmployees: [],
+    consultancies: [],
+    trainings: [],
+    techTransfers: [],
+    supportServices: [],
+    otherProjects: [],
+    operatingExpenses: [],
+    laborExpenses: [],
+    rawMaterials: [],
+    miscellaneousExpenses: [],
+    sales: [],
+    problemsAndActions: {
+      humanResource: '',
+      technical: '',
+      financial: '',
+      market: '',
+    },
+    plansForImprovement: {
+      humanResource: '',
+      technical: '',
+      financial: '',
+      market: '',
+    },
+    signOff: {
+      interviewerName: '',
+      interviewerDesignation: '',
+      interviewerSignatureDate: '',
+      respondentName: '',
+      respondentDesignation: '',
+      respondentSignatureDate: '',
+      dateOfVisit: '',
+    },
+  }
+}
+
 export function calculateBuildingDepreciation(cost: number, usefulLifeYears: number): number {
   if (!usefulLifeYears || usefulLifeYears <= 0) return 0
   return Math.round((cost / usefulLifeYears) * 100) / 100
@@ -414,8 +471,7 @@ export function getQuarterRecord(
     // fallback
   }
 
-  const defaultRecord = createDefaultQuarterRecord(projectId, year, quarter)
-  return defaultRecord
+  return createEmptyQuarterRecord(projectId, year, quarter)
 }
 
 export function saveQuarterRecord(record: SetupMonitoringQuarterRecord): void {
@@ -441,9 +497,6 @@ export function getAllSavedMonitoringRecords(): SetupMonitoringQuarterRecord[] {
     }
   } catch {
     // fallback
-  }
-  if (records.length === 0) {
-    records.push(createDefaultQuarterRecord('P-214', 2026, 'Q2'))
   }
   return records
 }

@@ -27,7 +27,6 @@ export function MonitoredProjectsSection({
       workforce: number
       netMargin: number
       assetValue: number
-      lastMonitoring: string
     }
   > = {
     'P-214': {
@@ -38,7 +37,6 @@ export function MonitoredProjectsSection({
       workforce: 18,
       netMargin: 22.4,
       assetValue: 1840000,
-      lastMonitoring: '30 Sep 2024',
     },
     'P-203': {
       code: 'DOST-DVO-2024-014',
@@ -48,7 +46,6 @@ export function MonitoredProjectsSection({
       workforce: 34,
       netMargin: 16.8,
       assetValue: 3260000,
-      lastMonitoring: '24 Sep 2024',
     },
     'P-187': {
       code: 'DOST-MAT-2024-006',
@@ -58,7 +55,6 @@ export function MonitoredProjectsSection({
       workforce: 12,
       netMargin: 19.2,
       assetValue: 980000,
-      lastMonitoring: '18 Sep 2024',
     },
     'P-208': {
       code: 'DOST-TAG-2024-009',
@@ -68,7 +64,6 @@ export function MonitoredProjectsSection({
       workforce: 27,
       netMargin: 11.6,
       assetValue: 2120000,
-      lastMonitoring: '06 Aug 2024',
     },
     'P-211': {
       code: 'DOST-MAT-2024-011',
@@ -78,21 +73,19 @@ export function MonitoredProjectsSection({
       workforce: 21,
       netMargin: 24.1,
       assetValue: 1470000,
-      lastMonitoring: '12 Sep 2024',
     },
   }
 
   const getEnterpriseData = (p: ProjectRecord) => {
     return (
       enterpriseMetadata[p.id] || {
-        code: `DOST-MAT-2024-0${p.id.slice(-2)}`,
-        location: p.gia?.location || 'Mati City, Davao Oriental',
-        manager: p.manager || 'Maria Dela Cruz',
-        quarter: 'Q3 2024',
-        workforce: 16,
-        netMargin: 18.5,
-        assetValue: p.budget || 1200000,
-        lastMonitoring: '15 Sep 2024',
+        code: p.referenceNumber || p.id,
+        location: p.location || p.gia?.location || 'Location not recorded',
+        manager: p.manager || 'Unassigned',
+        quarter: 'Not yet reported',
+        workforce: 0,
+        netMargin: 0,
+        assetValue: 0,
       }
     )
   }
@@ -119,9 +112,18 @@ export function MonitoredProjectsSection({
         </span>
       </div>
 
+      {projects.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-[#B5BFCD] bg-white px-6 py-14 text-center shadow-sm">
+          <h3 className="text-sm font-bold text-slate-800">No approved {isGia ? 'GIA' : 'SETUP'} projects yet</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Projects will appear here automatically after provincial director approval.
+          </p>
+        </div>
+      ) : null}
+
 
       {/* VIEW MODE: BOX (GRID) */}
-      {viewMode === 'box' && (
+      {viewMode === 'box' && projects.length > 0 && (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((p) => {
             const meta = getEnterpriseData(p)
@@ -139,7 +141,7 @@ export function MonitoredProjectsSection({
                       {isGiaItem ? <FileSpreadsheet className="size-5" /> : <Store className="size-5" />}
                     </div>
                     <span className="rounded-full bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-semibold text-[#285497]">
-                      {isGiaItem ? 'In Progress' : 'Compliant'}
+                      {isGiaItem ? p.status : p.compliance}
                     </span>
                   </div>
 
@@ -180,7 +182,9 @@ export function MonitoredProjectsSection({
                         {isGiaItem ? 'Implementing Agency' : 'Workforce'}
                       </span>
                       <span className="font-semibold text-slate-900 block truncate">
-                        {isGiaItem ? (p.gia?.agency || p.enterprise || 'LGU / Community') : `${meta.workforce} employees`}
+                        {isGiaItem
+                          ? (p.gia?.agency || p.enterprise || 'LGU / Community')
+                          : meta.workforce > 0 ? `${meta.workforce} employees` : 'Not reported'}
                       </span>
                     </div>
                     <div>
@@ -188,7 +192,9 @@ export function MonitoredProjectsSection({
                         {isGiaItem ? 'Total Grant / Budget' : 'Net profit margin'}
                       </span>
                       <span className="font-semibold text-[#285497] block">
-                        {isGiaItem ? `₱${(p.budget / 1000000).toFixed(2)}M` : `${meta.netMargin}%`}
+                        {isGiaItem
+                          ? p.budget > 0 ? `₱${(p.budget / 1000000).toFixed(2)}M` : 'Not recorded'
+                          : meta.netMargin > 0 ? `${meta.netMargin}%` : 'Not reported'}
                       </span>
                     </div>
                     <div>
@@ -196,12 +202,10 @@ export function MonitoredProjectsSection({
                         {isGiaItem ? 'Reporting Period' : 'Asset book value'}
                       </span>
                       <span className="font-semibold text-slate-900 block">
-                        {isGiaItem ? (p.gia?.reportingPeriod || 'CY 2026') : `₱${(meta.assetValue / 1000000).toFixed(2)}M`}
+                        {isGiaItem
+                          ? (p.gia?.reportingPeriod || 'For monitoring setup')
+                          : meta.assetValue > 0 ? `₱${(meta.assetValue / 1000000).toFixed(2)}M` : 'Not reported'}
                       </span>
-                    </div>
-                    <div>
-                      <span className="block text-[11px] text-slate-400 font-normal">Last monitoring</span>
-                      <span className="font-semibold text-slate-900 block">{meta.lastMonitoring}</span>
                     </div>
                   </div>
                 </div>
@@ -222,21 +226,20 @@ export function MonitoredProjectsSection({
       )}
 
       {/* VIEW MODE: LIST (TABLE) */}
-      {viewMode === 'list' && (
+      {viewMode === 'list' && projects.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-[#B5BFCD]/80 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="w-full">
+            <table className="w-full table-fixed text-left text-xs">
               <thead className="border-b border-[#B5BFCD]/80 bg-[#E6EEF4] text-[11px] font-semibold uppercase tracking-wider text-[#285497]">
                 <tr>
-                  <th className="py-3.5 pl-5 pr-3">{isGia ? 'Project / Organization ↕' : 'Enterprise Name ↕'}</th>
-                  <th className="px-3 py-3.5">Code ↕</th>
-                  <th className="px-3 py-3.5">Address / Location</th>
-                  <th className="px-3 py-3.5">{isGia ? 'Project Leader' : 'Assigned Manager'}</th>
-                  <th className="px-3 py-3.5">{isGia ? 'Period' : 'Quarter'}</th>
-                  <th className="px-3 py-3.5">{isGia ? 'Grant Budget' : 'Workforce'}</th>
-                  <th className="px-3 py-3.5">{isGia ? 'Status' : 'Net Margin'}</th>
-                  <th className="px-3 py-3.5">Last Monitoring</th>
-                  <th className="py-3.5 pl-3 pr-5 text-right">Action</th>
+                  <th className="w-[17%] py-3.5 pl-5 pr-2">{isGia ? 'Project / Organization ↕' : 'Enterprise Name ↕'}</th>
+                  <th className="w-[13%] px-2 py-3.5">Code ↕</th>
+                  <th className="hidden w-[19%] px-2 py-3.5 lg:table-cell">Address / Location</th>
+                  <th className="hidden w-[14%] px-2 py-3.5 xl:table-cell">{isGia ? 'Project Leader' : 'Assigned Manager'}</th>
+                  <th className="hidden w-[11%] px-2 py-3.5 lg:table-cell">{isGia ? 'Period' : 'Quarter'}</th>
+                  <th className="hidden w-[11%] px-2 py-3.5 xl:table-cell">{isGia ? 'Grant Budget' : 'Workforce'}</th>
+                  <th className="w-[7%] px-2 py-3.5">{isGia ? 'Status' : 'Net Margin'}</th>
+                  <th className="w-[8%] py-3.5 pl-2 pr-5 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#B5BFCD]/30 text-slate-700">
@@ -246,33 +249,49 @@ export function MonitoredProjectsSection({
 
                   return (
                     <tr key={p.id} className="hover:bg-[#E6EEF4]/30 transition">
-                      <td className="py-3.5 pl-5 pr-3 font-semibold text-slate-900 whitespace-nowrap">
-                        {p.enterprise || p.title}
+                      <td className="py-3.5 pl-5 pr-2 font-semibold text-slate-900">
+                        <span className="block truncate" title={p.enterprise || p.title}>
+                          {p.enterprise || p.title}
+                        </span>
                       </td>
-                      <td className="px-3 py-3.5 font-mono text-slate-500 whitespace-nowrap font-normal">
-                        {meta.code}
+                      <td className="px-2 py-3.5 font-mono text-slate-500 font-normal">
+                        <span className="block truncate" title={meta.code}>{meta.code}</span>
                       </td>
-                      <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">{meta.location}</td>
-                      <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">{meta.manager}</td>
-                      <td className="px-3 py-3.5 text-slate-600 whitespace-nowrap font-normal">
-                        {isGiaItem ? (p.gia?.reportingPeriod || 'CY 2026') : meta.quarter}
+                      <td className="hidden px-2 py-3.5 text-slate-600 font-normal lg:table-cell">
+                        <span className="block truncate" title={meta.location}>{meta.location}</span>
                       </td>
-                      <td className="px-3 py-3.5 font-semibold text-slate-900 whitespace-nowrap">
-                        {isGiaItem ? `₱${(p.budget / 1000000).toFixed(2)}M` : `${meta.workforce} employees`}
+                      <td className="hidden px-2 py-3.5 text-slate-600 font-normal xl:table-cell">
+                        <span className="block truncate" title={meta.manager}>{meta.manager}</span>
                       </td>
-                      <td className="px-3 py-3.5 font-semibold text-[#285497] whitespace-nowrap">
-                        {isGiaItem ? (p.status || 'Active') : `${meta.netMargin}%`}
+                      <td className="hidden px-2 py-3.5 text-slate-600 font-normal lg:table-cell">
+                        <span
+                          className="block truncate"
+                          title={isGiaItem ? (p.gia?.reportingPeriod || 'For monitoring setup') : meta.quarter}
+                        >
+                          {isGiaItem ? (p.gia?.reportingPeriod || 'For monitoring setup') : meta.quarter}
+                        </span>
                       </td>
-                      <td className="px-3 py-3.5 text-slate-500 whitespace-nowrap font-normal">
-                        {meta.lastMonitoring}
+                      <td className="hidden px-2 py-3.5 font-semibold text-slate-900 xl:table-cell">
+                        <span className="block truncate">
+                          {isGiaItem
+                            ? p.budget > 0 ? `₱${(p.budget / 1000000).toFixed(2)}M` : 'Not recorded'
+                            : meta.workforce > 0 ? `${meta.workforce} employees` : 'Not reported'}
+                        </span>
                       </td>
-                      <td className="py-3.5 pl-3 pr-5 text-right whitespace-nowrap">
+                      <td className="px-2 py-3.5 font-semibold text-[#285497]">
+                        <span className="block truncate">
+                          {isGiaItem
+                            ? p.status
+                            : meta.netMargin > 0 ? `${meta.netMargin}%` : 'Not reported'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 pl-2 pr-5 text-right">
                         <button
                           type="button"
                           onClick={() => onSelectProject(p)}
-                          className="font-semibold text-[#0f53b7] hover:underline"
+                          className="whitespace-nowrap font-semibold text-[#0f53b7] hover:underline"
                         >
-                          Open report
+                          Open
                         </button>
                       </td>
                     </tr>

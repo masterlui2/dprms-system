@@ -68,8 +68,9 @@ export function SetupMonitoringHub({
   useEffect(() => {
     const loaded = getQuarterRecord(project.id, selectedYear, selectedQuarter)
     loaded.enterpriseName = project.enterprise || loaded.enterpriseName
+    loaded.enterpriseAddress = project.location || loaded.enterpriseAddress
     setRecord({ ...loaded })
-  }, [project.id, selectedYear, selectedQuarter, project.enterprise])
+  }, [project.id, selectedYear, selectedQuarter, project.enterprise, project.location])
 
   const handleRecordChange = (updated: SetupMonitoringQuarterRecord) => {
     setRecord(updated)

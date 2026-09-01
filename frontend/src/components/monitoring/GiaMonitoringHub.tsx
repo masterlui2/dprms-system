@@ -16,12 +16,13 @@ interface Props {
   readOnly?: boolean
 }
 
-export function GiaMonitoringHub({ project, onBack }: Props) {
+export function GiaMonitoringHub({ project, onBack, readOnly = false }: Props) {
   const [selectedPeriod, setSelectedPeriod] = useState<string>('CY 2026 (Semi-Annual)')
   const [showSummarySidebar, setShowSummarySidebar] = useState(false)
   const [isAutoSaving] = useState(false)
   const [lastSavedTime] = useState('just now')
   const gia = project.gia
+  const hasPersistedProject = project.backendId !== undefined
 
   return (
     <div className="w-full space-y-4 pb-20 font-sans text-slate-900">
@@ -113,6 +114,7 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
             project={project}
             onBack={onBack || (() => {})}
             hideTopBar={true}
+            readOnly={readOnly}
           />
         </div>
 
@@ -142,7 +144,9 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
               <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-3.5 space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Total Grant Budget:</span>
-                  <span className="font-bold text-[#0f53b7]">{formatCurrency(project.budget)}</span>
+                  <span className="font-bold text-[#0f53b7]">
+                    {project.budget > 0 ? formatCurrency(project.budget) : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Implementing Agency:</span>
@@ -179,19 +183,19 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Farmers / Fisherfolk</span>
-                  <strong className="text-sm font-bold text-slate-900">210 (44%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '210 (44%)'}</strong>
                 </div>
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Women's Groups</span>
-                  <strong className="text-sm font-bold text-slate-900">145 (30%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '145 (30%)'}</strong>
                 </div>
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Cooperatives / MSME</span>
-                  <strong className="text-sm font-bold text-slate-900">70 (15%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '70 (15%)'}</strong>
                 </div>
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Indigenous (IPs)</span>
-                  <strong className="text-sm font-bold text-slate-900">55 (11%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '55 (11%)'}</strong>
                 </div>
               </div>
             </div>
