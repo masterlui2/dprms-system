@@ -11,6 +11,7 @@ use App\Http\Controllers\ProposalController;
 use App\Http\Controllers\ProposalTemplateController;
 use App\Http\Controllers\ProposalAuditController;
 use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\QuarterlyMetricController;
 use App\Http\Controllers\SetupProposalController;
 use App\Http\Controllers\SetupMonitoringProjectController;
 
@@ -125,4 +126,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/setup/proposals', [SetupProposalController::class, 'getSetupProposalDetails']);
     Route::get('/setup/financials', [SetupProposalController::class, 'getFinancialDocuments']);
     Route::get('/setup/equipments',[SetupProposalController::class, 'getEquipmentQuotations']);
+});
+
+Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('projects')->group(function (){
+    Route::get('/',[ProjectController::class,'index']);
+    Route::get('/{projectId}/quarterly-metrics',[QuarterlyMetricController::class,'index']);
+    Route::post('/{projectId}/quarterly-metrics',[QuarterlyMetricController::class,'store']);
+});
+
+Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('quarterly-metrics')->group(function (){
+    Route::post('/{quarterId}/product',[QuarterlyMetricController::class, 'storeProduct']);
+    Route::post('/{quarterId}/cost',[QuarterlyMetricController::class, 'storeCost']);
+    Route::post('/{quarterId}/employee',[QuarterlyMetricController::class, 'storeEmployee']);
 });

@@ -3,35 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Project;
+use App\Services\Contracts\ProjectModule\ProjectServiceInterface;
+use App\Services\ProjectModule\ProjectService;
 use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
-    public function index(Request $request)
+    public function __construct(protected ProjectService $projectService)
     {
-        $status = $request->query('status');
-
-        $query = Project::query()
-            ->with([
-                'proposal.user:id,name,email',
-                'proposal.assigned_staff:id,name,email',
-                'proposal.assigned_focal:id,name,email',
-                'proposal.setup_proposal',
-                'proposal.gia_proposal',
-                'user:id,name,email',
-                'approver:id,name,email',
-            ])
-            ->orderByDesc('approved_at');
-
-        if ($status) {
-            $query->where('status', strtolower($status));
-        }
-
-        $projects = $query->get();
-
+    }
+    public function index()
+    {
+        $data = $this->projectService->getIndex();
         return response()->json([
-            'message' => 'Projects retrieved successfully',
-            'data' => $projects,
-        ], 200);
+            'message' => 'Display all Projects',
+            'data' => $data,
+        ],200);
     }
 }
