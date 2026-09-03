@@ -36,8 +36,17 @@ class ProjectService implements ProjectServiceInterface{
     }
 
     #[Override]
-    public function getIndex(): Collection
+    public function getIndex(string $status): Collection
     {
-        return $this->projectRepository->all(['proposal','proposal.setup_proposal','user','approved_by']);
+        $relation = match($status){
+            'SETUP' => ['proposal', 'proposal.setup_proposal', 'user', 'approved_by'],
+            'GIA' => ['proposal', 'proposal.gia_proposal', 'user', 'approved_by'],
+            default => throw new \InvalidArgumentException("Unknown program type: {$status}"),
+        };
+
+        return $this->projectRepository->allWhere(
+            $status,
+            $relation
+        );
     }
 }

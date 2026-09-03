@@ -8,4 +8,5 @@ use Illuminate\Database\Eloquent\Collection;
 interface ProjectRepositoryInterface extends BaseRepositoryInterface{
     public function createByProposal(array $data);
     public function findByProposalId(int $proposalId): Collection;
+    public function allWhere(string $status, array $relation = []):Collection;
 }
