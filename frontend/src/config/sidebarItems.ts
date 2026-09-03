@@ -25,6 +25,7 @@ import {
   type ModuleId,
   type UserRole,
 } from "./permissions";
+import type { ApplicationProgram } from "../types/application";
 
 export type SidebarSubItem = {
   id: ModuleId;
@@ -202,7 +203,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   proponent: [],
 };
 
-export function getSidebarItems(role: UserRole) {
+export function getSidebarItems(role: UserRole, userProgram?: ApplicationProgram) {
   const order = sidebarOrderByRole[role];
   return sidebarItems
     .filter(
@@ -210,5 +211,34 @@ export function getSidebarItems(role: UserRole) {
         order.includes(sidebarItem.id) &&
         canAccessModule(role, sidebarItem.id),
     )
+    .map((sidebarItem) => {
+      if (sidebarItem.id === "documentChecklist") {
+        if (role === "focal" && userProgram) {
+          return {
+            ...sidebarItem,
+            label: "Document Checklist",
+            route: `/dashboard/document-checklist?program=${userProgram}`,
+            subItems: undefined,
+          };
+        }
+        return {
+          ...sidebarItem,
+          label: "Document Checklist",
+          subItems: [
+            {
+              id: "documentChecklist" as ModuleId,
+              label: "SETUP Program",
+              route: "/dashboard/document-checklist?program=SETUP",
+            },
+            {
+              id: "documentChecklist" as ModuleId,
+              label: "GIA Program",
+              route: "/dashboard/document-checklist?program=GIA",
+            },
+          ],
+        };
+      }
+      return sidebarItem;
+    })
     .sort((left, right) => order.indexOf(left.id) - order.indexOf(right.id));
 }

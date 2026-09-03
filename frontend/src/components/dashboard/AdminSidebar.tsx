@@ -83,7 +83,7 @@ export function AdminSidebar({
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const visible = getSidebarItems(user.role)
+  const visible = getSidebarItems(user.role, user.program as any)
   const isActive = (route: string) => route === '/dashboard'
     ? location.pathname === '/dashboard'
     : location.pathname.startsWith(route)
