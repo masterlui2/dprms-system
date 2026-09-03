@@ -2,6 +2,9 @@ import type {
   Quarter,
   SetupMonitoringQuarterRecord,
 } from '../types/setupMonitoring'
+import type { ProjectRecord } from '../data/admin'
+import api from '../lib/axios'
+import type { ProjectPagination } from '../types/monitoring'
 
 const STORAGE_PREFIX = 'dprms_setup_monitoring_record_'
 
@@ -499,4 +502,155 @@ export function getAllSavedMonitoringRecords(): SetupMonitoringQuarterRecord[] {
     // fallback
   }
   return records
+}
+
+export interface SetupMonitoringStatistics {
+  activeProjects: number
+  monitoredCount: number
+  pendingReports: number
+}
+
+export interface SetupMonitoringProjectFilters {
+  search?: string
+  district?: string
+  year: number
+  quarter: Quarter
+  page?: number
+}
+
+export interface SetupMonitoringProjectsResult {
+  projects: ProjectRecord[]
+  statistics: SetupMonitoringStatistics
+  districts: string[]
+  pagination: ProjectPagination
+}
+
+interface BackendSetupMonitoringProject {
+  id: number
+  reference_number: string
+  title: string
+  enterprise_name: string
+  manager: string
+  business_address: string | null
+  district: string | null
+  province: string | null
+  status: 'active'
+  approved_at: string | null
+  start_date: string | null
+  expected_end_date: string | null
+  monitoring_status: string
+  overall_compliance: number
+  last_monitored_at: string | null
+  monitored: boolean
+  pending_reports: number
+  latest_report: {
+    status: string
+    reporting_period: string
+    year: number
+    quarter: number | null
+    due_date: string | null
+  } | null
+}
+
+interface BackendSetupMonitoringResponse {
+  statistics: {
+    active_projects: number
+    monitored_count: number
+    pending_reports: number
+  }
+  filters: {
+    districts: string[]
+  }
+  data: BackendSetupMonitoringProject[]
+  pagination: {
+    current_page: number
+    last_page: number
+    per_page: number
+    total: number
+    from: number | null
+    to: number | null
+  }
+}
+
+function formatMonitoringDate(value: string | null): string {
+  if (!value) return 'Not scheduled'
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleDateString('en-PH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): ProjectRecord {
+  const location = [project.district, project.province]
+    .filter(Boolean)
+    .join(', ') || project.business_address || 'Location not recorded'
+
+  return {
+    approvedAt: project.approved_at,
+    backendId: project.id,
+    budget: 0,
+    compliance: project.pending_reports > 0 ? 'Due soon' : 'Compliant',
+    district: project.district ?? undefined,
+    dueDate: formatMonitoringDate(project.latest_report?.due_date ?? project.expected_end_date),
+    enterprise: project.enterprise_name,
+    id: String(project.id),
+    lastMonitoredAt: project.last_monitored_at,
+    latestReport: project.latest_report
+      ? {
+          dueDate: project.latest_report.due_date,
+          quarter: project.latest_report.quarter,
+          reportingPeriod: project.latest_report.reporting_period,
+          status: project.latest_report.status,
+          year: project.latest_report.year,
+        }
+      : null,
+    location,
+    manager: project.manager,
+    monitored: project.monitored,
+    monitoringStatus: project.monitoring_status,
+    pendingReports: project.pending_reports,
+    program: 'SETUP',
+    progress: Math.max(0, Math.min(100, Math.round(project.overall_compliance))),
+    referenceNumber: project.reference_number,
+    status: 'Active',
+    title: project.title,
+    used: 0,
+  }
+}
+
+export async function fetchSetupMonitoringProjects(
+  filters: SetupMonitoringProjectFilters,
+): Promise<SetupMonitoringProjectsResult> {
+  const response = await api.get<BackendSetupMonitoringResponse>('/setup/monitoring/projects', {
+    params: {
+      search: filters.search?.trim() || undefined,
+      district: filters.district || undefined,
+      year: filters.year,
+      quarter: Number(filters.quarter.slice(1)),
+      page: filters.page ?? 1,
+    },
+  })
+
+  return {
+    projects: response.data.data.map(mapSetupMonitoringProject),
+    statistics: {
+      activeProjects: response.data.statistics.active_projects,
+      monitoredCount: response.data.statistics.monitored_count,
+      pendingReports: response.data.statistics.pending_reports,
+    },
+    districts: response.data.filters.districts,
+    pagination: {
+      currentPage: response.data.pagination.current_page,
+      lastPage: response.data.pagination.last_page,
+      perPage: response.data.pagination.per_page,
+      total: response.data.pagination.total,
+      from: response.data.pagination.from,
+      to: response.data.pagination.to,
+    },
+  }
 }

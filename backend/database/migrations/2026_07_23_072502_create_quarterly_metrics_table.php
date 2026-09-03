@@ -14,13 +14,15 @@ return new class extends Migration
         Schema::create('quarterly_metrics', function (Blueprint $table) {
             $table->id();
             $table->foreignId("project_id")->constrained("projects")->restrictOnDelete();
-            $table->foreignId("submiited_by")->constrained("users")->restrictOnDelete();
+            $table->foreignId("submitted_by")->constrained("users")->restrictOnDelete();
             $table->integer("quarter");
             $table->integer("year");
-            $table->decimal("gross_sales",15,2);
-            $table->decimal("production_volume",15,2);
-            $table->integer("employee_count");
+            $table->decimal("gross_sales",15,2)->nullable();
+            $table->integer("production_volume")->nullable();
+            $table->integer("employee_count")->nullable();
+            $table->decimal('total_cost',15,2)->nullable();
             $table->timestamp("submitted_at")->useCurrent();
+            $table->unique(['project_id','quarter','year']);
             $table->timestamps();
         });
     }

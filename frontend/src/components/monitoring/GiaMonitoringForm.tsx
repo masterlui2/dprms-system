@@ -44,6 +44,7 @@ interface GiaMonitoringFormProps {
   onBack: () => void
   hideTopBar?: boolean
   readOnly?: boolean
+  selectedReportingPeriod?: string
 }
 
 function AutoResizeTextarea({
@@ -94,13 +95,14 @@ export function GiaMonitoringForm({
   onBack,
   hideTopBar = false,
   readOnly = false,
+  selectedReportingPeriod,
 }: GiaMonitoringFormProps) {
   const mon = (project as any)?.setupMonitoring
   const isSetup = project?.program === 'SETUP'
   const gia = project?.gia
   const isBackendProject = project.backendId !== undefined
 
-  const reportingPeriod = gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : 'CY 2026 (Semi-Annual)')
+  const reportingPeriod = selectedReportingPeriod || gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : '1st Semester 2026')
   const [projectLeaderGender, setProjectLeaderGender] = useState(
     isBackendProject
       ? project.manager
@@ -125,20 +127,20 @@ export function GiaMonitoringForm({
   )
 
   const [accomplishments, setAccomplishments] = useState<AccomplishmentRow[]>(
-    (gia as any)?.activities?.length ? (gia as any).activities.map((a: any, idx: number) => ({
-      id: `acc_${idx + 1}`,
-      objective: a.particulars || 'Operational Specific Objective',
-      objectiveWeight: 20,
-      activities: a.milestone || 'Field implementation & technology trials',
-      targetAccomplishment: a.target || '100% completed deliverables',
-      targetWeightY1: a.weight || 25,
+    gia?.milestones?.length ? gia.milestones.map((milestone) => ({
+      id: `acc_${milestone.id}`,
+      objective: `${milestone.number}. ${milestone.title}`,
+      objectiveWeight: Math.round(100 / gia.milestones!.length),
+      activities: milestone.description || milestone.title,
+      targetAccomplishment: '100% milestone completion',
+      targetWeightY1: Math.round(100 / gia.milestones!.length),
       targetWeightY2: 0,
       targetWeightY3: 0,
-      actualAccomplishment: a.status === 'Completed' ? '100% Accomplished' : (a.status === 'In Progress' ? '75% Accomplished' : 'Pending start'),
-      actualY1Percent: a.status === 'Completed' ? 100 : (a.status === 'In Progress' ? 75 : 0),
+      actualAccomplishment: `${milestone.completionPercentage}% complete`,
+      actualY1Percent: milestone.completionPercentage,
       actualY2Percent: 0,
       actualY3Percent: 0,
-      remarks: 'On schedule according to workplan.',
+      remarks: milestone.status.replaceAll('_', ' '),
     })) : isBackendProject ? [] : [
       {
         id: 'acc_1',

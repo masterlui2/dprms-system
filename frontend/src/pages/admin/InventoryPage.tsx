@@ -1,14 +1,19 @@
-import { useState, type ReactNode } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
   Boxes,
+  Camera,
   CircleCheck,
   Eye,
+  LoaderCircle,
   PackageCheck,
   Pencil,
   Plus,
   QrCode,
+  RefreshCw,
   Wrench,
 } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
+import Swal from 'sweetalert2'
 
 import { AdminSelect } from '../../components/admin/AdminFilters'
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
@@ -19,12 +24,22 @@ import {
 } from '../../components/admin/DataTable'
 import { MetricCard } from '../../components/admin/MetricCard'
 import { ModalShell } from '../../components/admin/ModalShell'
+import { InspectionLogModal } from '../../components/admin/equipment/InspectionLogModal'
 import {
-  equipmentRecords,
   projectRecords,
   type EquipmentRecord,
 } from '../../data/admin'
+import {
+  equipmentErrorMessage,
+  fetchEquipment,
+} from '../../services/equipmentStore'
 import { cn } from '../../utils/cn'
+
+const QrScannerModal = lazy(() =>
+  import('../../components/admin/equipment/QrScannerModal').then((module) => ({
+    default: module.QrScannerModal,
+  })),
+)
 
 type EquipmentModalMode =
   | 'register'
@@ -41,8 +56,9 @@ interface EquipmentModalState {
 
 function conditionClass(condition: EquipmentRecord['condition']): string {
   if (condition === 'Good') return 'text-emerald-700'
-  if (condition === 'For repair') return 'text-red-600'
-  return 'text-amber-700'
+  if (condition === 'Fair') return 'text-sky-700'
+  if (condition === 'Poor') return 'text-amber-700'
+  return 'text-red-600'
 }
 
 function Field({
@@ -118,8 +134,9 @@ function EquipmentForm({
       <Field label="Condition">
         <select className={fieldClass} defaultValue={equipment?.condition ?? 'Good'}>
           <option>Good</option>
-          <option>Needs inspection</option>
-          <option>For repair</option>
+          <option>Fair</option>
+          <option>Poor</option>
+          <option>Non-functional</option>
         </select>
       </Field>
       <label className="space-y-1.5 sm:col-span-2">
@@ -137,8 +154,23 @@ function EquipmentQrPanel({ equipment }: { equipment: EquipmentRecord }) {
   return (
     <section className="grid gap-6 rounded-xl border border-slate-200 bg-slate-50 p-5 md:grid-cols-[220px_minmax(0,1fr)] md:items-center">
       <div className="text-center">
-        <div className="mx-auto grid size-48 place-items-center rounded-xl border-4 border-slate-900 bg-white">
-          <QrCode className="size-40 text-slate-950" strokeWidth={1.35} />
+        <div className="mx-auto grid size-48 place-items-center rounded-xl border-4 border-slate-900 bg-white p-2">
+          {equipment.qrData ? (
+            <QRCodeSVG
+              bgColor="#ffffff"
+              fgColor="#020617"
+              level="H"
+              marginSize={1}
+              size={168}
+              title={`${equipment.name} asset QR code`}
+              value={equipment.qrData}
+            />
+          ) : (
+            <div className="px-4 text-center">
+              <QrCode className="mx-auto size-16 text-slate-300" />
+              <p className="mt-2 text-xs font-bold text-slate-500">No active QR code</p>
+            </div>
+          )}
         </div>
         <p className="mt-3 font-mono text-sm font-black text-[#073b82]">
           {equipment.id}
@@ -148,13 +180,13 @@ function EquipmentQrPanel({ equipment }: { equipment: EquipmentRecord }) {
       <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
         {[
           ['Equipment Name', equipment.name],
-          ['Assigned Project', equipment.projectId],
+          ['Assigned Project', equipment.projectTitle || equipment.projectId],
           ['Beneficiary', equipment.assignedTo],
           ['Current Location', equipment.location],
           ['Condition', equipment.condition],
           ['Asset Status', equipment.status],
-          ['Last Scanned', equipment.lastScanned],
-          ['Serial Number', `SN-${equipment.id.slice(3)}-2026`],
+          ['Last Inspection', equipment.lastScanned],
+          ['Serial Number', equipment.serialNumber || 'Not recorded'],
         ].map(([label, value]) => (
           <div className="border-b border-slate-200 pb-3" key={label}>
             <dt className="text-xs font-bold uppercase tracking-wide text-slate-400">
@@ -298,13 +330,55 @@ function EquipmentModal({
 export function InventoryPage() {
   const [condition, setCondition] = useState('all')
   const [modal, setModal] = useState<EquipmentModalState | null>(null)
-  const visibleEquipment = equipmentRecords.filter(
+  const [equipment, setEquipment] = useState<EquipmentRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [scannerOpen, setScannerOpen] = useState(false)
+  const [inspectionAsset, setInspectionAsset] = useState<EquipmentRecord | null>(null)
+
+  const loadEquipment = useCallback(async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      setEquipment(await fetchEquipment())
+    } catch (error) {
+      setLoadError(equipmentErrorMessage(error))
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadEquipment()
+  }, [loadEquipment])
+
+  const visibleEquipment = equipment.filter(
     (equipment) =>
       condition === 'all' || equipment.condition === condition,
   )
 
   function openModal(mode: EquipmentModalMode, equipment?: EquipmentRecord) {
     setModal({ mode, equipment })
+  }
+
+  function handleInspectionSaved(updated: EquipmentRecord) {
+    setEquipment((current) => {
+      const exists = current.some((item) => item.backendId === updated.backendId)
+      return exists
+        ? current.map((item) => item.backendId === updated.backendId ? updated : item)
+        : [updated, ...current]
+    })
+    setInspectionAsset(null)
+    void Swal.fire({
+      icon: 'success',
+      position: 'top-end',
+      showConfirmButton: false,
+      text: `${updated.name} is now recorded as ${updated.condition}.`,
+      timer: 2600,
+      timerProgressBar: true,
+      title: 'Inspection recorded',
+      toast: true,
+    })
   }
 
   const columns: DataColumn<EquipmentRecord>[] = [
@@ -394,14 +468,24 @@ export function InventoryPage() {
     <div className="space-y-7">
       <AdminPageHeader
         action={
-          <button
-            className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:bg-[#0b3f8b]"
-            onClick={() => openModal('register')}
-            type="button"
-          >
-            <Plus className="size-4" />
-            Register Equipment
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white shadow-lg shadow-blue-900/15 transition hover:bg-[#0b3f8b]"
+              onClick={() => setScannerOpen(true)}
+              type="button"
+            >
+              <Camera className="size-4" />
+              Scan Asset QR
+            </button>
+            <button
+              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#0f53b7] bg-white px-4 text-sm font-bold text-[#0f53b7] shadow-sm transition hover:bg-blue-50"
+              onClick={() => openModal('register')}
+              type="button"
+            >
+              <Plus className="size-4" />
+              Register Equipment
+            </button>
+          </div>
         }
         description="Track QR-tagged equipment issuance, assignment, condition, location, and return transactions."
         eyebrow="Asset Accountability"
@@ -413,7 +497,7 @@ export function InventoryPage() {
           detail="Registered QR-tagged assets"
           icon={Boxes}
           label="Total Equipment"
-          value={String(equipmentRecords.length)}
+          value={String(equipment.length)}
         />
         <MetricCard
           detail="Assigned to beneficiaries"
@@ -421,7 +505,7 @@ export function InventoryPage() {
           label="Currently Issued"
           tone="sky"
           value={String(
-            equipmentRecords.filter((item) => item.status === 'Issued').length,
+            equipment.filter((item) => item.status === 'Issued').length,
           )}
         />
         <MetricCard
@@ -430,7 +514,7 @@ export function InventoryPage() {
           label="Good Condition"
           tone="green"
           value={String(
-            equipmentRecords.filter((item) => item.condition === 'Good').length,
+            equipment.filter((item) => item.condition === 'Good').length,
           )}
         />
         <MetricCard
@@ -439,7 +523,7 @@ export function InventoryPage() {
           label="Condition Alerts"
           tone="red"
           value={String(
-            equipmentRecords.filter((item) => item.condition !== 'Good').length,
+            equipment.filter((item) => item.condition !== 'Good').length,
           )}
         />
       </section>
@@ -448,12 +532,25 @@ export function InventoryPage() {
         description={`${visibleEquipment.length} equipment records shown.`}
         title="Equipment registry"
       >
+        {loadError ? (
+          <div className="flex flex-col gap-3 border-b border-rose-100 bg-rose-50 px-5 py-4 text-sm text-rose-800 sm:flex-row sm:items-center sm:justify-between" role="alert">
+            <p className="font-semibold">{loadError}</p>
+            <button
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-white px-3 text-xs font-bold text-rose-700 shadow-sm"
+              onClick={() => void loadEquipment()}
+              type="button"
+            >
+              <RefreshCw className="size-3.5" /> Retry
+            </button>
+          </div>
+        ) : null}
         <DataTable
           columns={columns}
           data={visibleEquipment}
           emptyDescription="No equipment matches the selected condition."
           emptyTitle="No equipment found"
           getRowKey={(equipment) => equipment.id}
+          isLoading={isLoading}
           searchPlaceholder="Search equipment, ID, project, beneficiary, or location..."
           searchText={(equipment) =>
             `${equipment.id} ${equipment.name} ${equipment.projectId} ${equipment.assignedTo} ${equipment.location} ${equipment.condition} ${equipment.status}`
@@ -465,8 +562,9 @@ export function InventoryPage() {
               options={[
                 { label: 'All conditions', value: 'all' },
                 { label: 'Good', value: 'Good' },
-                { label: 'Needs inspection', value: 'Needs inspection' },
-                { label: 'For repair', value: 'For repair' },
+                { label: 'Fair', value: 'Fair' },
+                { label: 'Poor', value: 'Poor' },
+                { label: 'Non-functional', value: 'Non-functional' },
               ]}
               value={condition}
             />
@@ -481,6 +579,42 @@ export function InventoryPage() {
             setModal({ mode, equipment: modal.equipment })
           }
           state={modal}
+        />
+      ) : null}
+
+      {scannerOpen ? (
+        <Suspense
+          fallback={
+            <ModalShell
+              description="Preparing secure camera access…"
+              onClose={() => setScannerOpen(false)}
+              title="Scan Asset QR Code"
+              width="md"
+            >
+              <div className="grid min-h-72 place-items-center text-center">
+                <div>
+                  <LoaderCircle className="mx-auto size-8 animate-spin text-[#0f53b7]" />
+                  <p className="mt-3 text-sm font-bold text-slate-700">Loading scanner…</p>
+                </div>
+              </div>
+            </ModalShell>
+          }
+        >
+          <QrScannerModal
+            onAssetResolved={(asset) => {
+              setScannerOpen(false)
+              setInspectionAsset(asset)
+            }}
+            onClose={() => setScannerOpen(false)}
+          />
+        </Suspense>
+      ) : null}
+
+      {inspectionAsset ? (
+        <InspectionLogModal
+          asset={inspectionAsset}
+          onClose={() => setInspectionAsset(null)}
+          onSaved={handleInspectionSaved}
         />
       ) : null}
     </div>

@@ -42,7 +42,7 @@ function dashboardContent(role: UserRole): {
 } {
   //const pendingApplications = proposalRecords.filter((proposal) => proposal.status === 'Pending').length
   const atRiskProjects = projectRecords.filter((project) => project.status === 'At risk').length
-  const inspectionDue = equipmentRecords.filter((equipment) => equipment.condition === 'Needs inspection').length
+  const inspectionDue = equipmentRecords.filter((equipment) => equipment.condition !== 'Good').length
   const highRisk = predictions.filter((prediction) => prediction.riskScore >= 70).length
 
   switch (role) {

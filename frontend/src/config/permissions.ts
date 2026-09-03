@@ -42,7 +42,7 @@ export const modulePermissions = {
   repaymentMonitoring: [ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   reports: [ROLES.PROJECT_STAFF, ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   applicationReview: [ROLES.FOCAL],
-  projectMonitoring: [ROLES.FOCAL],
+  projectMonitoring: [ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR],
   executiveApproval: [ROLES.PROVINCIAL_DIRECTOR],
   projects: [ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   regionalMonitoring: [ROLES.RPMO],

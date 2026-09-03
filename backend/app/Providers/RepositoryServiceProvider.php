@@ -4,15 +4,22 @@ namespace App\Providers;
 
 use App\Models\DocumentRequirement;
 use App\Models\ProposalTemplate;
+use App\Models\QuarterlyMetrics;
 use App\Repositories\AuthorizationModule\RoleRepository;
 use App\Repositories\AuthorizationModule\UserRepository;
 use App\Repositories\AuthorizationModule\UserRoleRepository;
 use App\Repositories\AuthorizationModule\AuditLogRepository;
+use App\Repositories\BaseRepository;
 use App\Repositories\Contracts\AuthorizationModule\UserRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\RoleRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\UserRoleRepositoryInterface;
 use App\Repositories\Contracts\AuthorizationModule\AuditLogRepositoryInterface;
+use App\Repositories\Contracts\BaseRepositoryInterface;
+use App\Repositories\Contracts\ProjectModule\EmployeeRepositoryInterface;
+use App\Repositories\Contracts\ProjectModule\ProductionCostRepositoryInterface;
+use App\Repositories\Contracts\ProjectModule\ProductRepositoryInterface;
 use App\Repositories\Contracts\ProjectModule\ProjectRepositoryInterface;
+use App\Repositories\Contracts\ProjectModule\QuarterlyMetricsRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\DocumentRequirementRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\DocumentsRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\GiaCoAuthorRepositoryInterface;
@@ -24,7 +31,11 @@ use App\Repositories\Contracts\ProposalModule\ProposalTemplateRepositoryInterfac
 use App\Repositories\Contracts\ProposalModule\SetupEquipmentQuotationRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\SetupFinancialDocumentRepositoryInterface;
 use App\Repositories\Contracts\ProposalModule\SetupProposalRepositoryInterface;
+use App\Repositories\ProjectModule\EmployeeRepository;
+use App\Repositories\ProjectModule\ProductionCostRepository;
+use App\Repositories\ProjectModule\ProductRepository;
 use App\Repositories\ProjectModule\ProjectRepository;
+use App\Repositories\ProjectModule\QuarterlyMetricsRepository;
 use App\Repositories\ProposalModule\DocumentRequirementRepository;
 use App\Repositories\ProposalModule\DocumentsRepository;
 use App\Repositories\ProposalModule\GiaCoAuthorRepository;
@@ -61,7 +72,14 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(GiaProposalRepositoryInterface::class, GiaProposalRepository::class);
         $this->app->bind(DocumentsRepositoryInterface::class, DocumentsRepository::class);
         $this->app->bind(ProposalAuditRepositoryInterface::class, ProposalAuditRepository::class);
+
         $this->app->bind(ProjectRepositoryInterface::class,ProjectRepository::class);
+        $this->app->bind(QuarterlyMetricsRepositoryInterface::class, QuarterlyMetricsRepository::class);
+        $this->app->bind(ProductRepositoryInterface::class,ProductRepository::class);
+        $this->app->bind(ProductionCostRepositoryInterface::class,ProductionCostRepository::class);
+        $this->app->bind(EmployeeRepositoryInterface::class,EmployeeRepository::class);
+
+        $this->app->bind(BaseRepositoryInterface::class, BaseRepository::class);
     }
 
     /**
