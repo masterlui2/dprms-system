@@ -548,19 +548,19 @@ export function MonitoringPage() {
           agencies={selectedProgram === 'GIA' ? agencies : undefined}
           statusValue={selectedProgram === 'GIA' ? statusValue : undefined}
           statuses={selectedProgram === 'GIA' ? giaStatuses : undefined}
-          onSearchChange={(value) => {
+          onSearchChange={(value: string) => {
             setSearchValue(value)
             setProjectPage(1)
           }}
-          onDistrictChange={selectedProgram === 'SETUP' ? (value) => {
+          onDistrictChange={selectedProgram === 'SETUP' ? (value: string) => {
             setDistrictValue(value)
             setProjectPage(1)
           } : undefined}
-          onAgencyChange={selectedProgram === 'GIA' ? (value) => {
+          onAgencyChange={selectedProgram === 'GIA' ? (value: string) => {
             setAgencyValue(value)
             setProjectPage(1)
           } : undefined}
-          onStatusChange={selectedProgram === 'GIA' ? (value) => {
+          onStatusChange={selectedProgram === 'GIA' ? (value: string) => {
             setStatusValue(value)
             setProjectPage(1)
           } : undefined}

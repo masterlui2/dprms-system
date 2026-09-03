@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   Building2,
+  ClipboardCheck,
   DatabaseBackup,
   FilePenLine,
   FolderKanban,
@@ -61,6 +62,24 @@ export const sidebarItems: SidebarItem[] = [
   item("dashboard", "Dashboard", LayoutDashboard, "/dashboard"),
 
   item("applications", "Applications", FilePenLine, "/dashboard/applications"),
+  item(
+    "documentChecklist",
+    "Document Checklist",
+    ClipboardCheck,
+    "/dashboard/document-checklist",
+    [
+      {
+        id: "documentChecklist",
+        label: "SETUP Checklist",
+        route: "/dashboard/document-checklist?program=SETUP",
+      },
+      {
+        id: "documentChecklist",
+        label: "GIA Checklist",
+        route: "/dashboard/document-checklist?program=GIA",
+      },
+    ],
+  ),
   item(
     "equipmentTracking",
     "Equipment & QR",
@@ -140,6 +159,7 @@ export const sidebarItems: SidebarItem[] = [
 const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   system_admin: [
     "dashboard",
+    "documentChecklist",
     "userManagement",
     "roleManagement",
     "programManagement",
@@ -159,6 +179,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   focal: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "projectMonitoring",
     "repaymentMonitoring",
     "reports",
@@ -166,6 +187,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   provincial_director: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "repaymentMonitoring",
     "projects",
     "reports",
@@ -173,6 +195,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   rpmo: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "regionalMonitoring",
     "reports",
   ],

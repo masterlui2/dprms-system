@@ -5,7 +5,6 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
-  LoaderCircle,
   MapPin,
   Search,
   Store,
@@ -14,9 +13,24 @@ import {
 import { fetchProjects, type Program, type ProjectRecord } from '../../services/projectStore'
 
 interface Props {
-  onSelectProject: (project: ProjectRecord) => void
+  onSelectProject: (project: any) => void
   viewMode?: 'box' | 'list'
   program?: Program
+  projects?: any
+  searchValue?: string
+  isFiltering?: boolean
+  pagination?: any
+  districtValue?: string
+  districts?: string[]
+  agencyValue?: string
+  agencies?: string[]
+  statusValue?: string
+  statuses?: string[]
+  onSearchChange?: (value: string) => void
+  onDistrictChange?: (value: string) => void
+  onAgencyChange?: (value: string) => void
+  onStatusChange?: (value: string) => void
+  onPageChange?: (page: number) => void
 }
 
 const PER_PAGE = 6
