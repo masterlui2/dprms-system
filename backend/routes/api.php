@@ -4,17 +4,16 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\EquipmentInspectionController;
+use App\Http\Controllers\GiaMonitoringProjectController;
 use App\Http\Controllers\GiaProposalController;
 use App\Http\Controllers\GiaProposalSubmissionController;
-use App\Http\Controllers\GiaMonitoringProjectController;
+use App\Http\Controllers\ProjectController;
+use App\Http\Controllers\ProposalAuditController;
 use App\Http\Controllers\ProposalController;
 use App\Http\Controllers\ProposalTemplateController;
-use App\Http\Controllers\ProposalAuditController;
-use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\QuarterlyMetricController;
-use App\Http\Controllers\SetupProposalController;
 use App\Http\Controllers\SetupMonitoringProjectController;
-
+use App\Http\Controllers\SetupProposalController;
 use App\Http\Controllers\SetupProposalSubmissionController;
 use Illuminate\Support\Facades\Route;
 
@@ -70,9 +69,9 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal')->group(function () {
     Route::get('/', [ProposalController::class, 'index']);
-    Route::patch('/{proposalId}/assign-staff',[ProposalController::class,'assignProjectStaff']);
+    Route::patch('/{proposalId}/assign-staff', [ProposalController::class, 'assignProjectStaff']);
     Route::patch('/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
-    Route::patch('/{proposalId}/update',[ProposalController::class, 'update']);
+    Route::patch('/{proposalId}/update', [ProposalController::class, 'update']);
     Route::post('/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
 });
 
@@ -99,16 +98,16 @@ Route::middleware(['auth:sanctum', 'role:FOCAL,PROVINCIAL_DIRECTOR'])
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL'])->prefix('v1/equipment')->group(function () {
     Route::get('/', [EquipmentInspectionController::class, 'index']);
+    Route::get('/options', [EquipmentInspectionController::class, 'options']);
+    Route::post('/', [EquipmentInspectionController::class, 'store']);
     Route::post('/qr/resolve', [EquipmentInspectionController::class, 'resolveQr']);
+    Route::get('/{equipment}', [EquipmentInspectionController::class, 'show']);
     Route::post('/{equipment}/inspections', [EquipmentInspectionController::class, 'storeInspection']);
 });
 
-
-
-Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal-audit')->group(function (){
-    Route::get('/{proposalId}/list',[ProposalAuditController::class,'index']);
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposal-audit')->group(function () {
+    Route::get('/{proposalId}/list', [ProposalAuditController::class, 'index']);
 });
-
 
 Route::middleware('auth:sanctum')->prefix('gia')->group(function () {
     Route::get('/gia/proposals', [GiaProposalController::class, 'getGiaProposalDetials']);
@@ -125,17 +124,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/setup/{documentId}/financials', [SetupProposalController::class, 'verifyFinancialDocuments']);
     Route::get('/setup/proposals', [SetupProposalController::class, 'getSetupProposalDetails']);
     Route::get('/setup/financials', [SetupProposalController::class, 'getFinancialDocuments']);
-    Route::get('/setup/equipments',[SetupProposalController::class, 'getEquipmentQuotations']);
+    Route::get('/setup/equipments', [SetupProposalController::class, 'getEquipmentQuotations']);
 });
 
-Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('projects')->group(function (){
-    Route::get('/',[ProjectController::class,'index']);
-    Route::get('/{projectId}/quarterly-metrics',[QuarterlyMetricController::class,'index']);
-    Route::post('/{projectId}/quarterly-metrics',[QuarterlyMetricController::class,'store']);
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('projects')->group(function () {
+    Route::get('/', [ProjectController::class, 'index']);
+    Route::get('/{projectId}/quarterly-metrics', [QuarterlyMetricController::class, 'index']);
+    Route::post('/{projectId}/quarterly-metrics', [QuarterlyMetricController::class, 'store']);
 });
 
-Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('quarterly-metrics')->group(function (){
-    Route::post('/{quarterId}/product',[QuarterlyMetricController::class, 'storeProduct']);
-    Route::post('/{quarterId}/cost',[QuarterlyMetricController::class, 'storeCost']);
-    Route::post('/{quarterId}/employee',[QuarterlyMetricController::class, 'storeEmployee']);
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('quarterly-metrics')->group(function () {
+    Route::post('/{quarterId}/product', [QuarterlyMetricController::class, 'storeProduct']);
+    Route::post('/{quarterId}/cost', [QuarterlyMetricController::class, 'storeCost']);
+    Route::post('/{quarterId}/employee', [QuarterlyMetricController::class, 'storeEmployee']);
 });
