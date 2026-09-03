@@ -12,6 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('setup_proposals', function (Blueprint $table) {
+            $table->dropForeign(['tna_encoded_by']);
+        });
+
+        Schema::table('setup_proposals', function (Blueprint $table) {
             $table->dropColumn("dti_sec_number");
             $table->dropColumn("annual_revenue");
             $table->dropColumn("tna_encoded_at");

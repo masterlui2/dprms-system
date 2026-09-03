@@ -27,6 +27,7 @@ interface DataTableProps<T> {
   data: T[]
   emptyDescription?: string
   emptyTitle?: string
+  fitColumns?: boolean
   getRowKey: (row: T) => string
   initialRowsPerPage?: number
   isLoading?: boolean
@@ -42,6 +43,7 @@ export function DataTable<T>({
   data,
   emptyDescription = 'Try changing your search or filters.',
   emptyTitle = 'No records found',
+  fitColumns = false,
   getRowKey,
   initialRowsPerPage = 5,
   isLoading = false,
@@ -135,8 +137,18 @@ export function DataTable<T>({
         ) : null}
       </div>
 
-      <div className="hidden overflow-x-auto xl:block">
-        <table className="w-full min-w-[1000px] text-left text-sm">
+      <div
+        className={cn(
+          'hidden xl:block',
+          fitColumns ? 'overflow-hidden' : 'overflow-x-auto',
+        )}
+      >
+        <table
+          className={cn(
+            'w-full text-left text-sm',
+            fitColumns ? 'table-fixed' : 'min-w-[1000px]',
+          )}
+        >
           <thead
             className={cn(
               'text-xs text-slate-500',
@@ -149,7 +161,8 @@ export function DataTable<T>({
               {columns.map((column) => (
                 <th
                   className={cn(
-                    'px-5 font-black',
+                    'font-black',
+                    fitColumns ? 'px-3' : 'px-5',
                     variant === 'clean' ? 'py-4 text-sm' : 'py-3',
                     column.className,
                   )}
@@ -184,7 +197,10 @@ export function DataTable<T>({
               ? Array.from({ length: Math.min(rowsPerPage, 5) }, (_, index) => (
                   <tr key={`loading-${index}`}>
                     {columns.map((column) => (
-                      <td className="px-5 py-4" key={column.id}>
+                      <td
+                        className={cn('py-4', fitColumns ? 'px-3' : 'px-5')}
+                        key={column.id}
+                      >
                         <div className="h-4 animate-pulse rounded bg-slate-100" />
                       </td>
                     ))}
@@ -212,7 +228,7 @@ export function DataTable<T>({
                     {columns.map((column) => (
                       <td
                         className={cn(
-                          'px-5',
+                          fitColumns ? 'px-3' : 'px-5',
                           variant === 'clean' ? 'py-5' : 'py-4',
                           column.className,
                         )}

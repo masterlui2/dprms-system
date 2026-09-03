@@ -16,7 +16,7 @@ class ProjectService implements ProjectServiceInterface{
     }
 
     #[Override]
-    public function createFromProposal(Proposal $proposal):Project
+    public function createFromProposal(Proposal $proposal, ?string $notes = null):Project
     {
         return $this->projectRepository->createByProposal([
             'proposal_id' => $proposal->id,
@@ -24,6 +24,7 @@ class ProjectService implements ProjectServiceInterface{
             'approved_by' => Auth::id(),
             'program_type' => $proposal->program_type,
             'status' => 'active',
+            'notes' => $notes,
             'approved_at' => now(),
         ]);
     }

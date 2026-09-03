@@ -74,6 +74,15 @@ export interface GiaMonitoringDetails {
   location: string
   objective: string
   outputs: GiaOutputMetric[]
+  milestones?: Array<{
+    completionPercentage: number
+    description: string
+    expectedCompletion: string | null
+    id: number
+    number: number
+    status: string
+    title: string
+  }>
   reportingPeriod: string
   startDate: string
   suggestedSolution: string
@@ -85,14 +94,30 @@ export interface GiaMonitoringDetails {
 }
 
 export interface ProjectRecord {
+  approvedAt?: string | null
+  backendId?: number
   budget: number
   compliance: 'Compliant' | 'Due soon' | 'Overdue'
   dueDate: string
+  district?: string
   enterprise: string
   id: string
+  location?: string
+  lastMonitoredAt?: string | null
+  latestReport?: {
+    dueDate: string | null
+    quarter: number | null
+    reportingPeriod: string
+    status: string
+    year: number
+  } | null
   manager: string
+  monitored?: boolean
+  monitoringStatus?: string
+  pendingReports?: number
   program: Program
   progress: number
+  referenceNumber?: string
   gia?: GiaMonitoringDetails
   status: 'Active' | 'At risk' | 'Completed'
   title: string
@@ -101,12 +126,22 @@ export interface ProjectRecord {
 
 export interface EquipmentRecord {
   assignedTo: string
-  condition: 'Good' | 'Needs inspection' | 'For repair'
+  backendId?: number
+  brand?: string | null
+  category?: string | null
+  condition: 'Good' | 'Fair' | 'Poor' | 'Non-functional'
   id: string
+  lastCheckedAt?: string | null
   lastScanned: string
   location: string
+  model?: string | null
   name: string
+  program?: Program
   projectId: string
+  projectTitle?: string
+  qrData?: string | null
+  qrReference?: string | null
+  serialNumber?: string | null
   status: 'Issued' | 'In storage' | 'Returned'
 }
 
@@ -583,7 +618,7 @@ export const equipmentRecords: EquipmentRecord[] = [
     projectId: 'P-211',
     assignedTo: 'GreenHarvest',
     location: 'Banaybanay',
-    condition: 'Needs inspection',
+    condition: 'Fair',
     status: 'Issued',
     lastScanned: 'Jun 20, 2:18 PM',
   },
@@ -603,7 +638,7 @@ export const equipmentRecords: EquipmentRecord[] = [
     projectId: 'P-203',
     assignedTo: 'CarpenTech',
     location: 'Lupon',
-    condition: 'For repair',
+    condition: 'Poor',
     status: 'Returned',
     lastScanned: 'Jun 12, 4:20 PM',
   },

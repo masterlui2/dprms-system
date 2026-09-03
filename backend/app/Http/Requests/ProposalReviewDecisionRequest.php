@@ -9,7 +9,17 @@ class ProposalReviewDecisionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (in_array($this->input('decision'), ['approve', 'disapprove'], true)) {
+            return $user->hasRole('PROVINCIAL_DIRECTOR');
+        }
+
+        return $user->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR']);
     }
 
     public function rules(): array

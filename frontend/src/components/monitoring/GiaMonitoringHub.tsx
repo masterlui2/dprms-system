@@ -4,6 +4,7 @@ import {
   BarChart3,
   Check,
   FileDown,
+  LockKeyhole,
   X,
 } from 'lucide-react'
 
@@ -14,14 +15,25 @@ interface Props {
   project: ProjectRecord
   onBack?: () => void
   readOnly?: boolean
+  initialSemester?: 1 | 2
+  initialYear?: number
 }
 
-export function GiaMonitoringHub({ project, onBack }: Props) {
-  const [selectedPeriod, setSelectedPeriod] = useState<string>('CY 2026 (Semi-Annual)')
+export function GiaMonitoringHub({
+  project,
+  onBack,
+  readOnly = false,
+  initialSemester = 1,
+  initialYear = new Date().getFullYear(),
+}: Props) {
+  const [selectedPeriod, setSelectedPeriod] = useState<string>(
+    `${initialSemester === 1 ? '1st' : '2nd'} Semester ${initialYear}`,
+  )
   const [showSummarySidebar, setShowSummarySidebar] = useState(false)
   const [isAutoSaving] = useState(false)
   const [lastSavedTime] = useState('just now')
   const gia = project.gia
+  const hasPersistedProject = project.backendId !== undefined
 
   return (
     <div className="w-full space-y-4 pb-20 font-sans text-slate-900">
@@ -45,7 +57,7 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
                   {project.enterprise || project.title}
                 </h1>
                 <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-bold text-[#285497]">
-                  {project.id}
+                  {project.referenceNumber || project.id}
                 </span>
               </div>
               <p className="text-xs font-semibold text-slate-500 mt-0.5">
@@ -60,9 +72,10 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
               onChange={(e) => setSelectedPeriod(e.target.value)}
               className="h-8.5 rounded-xl border border-[#B5BFCD] bg-white px-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:border-[#0f53b7] focus:outline-none cursor-pointer"
             >
-              <option value="CY 2026 (Semi-Annual)">CY 2026 (Semi-Annual)</option>
-              <option value="CY 2026 (Quarterly)">CY 2026 (Quarterly)</option>
-              <option value="CY 2025 (Annual)">CY 2025 (Annual)</option>
+              <option value={`1st Semester ${initialYear}`}>1st Semester {initialYear}</option>
+              <option value={`2nd Semester ${initialYear}`}>2nd Semester {initialYear}</option>
+              <option value={`1st Semester ${initialYear - 1}`}>1st Semester {initialYear - 1}</option>
+              <option value={`2nd Semester ${initialYear - 1}`}>2nd Semester {initialYear - 1}</option>
             </select>
 
             <button
@@ -93,7 +106,12 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
 
       <div className="flex items-center justify-end pr-1">
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
-          {isAutoSaving ? (
+          {readOnly ? (
+            <>
+              <LockKeyhole className="size-3.5 text-[#285497]" />
+              <span>Provincial Director read-only view</span>
+            </>
+          ) : isAutoSaving ? (
             <>
               <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
               <span>Saving draft...</span>
@@ -113,6 +131,8 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
             project={project}
             onBack={onBack || (() => {})}
             hideTopBar={true}
+            readOnly={readOnly}
+            selectedReportingPeriod={selectedPeriod}
           />
         </div>
 
@@ -121,7 +141,7 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
             <div className="flex items-center justify-between border-b border-[#B5BFCD]/50 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-slate-900">GIA (CEST) Summary</h3>
-                <p className="text-xs text-slate-400 font-normal">{project.id} · {project.enterprise || project.title}</p>
+                <p className="text-xs text-slate-400 font-normal">{project.referenceNumber || project.id} · {project.enterprise || project.title}</p>
               </div>
               <button
                 type="button"
@@ -142,7 +162,9 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
               <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-3.5 space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Total Grant Budget:</span>
-                  <span className="font-bold text-[#0f53b7]">{formatCurrency(project.budget)}</span>
+                  <span className="font-bold text-[#0f53b7]">
+                    {project.budget > 0 ? formatCurrency(project.budget) : 'Not recorded'}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Implementing Agency:</span>
@@ -150,7 +172,7 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-500 font-medium">Project Leader:</span>
-                  <span className="font-bold text-slate-900">{project.manager || 'Dr. Kevin Lim'}</span>
+                  <span className="font-bold text-slate-900">{project.manager || 'Not assigned'}</span>
                 </div>
               </div>
             </div>
@@ -179,19 +201,19 @@ export function GiaMonitoringHub({ project, onBack }: Props) {
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Farmers / Fisherfolk</span>
-                  <strong className="text-sm font-bold text-slate-900">210 (44%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '210 (44%)'}</strong>
                 </div>
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Women's Groups</span>
-                  <strong className="text-sm font-bold text-slate-900">145 (30%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '145 (30%)'}</strong>
                 </div>
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Cooperatives / MSME</span>
-                  <strong className="text-sm font-bold text-slate-900">70 (15%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '70 (15%)'}</strong>
                 </div>
                 <div className="rounded-xl border border-[#B5BFCD]/60 bg-[#E6EEF4]/30 p-2.5">
                   <span className="text-[10px] text-slate-400 block truncate">Indigenous (IPs)</span>
-                  <strong className="text-sm font-bold text-slate-900">55 (11%)</strong>
+                  <strong className="text-sm font-bold text-slate-900">{hasPersistedProject ? 'Not reported' : '55 (11%)'}</strong>
                 </div>
               </div>
             </div>
