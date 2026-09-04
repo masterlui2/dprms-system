@@ -11,16 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('production_costs', function (Blueprint $table) {
+        Schema::create('markets', function (Blueprint $table) {
             $table->id();
             $table->foreignId('quarter_id')->constrained('quarterly_metrics')->restrictOnDelete();
-            $table->string('particulars', 255);
-            $table->enum('type',['OPERATION','LABOR','MISCELLANEOUS']);
-            $table->decimal('month_1', 15, 2)->default(0);
-            $table->decimal('month_2', 15, 2)->default(0);
-            $table->decimal('month_3', 15, 2)->default(0);
-            $table->decimal('total', 15, 2)
-                ->storedAs('month_1 + month_2 + month_3');
+            $table->string('market_name',255);
+            $table->string('address',255);
+            $table->enum('condition',['old','new']);
+            $table->date('effective_date');
+            $table->string('contact_person',255);
+            $table->string('service',255);
+            $table->string('volume',255);
             $table->timestamps();
         });
     }
@@ -30,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('production_costs');
+        Schema::dropIfExists('markets');
     }
 };

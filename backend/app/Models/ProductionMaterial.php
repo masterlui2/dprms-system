@@ -5,16 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class ProductCost extends Model
+class ProductionMaterial extends Model
 {
-    protected $table = 'production_costs';
     protected $fillable = [
         'quarter_id',
-        'particulars',
-        'type',
-        'month_1',
-        'month_2',
-        'month_3',
+        'materials',
+        'unit',
+        'quantity',
+        'cost',
     ];
 
     public function quarter(): BelongsTo{

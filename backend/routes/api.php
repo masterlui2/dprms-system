@@ -133,8 +133,15 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::post('/{projectId}/quarterly-metrics', [QuarterlyMetricController::class, 'store']);
 });
 
-Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('quarterly-metrics')->group(function () {
-    Route::post('/{quarterId}/product', [QuarterlyMetricController::class, 'storeProduct']);
-    Route::post('/{quarterId}/cost', [QuarterlyMetricController::class, 'storeCost']);
-    Route::post('/{quarterId}/employee', [QuarterlyMetricController::class, 'storeEmployee']);
+Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('quarterly-metrics')->group(function (){
+    Route::post('/{quarterId}/product',[QuarterlyMetricController::class, 'storeProduct']);
+    Route::post('/{quarterId}/cost',[QuarterlyMetricController::class, 'storeCost']);
+    Route::post('/{quarterId}/employee',[QuarterlyMetricController::class, 'storeEmployee']);
+    Route::post('/{quarterId}/asset',[QuarterlyMetricController::class, 'storeAsset']);
+    Route::post('/{quarterId}/asset-capital',[QuarterlyMetricController::class, 'storeAssetCapital']);
+    Route::post('/{quarterId}/intervention',[QuarterlyMetricController::class, 'storeIntervention']);
+    Route::post('/{quarterId}/market',[QuarterlyMetricController::class, 'storeMarket']);
+    Route::post('/{quarterId}/linkage',[QuarterlyMetricController::class, 'storeLinkage']);
+    Route::post('/{quarterId}/narrative',[QuarterlyMetricController::class, 'storeNarrative']);
+    Route::post('/{quarterId}/production-material',[QuarterlyMetricController::class, 'storeProductionMaterial']);
 });
