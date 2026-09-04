@@ -125,24 +125,43 @@ export interface ProjectRecord {
 }
 
 export interface EquipmentRecord {
+  acquisitionCost?: number
+  acquisitionDate?: string | null
   assignedTo: string
   backendId?: number
   brand?: string | null
   category?: string | null
   condition: 'Good' | 'Fair' | 'Poor' | 'Non-functional'
   id: string
+  inspectionHistory?: EquipmentInspectionHistory[]
+  installationDate?: string | null
   lastCheckedAt?: string | null
   lastScanned: string
   location: string
   model?: string | null
   name: string
+  propertyNumber?: string | null
   program?: Program
   projectId: string
   projectTitle?: string
   qrData?: string | null
   qrReference?: string | null
   serialNumber?: string | null
-  status: 'Issued' | 'In storage' | 'Returned'
+  specifications?: string | null
+  status: 'Issued' | 'In storage' | 'Returned' | 'Unavailable'
+  supplier?: string | null
+  unit?: string | null
+}
+
+export interface EquipmentInspectionHistory {
+  condition: EquipmentRecord['condition']
+  id: number
+  inspectedAt: string
+  inspector: string
+  observations: string | null
+  photos: string[]
+  previousCondition: EquipmentRecord['condition']
+  recommendations: string | null
 }
 
 export interface PredictionRecord {
