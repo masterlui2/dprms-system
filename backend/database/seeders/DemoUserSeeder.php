@@ -17,15 +17,15 @@ class DemoUserSeeder extends Seeder
     public function run(): void
     {
         $users = [
-            ['name' => 'DOST System Administrator', 'email' => 'admin@dost.gov.ph', 'role' => 'SYSTEM_ADMIN'],
-            ['name' => 'Maria SETUP Proponent', 'email' => 'setup.proponent@dost.gov.ph', 'role' => 'MSME_PROPONENT'],
-            ['name' => 'Gina GIA Project Leader', 'email' => 'gia.proponent@dost.gov.ph', 'role' => 'GIA_PROJECT_LEADER'],
-            ['name' => 'Paolo SETUP Staff (SSCP)', 'email' => 'setup.staff@dost.gov.ph', 'role' => 'PROJECT_STAFF'],
-            ['name' => 'Carla GIA Staff (CEST)', 'email' => 'gia.staff@dost.gov.ph', 'role' => 'PROJECT_STAFF'],
-            ['name' => 'Faith SETUP Focal (SSCP)', 'email' => 'setup.focal@dost.gov.ph', 'role' => 'FOCAL'],
-            ['name' => 'Felix GIA Focal (CEST)', 'email' => 'gia.focal@dost.gov.ph', 'role' => 'FOCAL'],
-            ['name' => 'Pat Provincial Director', 'email' => 'director@dost.gov.ph', 'role' => 'PROVINCIAL_DIRECTOR'],
-            ['name' => 'Rico RPMO Viewer', 'email' => 'rpmo@dost.gov.ph', 'role' => 'RPMO'],
+            ['name' => 'DOST System Administrator', 'email' => 'admin@dost.gov.ph', 'role' => 'SYSTEM_ADMIN', 'program' => 'BOTH'],
+            ['name' => 'Maria SETUP Proponent', 'email' => 'setup.proponent@dost.gov.ph', 'role' => 'MSME_PROPONENT', 'program' => 'SETUP'],
+            ['name' => 'Gina GIA Project Leader', 'email' => 'gia.proponent@dost.gov.ph', 'role' => 'GIA_PROJECT_LEADER', 'program' => 'GIA'],
+            ['name' => 'Paolo SETUP Staff (SSCP)', 'email' => 'setup.staff@dost.gov.ph', 'role' => 'PROJECT_STAFF', 'program' => 'SETUP'],
+            ['name' => 'Carla GIA Staff (CEST)', 'email' => 'gia.staff@dost.gov.ph', 'role' => 'PROJECT_STAFF', 'program' => 'GIA'],
+            ['name' => 'Faith SETUP Focal (SSCP)', 'email' => 'setup.focal@dost.gov.ph', 'role' => 'FOCAL', 'program' => 'SETUP'],
+            ['name' => 'Felix GIA Focal (CEST)', 'email' => 'gia.focal@dost.gov.ph', 'role' => 'FOCAL', 'program' => 'GIA'],
+            ['name' => 'Pat Provincial Director', 'email' => 'director@dost.gov.ph', 'role' => 'PROVINCIAL_DIRECTOR', 'program' => 'BOTH'],
+            ['name' => 'Rico RPMO Viewer', 'email' => 'rpmo@dost.gov.ph', 'role' => 'RPMO', 'program' => 'BOTH'],
         ];
 
         foreach ($users as $data) {
@@ -35,6 +35,7 @@ class DemoUserSeeder extends Seeder
                 [
                     'name' => $data['name'],
                     'is_active' => true,
+                    'program_type' => $data['program'],
                     'password' => Hash::make('Dprms@123'),
                 ],
             );

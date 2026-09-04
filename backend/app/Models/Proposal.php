@@ -86,5 +86,14 @@ class Proposal extends Model
     {
         return $this->hasOne(Project::class);
     }
-}
 
+    public function monitoringRecords(): HasMany
+    {
+        return $this->hasMany(ProjectMonitoringRecord::class);
+    }
+
+    public function projectBudget(): HasOne
+    {
+        return $this->hasOne(ProjectBudget::class);
+    }
+}

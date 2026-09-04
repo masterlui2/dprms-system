@@ -25,6 +25,7 @@ class User extends Authenticatable
         'email',
         'password',
         'is_active',
+        'program_type',
         'last_login_at'
     ];
 
@@ -92,5 +93,28 @@ class User extends Authenticatable
         $roles = is_array($roles) ? $roles : [$roles];
 
         return $this->role()->whereIn('code', $roles)->exists();
+    }
+
+    public function authorizedProgramTypes(): array
+    {
+        if ($this->program_type === 'BOTH') {
+            return ['SETUP', 'GIA'];
+        }
+
+        if (in_array($this->program_type, ['SETUP', 'GIA'], true)) {
+            return [$this->program_type];
+        }
+
+        return $this->role()
+            ->whereIn('program_type', ['SETUP', 'GIA'])
+            ->pluck('program_type')
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function canAccessProgram(string $programType): bool
+    {
+        return in_array(strtoupper($programType), $this->authorizedProgramTypes(), true);
     }
 }

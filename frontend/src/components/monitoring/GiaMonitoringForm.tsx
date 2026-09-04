@@ -43,6 +43,8 @@ interface GiaMonitoringFormProps {
   project: ProjectRecord
   onBack: () => void
   hideTopBar?: boolean
+  readOnly?: boolean
+  selectedReportingPeriod?: string
 }
 
 function AutoResizeTextarea({
@@ -88,43 +90,58 @@ function AutoResizeTextarea({
   )
 }
 
-export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMonitoringFormProps) {
+export function GiaMonitoringForm({
+  project,
+  onBack,
+  hideTopBar = false,
+  readOnly = false,
+  selectedReportingPeriod,
+}: GiaMonitoringFormProps) {
   const mon = (project as any)?.setupMonitoring
   const isSetup = project?.program === 'SETUP'
   const gia = project?.gia
+  const isBackendProject = project.backendId !== undefined
 
-  const reportingPeriod = gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : 'CY 2026 (Semi-Annual)')
+  const reportingPeriod = selectedReportingPeriod || gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : '1st Semester 2026')
   const [projectLeaderGender, setProjectLeaderGender] = useState(
-    project.manager ? `${project.manager} (M)` : (mon ? `${mon.assignedStaff?.split('(')[0]?.trim()} (M)` : 'Dr. Kevin Lim (M)')
+    isBackendProject
+      ? project.manager
+      : project.manager ? `${project.manager} (M)` : (mon ? `${mon.assignedStaff?.split('(')[0]?.trim()} (M)` : 'Dr. Kevin Lim (M)')
   )
   const [agency, setAgency] = useState(gia?.agency || project.enterprise)
   const [addressContact, setAddressContact] = useState(
-    gia?.location ? `${gia.location} · 0917-123-4567 · info@dost.gov.ph` : (mon ? `${mon.pstoOffice}, Davao Oriental · 0917-888-2026 · enterprise@dost.gov.ph` : 'Mati City, Davao Oriental · 0917-123-4567 · gia@dost.gov.ph')
+    isBackendProject
+      ? (project.location || gia?.location || '')
+      : gia?.location ? `${gia.location} · 0917-123-4567 · info@dost.gov.ph` : (mon ? `${mon.pstoOffice}, Davao Oriental · 0917-888-2026 · enterprise@dost.gov.ph` : 'Mati City, Davao Oriental · 0917-123-4567 · gia@dost.gov.ph')
   )
-  const [cooperatingAgencies, setCooperatingAgencies] = useState(gia?.cooperatingAgencies?.join(', ') || 'PSTO Davao Oriental, LGU Mati City')
+  const [cooperatingAgencies, setCooperatingAgencies] = useState(
+    gia?.cooperatingAgencies?.join(', ') || (isBackendProject ? '' : 'PSTO Davao Oriental, LGU Mati City')
+  )
   const [baseStation, setBaseStation] = useState(gia?.baseStation || (mon ? `${mon.pstoOffice}, Mati City` : 'DOST PSTO Davao Oriental'))
   const [sitesOfImplementation, setSitesOfImplementation] = useState(gia?.location || (mon ? `${mon.pstoOffice}, Region XI` : 'Davao Oriental, Region XI'))
-  const [durationMonths, setDurationMonths] = useState(gia?.durationMonths || (isSetup ? 36 : 24))
+  const [durationMonths, setDurationMonths] = useState(gia?.durationMonths ?? (isSetup ? 36 : 24))
   const [startDate, setStartDate] = useState(gia?.startDate || 'Jan 15, 2025')
   const [endDate, setEndDate] = useState(gia?.endDate || 'Jan 14, 2027')
-  const [totalBudget, setTotalBudget] = useState(project.budget || (isSetup ? 3500000 : 2500000))
+  const [totalBudget, setTotalBudget] = useState(
+    isBackendProject ? project.budget : project.budget || (isSetup ? 3500000 : 2500000)
+  )
 
   const [accomplishments, setAccomplishments] = useState<AccomplishmentRow[]>(
-    (gia as any)?.activities?.length ? (gia as any).activities.map((a: any, idx: number) => ({
-      id: `acc_${idx + 1}`,
-      objective: a.particulars || 'Operational Specific Objective',
-      objectiveWeight: 20,
-      activities: a.milestone || 'Field implementation & technology trials',
-      targetAccomplishment: a.target || '100% completed deliverables',
-      targetWeightY1: a.weight || 25,
+    gia?.milestones?.length ? gia.milestones.map((milestone) => ({
+      id: `acc_${milestone.id}`,
+      objective: `${milestone.number}. ${milestone.title}`,
+      objectiveWeight: Math.round(100 / gia.milestones!.length),
+      activities: milestone.description || milestone.title,
+      targetAccomplishment: '100% milestone completion',
+      targetWeightY1: Math.round(100 / gia.milestones!.length),
       targetWeightY2: 0,
       targetWeightY3: 0,
-      actualAccomplishment: a.status === 'Completed' ? '100% Accomplished' : (a.status === 'In Progress' ? '75% Accomplished' : 'Pending start'),
-      actualY1Percent: a.status === 'Completed' ? 100 : (a.status === 'In Progress' ? 75 : 0),
+      actualAccomplishment: `${milestone.completionPercentage}% complete`,
+      actualY1Percent: milestone.completionPercentage,
       actualY2Percent: 0,
       actualY3Percent: 0,
-      remarks: 'On schedule according to workplan.',
-    })) : [
+      remarks: milestone.status.replaceAll('_', ' '),
+    })) : isBackendProject ? [] : [
       {
         id: 'acc_1',
         objective: '1. Establish and validate community science & technology facility in target municipality.',
@@ -189,10 +206,24 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
   )
 
   const [catchUpPlan, setCatchUpPlan] = useState(
-    '1. Acceleration of remaining training schedules for Batch 2 operators within Q4.\n2. Coordinated follow-up with the Sangguniang Bayan Secretariat for the 2nd reading of the adoption ordinance.\n3. Conduct on-site technical inspection for commercial pilot run in coordination with PSTO Davao Oriental.'
+    gia?.catchUpPlan || (isBackendProject ? '' : '1. Acceleration of remaining training schedules for Batch 2 operators within Q4.\n2. Coordinated follow-up with the Sangguniang Bayan Secretariat for the 2nd reading of the adoption ordinance.\n3. Conduct on-site technical inspection for commercial pilot run in coordination with PSTO Davao Oriental.')
   )
 
-  const [outputs, setOutputs] = useState<OutputRow[]>([
+  const [outputs, setOutputs] = useState<OutputRow[]>(gia?.outputs.length
+    ? gia.outputs.map((output, index) => ({
+        id: `out_${index + 1}`,
+        category: output.category,
+        targetY1: output.target,
+        targetY2: 0,
+        targetY3: 0,
+        actualFigureY1: output.actual,
+        actualDescY1: output.description,
+        actualFigureY2: 0,
+        actualDescY2: '',
+        actualFigureY3: 0,
+        actualDescY3: '',
+      }))
+    : isBackendProject ? [] : [
     {
       id: 'out_1',
       category: '1. Publications (P1)',
@@ -274,15 +305,15 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
   ])
 
   const [problemConcern, setProblemConcern] = useState(
-    '1. Intermittent power fluctuations at the community processing site causing slight delay in machinery calibration.\n2. Delays in raw material deliveries from upstream farming sitios due to heavy monsoon rains.'
+    gia?.issueSummary || (isBackendProject ? '' : '1. Intermittent power fluctuations at the community processing site causing slight delay in machinery calibration.\n2. Delays in raw material deliveries from upstream farming sitios due to heavy monsoon rains.')
   )
   const [suggestedSolution, setSuggestedSolution] = useState(
-    '1. PSTO coordinated with Local Electric Cooperative (DORECO) for dedicated phase line and voltage regulator installation.\n2. Established buffer inventory storage schedule at the central processing hub.'
+    gia?.suggestedSolution || (isBackendProject ? '' : '1. PSTO coordinated with Local Electric Cooperative (DORECO) for dedicated phase line and voltage regulator installation.\n2. Established buffer inventory storage schedule at the central processing hub.')
   )
 
-  const [preparedBy, setPreparedBy] = useState(project.manager || 'Dr. Kevin Lim')
-  const [reviewedBy, setReviewedBy] = useState('PSTD Officer, DOST PSTO Davao Oriental')
-  const [approvedBy, setApprovedBy] = useState('Dr. Anthony C. Sales, CESO III / Regional Director')
+  const [preparedBy, setPreparedBy] = useState(project.manager || (isBackendProject ? '' : 'Dr. Kevin Lim'))
+  const [reviewedBy, setReviewedBy] = useState(isBackendProject ? '' : 'PSTD Officer, DOST PSTO Davao Oriental')
+  const [approvedBy, setApprovedBy] = useState(isBackendProject ? '' : 'Dr. Anthony C. Sales, CESO III / Regional Director')
 
   const handleAddAccomplishment = () => {
     const newAcc: AccomplishmentRow = {
@@ -385,7 +416,10 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
         </div>
       )}
 
-      <div className="rounded-2xl border border-[#B5BFCD]/80 bg-white shadow-sm overflow-hidden print:border-none print:shadow-none">
+      <fieldset
+        disabled={readOnly}
+        className="rounded-2xl border border-[#B5BFCD]/80 bg-white shadow-sm overflow-hidden print:border-none print:shadow-none disabled:opacity-100"
+      >
         <div className="p-6 sm:p-8 space-y-8 text-xs text-slate-900">
           <div className="border border-[#B5BFCD] divide-y divide-[#B5BFCD] rounded-xl overflow-hidden bg-white">
             <div className="p-4 space-y-3.5 bg-[#E6EEF4]/20">
@@ -874,7 +908,7 @@ export function GiaMonitoringForm({ project, onBack, hideTopBar = false }: GiaMo
             </button>
           </div>
         </div>
-      </div>
+      </fieldset>
     </div>
   )
 }

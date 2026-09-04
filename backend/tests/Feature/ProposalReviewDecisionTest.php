@@ -137,6 +137,37 @@ class ProposalReviewDecisionTest extends TestCase
         $response->assertJsonPath('data.0.new_status', 'ENDORSED_TO_FOCAL');
     }
 
+    public function test_focal_can_recommend_proposal_for_director_approval(): void
+    {
+        $this->proposal->update(['status' => 'UNDER_VALIDATION']);
+        Sanctum::actingAs($this->focal);
+
+        $response = $this->putJson("/api/proposal/advance-stage/{$this->proposal->id}", [
+            'status' => 'ENDORSED_TO_DIRECTOR',
+            'remarks' => 'Technical assessment completed.',
+        ]);
+
+        $response->assertOk();
+        $response->assertJsonPath('data.status', 'ENDORSED_TO_DIRECTOR');
+
+        $this->assertDatabaseHas('proposal_audits', [
+            'proposal_id' => $this->proposal->id,
+            'reviewed_by' => $this->focal->id,
+            'action' => 'ADVANCE_STAGE',
+            'previous_status' => 'UNDER_VALIDATION',
+            'new_status' => 'ENDORSED_TO_DIRECTOR',
+            'remarks' => 'Technical assessment completed.',
+        ]);
+
+        $this->assertDatabaseHas('proposal_review_logs', [
+            'proposal_id' => $this->proposal->id,
+            'reviewed_by' => $this->focal->id,
+            'action' => 'ADVANCE_STAGE',
+            'previous_status' => 'UNDER_VALIDATION',
+            'new_status' => 'ENDORSED_TO_DIRECTOR',
+        ]);
+    }
+
     public function test_unauthorized_user_cannot_make_decision(): void
     {
         Sanctum::actingAs($this->applicant);
@@ -159,6 +190,22 @@ class ProposalReviewDecisionTest extends TestCase
 
         $response->assertStatus(422);
         $response->assertJsonValidationErrors(['findings']);
+    }
+
+    public function test_project_staff_cannot_approve_through_review_decision_endpoint(): void
+    {
+        $this->proposal->update(['status' => 'ENDORSED_TO_DIRECTOR']);
+        Sanctum::actingAs($this->reviewer);
+
+        $response = $this->postJson("/api/v1/proposals/{$this->proposal->id}/reviews/decision", [
+            'decision' => 'approve',
+            'remarks' => 'Attempted approval by project staff.',
+        ]);
+
+        $response->assertForbidden();
+        $this->assertDatabaseMissing('projects', [
+            'proposal_id' => $this->proposal->id,
+        ]);
     }
 
     public function test_director_approve_records_timestamp_and_reviewer_id(): void
@@ -226,5 +273,3 @@ class ProposalReviewDecisionTest extends TestCase
         ]);
     }
 }
-
-

@@ -26,6 +26,9 @@ class Project extends Model
     {
         return [
             'approved_at' => 'datetime',
+            'start_date' => 'date',
+            'expected_end_date' => 'date',
+            'actual_end_date' => 'date',
         ];
     }
 
@@ -37,7 +40,7 @@ class Project extends Model
         return $this->belongsTo(User::class,'created_by');
     }
 
-    public function approved_by():BelongsTo{
+    public function approver():BelongsTo{
         return $this->belongsTo(User::class,'approved_by');
     }
 }
