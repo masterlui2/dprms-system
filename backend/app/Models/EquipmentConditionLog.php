@@ -15,6 +15,7 @@ class EquipmentConditionLog extends Model
         'new_condition',
         'update_reason',
         'remarks',
+        'recommendations',
         'photos_path',
         'scanned_at',
     ];

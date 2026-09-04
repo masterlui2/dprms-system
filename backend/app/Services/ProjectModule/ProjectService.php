@@ -10,13 +10,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Override;
 
-class ProjectService implements ProjectServiceInterface{
-    public function __construct(protected ProjectRepositoryInterface $projectRepository)
-    {
-    }
+class ProjectService implements ProjectServiceInterface
+{
+    public function __construct(protected ProjectRepositoryInterface $projectRepository) {}
 
     #[Override]
-    public function createFromProposal(Proposal $proposal, ?string $notes = null):Project
+    public function createFromProposal(Proposal $proposal, ?string $notes = null): Project
     {
         return $this->projectRepository->createByProposal([
             'proposal_id' => $proposal->id,

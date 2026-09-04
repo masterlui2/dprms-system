@@ -20,9 +20,13 @@ class EquipmentRegistry extends Model
         'brand',
         'model',
         'serial_number',
+        'property_number',
+        'unit',
         'acquisition_cost',
         'acquisition_date',
+        'installed_at',
         'supplier_name',
+        'location',
         'specifications',
         'status',
         'current_condition',
@@ -37,6 +41,7 @@ class EquipmentRegistry extends Model
         return [
             'acquisition_cost' => 'decimal:2',
             'acquisition_date' => 'date',
+            'installed_at' => 'date',
             'approved_at' => 'datetime',
             'last_checked_at' => 'datetime',
         ];

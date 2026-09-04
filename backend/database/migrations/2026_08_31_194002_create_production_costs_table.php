@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('quarter_id')->constrained('quarterly_metrics')->restrictOnDelete();
             $table->string('particulars', 255);
+            $table->enum('type',['OPERATION','LABOR','MISCELLANEOUS']);
             $table->decimal('month_1', 15, 2)->default(0);
             $table->decimal('month_2', 15, 2)->default(0);
             $table->decimal('month_3', 15, 2)->default(0);
