@@ -214,12 +214,14 @@ export function MonitoringPage() {
 
     try {
       if (selectedProgram === 'SETUP') {
-        const period = parseQuarterPeriod(globalQuarter)
+        // NOTE: year/quarter are intentionally NOT passed here. The SETUP
+        // project list comes from GET /api/projects?status=SETUP, which has
+        // no concept of a reporting period — quarter/year only apply once a
+        // specific project's quarterly metrics are opened (see openProject
+        // below, which still threads period info into SetupMonitoringHub).
         const result = await fetchSetupMonitoringProjects({
           search: debouncedSearch,
           district: districtValue,
-          year: period.year,
-          quarter: period.quarter,
           page: projectPage,
         })
 
@@ -258,7 +260,6 @@ export function MonitoringPage() {
     agencyValue,
     debouncedSearch,
     districtValue,
-    globalQuarter,
     globalSemester,
     projectPage,
     selectedProgram,

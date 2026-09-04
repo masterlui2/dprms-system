@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import {
   ArrowLeft,
   BarChart3,
@@ -6,7 +6,9 @@ import {
   Check,
   FileDown,
   Globe2,
+  LoaderCircle,
   PenTool,
+  RefreshCw,
   SlidersHorizontal,
   Sparkles,
   TrendingUp,
@@ -17,7 +19,7 @@ import {
   computeEmploymentTotals,
   computeProductionCostTotals,
   computeSalesTotals,
-  getQuarterRecord,
+  fetchQuarterlyMetrics,
   saveQuarterRecord,
 } from '../../services/setupMonitoringStore'
 import type { Quarter, SetupMonitoringQuarterRecord } from '../../types/setupMonitoring'
@@ -46,6 +48,33 @@ interface Props {
   readOnly?: boolean
 }
 
+// Generates the last N quarters ("Q1 2026", "Q4 2025", ...) counting back from
+// today, so the selector isn't frozen on a hardcoded past year. Mirrors the
+// quarterPeriods() helper in MonitoringPage.tsx.
+function generateQuarterOptions(count = 8): Array<{ value: string; label: string; quarter: Quarter; year: number }> {
+  const now = new Date()
+  let quarter = Math.ceil((now.getMonth() + 1) / 3)
+  let year = now.getFullYear()
+  const options: Array<{ value: string; label: string; quarter: Quarter; year: number }> = []
+
+  for (let i = 0; i < count; i += 1) {
+    const q = `Q${quarter}` as Quarter
+    options.push({
+      value: `${q} ${year}`,
+      label: `${['1st', '2nd', '3rd', '4th'][quarter - 1]} Quarter (${q} ${year})`,
+      quarter: q,
+      year,
+    })
+    quarter -= 1
+    if (quarter === 0) {
+      quarter = 4
+      year -= 1
+    }
+  }
+
+  return options
+}
+
 export function SetupMonitoringHub({
   project,
   initialQuarter = 'Q2',
@@ -56,21 +85,42 @@ export function SetupMonitoringHub({
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(initialQuarter)
   const [selectedYear, setSelectedYear] = useState<number>(initialYear)
   const [activeTab, setActiveTab] = useState<ActiveTab>('production_sales')
-  const [record, setRecord] = useState<SetupMonitoringQuarterRecord>(() =>
-    getQuarterRecord(project.id, initialYear, initialQuarter),
-  )
+  const [record, setRecord] = useState<SetupMonitoringQuarterRecord | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showExportModal, setShowExportModal] = useState(false)
   const [showSummarySidebar, setShowSummarySidebar] = useState(false)
   const [lastSavedTime, setLastSavedTime] = useState<string>('Just now')
   const [isAutoSaving, setIsAutoSaving] = useState(false)
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const loadRequestRef = useRef(0)
+
+  const quarterOptions = useMemo(() => generateQuarterOptions(8), [])
+
+  const projectBackendId = String(project.backendId ?? project.id)
 
   useEffect(() => {
-    const loaded = getQuarterRecord(project.id, selectedYear, selectedQuarter)
-    loaded.enterpriseName = project.enterprise || loaded.enterpriseName
-    loaded.enterpriseAddress = project.location || loaded.enterpriseAddress
-    setRecord({ ...loaded })
-  }, [project.id, selectedYear, selectedQuarter, project.enterprise, project.location])
+    const requestId = ++loadRequestRef.current
+    setIsLoading(true)
+    setLoadError(null)
+
+    fetchQuarterlyMetrics(projectBackendId, selectedYear, selectedQuarter, {
+      enterpriseName: project.enterprise,
+      enterpriseAddress: project.location,
+    })
+      .then((loaded) => {
+        if (requestId !== loadRequestRef.current) return
+        setRecord(loaded)
+      })
+      .catch((error) => {
+        if (requestId !== loadRequestRef.current) return
+        console.error('Failed to load quarterly metrics:', error)
+        setLoadError('Could not load quarterly metrics from the server.')
+      })
+      .finally(() => {
+        if (requestId === loadRequestRef.current) setIsLoading(false)
+      })
+  }, [projectBackendId, selectedYear, selectedQuarter, project.enterprise, project.location])
 
   const handleRecordChange = (updated: SetupMonitoringQuarterRecord) => {
     setRecord(updated)
@@ -79,6 +129,10 @@ export function SetupMonitoringHub({
       clearTimeout(autoSaveTimerRef.current)
     }
     autoSaveTimerRef.current = setTimeout(() => {
+      // NOTE: there is no PUT/POST /quarterly-metrics endpoint yet, so edits
+      // are only persisted to localStorage as a local draft. They will NOT
+      // survive being overwritten by the next fetchQuarterlyMetrics() call
+      // (e.g. switching quarters and back) until a real save endpoint exists.
       saveQuarterRecord(updated)
       setIsAutoSaving(false)
       const now = new Date()
@@ -89,6 +143,7 @@ export function SetupMonitoringHub({
   }
 
   const handleManualSave = () => {
+    if (!record) return
     saveQuarterRecord(record)
     setIsAutoSaving(false)
     const now = new Date()
@@ -97,12 +152,31 @@ export function SetupMonitoringHub({
     )
   }
 
-  const salesTotals = computeSalesTotals(record)
-  const costTotals = computeProductionCostTotals(record)
-  const empTotals = computeEmploymentTotals(record)
+  const handleRetry = () => {
+    // Bump the ref so the effect's in-flight guard doesn't ignore this retry,
+    // then just re-trigger the effect by nudging state.
+    setIsLoading(true)
+    setLoadError(null)
+    fetchQuarterlyMetrics(projectBackendId, selectedYear, selectedQuarter, {
+      enterpriseName: project.enterprise,
+      enterpriseAddress: project.location,
+    })
+      .then(setRecord)
+      .catch((error) => {
+        console.error('Failed to load quarterly metrics:', error)
+        setLoadError('Could not load quarterly metrics from the server.')
+      })
+      .finally(() => setIsLoading(false))
+  }
 
-  const totalBuildingBookValue = record.buildingAssets.reduce((sum, b) => sum + (b.bookValue || 0), 0)
-  const totalEquipmentBookValue = record.equipmentAssets.reduce((sum, eq) => sum + (eq.bookValue || 0), 0)
+  const salesTotals = record ? computeSalesTotals(record) : null
+  const costTotals = record ? computeProductionCostTotals(record) : null
+  const empTotals = record ? computeEmploymentTotals(record) : null
+
+  const totalBuildingBookValue =
+    record?.buildingAssets.reduce((sum, b) => sum + (b.bookValue || 0), 0) ?? 0
+  const totalEquipmentBookValue =
+    record?.equipmentAssets.reduce((sum, eq) => sum + (eq.bookValue || 0), 0) ?? 0
   const totalFixedAssets = totalBuildingBookValue + totalEquipmentBookValue
 
   const tabs: Array<{
@@ -144,6 +218,34 @@ export function SetupMonitoringHub({
 
   const activeTabTitle = tabs.find((t) => t.id === activeTab)?.label || 'Quarterly Monitoring'
 
+  if (isLoading && !record) {
+    return (
+      <div className="flex min-h-52 items-center justify-center rounded-2xl border border-[#B5BFCD]/80 bg-white text-sm font-semibold text-slate-500 shadow-sm">
+        <LoaderCircle className="mr-2 size-5 animate-spin text-[#285497]" />
+        Loading {selectedQuarter} {selectedYear} monitoring data...
+      </div>
+    )
+  }
+
+  if (loadError && !record) {
+    return (
+      <div className="flex min-h-52 flex-col items-center justify-center rounded-2xl border border-rose-200 bg-white px-6 text-center shadow-sm">
+        <p className="text-sm font-bold text-rose-700">{loadError}</p>
+        <button
+          type="button"
+          onClick={handleRetry}
+          className="mt-3 inline-flex items-center gap-2 rounded-xl bg-[#0f53b7] px-4 py-2 text-xs font-bold text-white hover:bg-[#0b3f8b]"
+        >
+          <RefreshCw className="size-3.5" /> Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (!record) {
+    return null
+  }
+
   return (
     <div className="w-full space-y-5 pb-20 font-sans">
       {/* Top Header Card with Integrated Navigation Tabs */}
@@ -168,6 +270,14 @@ export function SetupMonitoringHub({
                 <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-bold text-[#285497]">
                   {project.referenceNumber || project.id}
                 </span>
+                {loadError && (
+                  <span
+                    className="rounded-lg bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700"
+                    title={loadError}
+                  >
+                    Showing cached data
+                  </span>
+                )}
               </div>
               <p className="text-xs font-semibold text-slate-500 mt-0.5">
                 Quarterly Monitoring Data Sheet · <span className="text-[#285497] font-bold">{activeTabTitle}</span> · {selectedQuarter} {selectedYear}
@@ -187,9 +297,9 @@ export function SetupMonitoringHub({
               }}
               className="h-8.5 rounded-xl border border-[#B5BFCD] bg-white px-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:border-[#0f53b7] focus:outline-none cursor-pointer"
             >
-              <option value="Q3 2024">3rd Quarter (Q3 2024)</option>
-              <option value="Q2 2024">2nd Quarter (Q2 2024)</option>
-              <option value="Q1 2024">1st Quarter (Q1 2024)</option>
+              {quarterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
             </select>
 
             {/* Summary Metrics Sidebar Toggle Button */}
@@ -316,7 +426,7 @@ export function SetupMonitoringHub({
         </div>
 
         {/* Right: Live Summary KPI Sidebar (Contextual for Active Tab) */}
-        {showSummarySidebar && (
+        {showSummarySidebar && salesTotals && costTotals && empTotals && (
           <aside className="w-80 shrink-0 rounded-2xl border border-[#B5BFCD]/80 bg-white p-5 shadow-sm space-y-4 sticky top-6">
             <div className="flex items-center justify-between border-b border-[#B5BFCD]/50 pb-3">
               <div>
