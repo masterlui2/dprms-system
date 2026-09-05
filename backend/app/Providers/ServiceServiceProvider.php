@@ -23,6 +23,8 @@ use App\Services\ProjectModule\ProductionCostService;
 use App\Services\ProjectModule\ProductService;
 use App\Services\ProjectModule\ProjectService;
 use App\Services\ProjectModule\QuarterlyMetricsService;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use App\Services\ProposalModule\DocumentChecklistService;
 use App\Services\ProposalModule\DocumentsService;
 use App\Services\ProposalModule\GiaProposalService;
 use App\Services\ProposalModule\GiaSubmissionService;
@@ -43,6 +45,7 @@ class ServiceServiceProvider extends ServiceProvider
         $this->app->bind(ReferenceNumberGeneratorServiceInterface::class, ReferenceNumberGeneratorService::class);
         $this->app->bind(ProposalServiceInterface::class, ProposalService::class);
         $this->app->bind(DocumentsServiceInterface::class, DocumentsService::class);
+        $this->app->bind(DocumentChecklistServiceInterface::class, DocumentChecklistService::class);
         $this->app->bind(SetupProposalServiceInterface::class, SetupProposalService::class);
         $this->app->bind(SetupSubmissionServiceInterface::class, SetupSubmissionService::class);
         $this->app->bind(GiaSubmissionServiceInterface::class, GiaSubmissionService::class);

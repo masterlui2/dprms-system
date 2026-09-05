@@ -45,6 +45,8 @@ use App\Repositories\ProposalModule\ProposalAuditRepository;
 use App\Repositories\ProposalModule\ProposalRepository;
 use App\Repositories\ProposalModule\ProposalTemplateRepository;
 use App\Repositories\ProposalModule\SetupEquipmentQuotationRepository;
+use App\Repositories\Contracts\ProposalModule\DocumentChecklistRepositoryInterface;
+use App\Repositories\ProposalModule\DocumentChecklistRepository;
 use App\Repositories\ProposalModule\SetupFinancialDocumentRepository;
 use App\Repositories\ProposalModule\SetupProposalRepository;
 use Illuminate\Support\ServiceProvider;
@@ -71,6 +73,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(GiaDocumentRepositoryInterface::class, GiaDocumentRepository::class);
         $this->app->bind(GiaProposalRepositoryInterface::class, GiaProposalRepository::class);
         $this->app->bind(DocumentsRepositoryInterface::class, DocumentsRepository::class);
+        $this->app->bind(DocumentChecklistRepositoryInterface::class, DocumentChecklistRepository::class);
         $this->app->bind(ProposalAuditRepositoryInterface::class, ProposalAuditRepository::class);
 
         $this->app->bind(ProjectRepositoryInterface::class,ProjectRepository::class);

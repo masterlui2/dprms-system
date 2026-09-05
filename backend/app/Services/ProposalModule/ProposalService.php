@@ -183,6 +183,15 @@ class ProposalService implements ProposalServiceInterface{
                 $this->projectService->createFromProposal($existing, $remarks);
             }
 
+            \App\Models\Document::query()
+                ->where('proposal_id', $proposalId)
+                ->where('status', '!=', 'returned_for_revision')
+                ->update([
+                    'status' => 'approved',
+                    'reviewed_by' => \Illuminate\Support\Facades\Auth::id(),
+                    'reviewed_at' => now(),
+                ]);
+
             $proposal = $this->proposalRepository->findById($proposalId);
 
             $this->recordAudit(

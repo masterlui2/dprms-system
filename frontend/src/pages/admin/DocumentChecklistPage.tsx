@@ -284,36 +284,26 @@ export function DocumentChecklistPage() {
   }, [editingItems, editingOverallRemarks, activeProposal?.proposalId, isReadOnly])
 
   useEffect(() => {
-    let cancelled = false
-    const itemsWithDocs = editingItems.filter((i) => i.uploadedDoc)
+    if (viewMode !== 'grid') return
 
-    itemsWithDocs.forEach(async (item) => {
-      const doc = item.uploadedDoc!
-      if (blobMap[item.id]) return
+    const unmappedItems = editingItems.filter(
+      (item) => item.uploadedDoc?.id && !blobMap[item.id] && !item.uploadedDoc.file_path?.startsWith('blob:')
+    )
 
-      if (doc.file_path && doc.file_path.startsWith('blob:')) {
-        if (!cancelled) {
-          setBlobMap((prev) => ({ ...prev, [item.id]: doc.file_path }))
-        }
-        return
-      }
+    if (unmappedItems.length === 0) return
 
-      if (doc.id) {
-        try {
-          const blobUrl = await viewDocumentBlobForStaff(doc.id)
-          if (!cancelled) {
-            setBlobMap((prev) => ({ ...prev, [item.id]: blobUrl }))
-          }
-        } catch {
-          //
-        }
+    unmappedItems.forEach(async (item) => {
+      if (!item.uploadedDoc?.id) return
+      try {
+        const url = await viewDocumentBlobForStaff(item.uploadedDoc.id)
+        setBlobMap((prev) => ({ ...prev, [item.id]: url }))
+      } catch {
+        // Silently fallback to placeholder
       }
     })
+  }, [viewMode, editingItems, blobMap])
 
-    return () => {
-      cancelled = true
-    }
-  }, [editingItems])
+
 
   const categories = useMemo(() => {
     if (activeProgram === 'GIA') {
@@ -1382,9 +1372,6 @@ export function DocumentChecklistPage() {
                         ? 'Uploaded'
                         : 'Pending'}
                     </span>
-                    {statusTab !== 'ALL' && (
-                      <span className="flex size-2 rounded-full bg-[#0f53b7]" />
-                    )}
                   </button>
 
                   {isFilterDropdownOpen && (
@@ -1514,12 +1501,24 @@ export function DocumentChecklistPage() {
                                 </div>
                               </div>
                             ) : (
-                              <div className="flex flex-col items-center justify-center gap-1.5 p-3 text-center bg-white">
-                                <FileCheck2 className="size-8 text-[#0f53b7]" />
-                                <p className="text-[11px] font-bold text-slate-700 truncate max-w-[140px]">
-                                  {item.uploadedDoc?.file_name}
-                                </p>
-                                <LoaderCircle className="size-3.5 animate-spin text-slate-400 mt-1" />
+                              <div className="relative flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center bg-gradient-to-b from-slate-50 to-white">
+                                <div className="flex size-11 items-center justify-center rounded-2xl bg-blue-50 text-[#0f53b7] shadow-xs group-hover:scale-105 transition-transform">
+                                  <FileCheck2 className="size-6" />
+                                </div>
+                                <div className="space-y-0.5 max-w-[150px]">
+                                  <p className="text-[11px] font-bold text-slate-800 truncate" title={item.uploadedDoc?.file_name}>
+                                    {item.uploadedDoc?.file_name}
+                                  </p>
+                                  <p className="text-[10px] text-slate-400">
+                                    {formatFileSize(item.uploadedDoc?.file_size)}
+                                  </p>
+                                </div>
+                                <div className="absolute inset-0 bg-transparent transition group-hover:bg-blue-900/10 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                  <span className="rounded-xl bg-slate-900/80 px-2.5 py-1 text-[11px] font-bold text-white shadow-md flex items-center gap-1">
+                                    <Eye className="size-3" />
+                                    <span>Preview</span>
+                                  </span>
+                                </div>
                               </div>
                             )
                           ) : (
@@ -2352,8 +2351,12 @@ export function DocumentChecklistPage() {
                           <span className="font-mono font-semibold text-[#285497]">{proposal.referenceNumber}</span>
                           <span>•</span>
                           <span>{proposal.proponentName}</span>
-                          <span>•</span>
-                          <span>{proposal.district || 'Davao Oriental'}</span>
+                          {proposal.district && (
+                            <>
+                              <span>•</span>
+                              <span>{proposal.district}</span>
+                            </>
+                          )}
                         </div>
 
                         {/* Mini progress bar */}

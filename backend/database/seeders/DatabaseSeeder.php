@@ -18,5 +18,6 @@ class DatabaseSeeder extends Seeder
         $this->call(RoleSeeder::class);
         $this->call(DemoUserSeeder::class);
         $this->call(DocumentTypeSeeder::class);
+        $this->call(DocumentChecklistTemplateSeeder::class);
     }
 }
