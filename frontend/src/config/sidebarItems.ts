@@ -4,6 +4,7 @@ import {
   BarChart3,
   Bell,
   Building2,
+  ClipboardCheck,
   DatabaseBackup,
   FilePenLine,
   FolderKanban,
@@ -24,6 +25,7 @@ import {
   type ModuleId,
   type UserRole,
 } from "./permissions";
+import type { ApplicationProgram } from "../types/application";
 
 export type SidebarSubItem = {
   id: ModuleId;
@@ -61,6 +63,24 @@ export const sidebarItems: SidebarItem[] = [
   item("dashboard", "Dashboard", LayoutDashboard, "/dashboard"),
 
   item("applications", "Applications", FilePenLine, "/dashboard/applications"),
+  item(
+    "documentChecklist",
+    "Document Checklist",
+    ClipboardCheck,
+    "/dashboard/document-checklist",
+    [
+      {
+        id: "documentChecklist",
+        label: "SETUP Checklist",
+        route: "/dashboard/document-checklist?program=SETUP",
+      },
+      {
+        id: "documentChecklist",
+        label: "GIA Checklist",
+        route: "/dashboard/document-checklist?program=GIA",
+      },
+    ],
+  ),
   item(
     "equipmentTracking",
     "Equipment & QR",
@@ -140,6 +160,7 @@ export const sidebarItems: SidebarItem[] = [
 const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   system_admin: [
     "dashboard",
+    "documentChecklist",
     "userManagement",
     "roleManagement",
     "programManagement",
@@ -153,12 +174,14 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   project_staff: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "equipmentTracking",
     "reports",
   ],
   focal: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "projectMonitoring",
     "repaymentMonitoring",
     "reports",
@@ -166,6 +189,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   provincial_director: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "repaymentMonitoring",
     "projects",
     "reports",
@@ -173,13 +197,14 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   rpmo: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "regionalMonitoring",
     "reports",
   ],
   proponent: [],
 };
 
-export function getSidebarItems(role: UserRole) {
+export function getSidebarItems(role: UserRole, userProgram?: ApplicationProgram) {
   const order = sidebarOrderByRole[role];
   return sidebarItems
     .filter(
@@ -187,5 +212,34 @@ export function getSidebarItems(role: UserRole) {
         order.includes(sidebarItem.id) &&
         canAccessModule(role, sidebarItem.id),
     )
+    .map((sidebarItem) => {
+      if (sidebarItem.id === "documentChecklist") {
+        if ((role === "focal" || role === "project_staff") && userProgram) {
+          return {
+            ...sidebarItem,
+            label: "Document Checklist",
+            route: `/dashboard/document-checklist?program=${userProgram}`,
+            subItems: undefined,
+          };
+        }
+        return {
+          ...sidebarItem,
+          label: "Document Checklist",
+          subItems: [
+            {
+              id: "documentChecklist" as ModuleId,
+              label: "SETUP Program",
+              route: "/dashboard/document-checklist?program=SETUP",
+            },
+            {
+              id: "documentChecklist" as ModuleId,
+              label: "GIA Program",
+              route: "/dashboard/document-checklist?program=GIA",
+            },
+          ],
+        };
+      }
+      return sidebarItem;
+    })
     .sort((left, right) => order.indexOf(left.id) - order.indexOf(right.id));
 }

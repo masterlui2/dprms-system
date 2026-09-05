@@ -5,18 +5,36 @@ import {
   ChevronLeft,
   ChevronRight,
   FileSpreadsheet,
-  LoaderCircle,
+  Grid2X2,
+  List,
   MapPin,
   Search,
   Store,
   UserRound,
 } from 'lucide-react'
 import { fetchProjects, type Program, type ProjectRecord } from '../../services/projectStore'
+import { cn } from '../../utils/cn'
 
 interface Props {
-  onSelectProject: (project: ProjectRecord) => void
+  onSelectProject: (project: any) => void
   viewMode?: 'box' | 'list'
+  onViewModeChange?: (mode: 'box' | 'list') => void
   program?: Program
+  projects?: any
+  searchValue?: string
+  isFiltering?: boolean
+  pagination?: any
+  districtValue?: string
+  districts?: string[]
+  agencyValue?: string
+  agencies?: string[]
+  statusValue?: string
+  statuses?: string[]
+  onSearchChange?: (value: string) => void
+  onDistrictChange?: (value: string) => void
+  onAgencyChange?: (value: string) => void
+  onStatusChange?: (value: string) => void
+  onPageChange?: (page: number) => void
 }
 
 const PER_PAGE = 6
@@ -51,31 +69,60 @@ function ProjectStatus({ project }: { project: ProjectRecord }) {
   return <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600">Not yet monitored</span>
 }
 
-export function MonitoredProjectsSection({ onSelectProject, viewMode = 'box', program }: Props) {
-  const [allProjects, setAllProjects] = useState<ProjectRecord[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+export function MonitoredProjectsSection({
+  onSelectProject,
+  viewMode: propViewMode,
+  onViewModeChange,
+  program,
+  projects: passedProjects,
+}: Props) {
+  const [internalViewMode, setInternalViewMode] = useState<'box' | 'list'>('box')
+  const viewMode = propViewMode ?? internalViewMode
+  const setViewMode = (mode: 'box' | 'list') => {
+    setInternalViewMode(mode)
+    onViewModeChange?.(mode)
+  }
+
+  const [fetchedProjects, setFetchedProjects] = useState<ProjectRecord[]>([])
+  const [isLoading, setIsLoading] = useState(passedProjects === undefined)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const allProjects = passedProjects !== undefined
+    ? (Array.isArray(passedProjects) ? passedProjects : [])
+    : fetchedProjects
+
   const [searchValue, setSearchValue] = useState('')
-  const [districtValue, setDistrictValue] = useState('')
   const [agencyValue, setAgencyValue] = useState('')
   const [statusValue, setStatusValue] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
+    if (passedProjects !== undefined) {
+      setIsLoading(false)
+      return
+    }
     let cancelled = false
     setIsLoading(true)
     fetchProjects()
-      .then((data) => { if (!cancelled) setAllProjects(data) })
-      .catch((err) => { if (!cancelled) setLoadError(err?.message ?? 'Failed to load projects') })
-      .finally(() => { if (!cancelled) setIsLoading(false) })
+      .then((data) => {
+        if (!cancelled) {
+          setFetchedProjects(data)
+          setIsLoading(false)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setLoadError(err?.message ?? 'Failed to load projects')
+          setIsLoading(false)
+        }
+      })
     return () => { cancelled = true }
-  }, [])
+  }, [passedProjects])
 
   // Reset to page 1 whenever a filter changes
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchValue, districtValue, agencyValue, statusValue])
+  }, [searchValue, agencyValue, statusValue])
 
   const scoped = useMemo(
     () => (program ? allProjects.filter((p) => p.program === program) : allProjects),
@@ -84,10 +131,6 @@ export function MonitoredProjectsSection({ onSelectProject, viewMode = 'box', pr
 
   const isGia = program === 'GIA' || scoped.some((p) => p.program === 'GIA')
 
-  const districts = useMemo(
-    () => Array.from(new Set(scoped.map((p) => p.district).filter(Boolean))).sort(),
-    [scoped],
-  )
   const agencies = useMemo(
     () => Array.from(new Set(scoped.map((p) => p.agency).filter(Boolean))).sort(),
     [scoped],
@@ -104,12 +147,11 @@ export function MonitoredProjectsSection({ onSelectProject, viewMode = 'box', pr
         const haystack = `${p.enterprise} ${p.referenceNumber} ${p.location}`.toLowerCase()
         if (!haystack.includes(term)) return false
       }
-      if (districtValue && p.district !== districtValue) return false
       if (agencyValue && p.agency !== agencyValue) return false
       if (statusValue && p.status !== statusValue) return false
       return true
     })
-  }, [scoped, searchValue, districtValue, agencyValue, statusValue])
+  }, [scoped, searchValue, agencyValue, statusValue])
 
   const lastPage = Math.max(1, Math.ceil(filteredProjects.length / PER_PAGE))
   const safePage = Math.min(currentPage, lastPage)
@@ -128,11 +170,10 @@ export function MonitoredProjectsSection({ onSelectProject, viewMode = 'box', pr
     (page) => page === 1 || page === pagination.lastPage || Math.abs(page - pagination.currentPage) <= 1,
   )
 
-  const hasActiveFilters = searchValue.trim() !== '' || districtValue !== '' || agencyValue !== '' || statusValue !== ''
+  const hasActiveFilters = searchValue.trim() !== '' || agencyValue !== '' || statusValue !== ''
 
   const clearFilters = () => {
     setSearchValue('')
-    setDistrictValue('')
     setAgencyValue('')
     setStatusValue('')
   }
@@ -148,52 +189,29 @@ export function MonitoredProjectsSection({ onSelectProject, viewMode = 'box', pr
   return (
     <div className="space-y-4 font-sans">
       <section className="overflow-hidden rounded-2xl border border-[#B5BFCD]/70 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-[#B5BFCD]/50 px-5 py-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-950">
-                {isGia ? 'GIA monitored projects' : 'SETUP monitored enterprises'}
-              </h2>
-            </div>
-            <p className="mt-1 text-xs text-slate-500">
-              {filteredProjects.length} active {isGia ? 'community projects' : 'SETUP enterprises'} shown
-            </p>
-          </div>
+        <div className="flex flex-col gap-3.5 border-b border-[#B5BFCD]/50 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <label className="relative block min-w-0 flex-1 lg:max-w-md">
+            <span className="sr-only">Search monitored projects</span>
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder={isGia ? 'Search agency, project, or reference...' : 'Search enterprise, reference, or address...'}
+              className="h-10 w-full rounded-xl border border-[#B5BFCD] bg-white pl-10 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-3 focus:ring-blue-100"
+            />
+          </label>
 
-          <div className="flex w-full flex-col gap-2.5 sm:flex-row lg:max-w-4xl lg:justify-end">
-            <label className="relative block">
-              <span className="sr-only">Search monitored projects</span>
-              <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="search"
-                value={searchValue}
-                onChange={(event) => setSearchValue(event.target.value)}
-                placeholder={isGia ? 'Search agency, project, or reference' : 'Search enterprise, reference, or address'}
-                className="h-10 w-full rounded-xl border border-[#B5BFCD] bg-white pl-10 pr-4 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:ring-3 focus:ring-blue-100 sm:w-72"
-              />
-            </label>
-            <label>
-              <span className="sr-only">Filter by district or city</span>
-              <select
-                value={districtValue}
-                onChange={(event) => setDistrictValue(event.target.value)}
-                className="h-10 w-full rounded-xl border border-[#B5BFCD] bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#0f53b7] focus:ring-3 focus:ring-blue-100"
-              >
-                <option value="">All districts / cities</option>
-                {districts.map((district) => (
-                  <option key={district} value={district}>{district}</option>
-                ))}
-              </select>
-            </label>
+          <div className="flex flex-wrap items-center gap-2.5">
             {isGia ? (
               <label>
                 <span className="sr-only">Filter by implementing agency</span>
                 <select
                   value={agencyValue}
                   onChange={(event) => setAgencyValue(event.target.value)}
-                  className="h-10 w-full rounded-xl border border-[#B5BFCD] bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#0f53b7] focus:ring-3 focus:ring-blue-100 sm:w-52"
+                  className="h-10 rounded-xl border border-[#B5BFCD] bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#0f53b7] focus:ring-3 focus:ring-blue-100 sm:w-48"
                 >
-                  <option value="">All agencies</option>
+                  <option value="">All Agencies</option>
                   {agencies.map((agency) => (
                     <option key={agency} value={agency}>{agency}</option>
                   ))}
@@ -205,14 +223,43 @@ export function MonitoredProjectsSection({ onSelectProject, viewMode = 'box', pr
               <select
                 value={statusValue}
                 onChange={(event) => setStatusValue(event.target.value)}
-                className="h-10 w-full rounded-xl border border-[#B5BFCD] bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#0f53b7] focus:ring-3 focus:ring-blue-100 sm:w-44"
+                className="h-10 rounded-xl border border-[#B5BFCD] bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-[#0f53b7] focus:ring-3 focus:ring-blue-100 sm:w-44"
               >
-                <option value="">All statuses</option>
+                <option value="">All Statuses</option>
                 {statuses.map((status) => (
                   <option key={status} value={status}>{readableStatus(status)}</option>
                 ))}
               </select>
             </label>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setViewMode('box')}
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-xl border border-[#B5BFCD] transition',
+                  viewMode === 'box'
+                    ? 'bg-[#E6EEF4] text-[#285497] border-[#0f53b7]/30'
+                    : 'bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+                )}
+                title="Box View"
+              >
+                <Grid2X2 className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-xl border border-[#B5BFCD] transition',
+                  viewMode === 'list'
+                    ? 'bg-[#E6EEF4] text-[#285497] border-[#0f53b7]/30'
+                    : 'bg-white text-slate-400 hover:bg-slate-50 hover:text-slate-700'
+                )}
+                title="List View"
+              >
+                <List className="size-4" />
+              </button>
+            </div>
           </div>
         </div>
 

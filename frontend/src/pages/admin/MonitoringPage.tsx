@@ -1,15 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useLocation, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import {
   BarChart3,
   FileDown,
-  Grid2X2,
-  List,
   ListFilter,
   LoaderCircle,
   RefreshCw,
 } from 'lucide-react'
 
+import { AnimatedTabs } from '../../components/common/AnimatedTabs'
 import { GiaMonitoringHub } from '../../components/monitoring/GiaMonitoringHub'
 import { GiaMonitoringOverviewSection } from '../../components/monitoring/GiaMonitoringOverviewSection'
 import { MonitoredProjectsSection } from '../../components/monitoring/MonitoredProjectsSection'
@@ -135,7 +134,6 @@ function readableError(program: Program): string {
 
 export function MonitoringPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const location = useLocation()
   const currentUser = getMockUser()
 
   const lockedProgram: Program | null =
@@ -144,11 +142,9 @@ export function MonitoringPage() {
       : null
   const selectedProgram: Program = lockedProgram ??
     (searchParams.get('program') === 'GIA' ? 'GIA' : 'SETUP')
-  const requestedView = searchParams.get('view')
-  const currentView = requestedView === 'projects' ||
-    (!requestedView && location.pathname.endsWith('/projects'))
-    ? 'projects'
-    : 'overview'
+  const [currentView, setCurrentView] = useState<'overview' | 'projects'>(
+    searchParams.get('view') === 'projects' ? 'projects' : 'overview'
+  )
   const projectIdParam = searchParams.get('projectId')
 
   const initialQuarter = (() => {
@@ -173,6 +169,7 @@ export function MonitoringPage() {
 
   const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(null)
   const [projects, setProjects] = useState<ProjectRecord[]>([])
+  const [hasLoadedInitial, setHasLoadedInitial] = useState(false)
   const [isLoadingProjects, setIsLoadingProjects] = useState(true)
   const [projectsError, setProjectsError] = useState<string | null>(null)
   const [setupStatistics, setSetupStatistics] = useState(EMPTY_SETUP_STATISTICS)
@@ -201,6 +198,16 @@ export function MonitoringPage() {
     }
     setSearchParams(next)
   }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    const view = searchParams.get('view') === 'projects' ? 'projects' : 'overview'
+    setCurrentView(view)
+  }, [searchParams])
+
+  const handleTabSwitch = (view: 'overview' | 'projects') => {
+    setCurrentView(view)
+    updateSearchParams({ projectId: null, view: view === 'projects' ? 'projects' : null })
+  }
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(searchValue.trim()), 300)
@@ -247,6 +254,7 @@ export function MonitoringPage() {
         setGiaCanEdit(result.canEdit)
         setPagination(result.pagination)
       }
+      setHasLoadedInitial(true)
     } catch (error) {
       if (requestId !== loadRequestRef.current) return
       console.error('Failed to load monitoring projects:', error)
@@ -358,74 +366,48 @@ export function MonitoringPage() {
 
   return (
     <div className="space-y-5 font-sans">
-      <header className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[#B5BFCD]/80 bg-white px-5 py-3.5 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="h-9 sm:h-10 w-1.5 rounded-full bg-[#0f53b7]" />
           <div>
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold leading-none text-slate-400">
+            <div className="flex items-center gap-1.5 text-xs font-semibold leading-none text-slate-400">
               <span>Project Monitoring</span>
               <span>&gt;</span>
               <span className="font-bold text-[#285497]">{isOverview ? 'Overview' : 'Monitored Projects'}</span>
             </div>
-            <h1 className="mt-0.5 text-2xl font-black leading-tight tracking-tight text-slate-900">
+            <h1 className="mt-1 text-2xl sm:text-3xl font-black leading-tight tracking-tight text-slate-900">
               Project Monitoring
             </h1>
           </div>
-
-          <div className="flex items-center gap-1 rounded-xl border border-[#B5BFCD]/80 bg-[#E6EEF4]/50 p-1">
-            <button
-              type="button"
-              onClick={() => updateSearchParams({ projectId: null, view: 'overview' })}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition',
-                currentView === 'overview'
-                  ? 'bg-[#0f53b7] text-white shadow-md shadow-blue-900/15'
-                  : 'text-slate-600 hover:bg-[#E6EEF4] hover:text-[#285497]',
-              )}
-            >
-              <BarChart3 className="size-3.5" />
-              Overview
-            </button>
-            <button
-              type="button"
-              onClick={() => updateSearchParams({ projectId: null, view: 'projects' })}
-              className={cn(
-                'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-bold transition',
-                currentView === 'projects'
-                  ? 'bg-[#0f53b7] text-white shadow-md shadow-blue-900/15'
-                  : 'text-slate-600 hover:bg-[#E6EEF4] hover:text-[#285497]',
-              )}
-            >
-              <ListFilter className="size-3.5" />
-              Monitored Projects
-              <span className={cn(
-                'rounded-full px-2 py-0.5 text-[10px] font-extrabold',
-                currentView === 'projects' ? 'bg-white/25 text-white' : 'bg-[#E6EEF4] text-[#285497]',
-              )}>
-                {pagination.total}
-              </span>
-            </button>
-          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <AnimatedTabs
+            layoutId="monitoring-view-tabs"
+            activeTab={currentView}
+            onChange={(id) => handleTabSwitch(id as 'overview' | 'projects')}
+            tabs={[
+              { id: 'overview', label: 'Overview', icon: BarChart3 },
+              {
+                id: 'projects',
+                label: 'Monitored Projects',
+                icon: ListFilter,
+                count: pagination.total,
+              },
+            ]}
+          />
+
           {!lockedProgram ? (
-            <div className="flex items-center gap-1 rounded-xl border border-[#B5BFCD]/80 bg-[#E6EEF4]/50 p-1 shadow-sm">
-              {(['SETUP', 'GIA'] as const).map((program) => (
-                <button
-                  key={program}
-                  type="button"
-                  onClick={() => switchProgram(program)}
-                  className={cn(
-                    'rounded-lg px-3 py-1 text-xs font-bold transition',
-                    selectedProgram === program
-                      ? 'bg-[#0f53b7] text-white shadow-sm'
-                      : 'text-slate-600 hover:text-[#285497]',
-                  )}
-                >
-                  {program}
-                </button>
-              ))}
-            </div>
+            <AnimatedTabs
+              layoutId="monitoring-program-tabs"
+              activeTab={selectedProgram}
+              onChange={(id) => switchProgram(id as Program)}
+              tabs={[
+                { id: 'SETUP', label: 'SETUP' },
+                { id: 'GIA', label: 'GIA' },
+              ]}
+            />
           ) : null}
 
           <div className="flex items-center gap-2">
@@ -474,35 +456,10 @@ export function MonitoringPage() {
             <FileDown className="size-3.5" />
             {isOverview ? 'Export report' : 'Export list'}
           </button>
-
-          {!isOverview ? (
-            <div className="flex items-center gap-1 rounded-xl border border-[#B5BFCD]/80 bg-[#E6EEF4]/50 p-1 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setGlobalViewMode('box')}
-                className={cn(
-                  'flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition',
-                  globalViewMode === 'box' ? 'bg-[#0f53b7] text-white shadow-sm' : 'text-slate-600 hover:text-[#285497]',
-                )}
-              >
-                <Grid2X2 className="size-3" /> Grid
-              </button>
-              <button
-                type="button"
-                onClick={() => setGlobalViewMode('list')}
-                className={cn(
-                  'flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-bold transition',
-                  globalViewMode === 'list' ? 'bg-[#0f53b7] text-white shadow-sm' : 'text-slate-600 hover:text-[#285497]',
-                )}
-              >
-                <List className="size-3" /> List
-              </button>
-            </div>
-          ) : null}
         </div>
-      </header>
+      </div>
 
-      {isLoadingProjects && programProjects.length === 0 ? (
+      {!hasLoadedInitial && isLoadingProjects ? (
         <div className="flex min-h-52 items-center justify-center rounded-2xl border border-[#B5BFCD]/80 bg-white text-sm font-semibold text-slate-500 shadow-sm">
           <LoaderCircle className="mr-2 size-5 animate-spin text-[#285497]" />
           Loading {selectedProgram} monitoring projects...
@@ -518,55 +475,62 @@ export function MonitoringPage() {
             <RefreshCw className="size-3.5" /> Retry
           </button>
         </div>
-      ) : currentView === 'overview' ? (
-        selectedProgram === 'GIA' ? (
-          <GiaMonitoringOverviewSection
-            projects={programProjects}
-            statistics={giaStatistics}
-            period={globalSemester}
-            onSelectProject={openProject}
-          />
-        ) : (
-          <MonitoringOverviewSection
-            projects={programProjects}
-            statistics={setupStatistics}
-            period={globalQuarter}
-            onSelectProject={openProject}
-          />
-        )
       ) : (
-        <MonitoredProjectsSection
-          program={selectedProgram}
-          projects={programProjects}
-          viewMode={globalViewMode}
-          searchValue={searchValue}
-          isFiltering={isLoadingProjects}
-          pagination={pagination}
-          districtValue={selectedProgram === 'SETUP' ? districtValue : undefined}
-          districts={selectedProgram === 'SETUP' ? districts : undefined}
-          agencyValue={selectedProgram === 'GIA' ? agencyValue : undefined}
-          agencies={selectedProgram === 'GIA' ? agencies : undefined}
-          statusValue={selectedProgram === 'GIA' ? statusValue : undefined}
-          statuses={selectedProgram === 'GIA' ? giaStatuses : undefined}
-          onSearchChange={(value) => {
-            setSearchValue(value)
-            setProjectPage(1)
-          }}
-          onDistrictChange={selectedProgram === 'SETUP' ? (value) => {
-            setDistrictValue(value)
-            setProjectPage(1)
-          } : undefined}
-          onAgencyChange={selectedProgram === 'GIA' ? (value) => {
-            setAgencyValue(value)
-            setProjectPage(1)
-          } : undefined}
-          onStatusChange={selectedProgram === 'GIA' ? (value) => {
-            setStatusValue(value)
-            setProjectPage(1)
-          } : undefined}
-          onPageChange={changePage}
-          onSelectProject={openProject}
-        />
+        <>
+          <div className={cn(currentView === 'overview' ? 'block animate-in fade-in duration-150' : 'hidden')}>
+            {selectedProgram === 'GIA' ? (
+              <GiaMonitoringOverviewSection
+                projects={programProjects}
+                statistics={giaStatistics}
+                period={globalSemester}
+                onSelectProject={openProject}
+              />
+            ) : (
+              <MonitoringOverviewSection
+                projects={programProjects}
+                statistics={setupStatistics}
+                period={globalQuarter}
+                onSelectProject={openProject}
+              />
+            )}
+          </div>
+
+          <div className={cn(currentView === 'projects' ? 'block animate-in fade-in duration-150' : 'hidden')}>
+            <MonitoredProjectsSection
+              program={selectedProgram}
+              projects={programProjects}
+              viewMode={globalViewMode}
+              onViewModeChange={setGlobalViewMode}
+              searchValue={searchValue}
+              isFiltering={isLoadingProjects}
+              pagination={pagination}
+              districtValue={selectedProgram === 'SETUP' ? districtValue : undefined}
+              districts={selectedProgram === 'SETUP' ? districts : undefined}
+              agencyValue={selectedProgram === 'GIA' ? agencyValue : undefined}
+              agencies={selectedProgram === 'GIA' ? agencies : undefined}
+              statusValue={selectedProgram === 'GIA' ? statusValue : undefined}
+              statuses={selectedProgram === 'GIA' ? giaStatuses : undefined}
+              onSearchChange={(value: string) => {
+                setSearchValue(value)
+                setProjectPage(1)
+              }}
+              onDistrictChange={selectedProgram === 'SETUP' ? (value: string) => {
+                setDistrictValue(value)
+                setProjectPage(1)
+              } : undefined}
+              onAgencyChange={selectedProgram === 'GIA' ? (value: string) => {
+                setAgencyValue(value)
+                setProjectPage(1)
+              } : undefined}
+              onStatusChange={selectedProgram === 'GIA' ? (value: string) => {
+                setStatusValue(value)
+                setProjectPage(1)
+              } : undefined}
+              onPageChange={changePage}
+              onSelectProject={openProject}
+            />
+          </div>
+        </>
       )}
     </div>
   )
