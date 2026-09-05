@@ -148,7 +148,7 @@ const decisionOptions: Array<{
     tone: "success",
   },
   {
-    description: "Technical or Line-Item Budget adjustments needed. Return dossier back to In Process.",
+    description: "Technical or Line-Item Budget adjustments needed. Return proposal back to In Process.",
     icon: RotateCcw,
     id: "return_in_process",
     label: "Return to In Process (Technical Issue)",

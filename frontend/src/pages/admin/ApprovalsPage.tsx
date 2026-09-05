@@ -488,7 +488,7 @@ export function ApprovalsPage() {
                   event.stopPropagation();
                   openReview(proposal, "overview");
                 }}
-                title="View Full Dossier"
+                title="View Full Proposal"
                 type="button"
               >
                 <Eye className="size-4" />
