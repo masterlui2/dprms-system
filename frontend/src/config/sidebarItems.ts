@@ -174,6 +174,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   project_staff: [
     "dashboard",
     "applications",
+    "documentChecklist",
     "equipmentTracking",
     "reports",
   ],
@@ -213,7 +214,7 @@ export function getSidebarItems(role: UserRole, userProgram?: ApplicationProgram
     )
     .map((sidebarItem) => {
       if (sidebarItem.id === "documentChecklist") {
-        if (role === "focal" && userProgram) {
+        if ((role === "focal" || role === "project_staff") && userProgram) {
           return {
             ...sidebarItem,
             label: "Document Checklist",

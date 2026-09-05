@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
+  AlertCircle,
   Check,
+  CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Download,
   Eye,
@@ -11,12 +14,15 @@ import {
   Filter,
   FolderOpen,
   Grid2X2,
+  History,
   Inbox,
   List,
   LoaderCircle,
   Lock,
+  Minus,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Trash2,
   Upload,
@@ -27,18 +33,20 @@ import {
 } from 'lucide-react'
 import Swal from 'sweetalert2'
 
-import { ROLES } from '../../config/permissions'
-import { AnimatedTabs } from '../../components/common/AnimatedTabs'
+import { ROLE_LABEL, ROLES, type UserRole } from '../../config/permissions'
 import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal'
 import { getMockUser } from '../../lib/mockAuth'
-import { viewDocumentBlobForStaff } from '../../services/documentStore'
+import { reviewProposalDocument, viewDocumentBlobForStaff } from '../../services/documentStore'
 import {
+  addChecklistHistoryLog,
   fetchChecklistProposals,
+  getChecklistHistory,
   removeChecklistDocument,
   saveProposalChecklistReview,
   uploadChecklistDocument,
   GIA_STAGES,
   SETUP_SETS,
+  type ChecklistHistoryItem,
   type ChecklistItemStatus,
   type DocumentChecklistItem,
   type ProposalChecklistRecord,
@@ -74,24 +82,28 @@ export function DocumentChecklistPage() {
   const currentUser = getMockUser()
 
   const isRpmo = currentUser?.role === ROLES.RPMO
-  const isReadOnly = isRpmo
+  const isDirector = currentUser?.role === ROLES.PROVINCIAL_DIRECTOR
+  const isFocal = currentUser?.role === ROLES.FOCAL
+  const isStaff = currentUser?.role === ROLES.PROJECT_STAFF
+  const isAdmin = currentUser?.role === ROLES.SYSTEM_ADMIN
+
+  const isReadOnly = isRpmo || isDirector
+  const canUpload = !isReadOnly && (isStaff || isFocal || isAdmin)
+  const canReview = !isReadOnly && (isFocal || isAdmin)
+  const canMarkComplete = !isReadOnly && (isFocal || isAdmin)
+  const canViewHistory = isStaff || isFocal || isDirector || isAdmin
 
   const userProgram = currentUser?.program as 'SETUP' | 'GIA' | undefined
-  const isFocal = currentUser?.role === ROLES.FOCAL
-
-  const canSwitchProgram =
-    !isFocal &&
-    (isRpmo ||
-      currentUser?.role === ROLES.PROVINCIAL_DIRECTOR ||
-      currentUser?.role === ROLES.SYSTEM_ADMIN)
 
   const activeProgram: 'SETUP' | 'GIA' = useMemo(() => {
-    if (isFocal) return userProgram === 'GIA' ? 'GIA' : 'SETUP'
+    if ((isFocal || isStaff) && userProgram) {
+      return userProgram === 'GIA' ? 'GIA' : 'SETUP'
+    }
     const param = searchParams.get('program')?.toUpperCase()
     if (param === 'GIA') return 'GIA'
     if (param === 'SETUP') return 'SETUP'
     return userProgram || 'SETUP'
-  }, [searchParams, isFocal, userProgram])
+  }, [searchParams, isFocal, isStaff, userProgram])
 
   const [proposals, setProposals] = useState<ProposalChecklistRecord[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -129,6 +141,14 @@ export function DocumentChecklistPage() {
   const [isCompletingReview, setIsCompletingReview] = useState(false)
   const lastSavedPayloadRef = useRef<string>('')
 
+  const [historyList, setHistoryList] = useState<ChecklistHistoryItem[]>([])
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
+
+  const [reviewModalItem, setReviewModalItem] = useState<DocumentChecklistItem | null>(null)
+  const [reviewDecision, setReviewDecision] = useState<'APPROVED' | 'RETURNED'>('APPROVED')
+  const [reviewRemarks, setReviewRemarks] = useState('')
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+
   const [blobMap, setBlobMap] = useState<Record<string, string>>({})
 
   const [uploadModalItem, setUploadModalItem] = useState<DocumentChecklistItem | null>(null)
@@ -155,11 +175,6 @@ export function DocumentChecklistPage() {
   })
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
-
-  const setProgram = (prog: 'SETUP' | 'GIA') => {
-    setSearchParams({ program: prog })
-    setSelectedCategory('ALL')
-  }
 
   const loadData = async () => {
     setIsLoading(true)
@@ -203,10 +218,12 @@ export function DocumentChecklistPage() {
         remarks: remarksCopy,
       })
       setAutoSaveStatus('idle')
+      setHistoryList(getChecklistHistory(activeProposal.proposalId))
     } else {
       setSelectedProposalId(null)
       setEditingItems([])
       setEditingOverallRemarks('')
+      setHistoryList([])
       lastSavedPayloadRef.current = ''
       setAutoSaveStatus('idle')
     }
@@ -302,6 +319,7 @@ export function DocumentChecklistPage() {
     if (activeProgram === 'GIA') {
       return GIA_STAGES.map((s) => ({
         id: s.id,
+        stageOrSetTag: `Stage ${s.number}`,
         name: `Stage ${s.number}: ${s.shortTitle}`,
         shortName: s.shortTitle,
         subtitle: s.subtitle,
@@ -309,6 +327,7 @@ export function DocumentChecklistPage() {
     }
     return SETUP_SETS.map((s) => ({
       id: s.id,
+      stageOrSetTag: s.number.replace('SET', 'SET '),
       name: `${s.number.replace('SET', 'SET ')} · ${s.shortTitle}`,
       shortName: s.shortTitle,
       subtitle: s.subtitle,
@@ -354,6 +373,48 @@ export function DocumentChecklistPage() {
       percent,
     }
   }, [editingItems])
+
+  const getItemComplianceState = (item: DocumentChecklistItem) => {
+    const hasFile = Boolean(item.uploadedDoc)
+    const isReturned =
+      item.status === 'Needs Revision' || item.uploadedDoc?.status === 'returned_for_revision'
+    const isApproved =
+      item.status === 'Complied' && (item.uploadedDoc?.status === 'approved' || !hasFile || Boolean(item.reviewedAt))
+
+    if (isReturned) {
+      return {
+        type: 'RETURNED' as const,
+        label: 'Returned for Revision',
+        badgeClass: 'bg-rose-50 text-rose-700 border border-rose-200/80',
+        iconClass: 'bg-rose-500 text-white',
+      }
+    }
+
+    if (isApproved || (item.isPresent && !isReturned)) {
+      return {
+        type: 'SATISFIED' as const,
+        label: hasFile ? 'Satisfied' : 'Verified (Offline)',
+        badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
+        iconClass: 'bg-emerald-500 text-white',
+      }
+    }
+
+    if (hasFile) {
+      return {
+        type: 'UNDER_REVIEW' as const,
+        label: 'Under Review',
+        badgeClass: 'bg-blue-50 text-[#0f53b7] border border-blue-200/80',
+        iconClass: 'bg-[#0f53b7] text-white',
+      }
+    }
+
+    return {
+      type: 'PENDING' as const,
+      label: 'Pending Upload',
+      badgeClass: 'bg-slate-100 text-slate-600',
+      iconClass: 'bg-slate-100 text-slate-400',
+    }
+  }
 
   const filteredModalProposals = useMemo(() => {
     return programProposals.filter((p) => {
@@ -426,10 +487,25 @@ export function DocumentChecklistPage() {
       if (!result.isConfirmed) return
     }
 
+    const nextPresent = !targetItem.isPresent
+
+    if (activeProposal && targetItem) {
+      const log = addChecklistHistoryLog({
+        proposalId: activeProposal.proposalId,
+        action: nextPresent ? 'VERIFY' : 'UNVERIFY',
+        itemName: targetItem.name,
+        userName: currentUser?.name || 'User',
+        userRole: currentUser?.role || ROLES.FOCAL,
+        details: nextPresent
+          ? `Verified compliance for ${targetItem.name}.`
+          : `Unmarked requirement for ${targetItem.name}.`,
+      })
+      setHistoryList((prev) => [log, ...prev])
+    }
+
     setEditingItems((prev) =>
       prev.map((item) => {
         if (item.id !== itemId) return item
-        const nextPresent = !item.isPresent
         const nextStatus: ChecklistItemStatus = nextPresent ? 'Complied' : 'Missing'
         return {
           ...item,
@@ -472,6 +548,19 @@ export function DocumentChecklistPage() {
       )
 
       setBlobMap((prev) => ({ ...prev, [uploadModalItem.id]: blobUrl }))
+
+      if (activeProposal) {
+        const log = addChecklistHistoryLog({
+          proposalId: activeProposal.proposalId,
+          action: uploadModalItem.isPresent ? 'REPLACE' : 'UPLOAD',
+          itemName: uploadModalItem.name,
+          fileName: selectedUploadFile.name,
+          userName: currentUser?.name || 'User',
+          userRole: currentUser?.role || ROLES.PROJECT_STAFF,
+          details: `Uploaded ${selectedUploadFile.name} (${formatFileSize(selectedUploadFile.size)})`,
+        })
+        setHistoryList((prev) => [log, ...prev])
+      }
 
       setEditingItems((prev) =>
         prev.map((item) => {
@@ -526,6 +615,19 @@ export function DocumentChecklistPage() {
       await removeChecklistDocument(item.uploadedDoc.id)
     }
 
+    if (activeProposal) {
+      const log = addChecklistHistoryLog({
+        proposalId: activeProposal.proposalId,
+        action: 'REMOVE',
+        itemName: item.name,
+        fileName: item.uploadedDoc?.file_name,
+        userName: currentUser?.name || 'User',
+        userRole: currentUser?.role || ROLES.PROJECT_STAFF,
+        details: `Removed attached file ${item.uploadedDoc?.file_name || ''}`,
+      })
+      setHistoryList((prev) => [log, ...prev])
+    }
+
     setBlobMap((prev) => {
       const next = { ...prev }
       delete next[item.id]
@@ -551,6 +653,101 @@ export function DocumentChecklistPage() {
       timer: 1400,
       showConfirmButton: false,
     })
+  }
+
+  const handleOpenReviewModal = (item: DocumentChecklistItem) => {
+    setReviewModalItem(item)
+    setReviewDecision(item.status === 'Needs Revision' ? 'RETURNED' : 'APPROVED')
+    setReviewRemarks(item.remarks || item.uploadedDoc?.remarks || '')
+  }
+
+  const handleCloseReviewModal = () => {
+    if (isSubmittingReview) return
+    setReviewModalItem(null)
+    setReviewRemarks('')
+  }
+
+  const handleConfirmReview = async () => {
+    if (!reviewModalItem || isReadOnly) return
+    const remarksValue = reviewRemarks.trim()
+
+    if (reviewDecision === 'RETURNED' && !remarksValue) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Rejection Remarks Required',
+        text: 'Please enter specific remarks explaining why this document is returned for revision before submitting.',
+        confirmButtonColor: '#0f53b7',
+        customClass: {
+          popup: 'rounded-3xl p-6 font-sans',
+          confirmButton: 'rounded-xl px-4 py-2 font-bold text-xs',
+        },
+      })
+      return
+    }
+
+    setIsSubmittingReview(true)
+    try {
+      const isApproved = reviewDecision === 'APPROVED'
+      const newStatus: ChecklistItemStatus = isApproved ? 'Complied' : 'Needs Revision'
+
+      setEditingItems((prev) =>
+        prev.map((it) => {
+          if (it.id === reviewModalItem.id) {
+            return {
+              ...it,
+              isPresent: isApproved,
+              status: newStatus,
+              remarks: remarksValue,
+              reviewedAt: new Date().toISOString(),
+            }
+          }
+          return it
+        })
+      )
+
+      if (reviewModalItem.uploadedDoc?.id) {
+        try {
+          await reviewProposalDocument(
+            reviewModalItem.uploadedDoc.id,
+            isApproved ? 'approved' : 'returned_for_revision',
+            remarksValue
+          )
+        } catch {
+          // Backend sync error fallback
+        }
+      }
+
+      if (activeProposal) {
+        const log = addChecklistHistoryLog({
+          proposalId: activeProposal.proposalId,
+          action: isApproved ? 'REVIEW_APPROVED' : 'REVIEW_RETURNED',
+          itemName: reviewModalItem.name,
+          fileName: reviewModalItem.uploadedDoc?.file_name,
+          userName: currentUser?.name || 'Focal Evaluator',
+          userRole: currentUser?.role || ROLES.FOCAL,
+          details: remarksValue
+            ? `Remarks: ${remarksValue}`
+            : isApproved
+            ? 'Requirement evaluated and marked as Satisfied.'
+            : 'Requirement returned for revision.',
+        })
+        setHistoryList((prev) => [log, ...prev])
+      }
+
+      handleCloseReviewModal()
+      Swal.fire({
+        icon: 'success',
+        title: isApproved ? 'Document Approved' : 'Document Returned',
+        text: isApproved
+          ? 'The requirement has been marked as Satisfied.'
+          : 'Rejection remarks saved and document returned for revision.',
+        timer: 2000,
+        showConfirmButton: false,
+        customClass: { popup: 'rounded-3xl p-6 font-sans' },
+      })
+    } finally {
+      setIsSubmittingReview(false)
+    }
   }
 
   const handlePreviewDocument = async (item: DocumentChecklistItem) => {
@@ -693,6 +890,17 @@ export function DocumentChecklistPage() {
         })
       )
 
+      if (activeProposal) {
+        const log = addChecklistHistoryLog({
+          proposalId: activeProposal.proposalId,
+          action: 'COMPLETE_REVIEW',
+          userName: currentUser?.name || 'Focal Evaluator',
+          userRole: currentUser?.role || ROLES.FOCAL,
+          details: 'Finalized and marked document checklist evaluation review as Completed.',
+        })
+        setHistoryList((prev) => [log, ...prev])
+      }
+
       setLastSavedTime(
         new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       )
@@ -805,17 +1013,7 @@ export function DocumentChecklistPage() {
             </div>
           )}
 
-          {canSwitchProgram && (
-            <AnimatedTabs
-              layoutId="checklist-program-tabs"
-              activeTab={activeProgram}
-              onChange={(id) => setProgram(id as 'SETUP' | 'GIA')}
-              tabs={[
-                { id: 'SETUP', label: 'SETUP' },
-                { id: 'GIA', label: 'GIA' },
-              ]}
-            />
-          )}
+
 
           <button
             type="button"
@@ -914,10 +1112,10 @@ export function DocumentChecklistPage() {
               <button
                 type="button"
                 onClick={() => setIsProjectSelectorOpen(true)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white py-2 text-xs font-bold text-slate-700 hover:bg-[#E6EEF4]/60 hover:text-[#0f53b7] hover:border-[#0f53b7]/30 transition shadow-2xs"
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white py-2 px-3 text-xs font-bold text-slate-700 hover:bg-[#E6EEF4]/60 hover:text-[#0f53b7] hover:border-[#0f53b7]/30 transition shadow-2xs cursor-pointer"
               >
-                <Search className="size-3.5 text-slate-400" />
-                <span>Switch Project ({programProposals.length})</span>
+                <Search className="size-3.5 text-slate-400 shrink-0" />
+                <span>Switch Project</span>
               </button>
             </div>
 
@@ -930,7 +1128,7 @@ export function DocumentChecklistPage() {
                 type="button"
                 onClick={() => setSelectedCategory('ALL')}
                 className={cn(
-                  'flex w-full items-center justify-between gap-1.5 rounded-xl px-2.5 py-2 text-left text-[11.5px] transition',
+                  'flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs transition cursor-pointer',
                   selectedCategory === 'ALL'
                     ? 'bg-[#0f53b7] font-bold text-white shadow-xs'
                     : 'font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950'
@@ -938,7 +1136,7 @@ export function DocumentChecklistPage() {
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
                   <Inbox className="size-4 shrink-0" />
-                  <span className="whitespace-nowrap tracking-tight">All Requirements</span>
+                  <span className="tracking-tight">All Requirements</span>
                 </div>
                 <span
                   className={cn(
@@ -952,43 +1150,170 @@ export function DocumentChecklistPage() {
                 </span>
               </button>
 
-              {categories.map((cat) => {
-                const catItems = editingItems.filter((i) => i.setId === cat.id || i.stageId === cat.id)
-                const catComplied = catItems.filter((i) => i.isPresent).length
-                const catTotal = catItems.length
-                const isCatComplete = catTotal > 0 && catComplied >= catTotal
+              <div className="max-h-[320px] overflow-y-auto space-y-1 pr-1 overscroll-contain custom-scrollbar">
+                {categories.map((cat) => {
+                  const catItems = editingItems.filter((i) => i.setId === cat.id || i.stageId === cat.id)
+                  const catComplied = catItems.filter((i) => i.isPresent).length
+                  const catTotal = catItems.length
+                  const isCatComplete = catTotal > 0 && catComplied >= catTotal
+                  const isSelected = selectedCategory === cat.id
 
-                return (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={cn(
-                      'flex w-full items-center justify-between gap-1.5 rounded-xl px-2.5 py-2 text-left text-[11.5px] transition',
-                      selectedCategory === cat.id
-                        ? 'bg-[#0f53b7] font-bold text-white shadow-xs'
-                        : 'font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-950'
-                    )}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="whitespace-nowrap tracking-tight" title={cat.shortName}>{cat.shortName}</p>
-                    </div>
-                    <span
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat.id)}
                       className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
-                        selectedCategory === cat.id
-                          ? 'bg-white/20 text-white'
-                          : isCatComplete
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
-                            : 'bg-slate-100 text-slate-600'
+                        'group flex w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left transition cursor-pointer',
+                        isSelected
+                          ? 'bg-[#0f53b7] text-white shadow-xs'
+                          : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
                       )}
                     >
-                      {catComplied}/{catTotal}
-                    </span>
-                  </button>
-                )
-              })}
+                      <div className="flex items-center justify-between gap-2 w-full">
+                        <span
+                          className={cn(
+                            'text-[10px] font-bold uppercase tracking-wider',
+                            isSelected ? 'text-blue-100' : 'text-slate-400'
+                          )}
+                        >
+                          {cat.stageOrSetTag}
+                        </span>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                            isSelected
+                              ? 'bg-white/20 text-white'
+                              : isCatComplete
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                              : 'bg-slate-100 text-slate-600'
+                          )}
+                        >
+                          {catComplied}/{catTotal}
+                        </span>
+                      </div>
+                      <p
+                        className={cn(
+                          'text-xs leading-snug tracking-tight',
+                          isSelected ? 'font-bold text-white' : 'font-semibold text-slate-800'
+                        )}
+                        title={cat.name}
+                      >
+                        {cat.shortName}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
+
+            {canViewHistory && (
+              <div className="overflow-hidden rounded-2xl border border-[#B5BFCD]/80 bg-white shadow-sm">
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryExpanded((prev) => !prev)}
+                  className="flex w-full items-center justify-between p-3.5 text-left transition hover:bg-slate-50 cursor-pointer"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex size-6 items-center justify-center rounded-lg bg-[#0f53b7]/10 text-[#0f53b7] shrink-0">
+                      <History className="size-3.5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-900 truncate">History</span>
+                    <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-[#0f53b7] border border-blue-200/80 shrink-0">
+                      {historyList.length}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    className={cn(
+                      'size-4 text-slate-400 transition-transform duration-200 shrink-0',
+                      isHistoryExpanded && 'rotate-180 text-slate-700'
+                    )}
+                  />
+                </button>
+
+                {isHistoryExpanded && (
+                  <div className="border-t border-slate-100 bg-slate-50/60 p-3 max-h-64 sm:max-h-72 overflow-y-auto overscroll-contain space-y-2.5 divide-y divide-slate-100/80 pr-1.5 custom-scrollbar">
+                    {historyList.length === 0 ? (
+                      <div className="py-4 text-center text-xs text-slate-400">
+                        No activity records yet for this project.
+                      </div>
+                    ) : (
+                      historyList.map((item) => {
+                        const roleFormatted = ROLE_LABEL[item.userRole as UserRole] || item.userRole
+                        return (
+                          <div key={item.id} className="pt-2.5 first:pt-0 space-y-1 text-xs">
+                            <div className="flex items-center justify-between gap-1">
+                              <span
+                                className={cn(
+                                  'rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase',
+                                  item.action === 'UPLOAD' || item.action === 'REPLACE'
+                                    ? 'bg-blue-100 text-[#0f53b7]'
+                                    : item.action === 'REMOVE'
+                                    ? 'bg-rose-100 text-rose-700'
+                                    : item.action === 'REVIEW_APPROVED' || item.action === 'VERIFY'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : item.action === 'REVIEW_RETURNED'
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : item.action === 'UNVERIFY'
+                                    ? 'bg-slate-100 text-slate-700'
+                                    : 'bg-purple-100 text-purple-700'
+                                )}
+                              >
+                                {item.action === 'UPLOAD'
+                                  ? 'Uploaded'
+                                  : item.action === 'REPLACE'
+                                  ? 'Replaced'
+                                  : item.action === 'REMOVE'
+                                  ? 'Removed'
+                                  : item.action === 'VERIFY'
+                                  ? 'Verified'
+                                  : item.action === 'UNVERIFY'
+                                  ? 'Unverified'
+                                  : item.action === 'REVIEW_APPROVED'
+                                  ? 'Approved'
+                                  : item.action === 'REVIEW_RETURNED'
+                                  ? 'Returned'
+                                  : item.action === 'COMPLETE_REVIEW'
+                                  ? 'Completed'
+                                  : 'Updated'}
+                              </span>
+                              <span className="text-[10px] text-slate-400">
+                                {formatRelativeDate(item.timestamp)}
+                              </span>
+                            </div>
+
+                            {item.itemName && (
+                              <p className="font-bold text-slate-800 text-[11px] leading-tight line-clamp-2">
+                                {item.itemName}
+                              </p>
+                            )}
+
+                            {item.fileName && (
+                              <p className="font-mono text-[10px] text-slate-500 truncate bg-white rounded px-1.5 py-0.5 border border-slate-200/60">
+                                {item.fileName}
+                              </p>
+                            )}
+
+                            {item.details && (
+                              <p className="text-[10px] text-slate-500 leading-snug italic">
+                                {item.details}
+                              </p>
+                            )}
+
+                            <div className="flex items-center gap-1 text-[10px] text-slate-400 pt-0.5">
+                              <User className="size-2.5 text-slate-400" />
+                              <span className="font-semibold text-slate-700 truncate">{item.userName}</span>
+                              <span>•</span>
+                              <span className="truncate">{roleFormatted}</span>
+                            </div>
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
           </aside>
 
           {/* Main Documents Workspace */}
@@ -1144,21 +1469,26 @@ export function DocumentChecklistPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
                 {filteredItems.map((item, idx) => {
                   const hasFile = Boolean(item.uploadedDoc)
-                  const blobUrl = blobMap[item.id]
+                  const blobUrl = blobMap[item.id] || (item.uploadedDoc?.file_path?.startsWith('blob:') ? item.uploadedDoc.file_path : null)
+                  const state = getItemComplianceState(item)
 
                   return (
                     <div
                       key={item.id}
                       className={cn(
                         'group flex flex-col justify-between rounded-2xl border p-2.5 bg-white transition duration-200 hover:shadow-md',
-                        hasFile
+                        state.type === 'RETURNED'
+                          ? 'border-rose-300/90 bg-rose-50/15 hover:border-rose-400'
+                          : state.type === 'UNDER_REVIEW'
+                          ? 'border-blue-200/90 bg-blue-50/10 hover:border-[#0f53b7]/60'
+                          : hasFile
                           ? 'border-slate-200/90 hover:border-[#0f53b7]/60'
                           : 'border-dashed border-slate-300 hover:border-[#0f53b7]/60 bg-slate-50/40'
                       )}
                     >
                       <div>
                         <div
-                          onClick={() => hasFile ? handlePreviewDocument(item) : !isReadOnly && handleOpenUploadModal(item)}
+                          onClick={() => hasFile ? handlePreviewDocument(item) : canUpload && handleOpenUploadModal(item)}
                           className={cn(
                             'relative h-36 sm:h-40 w-full overflow-hidden rounded-xl border flex flex-col items-center justify-center cursor-pointer transition select-none',
                             hasFile
@@ -1192,18 +1522,6 @@ export function DocumentChecklistPage() {
                                 <LoaderCircle className="size-3.5 animate-spin text-slate-400 mt-1" />
                               </div>
                             )
-                          ) : item.isPresent ? (
-                            <div className="flex flex-col items-center justify-center gap-1.5 p-3 text-center">
-                              <span className="flex size-8 items-center justify-center rounded-xl bg-emerald-50 border border-emerald-200/80 text-emerald-600 shadow-2xs">
-                                <Check className="size-4 stroke-[2.5]" />
-                              </span>
-                              <p className="text-xs font-semibold text-slate-800">
-                                Verified
-                              </p>
-                              <p className="text-[10px] text-slate-400">
-                                Offline document verified
-                              </p>
-                            </div>
                           ) : (
                             <div className="flex flex-col items-center justify-center gap-1.5 p-3 text-center">
                               <span className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-slate-400 group-hover:bg-blue-50 group-hover:text-[#0f53b7] transition">
@@ -1217,15 +1535,23 @@ export function DocumentChecklistPage() {
                               </p>
                             </div>
                           )}
+
+                          {state.type !== 'PENDING' && (
+                            <div className={cn('absolute top-2 left-2 z-10 rounded-md px-2 py-0.5 text-[9px] font-bold shadow-xs', state.badgeClass)}>
+                              {state.label}
+                            </div>
+                          )}
                         </div>
 
                         <div className="mt-2.5 space-y-1.5">
-                          <h4
-                            className="truncate text-xs font-bold text-slate-950"
-                            title={hasFile ? item.uploadedDoc?.file_name : item.name}
-                          >
-                            {hasFile ? item.uploadedDoc?.file_name : `${idx + 1}. ${item.name}`}
-                          </h4>
+                          <div className="flex items-center justify-between gap-1">
+                            <h4
+                              className="truncate text-xs font-bold text-slate-950 flex-1"
+                              title={hasFile ? item.uploadedDoc?.file_name : item.name}
+                            >
+                              {hasFile ? item.uploadedDoc?.file_name : `${idx + 1}. ${item.name}`}
+                            </h4>
+                          </div>
 
                           <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500">
                             <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -1237,93 +1563,116 @@ export function DocumentChecklistPage() {
                               </span>
                               <span>•</span>
                               <span className="text-slate-400 shrink-0 text-[10px]">
-                                {hasFile ? (
-                                  formatRelativeDate(item.uploadedDoc?.created_at)
-                                ) : item.isPresent ? (
-                                  <span className="font-medium text-emerald-600">Verified</span>
-                                ) : (
-                                  'Pending'
-                                )}
+                                {state.label}
                               </span>
                             </div>
 
-                            {hasFile ? (
-                              <div className="flex items-center gap-1 shrink-0">
+                            <div className="flex items-center gap-1 shrink-0">
+                              {hasFile && (
                                 <button
                                   type="button"
-                                  onClick={async () => {
-                                    if (!item.uploadedDoc) return
-                                    if (item.uploadedDoc.file_path?.startsWith('blob:')) {
-                                      const link = document.createElement('a')
-                                      link.href = item.uploadedDoc.file_path
-                                      link.download = item.uploadedDoc.file_name
-                                      document.body.appendChild(link)
-                                      link.click()
-                                      document.body.removeChild(link)
-                                    } else {
-                                      const blobUrl = await viewDocumentBlobForStaff(item.uploadedDoc.id)
-                                      const link = document.createElement('a')
-                                      link.href = blobUrl
-                                      link.download = item.uploadedDoc.file_name
-                                      document.body.appendChild(link)
-                                      link.click()
-                                      document.body.removeChild(link)
-                                    }
-                                  }}
-                                  className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition"
-                                  title="Download"
+                                  onClick={() => handlePreviewDocument(item)}
+                                  className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-[#0f53b7] transition cursor-pointer"
+                                  title="Preview Document"
                                 >
-                                  <Download className="size-3" />
+                                  <Eye className="size-3" />
                                 </button>
+                              )}
 
-                                {!isReadOnly && (
+                              {canReview && hasFile && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenReviewModal(item)}
+                                  className={cn(
+                                    "inline-flex size-6 items-center justify-center rounded-lg border transition shadow-2xs cursor-pointer",
+                                    state.type === 'UNDER_REVIEW' || state.type === 'RETURNED'
+                                      ? 'border-[#0f53b7] bg-[#0f53b7] text-white hover:bg-[#0b3f8b]'
+                                      : 'border-slate-200 text-slate-700 hover:bg-[#E6EEF4]/70 hover:text-[#0f53b7]'
+                                  )}
+                                  title="Review Document Compliance"
+                                >
+                                  <FileCheck2 className="size-3" />
+                                </button>
+                              )}
+
+                              {hasFile ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!item.uploadedDoc) return
+                                      if (item.uploadedDoc.file_path?.startsWith('blob:')) {
+                                        const link = document.createElement('a')
+                                        link.href = item.uploadedDoc.file_path
+                                        link.download = item.uploadedDoc.file_name
+                                        document.body.appendChild(link)
+                                        link.click()
+                                        document.body.removeChild(link)
+                                      } else {
+                                        const blobUrl = await viewDocumentBlobForStaff(item.uploadedDoc.id)
+                                        const link = document.createElement('a')
+                                        link.href = blobUrl
+                                        link.download = item.uploadedDoc.file_name
+                                        document.body.appendChild(link)
+                                        link.click()
+                                        document.body.removeChild(link)
+                                      }
+                                    }}
+                                    className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition cursor-pointer"
+                                    title="Download"
+                                  >
+                                    <Download className="size-3" />
+                                  </button>
+
+                                  {canUpload && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenUploadModal(item)}
+                                        className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-[#0f53b7] transition cursor-pointer"
+                                        title="Replace Document"
+                                      >
+                                        <Upload className="size-3" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveFile(item)}
+                                        className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                                        title="Remove Document"
+                                      >
+                                        <Trash2 className="size-3" />
+                                      </button>
+                                    </>
+                                  )}
+                                </>
+                              ) : (
+                                canUpload && (
                                   <>
                                     <button
                                       type="button"
-                                      onClick={() => handleOpenUploadModal(item)}
-                                      className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-[#0f53b7] transition"
-                                      title="Replace Document"
+                                      onClick={() => handleToggleItemVerify(item.id)}
+                                      title={item.isPresent ? 'Checked (Click to uncheck)' : 'Click to manually verify offline'}
+                                      className={cn(
+                                        'flex size-6 items-center justify-center rounded-lg border transition cursor-pointer',
+                                        item.isPresent
+                                          ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs hover:bg-emerald-700'
+                                          : 'border-slate-300 bg-white text-transparent hover:border-slate-400 hover:bg-slate-50'
+                                      )}
                                     >
-                                      <Upload className="size-3" />
+                                      <Check className="size-3.5 stroke-[3]" />
                                     </button>
                                     <button
                                       type="button"
-                                      onClick={() => handleRemoveFile(item)}
-                                      className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
-                                      title="Remove Document"
+                                      onClick={() => handleOpenUploadModal(item)}
+                                      className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-[#0f53b7] transition cursor-pointer"
+                                      title="Upload PDF scan"
                                     >
-                                      <Trash2 className="size-3" />
+                                      <Plus className="size-3.5" />
                                     </button>
                                   </>
-                                )}
-                              </div>
-                            ) : (
-                              !isReadOnly && (
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleToggleItemVerify(item.id)}
-                                    title={item.isPresent ? 'Checked (Click to uncheck)' : 'Click to check requirement'}
-                                    className={cn(
-                                      'flex size-6 items-center justify-center rounded-lg border transition cursor-pointer',
-                                      item.isPresent
-                                        ? 'bg-emerald-600 border-emerald-600 text-white shadow-2xs hover:bg-emerald-700'
-                                        : 'border-slate-300 bg-white text-transparent hover:border-slate-400 hover:bg-slate-50'
-                                    )}
-                                  >
-                                    <Check className="size-3.5 stroke-[3]" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenUploadModal(item)}
-                                    className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-blue-50 hover:text-[#0f53b7] transition"
-                                    title="Upload PDF scan"
-                                  >
-                                    <Plus className="size-3.5" />
-                                  </button>
-                                </div>
-                              )
-                            )}
+                                )
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1335,38 +1684,57 @@ export function DocumentChecklistPage() {
               <div className="divide-y divide-[#B5BFCD]/40 overflow-hidden rounded-3xl border border-[#B5BFCD]/70 bg-white shadow-sm">
                 {filteredItems.map((item, idx) => {
                   const hasFile = Boolean(item.uploadedDoc)
+                  const state = getItemComplianceState(item)
 
                   return (
                     <div
                       key={item.id}
-                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 transition hover:bg-[#f7fbff]"
+                      className={cn(
+                        'flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 p-4 transition hover:bg-[#f7fbff]',
+                        state.type === 'RETURNED'
+                          ? 'bg-rose-50/20'
+                          : state.type === 'UNDER_REVIEW'
+                          ? 'bg-blue-50/10'
+                          : ''
+                      )}
                     >
                       <div className="flex items-start gap-4 min-w-0 flex-1">
                         <div className="flex items-center gap-3.5 shrink-0">
                           <div className="mt-0.5">
-                            {hasFile ? (
+                            {state.type === 'RETURNED' ? (
+                              <span
+                                className="flex size-7 items-center justify-center rounded-xl bg-rose-500 text-white shadow-2xs select-none"
+                                title="Returned for revision - Needs re-upload"
+                              >
+                                <RotateCcw className="size-3.5 stroke-[2.5]" />
+                              </span>
+                            ) : state.type === 'SATISFIED' ? (
                               <span
                                 className="flex size-7 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-2xs select-none"
-                                title="Document uploaded and verified"
+                                title={hasFile ? 'Complied and Satisfied' : 'Verified Offline'}
                               >
                                 <Check className="size-4 stroke-[3.5]" />
+                              </span>
+                            ) : state.type === 'UNDER_REVIEW' ? (
+                              <span
+                                className="flex size-7 items-center justify-center rounded-xl bg-[#0f53b7] text-white shadow-2xs select-none"
+                                title="Uploaded - Pending Focal review"
+                              >
+                                <FileText className="size-3.5" />
+                              </span>
+                            ) : isReadOnly ? (
+                              <span
+                                className="flex size-7 items-center justify-center rounded-xl border-2 border-slate-200 bg-slate-50 text-slate-300 select-none cursor-default"
+                                title="Pending compliance"
+                              >
+                                <Minus className="size-3.5 text-slate-300 stroke-[3]" />
                               </span>
                             ) : (
                               <button
                                 type="button"
-                                disabled={isReadOnly}
                                 onClick={() => handleToggleItemVerify(item.id)}
-                                title={
-                                  item.isPresent
-                                    ? 'Checked (Click to uncheck)'
-                                    : 'Click to check requirement'
-                                }
-                                className={cn(
-                                  'flex size-7 items-center justify-center rounded-xl border-2 transition cursor-pointer',
-                                  item.isPresent
-                                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-2xs hover:bg-emerald-600 hover:border-emerald-600'
-                                    : 'border-slate-300 bg-white text-transparent hover:border-emerald-500 hover:bg-emerald-50/50'
-                                )}
+                                title="Click to manually verify requirement offline"
+                                className="flex size-7 items-center justify-center rounded-xl border-2 border-slate-300 bg-white text-transparent hover:border-emerald-500 hover:bg-emerald-50/50 transition cursor-pointer"
                               >
                                 <Check className="size-4 stroke-[3.5]" />
                               </button>
@@ -1380,61 +1748,103 @@ export function DocumentChecklistPage() {
                             {String(idx + 1).padStart(2, '0')}.
                           </span>
 
-                          <div className="space-y-0.5 min-w-0 flex-1">
-                            <p className="text-xs font-bold text-slate-950 sm:text-sm">{item.name}</p>
+                          <div className="space-y-1.5 min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="text-xs font-bold text-slate-950 sm:text-sm">{item.name}</p>
+                              <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-bold', state.badgeClass)}>
+                                {state.label}
+                              </span>
+                            </div>
+
                             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                               <span>{item.group}</span>
                               {hasFile && (
                                 <>
                                   <span>•</span>
-                                  <span className="font-semibold text-[#0f53b7]">
-                                    {item.uploadedDoc?.file_name} ({formatFileSize(item.uploadedDoc?.file_size)})
-                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePreviewDocument(item)}
+                                    className="font-semibold text-[#0f53b7] hover:underline cursor-pointer text-left truncate max-w-xs inline-flex items-center gap-1"
+                                    title="Click to preview file"
+                                  >
+                                    <FileText className="size-3 shrink-0" />
+                                    <span className="truncate">{item.uploadedDoc?.file_name}</span>
+                                    <span className="text-slate-400 font-normal">({formatFileSize(item.uploadedDoc?.file_size)})</span>
+                                  </button>
                                 </>
                               )}
                             </div>
+
+                            {state.type === 'RETURNED' && (
+                              <div className="mt-2 flex items-start gap-2 rounded-xl border border-rose-200/90 bg-rose-50/80 p-2.5 text-xs text-rose-900">
+                                <AlertCircle className="size-4 shrink-0 mt-0.5 text-rose-600" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-bold text-rose-800">Return for Revision Feedback:</p>
+                                  <p className="mt-0.5 text-slate-700 leading-relaxed">
+                                    {item.remarks || item.uploadedDoc?.remarks || 'Please revise and re-upload this document.'}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pl-11 sm:pl-0 shrink-0">
-                        {hasFile ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handlePreviewDocument(item)}
-                              className="inline-flex items-center gap-1 rounded-xl bg-[#E6EEF4] px-3 py-1.5 text-xs font-bold text-[#285497] hover:bg-blue-100 transition"
-                            >
-                              <Eye className="size-3" />
-                              <span>Preview</span>
-                            </button>
-                            {!isReadOnly && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenUploadModal(item)}
-                                  className="inline-flex size-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-[#0f53b7] transition"
-                                  title="Replace Document"
-                                >
-                                  <Upload className="size-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveFile(item)}
-                                  className="inline-flex size-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition"
-                                  title="Delete Document"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </button>
-                              </>
+                      <div className="flex items-center gap-2 pl-11 sm:pl-0 shrink-0 mt-2 sm:mt-0">
+                        {hasFile && (
+                          <button
+                            type="button"
+                            onClick={() => handlePreviewDocument(item)}
+                            className="inline-flex items-center gap-1 rounded-xl bg-[#E6EEF4] px-3 py-1.5 text-xs font-bold text-[#285497] hover:bg-blue-100 transition cursor-pointer"
+                            title="Preview document"
+                          >
+                            <Eye className="size-3" />
+                            <span>Preview</span>
+                          </button>
+                        )}
+
+                        {canReview && hasFile && (
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReviewModal(item)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition shadow-2xs cursor-pointer",
+                              state.type === 'UNDER_REVIEW' || state.type === 'RETURNED'
+                                ? 'border-[#0f53b7] bg-[#0f53b7] text-white hover:bg-[#0b3f8b]'
+                                : 'border-slate-300 bg-white text-slate-700 hover:bg-[#E6EEF4]/60 hover:text-[#0f53b7]'
                             )}
-                          </>
-                        ) : (
-                          !isReadOnly && (
+                            title="Review and Evaluate Document Compliance"
+                          >
+                            <FileCheck2 className="size-3.5" />
+                            <span>{state.type === 'UNDER_REVIEW' ? 'Review & Decide' : 'Review'}</span>
+                          </button>
+                        )}
+
+                        {canUpload && (
+                          hasFile ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenUploadModal(item)}
+                                className="inline-flex size-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-blue-50 hover:text-[#0f53b7] transition cursor-pointer"
+                                title="Replace Document"
+                              >
+                                <Upload className="size-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveFile(item)}
+                                className="inline-flex size-8 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                                title="Delete Document"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </button>
+                            </>
+                          ) : (
                             <button
                               type="button"
                               onClick={() => handleOpenUploadModal(item)}
-                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#0b3f8b] transition"
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-[#0b3f8b] transition cursor-pointer"
                             >
                               <Plus className="size-3" />
                               <span>Upload Document</span>
@@ -1448,66 +1858,68 @@ export function DocumentChecklistPage() {
               </div>
             )}
 
-            {/* Evaluation Remarks Section */}
-            <div className="overflow-hidden rounded-3xl border border-[#B5BFCD]/70 bg-white p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-700">
-                  Overall Evaluation Remarks & Notes
-                </label>
-                {!isReadOnly && (
-                  <span className="text-[11px] font-medium text-slate-400">
-                    {autoSaveStatus === 'saving'
-                      ? 'Saving remarks...'
-                      : autoSaveStatus === 'saved'
-                      ? `Saved ${lastSavedTime ? `at ${lastSavedTime}` : ''}`
-                      : 'Changes save automatically'}
-                  </span>
+            {/* Evaluation Remarks Section (Focal, Admin, or Viewers with recorded remarks) */}
+            {!isStaff && (
+              <div className="overflow-hidden rounded-3xl border border-[#B5BFCD]/70 bg-white p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-[0.1em] text-slate-700">
+                    Overall Evaluation Remarks & Notes
+                  </label>
+                  {canReview && (
+                    <span className="text-[11px] font-medium text-slate-400">
+                      {autoSaveStatus === 'saving'
+                        ? 'Saving remarks...'
+                        : autoSaveStatus === 'saved'
+                        ? `Saved ${lastSavedTime ? `at ${lastSavedTime}` : ''}`
+                        : 'Changes save automatically'}
+                    </span>
+                  )}
+                </div>
+                {canReview ? (
+                  <textarea
+                    rows={2}
+                    value={editingOverallRemarks}
+                    onChange={(e) => setEditingOverallRemarks(e.target.value)}
+                    placeholder="Enter overall review notes or remarks for this project..."
+                    className="w-full rounded-2xl border border-[#B5BFCD] bg-slate-50/70 p-3 text-xs text-slate-800 placeholder-slate-400 transition focus:border-[#0f53b7] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
+                  />
+                ) : (
+                  <div className="w-full rounded-2xl border border-[#B5BFCD] bg-slate-50/70 p-3.5 text-xs text-slate-800">
+                    {editingOverallRemarks || <span className="text-slate-400 italic">No overall remarks recorded.</span>}
+                  </div>
+                )}
+
+                {canMarkComplete && (
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-slate-100">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span
+                        className={cn(
+                          'size-2 rounded-full',
+                          stats.percent === 100 ? 'bg-emerald-500' : 'bg-amber-500'
+                        )}
+                      />
+                      <span className="font-semibold text-slate-700">
+                        {stats.verified} of {stats.required} requirements verified
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleMarkReviewCompleted}
+                      disabled={isCompletingReview}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-md disabled:opacity-50 cursor-pointer"
+                    >
+                      {isCompletingReview ? (
+                        <LoaderCircle className="size-4 animate-spin" />
+                      ) : (
+                        <Check className="size-4 stroke-[2.5]" />
+                      )}
+                      <span>Mark Review as Completed</span>
+                    </button>
+                  </div>
                 )}
               </div>
-              {isReadOnly ? (
-                <div className="w-full rounded-2xl border border-[#B5BFCD] bg-slate-50/70 p-3.5 text-xs text-slate-800">
-                  {editingOverallRemarks || <span className="text-slate-400 italic">No overall remarks recorded.</span>}
-                </div>
-              ) : (
-                <textarea
-                  rows={2}
-                  value={editingOverallRemarks}
-                  onChange={(e) => setEditingOverallRemarks(e.target.value)}
-                  placeholder="Enter overall review notes or remarks for this project..."
-                  className="w-full rounded-2xl border border-[#B5BFCD] bg-slate-50/70 p-3 text-xs text-slate-800 placeholder-slate-400 transition focus:border-[#0f53b7] focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 sm:text-sm"
-                />
-              )}
-
-              {!isReadOnly && (
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-slate-100">
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
-                    <span
-                      className={cn(
-                        'size-2 rounded-full',
-                        stats.percent === 100 ? 'bg-emerald-500' : 'bg-amber-500'
-                      )}
-                    />
-                    <span className="font-semibold text-slate-700">
-                      {stats.verified} of {stats.required} requirements verified
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleMarkReviewCompleted}
-                    disabled={isCompletingReview}
-                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-emerald-700 hover:shadow-md disabled:opacity-50 cursor-pointer"
-                  >
-                    {isCompletingReview ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                      <Check className="size-4 stroke-[2.5]" />
-                    )}
-                    <span>Mark Review as Completed</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            )}
           </main>
         </div>
       )}
@@ -1629,6 +2041,210 @@ export function DocumentChecklistPage() {
                   </>
                 ) : (
                   <span>Upload your files</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {reviewModalItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-in fade-in duration-150 font-sans">
+          <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl bg-white shadow-2xl border border-[#B5BFCD]/60 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-[#f7fbff]">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#E6EEF4] text-[#285497]">
+                  <FileCheck2 className="size-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-950">Review Document Compliance</h3>
+                  <p className="text-xs text-slate-500">Evaluate compliance and provide reviewer remarks</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCloseReviewModal}
+                disabled={isSubmittingReview}
+                className="flex size-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Requirement</span>
+                <p className="text-sm font-bold text-slate-950 leading-snug">{reviewModalItem.name}</p>
+                <div className="flex items-center gap-2 pt-1 text-[11px] text-slate-500">
+                  <span className="font-semibold text-slate-700">{reviewModalItem.group}</span>
+                  {reviewModalItem.uploadedDoc && (
+                    <>
+                      <span>•</span>
+                      <span className="text-[#0f53b7] font-medium">{reviewModalItem.uploadedDoc.file_name}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {reviewModalItem.uploadedDoc && (() => {
+                const uploadLog = historyList.find(
+                  (h) => (h.action === 'UPLOAD' || h.action === 'REPLACE') && h.itemName === reviewModalItem.name
+                )
+                const uploaderName =
+                  uploadLog?.userName ||
+                  activeProposal?.proponentName ||
+                  'Proponent / Staff'
+                const uploaderRole = uploadLog?.userRole
+                  ? ROLE_LABEL[uploadLog.userRole as UserRole] || uploadLog.userRole
+                  : 'Proponent'
+                const uploadDate = uploadLog?.timestamp || reviewModalItem.uploadedDoc.created_at
+
+                return (
+                  <div className="rounded-2xl border border-blue-100 bg-[#f7fbff] p-3.5 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex size-7 items-center justify-center rounded-xl bg-blue-100 text-[#0f53b7] shrink-0">
+                          <User className="size-3.5" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-900 truncate">
+                            Uploaded by: {uploaderName}
+                          </p>
+                          <p className="text-[10px] text-slate-500 truncate">{uploaderRole}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handlePreviewDocument(reviewModalItem)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-[#E6EEF4] px-3 py-1.5 text-xs font-bold text-[#0f53b7] hover:bg-blue-100 transition cursor-pointer shrink-0"
+                      >
+                        <Eye className="size-3" />
+                        <span>Preview File</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-blue-50 text-[10px] text-slate-500 font-mono">
+                      <span className="truncate text-slate-600 font-semibold">
+                        {reviewModalItem.uploadedDoc.file_name} ({formatFileSize(reviewModalItem.uploadedDoc.file_size)})
+                      </span>
+                      <span className="shrink-0 text-slate-400">
+                        {uploadDate ? formatRelativeDate(uploadDate) : 'Recently'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })()}
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                  Compliance Decision
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision('APPROVED')}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer',
+                      reviewDecision === 'APPROVED'
+                        ? 'border-emerald-600 bg-emerald-50/80 text-emerald-800 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <CheckCircle2 className={cn('size-4', reviewDecision === 'APPROVED' ? 'text-emerald-600' : 'text-slate-400')} />
+                    <span>Approve (Satisfied)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision('RETURNED')}
+                    className={cn(
+                      'flex items-center justify-center gap-2 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer',
+                      reviewDecision === 'RETURNED'
+                        ? 'border-rose-500 bg-rose-50/80 text-rose-800 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <RotateCcw className={cn('size-4', reviewDecision === 'RETURNED' ? 'text-rose-600' : 'text-slate-400')} />
+                    <span>Return for Revision</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold uppercase tracking-wide text-slate-700">
+                    Remarks & Findings
+                    {reviewDecision === 'RETURNED' ? (
+                      <span className="ml-1 text-rose-600 font-bold">* (Required)</span>
+                    ) : (
+                      <span className="ml-1 text-slate-400 font-normal text-[11px]">(Optional)</span>
+                    )}
+                  </label>
+                  <span className="text-[11px] text-slate-400">{reviewRemarks.length}/500</span>
+                </div>
+                <textarea
+                  rows={3}
+                  maxLength={500}
+                  value={reviewRemarks}
+                  onChange={(e) => setReviewRemarks(e.target.value)}
+                  placeholder={
+                    reviewDecision === 'RETURNED'
+                      ? 'Please specify required revisions, missing signatures, or corrections needed...'
+                      : 'Enter any reviewer remarks or compliance notes...'
+                  }
+                  className={cn(
+                    'w-full rounded-2xl border p-3 text-xs sm:text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:ring-3',
+                    reviewDecision === 'RETURNED' && !reviewRemarks.trim()
+                      ? 'border-rose-300 bg-rose-50/30 focus:border-rose-500 focus:ring-rose-100'
+                      : 'border-[#B5BFCD] bg-slate-50/50 focus:border-[#0f53b7] focus:bg-white focus:ring-blue-100'
+                  )}
+                />
+                {reviewDecision === 'RETURNED' && !reviewRemarks.trim() && (
+                  <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                    <AlertCircle className="size-3 shrink-0" />
+                    <span>Rejection remarks must be provided before returning this document.</span>
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 border-t border-slate-100 px-6 py-4 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={handleCloseReviewModal}
+                disabled={isSubmittingReview}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-5 text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmReview}
+                disabled={isSubmittingReview || (reviewDecision === 'RETURNED' && !reviewRemarks.trim())}
+                className={cn(
+                  'inline-flex h-10 items-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-sm transition disabled:opacity-50 cursor-pointer',
+                  reviewDecision === 'APPROVED'
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-rose-600 hover:bg-rose-700'
+                )}
+              >
+                {isSubmittingReview ? (
+                  <>
+                    <LoaderCircle className="size-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : reviewDecision === 'APPROVED' ? (
+                  <>
+                    <Check className="size-4 stroke-[2.5]" />
+                    <span>Approve Document</span>
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="size-4 stroke-[2.5]" />
+                    <span>Return Document</span>
+                  </>
                 )}
               </button>
             </div>

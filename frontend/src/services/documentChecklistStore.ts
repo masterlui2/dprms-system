@@ -1232,3 +1232,85 @@ export async function removeChecklistDocument(
   }
 }
 
+export type ChecklistHistoryAction =
+  | 'UPLOAD'
+  | 'REPLACE'
+  | 'REMOVE'
+  | 'VERIFY'
+  | 'UNVERIFY'
+  | 'REVIEW_APPROVED'
+  | 'REVIEW_RETURNED'
+  | 'COMPLETE_REVIEW'
+
+export interface ChecklistHistoryItem {
+  id: string
+  proposalId: number
+  action: ChecklistHistoryAction
+  itemName?: string
+  fileName?: string
+  userName: string
+  userRole: string
+  timestamp: string
+  details?: string
+}
+
+const HISTORY_STORAGE_KEY_PREFIX = 'dprms_checklist_history_'
+
+export function getChecklistHistory(proposalId: number): ChecklistHistoryItem[] {
+  try {
+    const raw = localStorage.getItem(`${HISTORY_STORAGE_KEY_PREFIX}${proposalId}`)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    }
+  } catch {
+    //
+  }
+
+  // Fallback initial activity logs for demonstration
+  return [
+    {
+      id: `hist_init_1_${proposalId}`,
+      proposalId,
+      action: 'UPLOAD',
+      itemName: 'Technology Needs Assessment (TNA) Report',
+      fileName: 'TNA_Initial_Report.pdf',
+      userName: 'Maria Santos',
+      userRole: 'project_staff',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
+      details: 'Initial TNA documentation uploaded during proposal intake.',
+    },
+    {
+      id: `hist_init_2_${proposalId}`,
+      proposalId,
+      action: 'REVIEW_APPROVED',
+      itemName: 'Technology Needs Assessment (TNA) Report',
+      userName: 'Engr. Juan Dela Cruz',
+      userRole: 'focal',
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+      details: 'Reviewed and satisfied TNA compliance requirements.',
+    },
+  ]
+}
+
+export function addChecklistHistoryLog(
+  log: Omit<ChecklistHistoryItem, 'id' | 'timestamp'>
+): ChecklistHistoryItem {
+  const existing = getChecklistHistory(log.proposalId)
+  const newEntry: ChecklistHistoryItem = {
+    ...log,
+    id: `hist_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    timestamp: new Date().toISOString(),
+  }
+  const updated = [newEntry, ...existing].slice(0, 100)
+  try {
+    localStorage.setItem(
+      `${HISTORY_STORAGE_KEY_PREFIX}${log.proposalId}`,
+      JSON.stringify(updated)
+    )
+  } catch {
+    //
+  }
+  return newEntry
+}
+
