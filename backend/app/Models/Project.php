@@ -43,4 +43,9 @@ class Project extends Model
     public function approved_by():BelongsTo{
         return $this->belongsTo(User::class,'approved_by');
     }
+
+    public function approved_by(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
 }

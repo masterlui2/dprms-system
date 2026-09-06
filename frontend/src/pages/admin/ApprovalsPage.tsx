@@ -14,6 +14,7 @@ import {
 import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
 import { getAllProposals, applyProposalDecision } from "../../services/proposalStore";
+import { AnimatedTabs } from "../../components/common/AnimatedTabs";
 import { getMockUser } from "../../lib/mockAuth";
 import type { ApplicationRecord } from "../../types/application";
 
@@ -487,7 +488,7 @@ export function ApprovalsPage() {
                   event.stopPropagation();
                   openReview(proposal, "overview");
                 }}
-                title="View Full Dossier"
+                title="View Full Proposal"
                 type="button"
               >
                 <Eye className="size-4" />
@@ -517,150 +518,40 @@ export function ApprovalsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Executive Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="h-7 w-1.5 rounded-full bg-[#0f53b7]" />
-            <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-wider text-slate-900">
-              APPLICATIONS
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 font-sans">
+        <div className="flex items-center gap-3">
+          <span className="h-9 sm:h-10 w-1.5 rounded-full bg-[#0f53b7]" />
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold leading-none text-slate-400">
+              <span>Applications</span>
+              <span>&gt;</span>
+              <span className="font-bold text-[#285497]">
+                {lockedProgram ? `${lockedProgram} Program` : "All Programs"}
+              </span>
+            </div>
+            <h1 className="mt-1 text-2xl sm:text-3xl font-black leading-tight tracking-tight text-slate-900">
+              Applications
             </h1>
           </div>
-          <p className="mt-1 text-xs font-medium text-slate-500 pl-4.5">
-            Technical review, evaluation, and endorsement queue
-          </p>
         </div>
       </div>
 
       {/* Modern Segmented Lifecycle Tabs */}
       <div>
-        <div className="inline-flex flex-wrap items-center gap-1.5 rounded-2xl bg-slate-100/90 p-1.5 border border-slate-200/80 shadow-xs">
-          <button
-            className={cn(
-              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
-              lifecycleTab === "all"
-                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            )}
-            onClick={() => setLifecycleTab("all")}
-            type="button"
-          >
-            <span>All</span>
-            <span
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
-                lifecycleTab === "all" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
-              )}
-            >
-              {allCount}
-            </span>
-          </button>
-
-          <button
-            className={cn(
-              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
-              lifecycleTab === "review"
-                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            )}
-            onClick={() => setLifecycleTab("review")}
-            type="button"
-          >
-            <span>Under Review</span>
-            <span
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
-                lifecycleTab === "review" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
-              )}
-            >
-              {newCount}
-            </span>
-          </button>
-
-          <button
-            className={cn(
-              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
-              lifecycleTab === "in_process"
-                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            )}
-            onClick={() => setLifecycleTab("in_process")}
-            type="button"
-          >
-            <span>In Process</span>
-            <span
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
-                lifecycleTab === "in_process" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
-              )}
-            >
-              {inProcessCount}
-            </span>
-          </button>
-
-          <button
-            className={cn(
-              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
-              lifecycleTab === "for_approval"
-                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            )}
-            onClick={() => setLifecycleTab("for_approval")}
-            type="button"
-          >
-            <span>For Approval</span>
-            <span
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
-                lifecycleTab === "for_approval" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
-              )}
-            >
-              {endorsedCount}
-            </span>
-          </button>
-
-          <button
-            className={cn(
-              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
-              lifecycleTab === "approved"
-                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            )}
-            onClick={() => setLifecycleTab("approved")}
-            type="button"
-          >
-            <span>Approved</span>
-            <span
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
-                lifecycleTab === "approved" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
-              )}
-            >
-              {approvedCount}
-            </span>
-          </button>
-
-          <button
-            className={cn(
-              "inline-flex items-center gap-2.5 rounded-xl px-4 py-2 text-xs font-bold transition-all duration-150",
-              lifecycleTab === "disapproved"
-                ? "bg-[#0f53b7] text-white shadow-md shadow-blue-900/15"
-                : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
-            )}
-            onClick={() => setLifecycleTab("disapproved")}
-            type="button"
-          >
-            <span>Disapproved</span>
-            <span
-              className={cn(
-                "rounded-md px-2 py-0.5 text-[11px] font-black tabular-nums transition",
-                lifecycleTab === "disapproved" ? "bg-white/20 text-white" : "bg-white text-slate-700 shadow-xs border border-slate-200/60"
-              )}
-            >
-              {disapprovedCount}
-            </span>
-          </button>
-        </div>
+        <AnimatedTabs
+          layoutId="approvals-lifecycle-tabs"
+          activeTab={lifecycleTab}
+          onChange={(id) => setLifecycleTab(id as any)}
+          tabs={[
+            { id: "all", label: "All", count: allCount },
+            { id: "review", label: "Under Review", count: newCount },
+            { id: "in_process", label: "In Process", count: inProcessCount },
+            { id: "for_approval", label: "Executive Approval", count: endorsedCount },
+            { id: "approved", label: "Approved", count: approvedCount },
+            { id: "disapproved", label: "Disapproved", count: disapprovedCount },
+          ]}
+        />
       </div>
 
       <section className="overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
