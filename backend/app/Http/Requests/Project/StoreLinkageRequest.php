@@ -25,7 +25,7 @@ class StoreLinkageRequest extends FormRequest
     {
         return [
             'name'            => ['required', 'string', 'max:255'],
-            'type'            => ['required', 'string', 'in:foward,backward'],
+            'type'            => ['required', 'string', 'in:forward,backward'],
             'male_quantity'   => ['required', 'integer', 'min:0'],
             'female_quantity' => ['required', 'integer', 'min:0'],
         ];

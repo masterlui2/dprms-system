@@ -9,4 +9,5 @@ interface InterventionServiceInterface{
     public function submit(int $quarterId, array $data):Intervention;
     public function getQuarterlyMetrics(int $quarterId):Collection;
     public function update(int $quarterId, array $data):Intervention;
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes):Collection;
 }

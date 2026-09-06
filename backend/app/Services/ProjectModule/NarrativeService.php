@@ -6,6 +6,7 @@ use App\Models\Narrative;
 use App\Repositories\Contracts\ProjectModule\NarrativeRepositoryInterface;
 use App\Services\Contracts\ProjectModule\NarrativeServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Override;
 
 class NarrativeService implements NarrativeServiceInterface{
@@ -38,5 +39,34 @@ class NarrativeService implements NarrativeServiceInterface{
             abort(404,"Not Found");
         }
         return $this->narrativeRepository->findById($id);
+    }
+
+    #[Override]
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes): Collection
+    {
+        return DB::transaction(function () use ($quarterId,$creates,$updates,$deletes):Collection{
+            $createdRows = Collection::make($creates)->map(fn(array $item) => [
+                'quarter_id' => $quarterId,
+                'particular' => $item['particular'],
+                'type' => $item['type'],
+                'intervention' => $item['intervention'],
+            ])->all();
+
+            $created = $this->narrativeRepository->createMany($createdRows);
+
+            foreach($created as $i => $model){
+                if(isset($creates[$i]['temp_id'])){
+                    $model->setAttribute('temp_id',$creates[$i]['temp_id']);
+                }
+            }
+
+            $updated = empty($updates) ? Collection::make() : $this->narrativeRepository->updateMany($quarterId,$updates);
+
+            if(! empty($deletes)){
+                $this->narrativeRepository->deleteMany($quarterId,$deletes);
+            }
+
+            return Collection::make($created->concat($updated)->values());
+        });
     }
 }

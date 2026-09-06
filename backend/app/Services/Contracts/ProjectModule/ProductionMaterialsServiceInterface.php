@@ -9,4 +9,5 @@ interface ProductionMaterialsServiceInterface{
     public function submit(int $quarterId, array $data):ProductionMaterial;
     public function getQuarterlyMetrics(int $quarterId):Collection;
     public function update(int $quarterId, array $data):ProductionMaterial;
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes):Collection;
 }

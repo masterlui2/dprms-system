@@ -25,6 +25,7 @@ class StoreProductCostRequest extends FormRequest
     {
         return [
             'particulars' => ['required', 'string', 'max:255'],
+            'type'        => ['required', 'string', 'in:OPERATION,LABOR,MISCELLANEOUS'],
             'month_1'     => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'month_2'     => ['required', 'numeric', 'min:0', 'decimal:0,2'],
             'month_3'     => ['required', 'numeric', 'min:0', 'decimal:0,2'],

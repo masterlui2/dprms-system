@@ -750,6 +750,7 @@ export interface BackendQuarterlyProductCostItem {
   id: number
   quarter_id: number
   particulars: string
+  type: 'OPERATION' | 'LABOR' | 'MISCELLANEOUS'
   month_1: string
   month_2: string
   month_3: string
@@ -880,6 +881,27 @@ function quarterNumberToLabel(q: number): Quarter {
   return `Q${q}` as Quarter
 }
 
+// REVERSE of toBackendSectoralGroup in quarterResourceAdapters.ts. Must be
+// kept in sync with that mapping.
+//
+// 'Senior' -> 'SC' round-trips cleanly.
+// 'PWD' -> 'PWD' round-trips cleanly.
+// 'None' is ambiguous on the way back: it could be a genuine 'None', or it
+// could be a former 'Youth' employee that got flattened to 'None' on write
+// (see the DECISION note in employeeAdapter). There is no way to recover
+// which one it was from this payload alone — the distinction was lost at
+// write time. This always resolves to 'None', which means youthCount in
+// computeEmploymentTotals will read 0 for any employee loaded from the
+// backend, even ones that were originally tagged 'Youth' before their first
+// save. If youth tracking needs to survive a round trip, sectoral_group
+// needs a real 'Youth' value on the backend — flagging this again in case
+// priorities change later, even though it's parked for now.
+function fromBackendSectoralGroup(group: string | null | undefined): EmployeeItem['sectoralGroup'] {
+  if (group === 'Senior') return 'SC'
+  if (group === 'PWD') return 'PWD'
+  return 'None'
+}
+
 /**
  * Maps a single backend quarterly-metrics record onto the frontend
  * SetupMonitoringQuarterRecord shape.
@@ -898,10 +920,7 @@ function quarterNumberToLabel(q: number): Quarter {
  *    classification column.
  * 3. `employees` — no DIRECT/INDIRECT classification. Everything currently
  *    lands in `directEmployees`; `indirectEmployees` stays empty.
- * 4. `linkage.type` is expected to be "forward" (distributor) vs "backward"
- *    (supplier); the sample payload has a typo ("foward"). We match on a
- *    case-insensitive "back" substring for suppliers and default everything
- *    else to distributors.
+ * 4. `linkage.type` is "forward" (distributor) vs "backward" (supplier).
  * 5. `product_cost` — no category (Operating / Labor / Misc). Everything
  *    currently lands in `operatingExpenses`; `laborExpenses` and
  *    `miscellaneousExpenses` stay empty until the backend adds a `category`
@@ -909,15 +928,19 @@ function quarterNumberToLabel(q: number): Quarter {
  * 6. `intervention.type` should route rows to Consultancy / Training / Tech
  *    Transfer / Support Service / Other Project. Only "CONSULTANCY" has been
  *    observed in sample data — unrecognized types fall back to Consultancy.
- * 7. `narrative` has no HR/Technical/Financial/Market breakdown. All
- *    PROBLEMS-type rows are concatenated into `problemsAndActions.humanResource`
- *    and all PLANS-type rows into `plansForImprovement.humanResource` as a
- *    temporary holding spot, pending a `category` column on the backend.
+ * 7. `narrative` has no HR/Technical/Financial/Market breakdown. Known
+ *    backend issue from rush coding — parked, not being fixed right now.
+ *    All PROBLEMS-type rows are concatenated into
+ *    `problemsAndActions.humanResource` and all PLANS-type rows into
+ *    `plansForImprovement.humanResource` as a temporary holding spot.
  * 8. `enterpriseName` / `enterpriseAddress` are not part of this payload —
  *    pass them in via `overrides` from the already-loaded ProjectRecord
  *    (e.g. `project.enterprise`, `project.location`).
  * 9. `status` ('Draft' | 'Verified') and `dateOfVisit` are inferred from
  *    `submitted_at` since there's no dedicated field for either yet.
+ * 10. `employees[].sectoral_group` — 'None' is ambiguous (see
+ *     fromBackendSectoralGroup above); youth tagging does not survive a
+ *     round trip through the backend.
  */
 export function mapBackendQuarterlyMetric(
   projectId: string,
@@ -941,11 +964,16 @@ export function mapBackendQuarterlyMetric(
       0,
       Math.round((cost - Math.max(0, year - yearAcquired) * depreciation) * 100) / 100,
     )
-    if (/building/i.test(a.type)) {
+
+    const isBuilding = /^building:/i.test(a.type)
+    // strip the "Building: " / "Equipment: " marker we stamp on save
+    const cleanType = a.type.replace(/^(building|equipment):\s*/i, '')
+
+    if (isBuilding) {
       buildingAssets.push({
         id: `asset_${a.id}`,
         buildingName: a.asset_name,
-        buildingType: a.type,
+        buildingType: cleanType,
         usefulLifeYears,
         yearAcquired,
         cost,
@@ -956,7 +984,7 @@ export function mapBackendQuarterlyMetric(
       equipmentAssets.push({
         id: `asset_${a.id}`,
         equipmentName: a.asset_name,
-        equipmentType: a.type,
+        equipmentType: cleanType,
         usefulLifeYears,
         yearAcquired,
         cost,
@@ -982,17 +1010,24 @@ export function mapBackendQuarterlyMetric(
     totalSales: num(p.gross_sales),
   }))
 
-  // --- Production cost (see note 5: everything lands in Operating for now) ---
-  const operatingExpenses: MonthlyExpenseItem[] = metric.product_cost.map((c) => ({
-    id: `pc_${c.id}`,
-    particulars: c.particulars,
-    month1: num(c.month_1),
-    month2: num(c.month_2),
-    month3: num(c.month_3),
-    total: num(c.total),
-  }))
+  // --- Production cost (see note 5: now routed by `type`) ---
+  const operatingExpenses: MonthlyExpenseItem[] = []
   const laborExpenses: MonthlyExpenseItem[] = []
   const miscellaneousExpenses: MonthlyExpenseItem[] = []
+
+  for (const c of metric.product_cost) {
+    const item: MonthlyExpenseItem = {
+      id: `pc_${c.id}`,
+      particulars: c.particulars,
+      month1: num(c.month_1),
+      month2: num(c.month_2),
+      month3: num(c.month_3),
+      total: num(c.total),
+    }
+    if (c.type === 'LABOR') laborExpenses.push(item)
+    else if (c.type === 'MISCELLANEOUS') miscellaneousExpenses.push(item)
+    else operatingExpenses.push(item) // 'OPERATION' or unrecognized -> default bucket
+  }
 
   const rawMaterials: RawMaterialItem[] = metric.production_material.map((m) => ({
     id: `pm_${m.id}`,
@@ -1011,7 +1046,7 @@ export function mapBackendQuarterlyMetric(
     age: e.age,
     employmentStatus: (e.status as EmployeeItem['employmentStatus']) || 'Regular',
     sex: (e.gender as EmployeeItem['sex']) || 'Male',
-    sectoralGroup: (e.sectoral_group as EmployeeItem['sectoralGroup']) || 'None',
+    sectoralGroup: fromBackendSectoralGroup(e.sectoral_group),
     workdaysQuarter: e.days_of_attendance,
     salaryType: 'Daily',
     salaryRate: num(e.salary_rate),
@@ -1050,7 +1085,7 @@ export function mapBackendQuarterlyMetric(
     }
   }
 
-  // --- Linkages (see note 4: routed by `type`, default = distributor) ---
+  // --- Linkages (routed by `type`, "forward" vs "backward") ---
   const forwardDistributors: WorkerCount[] = []
   const forwardSuppliers: WorkerCount[] = []
   for (const l of metric.linkage) {
@@ -1082,7 +1117,7 @@ export function mapBackendQuarterlyMetric(
   }))
   const internationalMarkets: MarketOutletItem[] = []
 
-  // --- Narratives (see note 7: no HR/Technical/Financial/Market split yet) ---
+  // --- Narratives (see note 7: known backend issue, parked for now) ---
   const problemsText = metric.narrative
     .filter((n) => (n.type || '').toUpperCase().includes('PROBLEM'))
     .map((n) => `${n.particular}${n.intervention ? ` — Action: ${n.intervention}` : ''}`)
@@ -1175,4 +1210,143 @@ export async function fetchQuarterlyMetrics(
   }
 
   return mapBackendQuarterlyMetric(projectId, match, overrides)
+}
+
+export interface QuarterlyMetricsFetchResult {
+  record: SetupMonitoringQuarterRecord
+  /**
+   * Backend `quarterly_metrics.id` — required for every
+   * /quarterly-metrics/{quarterId}/{resource}/batch call. `null` means no
+   * row exists yet for this project/year/quarter combo. Call
+   * `createQuarterlyMetric()` (below) to create one — that's what
+   * `SetupMonitoringHub`'s "Create quarterly metrics" action does — then
+   * re-fetch or set this id directly so autosave can start working.
+   */
+  quarterMetricId: number | null
+}
+
+export async function fetchQuarterlyMetricsWithId(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+  overrides: Partial<
+    Pick<SetupMonitoringQuarterRecord, 'enterpriseName' | 'enterpriseAddress'>
+  > = {},
+): Promise<QuarterlyMetricsFetchResult> {
+  const response = await api.get<BackendQuarterlyMetricsResponse>(
+    `/projects/${projectId}/quarterly-metrics`,
+  )
+
+  const quarterNumber = Number(quarter.replace('Q', ''))
+  const match = response.data.data.find(
+    (m) => m.quarter === quarterNumber && m.year === year,
+  )
+
+  if (!match) {
+    return {
+      record: createEmptyQuarterRecord(projectId, year, quarter),
+      quarterMetricId: null,
+    }
+  }
+
+  return {
+    record: mapBackendQuarterlyMetric(projectId, match, overrides),
+    quarterMetricId: match.id,
+  }
+}
+
+// ===========================================================================
+// CREATE QUARTERLY METRICS ROW (POST /projects/{projectId}/quarterly-metrics)
+// ===========================================================================
+//
+// This is the piece that was missing end-to-end: fetchQuarterlyMetricsWithId
+// only ever GETs. When no row exists yet for the selected project/quarter/
+// year, `quarterMetricId` comes back `null` and the hub has no way to start
+// syncing — everything just sits in the local-draft/localStorage path
+// forever. This calls the actual `store()` endpoint your
+// StoreQuarterlyMetricsRequest validates against, so a real
+// `quarterly_metrics` row gets created and its id can be used for the
+// existing batch-sync endpoints immediately afterward.
+//
+// NOTE on `project_id` in the body: StoreQuarterlyMetricsRequest's unique
+// rule reads `$this->input('project_id')`, but the route only supplies
+// `{projectId}` as a URL segment — it is NOT automatically merged into the
+// request body. Unless the controller does `$request->merge([...])`
+// somewhere before validation runs, that closure evaluates against `null`
+// project_id, which makes the per-project uniqueness check on
+// (project_id, quarter, year) effectively a no-op. Sending `project_id`
+// explicitly here is the frontend's only lever on this — the backend
+// should also be checked/fixed to merge the route param in before validating.
+
+export interface CreateQuarterlyMetricResponse {
+  message: string
+  data: BackendQuarterlyMetric
+}
+
+export interface CreateQuarterlyMetricError {
+  message: string
+  errors?: Record<string, string[]>
+}
+
+/**
+ * Creates a brand-new (empty) quarterly_metrics row for the given project/
+ * quarter/year via POST /projects/{projectId}/quarterly-metrics, and returns
+ * its backend id. Throws on failure (422 validation — e.g. the quarter/year
+ * combo already exists for this project — or any other API error); callers
+ * should catch and surface `error.response?.data` as `CreateQuarterlyMetricError`.
+ */
+export async function createQuarterlyMetric(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+): Promise<number> {
+  const quarterNumber = Number(quarter.replace('Q', ''))
+
+  const response = await api.post<CreateQuarterlyMetricResponse>(
+    `/projects/${projectId}/quarterly-metrics`,
+    {
+      // Route already scopes this to the project, but the FormRequest's
+      // unique-rule closure reads project_id off the request body (see note
+      // above), so it's included here too.
+      project_id: Number(projectId),
+      quarter: quarterNumber,
+      year,
+    },
+  )
+
+  return response.data.data.id
+}
+
+/**
+ * Convenience wrapper: creates the quarterly_metrics row, then immediately
+ * maps the (empty) response into a SetupMonitoringQuarterRecord + id, in the
+ * same shape fetchQuarterlyMetricsWithId returns — so a caller can swap
+ * straight from "no backend row" to "backend row ready to sync" without a
+ * second round trip.
+ */
+export async function createQuarterlyMetricWithRecord(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+  overrides: Partial<
+    Pick<SetupMonitoringQuarterRecord, 'enterpriseName' | 'enterpriseAddress'>
+  > = {},
+): Promise<QuarterlyMetricsFetchResult> {
+  const quarterNumber = Number(quarter.replace('Q', ''))
+
+  const response = await api.post<CreateQuarterlyMetricResponse>(
+    `/projects/${projectId}/quarterly-metrics`,
+    {
+      project_id: Number(projectId),
+      quarter: quarterNumber,
+      year,
+    },
+  )
+
+  const created = response.data.data
+
+  return {
+    record: mapBackendQuarterlyMetric(projectId, created, overrides),
+    quarterMetricId: created.id,
+  }
 }

@@ -143,4 +143,14 @@ Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'
     Route::post('/{quarterId}/linkage',[QuarterlyMetricController::class, 'storeLinkage']);
     Route::post('/{quarterId}/narrative',[QuarterlyMetricController::class, 'storeNarrative']);
     Route::post('/{quarterId}/production-material',[QuarterlyMetricController::class, 'storeProductionMaterial']);
+    Route::post('/{quarterId}/product/batch',[QuarterlyMetricController::class, 'batchProducts']);
+    Route::post('/{quarterId}/cost/batch',[QuarterlyMetricController::class, 'batchProductionCost']);
+    Route::post('/{quarterId}/employee/batch',[QuarterlyMetricController::class, 'batchEmployee']);
+    Route::post('/{quarterId}/asset/batch',[QuarterlyMetricController::class, 'batchAsset']);
+    Route::post('/{quarterId}/asset-capital/batch',[QuarterlyMetricController::class, 'batchAssetCapital']);
+    Route::post('/{quarterId}/intervention/batch',[QuarterlyMetricController::class, 'batchIntervention']);
+    Route::post('/{quarterId}/market/batch',[QuarterlyMetricController::class, 'batchMarket']);
+    Route::post('/{quarterId}/linkage/batch',[QuarterlyMetricController::class, 'batchLinkage']);
+    Route::post('/{quarterId}/narrative/batch',[QuarterlyMetricController::class, 'batchNarrative']);
+    Route::post('/{quarterId}/production-material/batch',[QuarterlyMetricController::class, 'batchProductionMaterial']);
 });

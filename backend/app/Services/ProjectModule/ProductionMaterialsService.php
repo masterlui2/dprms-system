@@ -6,6 +6,7 @@ use App\Models\ProductionMaterial;
 use App\Repositories\Contracts\ProjectModule\ProductionMaterialRepositoryInterface;
 use App\Services\Contracts\ProjectModule\ProductionMaterialsServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Override;
 
 class ProductionMaterialsService implements ProductionMaterialsServiceInterface{
@@ -39,5 +40,35 @@ class ProductionMaterialsService implements ProductionMaterialsServiceInterface{
             abort(404,"Not Found");
         }
         return $this->productionMaterialRepository->findById($id);
+    }
+
+    #[Override]
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes): Collection
+    {
+        return DB::transaction(function () use ($quarterId,$creates,$updates,$deletes):Collection{
+            $createdRows = Collection::make($creates)->map(fn(array $item) => [
+                'quarter_id' => $quarterId,
+                'materials' => $item['materials'],
+                'unit' => $item['unit'],
+                'quantity' => $item['quantity'],
+                'cost' => $item['cost'],
+            ])->all();
+
+            $created = $this->productionMaterialRepository->createMany($createdRows);
+
+            foreach($created as $i => $model){
+                if(isset($creates[$i]['temp_id'])){
+                    $model->setAttribute('temp_id',$creates[$i]['temp_id']);
+                }
+            }
+
+            $updated = empty($updates) ? Collection::make() : $this->productionMaterialRepository->updateMany($quarterId,$updates);
+
+            if(! empty($deletes)){
+                $this->productionMaterialRepository->deleteMany($quarterId,$deletes);
+            }
+
+            return Collection::make($created->concat($updated)->values());
+        });
     }
 }

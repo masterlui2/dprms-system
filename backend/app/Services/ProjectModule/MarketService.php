@@ -6,6 +6,7 @@ use App\Models\Market;
 use App\Repositories\Contracts\ProjectModule\MarketRepositoryInterface;
 use App\Services\Contracts\ProjectModule\MarketServiceInterface;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use Override;
 
 class MarketService implements MarketServiceInterface{
@@ -42,5 +43,38 @@ class MarketService implements MarketServiceInterface{
             abort(404,"Not Found");
         }
         return $this->marketRepository->findById($id);
+    }
+
+    #[Override]
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes): Collection
+    {
+        return DB::transaction(function () use ($quarterId,$creates,$updates,$deletes):Collection{
+            $createdRows = Collection::make($creates)->map(fn(array $item) => [
+                'quarter_id' => $quarterId,
+                'market_name' => $item['market_name'],
+                'address' => $item['address'],
+                'condition' => $item['condition'],
+                'effective_date' => $item['effective_date'],
+                'contact_person' => $item['contact_person'],
+                'service' => $item['service'],
+                'volume' => $item['volume'],
+            ])->all();
+
+            $created = $this->marketRepository->createMany($createdRows);
+
+            foreach($created as $i => $model){
+                if(isset($creates[$i]['temp_id'])){
+                    $model->setAttribute('temp_id',$creates[$i]['temp_id']);
+                }
+            }
+
+            $updated = empty($updates) ? Collection::make() : $this->marketRepository->updateMany($quarterId,$updates);
+
+            if(! empty($deletes)){
+                $this->marketRepository->deleteMany($quarterId,$deletes);
+            }
+
+            return Collection::make($created->concat($updated)->values());
+        });
     }
 }

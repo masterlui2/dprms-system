@@ -2,6 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Project\BatchAssetCapitalRequest;
+use App\Http\Requests\Project\BatchAssetRequest;
+use App\Http\Requests\Project\BatchEmployeeRequest;
+use App\Http\Requests\Project\BatchInterventionRequest;
+use App\Http\Requests\Project\BatchLinkageRequest;
+use App\Http\Requests\Project\BatchMarketRequest;
+use App\Http\Requests\Project\BatchNarrativeRequest;
+use App\Http\Requests\Project\BatchProducionMaterialRequest;
+use App\Http\Requests\Project\BatchProductionCostRequest;
+use App\Http\Requests\Project\BatchProductRequest;
 use App\Http\Requests\Project\StoreAssetCapitalRequest;
 use App\Http\Requests\Project\StoreAssetRequest;
 use App\Http\Requests\Project\StoreEmployeeRequest;
@@ -150,5 +160,154 @@ class QuarterlyMetricController extends Controller
             'message' => 'Production Material Added',
             'data' => $data
         ],201);
+    }
+
+    public function batchProducts(int $quarterId, BatchProductRequest $request)
+    {
+        $data = $this->productService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Products synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchAssetCapital(int $quarterId, BatchAssetCapitalRequest $request)
+    {
+        $data = $this->assetCapitalService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Asset Capital synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchAsset(int $quarterId, BatchAssetRequest $request)
+    {
+        $data = $this->assetService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Asset synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchEmployee(int $quarterId, BatchEmployeeRequest $request)
+    {
+        $data = $this->employeeService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Employee synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchIntervention(int $quarterId, BatchInterventionRequest $request)
+    {
+        $data = $this->interventionService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Intervention synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchLinkage(int $quarterId, BatchLinkageRequest $request)
+    {
+        $data = $this->linkageService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Linkage synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchMarket(int $quarterId, BatchMarketRequest $request)
+    {
+        $data = $this->marketService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Market synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchNarrative(int $quarterId, BatchNarrativeRequest $request)
+    {
+        $data = $this->narrativeService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Narrative synced',
+            'data' => $data
+        ], 200);
+    }
+
+    public function batchProductionMaterial(int $quarterId, BatchProducionMaterialRequest $request)
+    {
+        $data = $this->productionMaterialsService->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Production Material synced',
+            'data' => $data
+        ], 200);
+    }
+    public function batchProductionCost(int $quarterId, BatchProductionCostRequest $request)
+    {
+        $data = $this->productionCost->batch(
+            $quarterId,
+            $request->validated('creates', []),
+            $request->validated('updates', []),
+            $request->validated('deletes', []),
+        );
+
+        return response()->json([
+            'message' => 'Production Cost synced',
+            'data' => $data
+        ], 200);
     }
 }

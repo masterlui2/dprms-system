@@ -19,9 +19,17 @@ import {
   computeEmploymentTotals,
   computeProductionCostTotals,
   computeSalesTotals,
-  fetchQuarterlyMetrics,
+  createQuarterlyMetric,
+  fetchQuarterlyMetricsWithId,
   saveQuarterRecord,
+  type CreateQuarterlyMetricError,
 } from '../../services/setupMonitoringStore'
+import {
+  buildSnapshot,
+  syncQuarter,
+  type QuarterSnapshot,
+  type SyncEndpointError,
+} from '../../services/useQuarterAutoSave'
 import type { Quarter, SetupMonitoringQuarterRecord } from '../../types/setupMonitoring'
 import { AssetsTab } from './tabs/AssetsTab'
 import { DistributionOutletsTab } from './tabs/DistributionOutletsTab'
@@ -40,21 +48,38 @@ type ActiveTab =
   | 'technology'
   | 'narrative'
 
+type SyncStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+
 interface Props {
   project: ProjectRecord
+  // Both now genuinely optional — when omitted, the hub opens on the real
+  // current quarter/year (see getCurrentQuarter()) instead of a hardcoded
+  // fallback. Pass these explicitly only when you want to deep-link into a
+  // specific historical quarter (e.g. from a report link or query param).
   initialQuarter?: Quarter
   initialYear?: number
   onBack?: () => void
   readOnly?: boolean
 }
 
-// Generates the last N quarters ("Q1 2026", "Q4 2025", ...) counting back from
-// today, so the selector isn't frozen on a hardcoded past year. Mirrors the
-// quarterPeriods() helper in MonitoringPage.tsx.
+const BACKEND_SYNC_DEBOUNCE_MS = 1200
+const LOCAL_DRAFT_DEBOUNCE_MS = 400
+
+// Single source of truth for "what quarter/year is it right now". Both the
+// component's default props and generateQuarterOptions() derive from this,
+// so they can never drift apart the way `initialQuarter = 'Q2'` /
+// `initialYear = 2024` used to.
+function getCurrentQuarter(referenceDate: Date = new Date()): { quarter: Quarter; year: number } {
+  const quarterNumber = Math.ceil((referenceDate.getMonth() + 1) / 3)
+  return { quarter: `Q${quarterNumber}` as Quarter, year: referenceDate.getFullYear() }
+}
+
+// Generates the last N quarters ("Q3 2026", "Q2 2026", ...) counting back from
+// today, so the selector isn't frozen on a hardcoded past year.
 function generateQuarterOptions(count = 8): Array<{ value: string; label: string; quarter: Quarter; year: number }> {
-  const now = new Date()
-  let quarter = Math.ceil((now.getMonth() + 1) / 3)
-  let year = now.getFullYear()
+  const { quarter: startQuarter, year: startYear } = getCurrentQuarter()
+  let quarter = Number(startQuarter.slice(1))
+  let year = startYear
   const options: Array<{ value: string; label: string; quarter: Quarter; year: number }> = []
 
   for (let i = 0; i < count; i += 1) {
@@ -77,13 +102,22 @@ function generateQuarterOptions(count = 8): Array<{ value: string; label: string
 
 export function SetupMonitoringHub({
   project,
-  initialQuarter = 'Q2',
-  initialYear = 2024,
+  initialQuarter,
+  initialYear,
   onBack,
   readOnly = false,
 }: Props) {
-  const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(initialQuarter)
-  const [selectedYear, setSelectedYear] = useState<number>(initialYear)
+  // Computed once per mount; if a caller explicitly passes initialQuarter/
+  // initialYear (e.g. deep-linking to a past quarter), that wins. Otherwise
+  // fall back to the actual current quarter, not a stale literal.
+  const currentQuarter = useMemo(() => getCurrentQuarter(), [])
+
+  const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(
+    initialQuarter ?? currentQuarter.quarter,
+  )
+  const [selectedYear, setSelectedYear] = useState<number>(
+    initialYear ?? currentQuarter.year,
+  )
   const [activeTab, setActiveTab] = useState<ActiveTab>('production_sales')
   const [record, setRecord] = useState<SetupMonitoringQuarterRecord | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -91,26 +125,64 @@ export function SetupMonitoringHub({
   const [showExportModal, setShowExportModal] = useState(false)
   const [showSummarySidebar, setShowSummarySidebar] = useState(false)
   const [lastSavedTime, setLastSavedTime] = useState<string>('Just now')
-  const [isAutoSaving, setIsAutoSaving] = useState(false)
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Backend batch-sync state (everything except Narrative — see NOTE below).
+  const [quarterMetricId, setQuarterMetricId] = useState<number | null>(null)
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle')
+  const [syncErrors, setSyncErrors] = useState<SyncEndpointError[]>([])
+
+  // Creating the backend quarterly_metrics row (POST .../quarterly-metrics)
+  // for a project/quarter/year combo that doesn't have one yet.
+  const [isCreatingQuarter, setIsCreatingQuarter] = useState(false)
+  const [createQuarterError, setCreateQuarterError] = useState<string | null>(null)
+
   const loadRequestRef = useRef(0)
+  const localDraftTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const backendSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Refs mirroring the state above so the debounced sync loop always reads
+  // the latest values without re-binding on every keystroke.
+  const recordRef = useRef<SetupMonitoringQuarterRecord | null>(null)
+  const snapshotRef = useRef<QuarterSnapshot>({})
+  const quarterMetricIdRef = useRef<number | null>(null)
+  const backendInFlightRef = useRef(false)
+  const backendDirtyWhileSavingRef = useRef(false)
 
   const quarterOptions = useMemo(() => generateQuarterOptions(8), [])
 
   const projectBackendId = String(project.backendId ?? project.id)
 
-  useEffect(() => {
+  const clearPendingTimers = () => {
+    if (localDraftTimerRef.current) {
+      clearTimeout(localDraftTimerRef.current)
+      localDraftTimerRef.current = null
+    }
+    if (backendSyncTimerRef.current) {
+      clearTimeout(backendSyncTimerRef.current)
+      backendSyncTimerRef.current = null
+    }
+  }
+
+  const loadQuarter = () => {
     const requestId = ++loadRequestRef.current
     setIsLoading(true)
     setLoadError(null)
+    setCreateQuarterError(null)
+    clearPendingTimers()
 
-    fetchQuarterlyMetrics(projectBackendId, selectedYear, selectedQuarter, {
+    fetchQuarterlyMetricsWithId(projectBackendId, selectedYear, selectedQuarter, {
       enterpriseName: project.enterprise,
       enterpriseAddress: project.location,
     })
-      .then((loaded) => {
+      .then(({ record: loaded, quarterMetricId: qid }) => {
         if (requestId !== loadRequestRef.current) return
+        recordRef.current = loaded
+        snapshotRef.current = buildSnapshot(loaded)
+        quarterMetricIdRef.current = qid
         setRecord(loaded)
+        setQuarterMetricId(qid)
+        setSyncStatus('idle')
+        setSyncErrors([])
       })
       .catch((error) => {
         if (requestId !== loadRequestRef.current) return
@@ -120,53 +192,140 @@ export function SetupMonitoringHub({
       .finally(() => {
         if (requestId === loadRequestRef.current) setIsLoading(false)
       })
+  }
+
+  useEffect(() => {
+    loadQuarter()
+    return () => {
+      clearPendingTimers()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectBackendId, selectedYear, selectedQuarter, project.enterprise, project.location])
 
-  const handleRecordChange = (updated: SetupMonitoringQuarterRecord) => {
-    setRecord(updated)
-    setIsAutoSaving(true)
-    if (autoSaveTimerRef.current) {
-      clearTimeout(autoSaveTimerRef.current)
+  // --- Backend sync (everything except Narrative) ---
+  // NOTE: problemsAndActions / plansForImprovement / signOff have no
+  // corresponding entry in RESOURCE_ADAPTERS, so syncQuarter never touches
+  // them — they only ever get persisted via the local-draft save below. This
+  // is intentional: the Narrative backend endpoint isn't being fixed right
+  // now. Don't add a narrative adapter to "complete" this without confirming
+  // that's resolved.
+  const runBackendSync = () => {
+    const qid = quarterMetricIdRef.current
+    if (qid == null || !recordRef.current) return
+
+    if (backendInFlightRef.current) {
+      backendDirtyWhileSavingRef.current = true
+      return
     }
-    autoSaveTimerRef.current = setTimeout(() => {
-      // NOTE: there is no PUT/POST /quarterly-metrics endpoint yet, so edits
-      // are only persisted to localStorage as a local draft. They will NOT
-      // survive being overwritten by the next fetchQuarterlyMetrics() call
-      // (e.g. switching quarters and back) until a real save endpoint exists.
+
+    backendInFlightRef.current = true
+    setSyncStatus('saving')
+    syncQuarter(qid, recordRef.current, snapshotRef.current)
+      .then((result) => {
+        if (loadRequestRef.current === 0) return
+        recordRef.current = result.record
+        snapshotRef.current = result.snapshot
+        setRecord(result.record)
+        setSyncErrors(result.errors)
+        setSyncStatus(result.errors.length > 0 ? 'error' : 'saved')
+        if (result.errors.length > 0) {
+          console.error('Some quarterly-metrics sections failed to save:', result.errors)
+        }
+      })
+      .catch((error) => {
+        console.error('Quarter sync failed outright:', error)
+        setSyncStatus('error')
+      })
+      .finally(() => {
+        backendInFlightRef.current = false
+        if (backendDirtyWhileSavingRef.current) {
+          backendDirtyWhileSavingRef.current = false
+          runBackendSync()
+        }
+      })
+  }
+
+  const handleRecordChange = (updated: SetupMonitoringQuarterRecord) => {
+    recordRef.current = updated
+    setRecord(updated)
+
+    // Local draft save — always runs, regardless of backend availability.
+    // This is what keeps Narrative edits from being lost, since they never
+    // reach the server.
+    if (localDraftTimerRef.current) clearTimeout(localDraftTimerRef.current)
+    localDraftTimerRef.current = setTimeout(() => {
       saveQuarterRecord(updated)
-      setIsAutoSaving(false)
       const now = new Date()
       setLastSavedTime(
         now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
       )
-    }, 400)
+    }, LOCAL_DRAFT_DEBOUNCE_MS)
+
+    // Backend batch sync — only if this quarter already has a backend row.
+    if (quarterMetricIdRef.current != null) {
+      if (backendSyncTimerRef.current) clearTimeout(backendSyncTimerRef.current)
+      setSyncStatus('pending')
+      backendSyncTimerRef.current = setTimeout(() => {
+        backendSyncTimerRef.current = null
+        runBackendSync()
+      }, BACKEND_SYNC_DEBOUNCE_MS)
+    }
   }
 
   const handleManualSave = () => {
     if (!record) return
     saveQuarterRecord(record)
-    setIsAutoSaving(false)
     const now = new Date()
     setLastSavedTime(
       now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
     )
+
+    if (backendSyncTimerRef.current) {
+      clearTimeout(backendSyncTimerRef.current)
+      backendSyncTimerRef.current = null
+    }
+    if (quarterMetricIdRef.current != null) {
+      runBackendSync()
+    }
   }
 
   const handleRetry = () => {
-    // Bump the ref so the effect's in-flight guard doesn't ignore this retry,
-    // then just re-trigger the effect by nudging state.
-    setIsLoading(true)
-    setLoadError(null)
-    fetchQuarterlyMetrics(projectBackendId, selectedYear, selectedQuarter, {
-      enterpriseName: project.enterprise,
-      enterpriseAddress: project.location,
-    })
-      .then(setRecord)
-      .catch((error) => {
-        console.error('Failed to load quarterly metrics:', error)
-        setLoadError('Could not load quarterly metrics from the server.')
+    loadQuarter()
+  }
+
+  // Creates the missing backend quarterly_metrics row for the currently
+  // selected quarter/year, then immediately pushes whatever is already in
+  // the local draft (record) up to the server so nothing typed before
+  // creation is lost.
+  const handleCreateQuarterRecord = () => {
+    if (isCreatingQuarter) return
+    setIsCreatingQuarter(true)
+    setCreateQuarterError(null)
+
+    createQuarterlyMetric(projectBackendId, selectedYear, selectedQuarter)
+      .then((qid) => {
+        quarterMetricIdRef.current = qid
+        setQuarterMetricId(qid)
+        // Push the existing local-draft record up now that a backend row
+        // exists to sync it against.
+        if (recordRef.current) {
+          runBackendSync()
+        }
       })
-      .finally(() => setIsLoading(false))
+      .catch((error) => {
+        console.error('Failed to create quarterly metrics record:', error)
+        const payload = error?.response?.data as CreateQuarterlyMetricError | undefined
+        const validationMessage = payload?.errors
+          ? Object.values(payload.errors).flat().join(' ')
+          : payload?.message
+        setCreateQuarterError(
+          validationMessage ||
+            'Could not create a quarterly metrics record for this quarter. Please try again.',
+        )
+      })
+      .finally(() => {
+        setIsCreatingQuarter(false)
+      })
   }
 
   const salesTotals = record ? computeSalesTotals(record) : null
@@ -217,6 +376,7 @@ export function SetupMonitoringHub({
   ]
 
   const activeTabTitle = tabs.find((t) => t.id === activeTab)?.label || 'Quarterly Monitoring'
+  const canSyncToBackend = quarterMetricId != null
 
   if (isLoading && !record) {
     return (
@@ -338,6 +498,60 @@ export function SetupMonitoringHub({
             </button>
           </div>
         </div>
+
+        {!canSyncToBackend && (
+          <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-amber-700">
+              No backend record exists yet for {selectedQuarter} {selectedYear} — changes are being
+              kept as a local draft only until this quarter is created on the server.
+            </p>
+            <button
+              type="button"
+              onClick={handleCreateQuarterRecord}
+              disabled={isCreatingQuarter || readOnly}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isCreatingQuarter ? (
+                <>
+                  <LoaderCircle className="size-3 animate-spin" /> Creating...
+                </>
+              ) : (
+                <>Create quarterly metrics record</>
+              )}
+            </button>
+          </div>
+        )}
+
+        {createQuarterError && (
+          <div className="flex items-center justify-between text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+            <span>{createQuarterError}</span>
+            <button
+              type="button"
+              onClick={handleCreateQuarterRecord}
+              disabled={isCreatingQuarter}
+              className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+            >
+              <RefreshCw className="size-3" /> Retry
+            </button>
+          </div>
+        )}
+
+        {syncStatus === 'error' && syncErrors.length > 0 && (
+          <div className="flex items-center justify-between text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
+            <span>
+              {syncErrors.length} section{syncErrors.length === 1 ? '' : 's'} failed to save to the
+              server ({syncErrors.map((e) => e.endpoint).join(', ')}). Your edits are still kept as a
+              local draft.
+            </span>
+            <button
+              type="button"
+              onClick={handleManualSave}
+              className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-700"
+            >
+              <RefreshCw className="size-3" /> Retry
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modern Line-Style Navigation Tabs & Autosave Label (Open, no outline/fill) */}
@@ -363,15 +577,32 @@ export function SetupMonitoringHub({
         </div>
 
         <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500 pb-2 pr-1">
-          {isAutoSaving ? (
-            <>
-              <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-              <span>Saving draft...</span>
-            </>
+          {canSyncToBackend ? (
+            syncStatus === 'pending' ? (
+              <>
+                <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>Unsaved changes...</span>
+              </>
+            ) : syncStatus === 'saving' ? (
+              <>
+                <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                <span>Saving...</span>
+              </>
+            ) : syncStatus === 'error' ? (
+              <>
+                <span className="size-2 rounded-full bg-rose-500" />
+                <span>Save failed</span>
+              </>
+            ) : (
+              <>
+                <Check className="size-3 text-emerald-600" />
+                <span>Saved {lastSavedTime}</span>
+              </>
+            )
           ) : (
             <>
-              <Check className="size-3 text-emerald-600" />
-              <span>Autosaved {lastSavedTime}</span>
+              <span className="size-2 rounded-full bg-slate-400" />
+              <span>Local draft saved {lastSavedTime}</span>
             </>
           )}
         </div>
@@ -672,6 +903,10 @@ export function SetupMonitoringHub({
                       <span className="font-black text-[#285497]">{record.status}</span>
                     </div>
                   </div>
+                  <p className="text-[10px] text-slate-400 font-normal leading-relaxed">
+                    Narrative & sign-off fields are kept as a local draft only for now and are not
+                    yet synced to the server.
+                  </p>
                 </div>
               </div>
             )}

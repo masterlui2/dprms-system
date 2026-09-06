@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('quarter_id')->constrained('quarterly_metrics')->restrictOnDelete();
             $table->string('name');
-            $table->enum('type',['foward','backward']);
+            $table->enum('type',['forward','backward']);
             $table->unsignedInteger('male_quantity');
             $table->unsignedInteger('female_quantity');
             $table->unsignedInteger('total')->storedAs('male_quantity + female_quantity');

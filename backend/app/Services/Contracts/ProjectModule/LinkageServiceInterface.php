@@ -9,4 +9,5 @@ interface LinkageServiceInterface{
     public function submit(int $quarterId, array $data):Linkage;
     public function getQuarterlyMetrics(int $quarterId):Collection;
     public function update(int $quarterId, array $data):Linkage;
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes):Collection;
 }
