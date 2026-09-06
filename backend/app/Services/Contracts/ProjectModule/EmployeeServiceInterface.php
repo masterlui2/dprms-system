@@ -9,4 +9,5 @@ interface EmployeeServiceInterface{
     public function submit(int $quarterId,array $data): Employee;
     public function getByQuarterlyMetricsId(int $quarterId): Collection;
     public function update(int $id, array $data): Employee;
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes):Collection;
 }

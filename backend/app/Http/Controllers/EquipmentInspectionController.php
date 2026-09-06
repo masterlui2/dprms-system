@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\IndexEquipmentRequest;
 use App\Http\Requests\ResolveEquipmentQrRequest;
 use App\Http\Requests\StoreEquipmentInspectionRequest;
+use App\Http\Requests\StoreEquipmentRequest;
 use App\Models\EquipmentRegistry;
 use App\Services\EquipmentModule\EquipmentInspectionService;
 use Illuminate\Http\JsonResponse;
@@ -13,10 +15,39 @@ class EquipmentInspectionController extends Controller
 {
     public function __construct(private readonly EquipmentInspectionService $equipmentInspectionService) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(IndexEquipmentRequest $request): JsonResponse
+    {
+        $result = $this->equipmentInspectionService->listForUser($request->user(), $request->validated());
+
+        return response()->json([
+            'data' => $result['data'],
+            'statistics' => $result['statistics'],
+            'filters' => $result['filters'],
+        ]);
+    }
+
+    public function options(IndexEquipmentRequest $request): JsonResponse
     {
         return response()->json([
-            'data' => $this->equipmentInspectionService->listForUser($request->user()),
+            'data' => $this->equipmentInspectionService->registrationOptions(
+                $request->user(),
+                $request->validated('program_type'),
+            ),
+        ]);
+    }
+
+    public function store(StoreEquipmentRequest $request): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Equipment registered and QR code generated successfully.',
+            'data' => $this->equipmentInspectionService->register($request->user(), $request->validated()),
+        ], 201);
+    }
+
+    public function show(Request $request, EquipmentRegistry $equipment): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->equipmentInspectionService->getForUser($request->user(), $equipment),
         ]);
     }
 
