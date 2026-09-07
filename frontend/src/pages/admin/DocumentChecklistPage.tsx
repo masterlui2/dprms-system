@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
   Download,
   Eye,
   FileCheck2,
@@ -35,6 +36,7 @@ import Swal from 'sweetalert2'
 
 import { ROLE_LABEL, ROLES, type UserRole } from '../../config/permissions'
 import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal'
+import { PdfThumbnail } from '../../components/common/PdfThumbnail'
 import { getMockUser } from '../../lib/mockAuth'
 import { reviewProposalDocument, viewDocumentBlobForStaff } from '../../services/documentStore'
 import {
@@ -46,6 +48,7 @@ import {
   uploadChecklistDocument,
   GIA_STAGES,
   SETUP_SETS,
+  type ChecklistHistoryAction,
   type ChecklistHistoryItem,
   type ChecklistItemStatus,
   type DocumentChecklistItem,
@@ -76,6 +79,47 @@ function formatRelativeDate(dateStr?: string | null): string {
   }
 }
 
+function getItemComplianceState(item: DocumentChecklistItem) {
+  const hasFile = Boolean(item.uploadedDoc)
+  const isReturned =
+    item.status === 'Needs Revision' || item.uploadedDoc?.status === 'returned_for_revision'
+  const isApproved =
+    item.status === 'Complied' && (item.uploadedDoc?.status === 'approved' || !hasFile || Boolean(item.reviewedAt))
+
+  if (isReturned) {
+    return {
+      type: 'RETURNED' as const,
+      label: 'Revision',
+      badgeClass: 'bg-rose-50 text-rose-700 border border-rose-200/80',
+      iconClass: 'bg-rose-500 text-white',
+    }
+  }
+
+  if (isApproved || (item.isPresent && !isReturned)) {
+    return {
+      type: 'SATISFIED' as const,
+      label: 'Verified',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
+      iconClass: 'bg-emerald-500 text-white',
+    }
+  }
+
+  if (hasFile || item.status === 'Under Review') {
+    return {
+      type: 'UNDER_REVIEW' as const,
+      label: 'In Review',
+      badgeClass: 'bg-blue-50 text-[#0f53b7] border border-blue-200/80',
+      iconClass: 'bg-[#0f53b7] text-white',
+    }
+  }
+
+  return {
+    type: 'PENDING' as const,
+    label: 'Pending',
+    badgeClass: 'bg-slate-100 text-slate-600',
+    iconClass: 'bg-slate-100 text-slate-400',
+  }
+}
 
 export function DocumentChecklistPage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -109,13 +153,22 @@ export function DocumentChecklistPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
 
-  const [selectedProposalId, setSelectedProposalId] = useState<number | null>(null)
+  const [selectedProposalId, setSelectedProposalId] = useState<number | null>(() => {
+    const fromUrl = searchParams.get('proposalId') || searchParams.get('proposal')
+    return fromUrl ? parseInt(fromUrl, 10) || null : null
+  })
   const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false)
   const [modalSearchQuery, setModalSearchQuery] = useState('')
   const [modalFilter, setModalFilter] = useState<'ALL' | 'COMPLETE' | 'INCOMPLETE'>('ALL')
 
-  const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
-  const [statusTab, setStatusTab] = useState<'ALL' | 'UPLOADED' | 'PENDING'>('ALL')
+  const [selectedCategory, setSelectedCategory] = useState<string>(() => {
+    const fromUrl = searchParams.get('stage') || searchParams.get('set') || searchParams.get('category')
+    if (fromUrl) return fromUrl
+    return activeProgram === 'GIA' ? '01' : 'SET1'
+  })
+  const [statusTab, setStatusTab] = useState<
+    'ALL' | 'VERIFIED' | 'UNDER_REVIEW' | 'RETURNED' | 'PENDING' | 'UPLOADED'
+  >('ALL')
   const [isFilterDropdownOpen, setIsFilterDropdownOpen] = useState(false)
   const [viewMode, setViewModeState] = useState<'grid' | 'list'>(() => {
     const saved = localStorage.getItem('dprms_checklist_view_mode')
@@ -145,9 +198,11 @@ export function DocumentChecklistPage() {
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
 
   const [reviewModalItem, setReviewModalItem] = useState<DocumentChecklistItem | null>(null)
-  const [reviewDecision, setReviewDecision] = useState<'APPROVED' | 'RETURNED'>('APPROVED')
+  const [reviewDecision, setReviewDecision] = useState<'APPROVED' | 'UNDER_REVIEW' | 'RETURNED' | 'PENDING'>('APPROVED')
   const [reviewRemarks, setReviewRemarks] = useState('')
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
+
+  const [versionModalDoc, setVersionModalDoc] = useState<DocumentChecklistItem | null>(null)
 
   const [blobMap, setBlobMap] = useState<Record<string, string>>({})
 
@@ -204,6 +259,20 @@ export function DocumentChecklistPage() {
     }
     return programProposals[0] || null
   }, [programProposals, selectedProposalId])
+
+  useEffect(() => {
+    const urlProposalId = searchParams.get('proposalId') || searchParams.get('proposal')
+    if (urlProposalId) {
+      const parsed = parseInt(urlProposalId, 10)
+      if (parsed && parsed !== selectedProposalId) {
+        setSelectedProposalId(parsed)
+      }
+    }
+    const urlStage = searchParams.get('stage') || searchParams.get('set') || searchParams.get('category')
+    if (urlStage && urlStage !== selectedCategory) {
+      setSelectedCategory(urlStage)
+    }
+  }, [searchParams, selectedProposalId, selectedCategory])
 
   useEffect(() => {
     if (activeProposal) {
@@ -287,7 +356,7 @@ export function DocumentChecklistPage() {
     if (viewMode !== 'grid') return
 
     const unmappedItems = editingItems.filter(
-      (item) => item.uploadedDoc?.id && !blobMap[item.id] && !item.uploadedDoc.file_path?.startsWith('blob:')
+      (item) => item.uploadedDoc?.id && !blobMap[item.id]
     )
 
     if (unmappedItems.length === 0) return
@@ -331,8 +400,12 @@ export function DocumentChecklistPage() {
         if (itemCat !== selectedCategory) return false
       }
 
+      const state = getItemComplianceState(item)
+      if (statusTab === 'VERIFIED' && state.type !== 'SATISFIED') return false
+      if (statusTab === 'UNDER_REVIEW' && state.type !== 'UNDER_REVIEW') return false
+      if (statusTab === 'RETURNED' && state.type !== 'RETURNED') return false
+      if (statusTab === 'PENDING' && state.type !== 'PENDING') return false
       if (statusTab === 'UPLOADED' && !item.uploadedDoc && !item.isPresent) return false
-      if (statusTab === 'PENDING' && (item.uploadedDoc || item.isPresent)) return false
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase()
@@ -346,12 +419,16 @@ export function DocumentChecklistPage() {
     })
   }, [editingItems, selectedCategory, statusTab, searchQuery])
 
+
+
   const stats = useMemo(() => {
     const total = editingItems.length
     const required = editingItems.filter((i) => i.isRequired).length || total
+    const verified = editingItems.filter((i) => getItemComplianceState(i).type === 'SATISFIED').length
+    const underReview = editingItems.filter((i) => getItemComplianceState(i).type === 'UNDER_REVIEW').length
+    const returned = editingItems.filter((i) => getItemComplianceState(i).type === 'RETURNED').length
+    const pending = editingItems.filter((i) => getItemComplianceState(i).type === 'PENDING').length
     const uploaded = editingItems.filter((i) => Boolean(i.uploadedDoc)).length
-    const verified = editingItems.filter((i) => i.isPresent).length
-    const pending = total - verified
     const percent = required > 0 ? Math.round((verified / required) * 100) : 0
 
     return {
@@ -359,52 +436,12 @@ export function DocumentChecklistPage() {
       required,
       uploaded,
       verified,
+      underReview,
+      returned,
       pending,
       percent,
     }
   }, [editingItems])
-
-  const getItemComplianceState = (item: DocumentChecklistItem) => {
-    const hasFile = Boolean(item.uploadedDoc)
-    const isReturned =
-      item.status === 'Needs Revision' || item.uploadedDoc?.status === 'returned_for_revision'
-    const isApproved =
-      item.status === 'Complied' && (item.uploadedDoc?.status === 'approved' || !hasFile || Boolean(item.reviewedAt))
-
-    if (isReturned) {
-      return {
-        type: 'RETURNED' as const,
-        label: 'Returned for Revision',
-        badgeClass: 'bg-rose-50 text-rose-700 border border-rose-200/80',
-        iconClass: 'bg-rose-500 text-white',
-      }
-    }
-
-    if (isApproved || (item.isPresent && !isReturned)) {
-      return {
-        type: 'SATISFIED' as const,
-        label: hasFile ? 'Satisfied' : 'Verified (Offline)',
-        badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
-        iconClass: 'bg-emerald-500 text-white',
-      }
-    }
-
-    if (hasFile) {
-      return {
-        type: 'UNDER_REVIEW' as const,
-        label: 'Under Review',
-        badgeClass: 'bg-blue-50 text-[#0f53b7] border border-blue-200/80',
-        iconClass: 'bg-[#0f53b7] text-white',
-      }
-    }
-
-    return {
-      type: 'PENDING' as const,
-      label: 'Pending Upload',
-      badgeClass: 'bg-slate-100 text-slate-600',
-      iconClass: 'bg-slate-100 text-slate-400',
-    }
-  }
 
   const filteredModalProposals = useMemo(() => {
     return programProposals.filter((p) => {
@@ -478,6 +515,7 @@ export function DocumentChecklistPage() {
     }
 
     const nextPresent = !targetItem.isPresent
+    const nextStatus: ChecklistItemStatus = nextPresent ? 'Complied' : 'Missing'
 
     if (activeProposal && targetItem) {
       const log = addChecklistHistoryLog({
@@ -493,10 +531,9 @@ export function DocumentChecklistPage() {
       setHistoryList((prev) => [log, ...prev])
     }
 
-    setEditingItems((prev) =>
-      prev.map((item) => {
+    setEditingItems((prev) => {
+      const next = prev.map((item) => {
         if (item.id !== itemId) return item
-        const nextStatus: ChecklistItemStatus = nextPresent ? 'Complied' : 'Missing'
         return {
           ...item,
           isPresent: nextPresent,
@@ -504,7 +541,39 @@ export function DocumentChecklistPage() {
           reviewedAt: nextPresent ? new Date().toISOString() : undefined,
         }
       })
-    )
+      if (activeProposal) {
+        saveProposalChecklistReview(activeProposal.proposalId, next, editingOverallRemarks).catch(() => {})
+      }
+      return next
+    })
+
+    if (activeProposal) {
+      setProposals((prev) =>
+        prev.map((p) => {
+          if (p.proposalId !== activeProposal.proposalId) return p
+          const updatedItems = p.items.map((it) =>
+            it.id === itemId
+              ? {
+                  ...it,
+                  isPresent: nextPresent,
+                  status: nextStatus,
+                  reviewedAt: nextPresent ? new Date().toISOString() : undefined,
+                }
+              : it
+          )
+          const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length
+          const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length
+          const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
+          return {
+            ...p,
+            items: updatedItems,
+            totalRequired,
+            compliedCount,
+            compliancePercentage,
+          }
+        })
+      )
+    }
   }
 
   const handleOpenUploadModal = (item: DocumentChecklistItem) => {
@@ -518,11 +587,39 @@ export function DocumentChecklistPage() {
     setSelectedUploadFile(null)
   }
 
+  const validateAndSetFile = (file: File) => {
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+    if (!isPdf) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Invalid File Format',
+        text: 'Only PDF documents (.pdf) can be uploaded. Images, Word documents, and spreadsheets are not supported.',
+        confirmButtonColor: '#0f53b7',
+      })
+      setSelectedUploadFile(null)
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
+      Swal.fire({
+        icon: 'warning',
+        title: 'File Exceeds Limit',
+        text: `The selected file is ${sizeMb} MB. Maximum upload file size is 10 MB.`,
+        confirmButtonColor: '#0f53b7',
+      })
+      setSelectedUploadFile(null)
+      return
+    }
+
+    setSelectedUploadFile(file)
+  }
+
   const handleDropFile = (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setSelectedUploadFile(e.dataTransfer.files[0])
+      validateAndSetFile(e.dataTransfer.files[0])
     }
   }
 
@@ -534,7 +631,8 @@ export function DocumentChecklistPage() {
       const { uploadedDoc, blobUrl } = await uploadChecklistDocument(
         activeProposal.proposalId,
         uploadModalItem,
-        selectedUploadFile
+        selectedUploadFile,
+        activeProposal.referenceNumber
       )
 
       setBlobMap((prev) => ({ ...prev, [uploadModalItem.id]: blobUrl }))
@@ -552,18 +650,51 @@ export function DocumentChecklistPage() {
         setHistoryList((prev) => [log, ...prev])
       }
 
-      setEditingItems((prev) =>
-        prev.map((item) => {
+      setEditingItems((prev) => {
+        const next = prev.map((item) => {
           if (item.id !== uploadModalItem.id) return item
           return {
             ...item,
             isPresent: true,
-            status: 'Complied',
+            status: 'Complied' as ChecklistItemStatus,
             uploadedDoc,
             reviewedAt: new Date().toISOString(),
           }
         })
-      )
+        if (activeProposal) {
+          saveProposalChecklistReview(activeProposal.proposalId, next, editingOverallRemarks).catch(() => {})
+        }
+        return next
+      })
+
+      if (activeProposal) {
+        setProposals((prev) =>
+          prev.map((p) => {
+            if (p.proposalId !== activeProposal.proposalId) return p
+            const updatedItems = p.items.map((it) =>
+              it.id === uploadModalItem.id
+                ? {
+                    ...it,
+                    isPresent: true,
+                    status: 'Complied' as ChecklistItemStatus,
+                    uploadedDoc,
+                    reviewedAt: new Date().toISOString(),
+                  }
+                : it
+            )
+            const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length
+            const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length
+            const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
+            return {
+              ...p,
+              items: updatedItems,
+              totalRequired,
+              compliedCount,
+              compliancePercentage,
+            }
+          })
+        )
+      }
 
       Swal.fire({
         icon: 'success',
@@ -574,11 +705,11 @@ export function DocumentChecklistPage() {
       })
 
       handleCloseUploadModal()
-    } catch {
+    } catch (err: any) {
       Swal.fire({
         icon: 'error',
         title: 'Upload Failed',
-        text: 'Failed to upload document. Please try again.',
+        text: err?.message || 'Failed to upload document. Please ensure it is a valid PDF under 10 MB.',
         confirmButtonColor: '#0f53b7',
       })
     } finally {
@@ -624,17 +755,49 @@ export function DocumentChecklistPage() {
       return next
     })
 
-    setEditingItems((prev) =>
-      prev.map((i) => {
+    setEditingItems((prev) => {
+      const next = prev.map((i) => {
         if (i.id !== item.id) return i
         return {
           ...i,
           isPresent: false,
-          status: 'Missing',
+          status: 'Missing' as ChecklistItemStatus,
           uploadedDoc: null,
         }
       })
-    )
+      if (activeProposal) {
+        saveProposalChecklistReview(activeProposal.proposalId, next, editingOverallRemarks).catch(() => {})
+      }
+      return next
+    })
+
+    if (activeProposal) {
+      setProposals((prev) =>
+        prev.map((p) => {
+          if (p.proposalId !== activeProposal.proposalId) return p
+          const updatedItems = p.items.map((it) =>
+            it.id === item.id
+              ? {
+                  ...it,
+                  isPresent: false,
+                  status: 'Missing' as ChecklistItemStatus,
+                  uploadedDoc: null,
+                }
+              : it
+          )
+          const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length
+          const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length
+          const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
+          return {
+            ...p,
+            items: updatedItems,
+            totalRequired,
+            compliedCount,
+            compliancePercentage,
+          }
+        })
+      )
+    }
 
     Swal.fire({
       icon: 'success',
@@ -647,7 +810,11 @@ export function DocumentChecklistPage() {
 
   const handleOpenReviewModal = (item: DocumentChecklistItem) => {
     setReviewModalItem(item)
-    setReviewDecision(item.status === 'Needs Revision' ? 'RETURNED' : 'APPROVED')
+    const state = getItemComplianceState(item)
+    if (state.type === 'SATISFIED') setReviewDecision('APPROVED')
+    else if (state.type === 'RETURNED') setReviewDecision('RETURNED')
+    else if (state.type === 'UNDER_REVIEW') setReviewDecision('UNDER_REVIEW')
+    else setReviewDecision('PENDING')
     setReviewRemarks(item.remarks || item.uploadedDoc?.remarks || '')
   }
 
@@ -677,15 +844,49 @@ export function DocumentChecklistPage() {
 
     setIsSubmittingReview(true)
     try {
-      const isApproved = reviewDecision === 'APPROVED'
-      const newStatus: ChecklistItemStatus = isApproved ? 'Complied' : 'Needs Revision'
+      let newStatus: ChecklistItemStatus = 'Complied'
+      let isPresent = true
+      let action: ChecklistHistoryAction = 'REVIEW_APPROVED'
+      let docStatus = 'approved'
+      let successTitle = 'Document Verified'
+      let successText = 'The requirement has been marked as Verified.'
 
-      setEditingItems((prev) =>
-        prev.map((it) => {
+      if (reviewDecision === 'APPROVED') {
+        newStatus = 'Complied'
+        isPresent = true
+        action = 'REVIEW_APPROVED'
+        docStatus = 'approved'
+        successTitle = 'Document Verified'
+        successText = 'The requirement has been marked as Verified.'
+      } else if (reviewDecision === 'UNDER_REVIEW') {
+        newStatus = 'Under Review'
+        isPresent = false
+        action = 'REVIEW_UNDER_REVIEW'
+        docStatus = 'under_review'
+        successTitle = 'Set to In Review'
+        successText = 'The document status is set to In Review.'
+      } else if (reviewDecision === 'RETURNED') {
+        newStatus = 'Needs Revision'
+        isPresent = false
+        action = 'REVIEW_RETURNED'
+        docStatus = 'returned_for_revision'
+        successTitle = 'Returned for Revision'
+        successText = 'Rejection remarks saved and document returned for revision.'
+      } else {
+        newStatus = 'Missing'
+        isPresent = false
+        action = 'REVIEW_PENDING'
+        docStatus = 'pending'
+        successTitle = 'Marked as Pending'
+        successText = 'The requirement has been set to Pending.'
+      }
+
+      setEditingItems((prev) => {
+        const next = prev.map((it) => {
           if (it.id === reviewModalItem.id) {
             return {
               ...it,
-              isPresent: isApproved,
+              isPresent,
               status: newStatus,
               remarks: remarksValue,
               reviewedAt: new Date().toISOString(),
@@ -693,13 +894,46 @@ export function DocumentChecklistPage() {
           }
           return it
         })
-      )
+        if (activeProposal) {
+          saveProposalChecklistReview(activeProposal.proposalId, next, editingOverallRemarks).catch(() => {})
+        }
+        return next
+      })
+
+      if (activeProposal) {
+        setProposals((prev) =>
+          prev.map((p) => {
+            if (p.proposalId !== activeProposal.proposalId) return p
+            const updatedItems = p.items.map((it) =>
+              it.id === reviewModalItem.id
+                ? {
+                    ...it,
+                    isPresent,
+                    status: newStatus,
+                    remarks: remarksValue,
+                    reviewedAt: new Date().toISOString(),
+                  }
+                : it
+            )
+            const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length
+            const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length
+            const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
+            return {
+              ...p,
+              items: updatedItems,
+              totalRequired,
+              compliedCount,
+              compliancePercentage,
+            }
+          })
+        )
+      }
 
       if (reviewModalItem.uploadedDoc?.id) {
         try {
           await reviewProposalDocument(
             reviewModalItem.uploadedDoc.id,
-            isApproved ? 'approved' : 'returned_for_revision',
+            docStatus as any,
             remarksValue
           )
         } catch {
@@ -710,16 +944,12 @@ export function DocumentChecklistPage() {
       if (activeProposal) {
         const log = addChecklistHistoryLog({
           proposalId: activeProposal.proposalId,
-          action: isApproved ? 'REVIEW_APPROVED' : 'REVIEW_RETURNED',
+          action,
           itemName: reviewModalItem.name,
           fileName: reviewModalItem.uploadedDoc?.file_name,
           userName: currentUser?.name || 'Focal Evaluator',
           userRole: currentUser?.role || ROLES.FOCAL,
-          details: remarksValue
-            ? `Remarks: ${remarksValue}`
-            : isApproved
-            ? 'Requirement evaluated and marked as Satisfied.'
-            : 'Requirement returned for revision.',
+          details: remarksValue ? `Remarks: ${remarksValue}` : `Status updated to ${newStatus}.`,
         })
         setHistoryList((prev) => [log, ...prev])
       }
@@ -727,11 +957,9 @@ export function DocumentChecklistPage() {
       handleCloseReviewModal()
       Swal.fire({
         icon: 'success',
-        title: isApproved ? 'Document Approved' : 'Document Returned',
-        text: isApproved
-          ? 'The requirement has been marked as Satisfied.'
-          : 'Rejection remarks saved and document returned for revision.',
-        timer: 2000,
+        title: successTitle,
+        text: successText,
+        timer: 1800,
         showConfirmButton: false,
         customClass: { popup: 'rounded-3xl p-6 font-sans' },
       })
@@ -744,7 +972,23 @@ export function DocumentChecklistPage() {
     if (!item.uploadedDoc) return
 
     const docId = item.uploadedDoc.id
-    const existingBlob = blobMap[item.id] || (item.uploadedDoc.file_path?.startsWith('blob:') ? item.uploadedDoc.file_path : null)
+    const liveBlob = blobMap[item.id]
+
+    if (liveBlob) {
+      setPreviewDoc({
+        isOpen: true,
+        title: item.name,
+        fileName: item.uploadedDoc.file_name,
+        fileSize: item.uploadedDoc.file_size,
+        uploadedAt: item.uploadedDoc.created_at || item.uploadedDoc.updated_at,
+        status: item.status,
+        blobUrl: liveBlob,
+        isLoading: false,
+        error: null,
+        docId,
+      })
+      return
+    }
 
     setPreviewDoc({
       isOpen: true,
@@ -753,13 +997,13 @@ export function DocumentChecklistPage() {
       fileSize: item.uploadedDoc.file_size,
       uploadedAt: item.uploadedDoc.created_at || item.uploadedDoc.updated_at,
       status: item.status,
-      blobUrl: existingBlob,
-      isLoading: !existingBlob,
+      blobUrl: null,
+      isLoading: true,
       error: null,
       docId,
     })
 
-    if (!existingBlob && docId) {
+    if (docId) {
       try {
         const blobUrl = await viewDocumentBlobForStaff(docId)
         setBlobMap((prev) => ({ ...prev, [item.id]: blobUrl }))
@@ -775,6 +1019,12 @@ export function DocumentChecklistPage() {
           error: 'Could not load server PDF preview.',
         }))
       }
+    } else if (item.uploadedDoc.file_path) {
+      setPreviewDoc((prev) => ({
+        ...prev,
+        blobUrl: item.uploadedDoc!.file_path,
+        isLoading: false,
+      }))
     }
   }
 
@@ -1243,8 +1493,10 @@ export function DocumentChecklistPage() {
                                     : item.action === 'REVIEW_APPROVED' || item.action === 'VERIFY'
                                     ? 'bg-emerald-100 text-emerald-700'
                                     : item.action === 'REVIEW_RETURNED'
-                                    ? 'bg-amber-100 text-amber-800'
-                                    : item.action === 'UNVERIFY'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : item.action === 'REVIEW_UNDER_REVIEW'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : item.action === 'REVIEW_PENDING' || item.action === 'UNVERIFY'
                                     ? 'bg-slate-100 text-slate-700'
                                     : 'bg-purple-100 text-purple-700'
                                 )}
@@ -1255,14 +1507,14 @@ export function DocumentChecklistPage() {
                                   ? 'Replaced'
                                   : item.action === 'REMOVE'
                                   ? 'Removed'
-                                  : item.action === 'VERIFY'
+                                  : item.action === 'VERIFY' || item.action === 'REVIEW_APPROVED'
                                   ? 'Verified'
-                                  : item.action === 'UNVERIFY'
-                                  ? 'Unverified'
-                                  : item.action === 'REVIEW_APPROVED'
-                                  ? 'Approved'
+                                  : item.action === 'UNVERIFY' || item.action === 'REVIEW_PENDING'
+                                  ? 'Pending'
+                                  : item.action === 'REVIEW_UNDER_REVIEW'
+                                  ? 'In Review'
                                   : item.action === 'REVIEW_RETURNED'
-                                  ? 'Returned'
+                                  ? 'Revision'
                                   : item.action === 'COMPLETE_REVIEW'
                                   ? 'Completed'
                                   : 'Updated'}
@@ -1368,8 +1620,12 @@ export function DocumentChecklistPage() {
                     <span>
                       {statusTab === 'ALL'
                         ? 'Filter'
-                        : statusTab === 'UPLOADED'
-                        ? 'Uploaded'
+                        : statusTab === 'VERIFIED'
+                        ? 'Verified'
+                        : statusTab === 'UNDER_REVIEW'
+                        ? 'In Review'
+                        : statusTab === 'RETURNED'
+                        ? 'Revision'
                         : 'Pending'}
                     </span>
                   </button>
@@ -1380,7 +1636,7 @@ export function DocumentChecklistPage() {
                         className="fixed inset-0 z-20"
                         onClick={() => setIsFilterDropdownOpen(false)}
                       />
-                      <div className="absolute right-0 top-full mt-2 z-30 w-52 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 font-sans">
+                      <div className="absolute right-0 top-full mt-2 z-30 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1.5 shadow-xl animate-in fade-in zoom-in-95 duration-100 font-sans">
                         <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100">
                           Filter by Status
                         </div>
@@ -1399,25 +1655,70 @@ export function DocumentChecklistPage() {
                         >
                           <span>All Requirements</span>
                           <span className="text-[11px] font-medium text-slate-400">
-                            {editingItems.length}
+                            {stats.total}
                           </span>
                         </button>
                         <button
                           type="button"
                           onClick={() => {
-                            setStatusTab('UPLOADED')
+                            setStatusTab('VERIFIED')
                             setIsFilterDropdownOpen(false)
                           }}
                           className={cn(
                             'flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer',
-                            statusTab === 'UPLOADED'
+                            statusTab === 'VERIFIED'
                               ? 'bg-emerald-50 text-emerald-700'
                               : 'text-slate-700 hover:bg-slate-50'
                           )}
                         >
-                          <span>Uploaded Files</span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-emerald-500" />
+                            <span>Verified</span>
+                          </span>
                           <span className="text-[11px] font-medium text-slate-400">
-                            {stats.uploaded}
+                            {stats.verified}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatusTab('UNDER_REVIEW')
+                            setIsFilterDropdownOpen(false)
+                          }}
+                          className={cn(
+                            'flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer',
+                            statusTab === 'UNDER_REVIEW'
+                              ? 'bg-blue-50 text-blue-700'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-blue-500" />
+                            <span>In Review</span>
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-400">
+                            {stats.underReview}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStatusTab('RETURNED')
+                            setIsFilterDropdownOpen(false)
+                          }}
+                          className={cn(
+                            'flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer',
+                            statusTab === 'RETURNED'
+                              ? 'bg-rose-50 text-rose-700'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          )}
+                        >
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-rose-500" />
+                            <span>Revision</span>
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-400">
+                            {stats.returned}
                           </span>
                         </button>
                         <button
@@ -1429,13 +1730,16 @@ export function DocumentChecklistPage() {
                           className={cn(
                             'flex w-full items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition cursor-pointer',
                             statusTab === 'PENDING'
-                              ? 'bg-amber-50 text-amber-700'
+                              ? 'bg-slate-100 text-slate-700'
                               : 'text-slate-700 hover:bg-slate-50'
                           )}
                         >
-                          <span>Pending Upload</span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="size-2 rounded-full bg-slate-400" />
+                            <span>Pending</span>
+                          </span>
                           <span className="text-[11px] font-medium text-slate-400">
-                            {editingItems.length - stats.uploaded}
+                            {stats.pending}
                           </span>
                         </button>
                       </div>
@@ -1484,43 +1788,22 @@ export function DocumentChecklistPage() {
                           )}
                         >
                           {hasFile ? (
-                            blobUrl ? (
-                              <div className="relative h-full w-full overflow-hidden bg-white p-1.5 flex items-center justify-center">
-                                <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-2xs border border-slate-200/60">
-                                  <iframe
-                                    src={`${blobUrl}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                                    className="pointer-events-none absolute -top-4 -left-4 w-[130%] h-[155%] scale-[1.08] origin-top border-0 select-none bg-white"
-                                    title={item.name}
-                                  />
-                                </div>
-                                <div className="absolute inset-0 bg-transparent transition group-hover:bg-blue-900/10 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                  <span className="rounded-xl bg-slate-900/80 px-2.5 py-1 text-[11px] font-bold text-white shadow-md flex items-center gap-1">
-                                    <Eye className="size-3" />
-                                    <span>Expand</span>
-                                  </span>
-                                </div>
+                            <div className="relative h-full w-full overflow-hidden bg-white p-1 flex items-center justify-center">
+                              <div className="relative h-full w-full overflow-hidden rounded-lg bg-white shadow-2xs border border-slate-200/60">
+                                <PdfThumbnail
+                                  url={blobUrl}
+                                  documentId={item.uploadedDoc?.id}
+                                  title={item.uploadedDoc?.file_name || item.name}
+                                  alt={item.uploadedDoc?.file_name || item.name}
+                                />
                               </div>
-                            ) : (
-                              <div className="relative flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center bg-gradient-to-b from-slate-50 to-white">
-                                <div className="flex size-11 items-center justify-center rounded-2xl bg-blue-50 text-[#0f53b7] shadow-xs group-hover:scale-105 transition-transform">
-                                  <FileCheck2 className="size-6" />
-                                </div>
-                                <div className="space-y-0.5 max-w-[150px]">
-                                  <p className="text-[11px] font-bold text-slate-800 truncate" title={item.uploadedDoc?.file_name}>
-                                    {item.uploadedDoc?.file_name}
-                                  </p>
-                                  <p className="text-[10px] text-slate-400">
-                                    {formatFileSize(item.uploadedDoc?.file_size)}
-                                  </p>
-                                </div>
-                                <div className="absolute inset-0 bg-transparent transition group-hover:bg-blue-900/10 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                                  <span className="rounded-xl bg-slate-900/80 px-2.5 py-1 text-[11px] font-bold text-white shadow-md flex items-center gap-1">
-                                    <Eye className="size-3" />
-                                    <span>Preview</span>
-                                  </span>
-                                </div>
+                              <div className="absolute inset-0 bg-transparent transition group-hover:bg-blue-900/10 flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <span className="rounded-xl bg-slate-900/80 px-2.5 py-1 text-[11px] font-bold text-white shadow-md flex items-center gap-1">
+                                  <Eye className="size-3" />
+                                  <span>Preview</span>
+                                </span>
                               </div>
-                            )
+                            </div>
                           ) : (
                             <div className="flex flex-col items-center justify-center gap-1.5 p-3 text-center">
                               <span className="flex size-9 items-center justify-center rounded-xl bg-slate-100 text-slate-400 group-hover:bg-blue-50 group-hover:text-[#0f53b7] transition">
@@ -1540,17 +1823,46 @@ export function DocumentChecklistPage() {
                               {state.label}
                             </div>
                           )}
+
+                          {item.uploadedDoc?.archived_versions && item.uploadedDoc.archived_versions.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setVersionModalDoc(item)
+                              }}
+                              className="absolute top-2 right-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[9px] font-bold text-amber-800 border border-amber-200/80 hover:bg-amber-100 transition cursor-pointer shadow-xs"
+                              title="Click to view previous versions and audit remarks"
+                            >
+                              <History className="size-2.5 text-amber-600" />
+                              <span>V{item.uploadedDoc.archived_versions.length + 1} ({item.uploadedDoc.archived_versions.length} prior)</span>
+                            </button>
+                          )}
                         </div>
 
-                        <div className="mt-2.5 space-y-1.5">
+                        <div className="mt-2.5 space-y-1">
                           <div className="flex items-center justify-between gap-1">
                             <h4
                               className="truncate text-xs font-bold text-slate-950 flex-1"
-                              title={hasFile ? item.uploadedDoc?.file_name : item.name}
+                              title={`${idx + 1}. ${item.name}`}
                             >
-                              {hasFile ? item.uploadedDoc?.file_name : `${idx + 1}. ${item.name}`}
+                              {idx + 1}. {item.name}
                             </h4>
                           </div>
+
+                          {hasFile ? (
+                            <p
+                              className="truncate text-[11px] text-slate-500 font-medium flex items-center gap-1"
+                              title={item.uploadedDoc?.file_name}
+                            >
+                              <FileText className="size-3 shrink-0 text-slate-400" />
+                              <span className="truncate">{item.uploadedDoc?.file_name}</span>
+                            </p>
+                          ) : (
+                            <p className="truncate text-[10px] text-slate-400 font-medium" title={item.group}>
+                              {item.group}
+                            </p>
+                          )}
 
                           <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500">
                             <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -1753,6 +2065,17 @@ export function DocumentChecklistPage() {
                               <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-bold', state.badgeClass)}>
                                 {state.label}
                               </span>
+                              {item.uploadedDoc?.archived_versions && item.uploadedDoc.archived_versions.length > 0 && (
+                                <button
+                                  type="button"
+                                  onClick={() => setVersionModalDoc(item)}
+                                  className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-[10px] font-bold text-amber-800 border border-amber-200/80 hover:bg-amber-100 transition cursor-pointer"
+                                  title="Click to view previous versions and audit remarks"
+                                >
+                                  <History className="size-3 text-amber-600" />
+                                  <span>V{item.uploadedDoc.archived_versions.length + 1} ({item.uploadedDoc.archived_versions.length} prior)</span>
+                                </button>
+                              )}
                             </div>
 
                             <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
@@ -1948,6 +2271,13 @@ export function DocumentChecklistPage() {
                 <p className="text-xs text-slate-400">{uploadModalItem.group}</p>
               </div>
 
+              <div className="flex items-center gap-2.5 rounded-2xl bg-blue-50/70 p-3 text-xs text-[#0f53b7] border border-blue-100/80">
+                <FileText className="size-4 shrink-0 text-[#0f53b7]" />
+                <span className="leading-relaxed">
+                  Allowed file format: <b>PDF only (.pdf)</b>. Maximum file size: <b>10 MB</b>.
+                </span>
+              </div>
+
               {/* Dashed Drag and Drop Zone (Image 2 style) */}
               <div
                 onDragOver={(e) => {
@@ -1967,10 +2297,10 @@ export function DocumentChecklistPage() {
                 <input
                   type="file"
                   ref={fileInputRef}
-                  accept="application/pdf,image/*,.doc,.docx"
+                  accept="application/pdf"
                   onChange={(e) => {
                     if (e.target.files && e.target.files[0]) {
-                      setSelectedUploadFile(e.target.files[0])
+                      validateAndSetFile(e.target.files[0])
                     }
                   }}
                   className="hidden"
@@ -1983,7 +2313,7 @@ export function DocumentChecklistPage() {
                   Drag here or click to select
                 </p>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Image and document up to 10 mb file
+                  PDF format only, up to 10 MB in file size
                 </p>
               </div>
 
@@ -2139,33 +2469,61 @@ export function DocumentChecklistPage() {
                 <label className="text-xs font-bold uppercase tracking-wide text-slate-700">
                   Compliance Decision
                 </label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setReviewDecision('APPROVED')}
                     className={cn(
-                      'flex items-center justify-center gap-2 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer',
+                      'flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer text-center',
                       reviewDecision === 'APPROVED'
-                        ? 'border-emerald-600 bg-emerald-50/80 text-emerald-800 shadow-xs'
+                        ? 'border-emerald-600 bg-emerald-50 text-emerald-800 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                     )}
                   >
                     <CheckCircle2 className={cn('size-4', reviewDecision === 'APPROVED' ? 'text-emerald-600' : 'text-slate-400')} />
-                    <span>Approve (Satisfied)</span>
+                    <span>Verified</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision('UNDER_REVIEW')}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer text-center',
+                      reviewDecision === 'UNDER_REVIEW'
+                        ? 'border-blue-600 bg-blue-50 text-blue-800 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <FileCheck2 className={cn('size-4', reviewDecision === 'UNDER_REVIEW' ? 'text-blue-600' : 'text-slate-400')} />
+                    <span>In Review</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setReviewDecision('RETURNED')}
                     className={cn(
-                      'flex items-center justify-center gap-2 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer',
+                      'flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer text-center',
                       reviewDecision === 'RETURNED'
-                        ? 'border-rose-500 bg-rose-50/80 text-rose-800 shadow-xs'
+                        ? 'border-rose-500 bg-rose-50 text-rose-800 shadow-xs'
                         : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                     )}
                   >
                     <RotateCcw className={cn('size-4', reviewDecision === 'RETURNED' ? 'text-rose-600' : 'text-slate-400')} />
-                    <span>Return for Revision</span>
+                    <span>Revision</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setReviewDecision('PENDING')}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 p-3 text-xs font-bold transition cursor-pointer text-center',
+                      reviewDecision === 'PENDING'
+                        ? 'border-slate-600 bg-slate-100 text-slate-900 shadow-xs'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                    )}
+                  >
+                    <Clock className={cn('size-4', reviewDecision === 'PENDING' ? 'text-slate-700' : 'text-slate-400')} />
+                    <span>Pending</span>
                   </button>
                 </div>
               </div>
@@ -2202,7 +2560,7 @@ export function DocumentChecklistPage() {
                 {reviewDecision === 'RETURNED' && !reviewRemarks.trim() && (
                   <p className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
                     <AlertCircle className="size-3 shrink-0" />
-                    <span>Rejection remarks must be provided before returning this document.</span>
+                    <span>Rejection remarks must be provided before requesting revision.</span>
                   </p>
                 )}
               </div>
@@ -2226,7 +2584,11 @@ export function DocumentChecklistPage() {
                   'inline-flex h-10 items-center gap-2 rounded-xl px-6 text-xs font-bold text-white shadow-sm transition disabled:opacity-50 cursor-pointer',
                   reviewDecision === 'APPROVED'
                     ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-rose-600 hover:bg-rose-700'
+                    : reviewDecision === 'UNDER_REVIEW'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : reviewDecision === 'RETURNED'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-slate-700 hover:bg-slate-800'
                 )}
               >
                 {isSubmittingReview ? (
@@ -2236,13 +2598,23 @@ export function DocumentChecklistPage() {
                   </>
                 ) : reviewDecision === 'APPROVED' ? (
                   <>
-                    <Check className="size-4 stroke-[2.5]" />
-                    <span>Approve Document</span>
+                    <CheckCircle2 className="size-4 stroke-[2.5]" />
+                    <span>Set as Verified</span>
+                  </>
+                ) : reviewDecision === 'UNDER_REVIEW' ? (
+                  <>
+                    <FileCheck2 className="size-4 stroke-[2.5]" />
+                    <span>Set as In Review</span>
+                  </>
+                ) : reviewDecision === 'RETURNED' ? (
+                  <>
+                    <RotateCcw className="size-4 stroke-[2.5]" />
+                    <span>Request Revision</span>
                   </>
                 ) : (
                   <>
-                    <RotateCcw className="size-4 stroke-[2.5]" />
-                    <span>Return Document</span>
+                    <Clock className="size-4 stroke-[2.5]" />
+                    <span>Set as Pending</span>
                   </>
                 )}
               </button>
@@ -2389,6 +2761,123 @@ export function DocumentChecklistPage() {
                 type="button"
                 onClick={() => setIsProjectSelectorOpen(false)}
                 className="rounded-xl border border-[#B5BFCD] bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Version History Modal */}
+      {versionModalDoc && versionModalDoc.uploadedDoc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm animate-in fade-in duration-150 font-sans">
+          <div className="flex w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl border border-[#B5BFCD]/60 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-[#f7fbff]">
+              <div className="flex items-center gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800">
+                  <History className="size-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-slate-950">Document Version History</h3>
+                  <p className="text-xs text-slate-500">Audit trail of current and superseded submissions</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setVersionModalDoc(null)}
+                className="flex size-8 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Requirement</span>
+                <p className="text-sm font-bold text-slate-950 leading-snug">{versionModalDoc.name}</p>
+                <p className="text-[11px] text-slate-500">{versionModalDoc.group}</p>
+              </div>
+
+              <div className="rounded-2xl border-2 border-emerald-200 bg-emerald-50/40 p-4 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="rounded-md bg-emerald-600 px-2 py-0.5 text-[10px] font-bold text-white uppercase shrink-0">
+                      Current Version (V{(versionModalDoc.uploadedDoc.archived_versions?.length || 0) + 1})
+                    </span>
+                    <span className="text-xs font-bold text-slate-900 truncate">
+                      {versionModalDoc.uploadedDoc.file_name}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const doc = versionModalDoc
+                      setVersionModalDoc(null)
+                      handlePreviewDocument(doc)
+                    }}
+                    className="inline-flex items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-emerald-700 transition cursor-pointer shrink-0"
+                  >
+                    <Eye className="size-3" />
+                    <span>Preview</span>
+                  </button>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-emerald-100 font-mono">
+                  <span>Size: {formatFileSize(versionModalDoc.uploadedDoc.file_size)}</span>
+                  <span>Uploaded: {formatRelativeDate(versionModalDoc.uploadedDoc.created_at || versionModalDoc.uploadedDoc.updated_at)}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 pt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  Previous Returned / Superseded Versions
+                </h4>
+
+                {versionModalDoc.uploadedDoc.archived_versions && versionModalDoc.uploadedDoc.archived_versions.length > 0 ? (
+                  versionModalDoc.uploadedDoc.archived_versions.map((archived, aIdx) => (
+                    <div
+                      key={archived.id || aIdx}
+                      className="rounded-2xl border border-amber-200/90 bg-amber-50/40 p-3.5 space-y-2"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="rounded-md bg-amber-200 text-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase shrink-0">
+                            Version {archived.version || aIdx + 1}
+                          </span>
+                          <span className="text-xs font-bold text-slate-800 truncate" title={archived.file_name}>
+                            {archived.file_name}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 rounded px-2 py-0.5 shrink-0">
+                          {archived.status === 'returned_for_revision' ? 'Returned for Revision' : 'Superseded'}
+                        </span>
+                      </div>
+
+                      {archived.remarks && (
+                        <div className="rounded-xl bg-white/80 p-2.5 border border-amber-100 text-xs">
+                          <p className="font-bold text-amber-900 text-[11px]">Previous Review Remarks:</p>
+                          <p className="text-slate-700 mt-0.5 leading-relaxed">{archived.remarks}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 pt-1 border-t border-amber-100/70 font-mono">
+                        <span>Size: {formatFileSize(archived.file_size)}</span>
+                        <span>Archived: {formatRelativeDate(archived.archived_at || archived.created_at)}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 italic">No previous versions on record.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="border-t border-[#B5BFCD]/40 bg-[#f7fbff] px-6 py-3 text-right">
+              <button
+                type="button"
+                onClick={() => setVersionModalDoc(null)}
+                className="rounded-xl border border-[#B5BFCD] bg-white px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 transition cursor-pointer"
               >
                 Close
               </button>
