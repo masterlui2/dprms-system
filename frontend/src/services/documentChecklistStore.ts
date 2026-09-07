@@ -2,7 +2,6 @@ import api from '../lib/axios'
 import type { ApplicationProgram } from '../types/application'
 import {
   fetchProposalDocumentsForStaff,
-  fileToStoredDocument,
   getDocuments,
   saveDocument,
   type DocumentApiRecord,
@@ -1714,14 +1713,6 @@ export async function uploadChecklistDocument(
     }
   }
 
-  let dataUrl = blobUrl
-  try {
-    const converted = await fileToStoredDocument(file)
-    dataUrl = converted.dataUrl
-  } catch {
-    //
-  }
-
   const storedDoc: StoredDocument = {
     backendId: uploadedDoc.id,
     fileName: file.name,
@@ -1729,13 +1720,17 @@ export async function uploadChecklistDocument(
     fileType: file.type || 'application/pdf',
     uploadedAt: new Date().toISOString(),
     verificationStatus: 'Approved',
-    dataUrl,
+    dataUrl: blobUrl,
   }
 
   if (referenceNumber) {
-    saveDocument(referenceNumber, item.id, storedDoc)
-    if (docTypeId) {
-      saveDocument(referenceNumber, String(docTypeId), storedDoc)
+    try {
+      saveDocument(referenceNumber, item.id, storedDoc)
+      if (docTypeId) {
+        saveDocument(referenceNumber, String(docTypeId), storedDoc)
+      }
+    } catch {
+      //
     }
   }
 

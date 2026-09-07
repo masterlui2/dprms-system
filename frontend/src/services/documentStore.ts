@@ -27,7 +27,7 @@ export interface StoredDocument {
    * Present for documents backed by the real /documents API.
    */
   backendId?: number
-  dataUrl: string
+  dataUrl?: string
   fileName: string
   fileSize: number
   fileType: string
@@ -659,9 +659,31 @@ export function getDocuments(referenceNo: string) {
 }
 
 export function saveDocument(referenceNo: string, requirementId: string, document: StoredDocument) {
-  const store = readStore()
-  store[referenceNo] = { ...(store[referenceNo] ?? {}), [requirementId]: document }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+  try {
+    const store = readStore()
+    const docToStore: StoredDocument = { ...document }
+    if (docToStore.dataUrl && docToStore.dataUrl.startsWith('data:') && docToStore.dataUrl.length > 2048) {
+      docToStore.dataUrl = ''
+    }
+    store[referenceNo] = { ...(store[referenceNo] ?? {}), [requirementId]: docToStore }
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+  } catch {
+    try {
+      const store = readStore()
+      for (const ref of Object.keys(store)) {
+        for (const req of Object.keys(store[ref])) {
+          if (store[ref][req]?.dataUrl && store[ref][req].dataUrl!.length > 2048) {
+            store[ref][req].dataUrl = ''
+          }
+        }
+      }
+      const safeDoc: StoredDocument = { ...document, dataUrl: '' }
+      store[referenceNo] = { ...(store[referenceNo] ?? {}), [requirementId]: safeDoc }
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    } catch {
+      //
+    }
+  }
 }
 
 export function deleteDocument(referenceNo: string, requirementId: string) {
