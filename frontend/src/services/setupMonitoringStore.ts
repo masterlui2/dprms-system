@@ -527,6 +527,7 @@ export interface SetupMonitoringProjectsResult {
 
 interface BackendSetupMonitoringProject {
   id: number
+  proposal_id?: number | null
   reference_number: string
   title: string
   enterprise_name: string
@@ -543,6 +544,11 @@ interface BackendSetupMonitoringProject {
   last_monitored_at: string | null
   monitored: boolean
   pending_reports: number
+  checklist_stats?: {
+    complied: number
+    total: number
+    percentage: number
+  }
   latest_report: {
     status: string
     reporting_period: string
@@ -593,6 +599,7 @@ function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): Proj
   return {
     approvedAt: project.approved_at,
     backendId: project.id,
+    proposalId: project.proposal_id ?? project.id,
     budget: 0,
     compliance: project.pending_reports > 0 ? 'Due soon' : 'Compliant',
     district: project.district ?? undefined,
@@ -600,6 +607,7 @@ function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): Proj
     enterprise: project.enterprise_name,
     id: String(project.id),
     lastMonitoredAt: project.last_monitored_at,
+    checklistStats: project.checklist_stats,
     latestReport: project.latest_report
       ? {
           dueDate: project.latest_report.due_date,

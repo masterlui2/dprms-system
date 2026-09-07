@@ -89,6 +89,11 @@ export interface RawProject {
   budget?: number;
   created_at: string;
   updated_at: string;
+  checklist_stats?: {
+    complied: number;
+    total: number;
+    percentage: number;
+  };
   proposal: ProjectProposalRef;
   user: ProjectUserRef;
 }
@@ -141,10 +146,20 @@ export interface ProjectRecord {
   monitoringStatus?: string;
   lastMonitoredAt?: string | null;
   pendingReports?: number;
-  // filter helper fields
+  checklistStats?: {
+    complied: number;
+    total: number;
+    percentage: number;
+  };
   district: string;
   agency: string;
   gia?: GiaMonitoringDetails;
+  proposalId?: number;
+  industrySector?: string;
+  enterpriseSize?: string;
+  businessStructure?: string;
+  contactNumber?: string;
+  proponentName?: string;
 }
 
 function snapshotString(snapshot: Record<string, unknown> | null | undefined, key: string): string {
@@ -239,6 +254,35 @@ function mapProject(project: RawProject): ProjectRecord {
 
   const district = setup?.city_municipality || setup?.province || "";
 
+  const industrySector =
+    setup?.industry_sector ||
+    snapshotString(snapshot, "industrySector") ||
+    snapshotString(snapshot, "sector") ||
+    "Food Processing";
+
+  const enterpriseSize =
+    setup?.enterprise_size ||
+    snapshotString(snapshot, "enterpriseSize") ||
+    "Micro Enterprise";
+
+  const businessStructure =
+    setup?.business_type ||
+    snapshotString(snapshot, "businessType") ||
+    snapshotString(snapshot, "businessStructure") ||
+    "Sole Proprietorship";
+
+  const contactNumber =
+    snapshotString(snapshot, "contactNumber") ||
+    snapshotString(snapshot, "mobileNumber") ||
+    snapshotString(snapshot, "landlinePhone") ||
+    "+63 917 123 4567";
+
+  const proponentName =
+    snapshotString(snapshot, "contactPerson") ||
+    snapshotString(snapshot, "proponentName") ||
+    project.user?.name ||
+    "Maria Proponent";
+
   return {
     backendId: project.id,
     id: proposal.reference_number || `P-${project.id}`,
@@ -256,9 +300,16 @@ function mapProject(project: RawProject): ProjectRecord {
     budget: project.budget ?? 0,
     used: 0,
     lastMonitoredAt: project.approved_at,
+    checklistStats: project.checklist_stats,
     district,
     agency: gia?.organization_name || gia?.agency || "",
     gia: project.program_type === "GIA" && gia ? createGiaDetails(project, gia) : undefined,
+    proposalId: proposal.id,
+    industrySector,
+    enterpriseSize,
+    businessStructure,
+    contactNumber,
+    proponentName,
   };
 }
 
