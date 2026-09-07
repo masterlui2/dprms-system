@@ -65,7 +65,7 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::get('/{proposalId}/proposal-documents', [DocumentController::class, 'index']);
     Route::get('/{documentId}/view-staff', [DocumentController::class, 'showForStaff']);
     Route::patch('/{document}/review', [DocumentController::class, 'review'])
-        ->middleware('role:FOCAL,SYSTEM_ADMIN');
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::get('/{proposalId}/forms', [DocumentController::class, 'showForm']);
 });
 
@@ -76,7 +76,7 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::put('proposals/{proposalId}/checklist/batch', [DocumentChecklistController::class, 'batchSave'])
         ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::put('proposals/{proposalId}/checklist/items/{itemId}', [DocumentChecklistController::class, 'reviewItem'])
-        ->middleware('role:FOCAL,SYSTEM_ADMIN');
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::post('proposals/{proposalId}/checklist/complete', [DocumentChecklistController::class, 'complete'])
         ->middleware('role:FOCAL,SYSTEM_ADMIN');
 });

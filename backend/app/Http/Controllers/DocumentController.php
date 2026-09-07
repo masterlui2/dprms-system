@@ -32,7 +32,11 @@ class DocumentController extends Controller
 
     public function destroy(Document $document)
     {
-        abort_unless($document->uploaded_by === Auth::id(), 403);
+        $user = Auth::user();
+        abort_unless(
+            $document->uploaded_by === Auth::id() || ($user && $user->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR', 'RPMO', 'ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'])),
+            403
+        );
         $this->documentsService->deleteDocuments($document->id);
 
         return response()->json(['message' => 'Document Deleted']);

@@ -16,6 +16,88 @@ use Override;
 
 class DocumentChecklistService implements DocumentChecklistServiceInterface
 {
+    public const TEMPLATE_CODE_TO_DOC_TYPE_ID = [
+        // SETUP SET 1
+        'setup-s1-tna-01' => 19,
+        'setup-s1-gad-assessment' => 20,
+        'setup-s1-gad-checklist' => 21,
+        'setup-s1-hazard-hunter' => 22,
+        'setup-s1-mayors-permit' => 3,
+        'setup-s1-dti-registration' => 4,
+        'setup-s1-bir-registration' => 6,
+        'setup-s1-blank-or' => 7,
+        'setup-s1-equipment-quotations' => 8,
+        'setup-s1-lease-contract' => 9,
+        'setup-s1-corp-board-res' => 10,
+        'setup-s1-corp-sec-cda' => 5,
+        'setup-s1-corp-aoi' => 11,
+        'setup-s1-corp-sec-cert' => 12,
+        'setup-s1-fs-financial-position' => 13,
+        'setup-s1-fs-financial-operation' => 14,
+        'setup-s1-fs-cash-flows' => 15,
+        'setup-s1-fs-changes-equity' => 16,
+        'setup-s1-fs-notes' => 17,
+        'setup-s1-loi-commitment' => 18,
+
+        // SETUP SET 2
+        'setup-s2-biodata' => 23,
+        'setup-s2-govt-id' => 24,
+        'setup-s2-brgy-cert' => 25,
+        'setup-s2-omnibus' => 26,
+        'setup-s2-tna-form-4' => 27,
+
+        // SETUP SET 3
+        'setup-s3-request-funds' => 28,
+        'setup-s3-lbp-waiver' => 29,
+        'setup-s3-payee-form' => 30,
+        'setup-s3-notarized-moa' => 31,
+        'setup-s3-pre-project-sheet' => 32,
+        'setup-s3-notice-approval' => 33,
+        'setup-s3-approved-lib' => 34,
+        'setup-s3-ard-approval' => 35,
+        'setup-s3-psto-endorsement' => 36,
+        'setup-s3-final-proposal' => 37,
+        'setup-s3-rtec-report' => 38,
+        'setup-s3-risk-register' => 39,
+        'setup-s3-seti-scorecard' => 40,
+
+        // GIA Stage 01
+        'gia-s1-loi' => 41,
+        'gia-s1-endorsement' => 36,
+        'gia-s1-eligibility' => 43,
+        'gia-s1-dost-form-4' => 42,
+        'gia-s1-dost-form-6' => 34,
+        'gia-s1-dost-form-5' => 44,
+        'gia-s1-rtec-report' => 38,
+        'gia-s1-seti-scorecard' => 40,
+        'gia-s1-gad-checklist' => 21,
+        'gia-s1-moa-resolution' => 31,
+        'gia-s1-cfa' => 45,
+        'gia-s1-ched-accreditation' => 51,
+        'gia-s1-good-track-record' => 52,
+        'gia-s1-sec-cda-dole' => 46,
+        'gia-s1-audited-fs' => 47,
+        'gia-s1-sworn-affidavit' => 48,
+        'gia-s1-secretary-cert' => 49,
+        'gia-s1-board-resolution' => 50,
+
+        // GIA Stage 02
+        'gia-s2-request-release' => 28,
+        'gia-s2-payee-data-form' => 30,
+        'gia-s2-notarized-moa' => 31,
+        'gia-s2-rtec-report' => 38,
+        'gia-s2-dost-form-4b' => 42,
+        'gia-s2-dost-form-6' => 34,
+        'gia-s2-dost-form-5' => 44,
+        'gia-s2-cfa' => 45,
+        'gia-s2-loi' => 41,
+        'gia-s2-dost-form-7' => 52,
+        'gia-s2-brgy-bond' => 53,
+        'gia-s2-brgy-certification' => 54,
+        'gia-s2-ched-accreditation' => 51,
+        'gia-s2-good-track-record' => 52,
+    ];
+
     public function __construct(
         protected DocumentChecklistRepositoryInterface $checklistRepository
     ) {}
@@ -37,6 +119,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'setup_proposal',
                 'gia_proposal',
                 'documents.document_type',
+                'documents.archived_versions',
             ])
             ->findOrFail($proposalId);
 
@@ -99,15 +182,21 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'has_equipment' => $hasEquipment,
             ]);
 
-            $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs);
-
             $review = $existingReviews->get($template->id);
+
+            $matchedDoc = null;
+            if ($review && $review->document_id) {
+                $matchedDoc = $uploadedDocs->firstWhere('id', $review->document_id);
+            }
+            if (! $matchedDoc) {
+                $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs);
+            }
 
             $isPresent = $review ? $review->is_present : false;
             $status = $review ? $review->status : 'Missing';
 
             if ($matchedDoc) {
-                if ($review) {
+                if ($review && $review->status !== 'Missing') {
                     $isPresent = $review->is_present;
                     $status = $review->status;
                 } else {
@@ -140,9 +229,12 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 }
             }
 
+            $expectedDocTypeId = self::TEMPLATE_CODE_TO_DOC_TYPE_ID[$template->item_code] ?? null;
+
             $items[] = [
                 'id' => $template->item_code,
                 'template_id' => $template->id,
+                'document_type_id' => $expectedDocTypeId,
                 'name' => $template->document_name,
                 'group' => $template->group_name,
                 'set_id' => $program === 'SETUP' ? $template->phase_code : null,
@@ -154,6 +246,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'remarks' => $remarks,
                 'uploaded_doc' => $matchedDoc ? [
                     'id' => $matchedDoc->id,
+                    'document_type_id' => $matchedDoc->document_type_id,
                     'file_name' => $matchedDoc->file_name,
                     'file_path' => $matchedDoc->file_path,
                     'file_size' => $matchedDoc->file_size,
@@ -162,6 +255,20 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                     'remarks' => $matchedDoc->remarks,
                     'reviewed_at' => $matchedDoc->reviewed_at?->toIso8601String(),
                     'created_at' => $matchedDoc->created_at?->toIso8601String(),
+                    'document_type' => $matchedDoc->document_type ? [
+                        'id' => $matchedDoc->document_type->id,
+                        'name' => $matchedDoc->document_type->name,
+                        'group' => $matchedDoc->document_type->group,
+                    ] : null,
+                    'archived_versions' => $matchedDoc->archived_versions?->map(fn($v) => [
+                        'id' => $v->id,
+                        'file_name' => $v->file_name,
+                        'file_path' => $v->file_path,
+                        'file_size' => $v->file_size,
+                        'status' => $v->status,
+                        'remarks' => $v->remarks,
+                        'archived_at' => $v->archived_at?->toIso8601String(),
+                    ])->values()->toArray() ?? [],
                 ] : null,
                 'reviewed_at' => $reviewedAt,
             ];
@@ -242,13 +349,21 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                     }
 
                     if ($templateId) {
-                        $this->checklistRepository->updateOrCreateReview($proposalId, $templateId, [
+                        $docId = $item['document_id'] ?? $item['uploaded_doc']['id'] ?? $item['uploadedDoc']['id'] ?? null;
+                        $reviewData = [
                             'is_present' => $item['is_present'] ?? false,
                             'status' => $item['status'] ?? 'Under Review',
                             'remarks' => $item['remarks'] ?? null,
                             'reviewed_by' => $userId,
                             'reviewed_at' => now(),
-                        ]);
+                        ];
+                        if ($docId) {
+                            $reviewData['document_id'] = $docId;
+                        } elseif (array_key_exists('document_id', $item) && $item['document_id'] === null) {
+                            $reviewData['document_id'] = null;
+                        }
+
+                        $this->checklistRepository->updateOrCreateReview($proposalId, $templateId, $reviewData);
                     }
                 }
             }
@@ -352,50 +467,53 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     {
         $code = strtolower($template->item_code);
         $tmplName = strtolower(preg_replace('/^\d+\.\s*/', '', $template->document_name));
+        $targetDocTypeId = self::TEMPLATE_CODE_TO_DOC_TYPE_ID[$template->item_code] ?? null;
+
+        if ($targetDocTypeId) {
+            $direct = $uploadedDocs->firstWhere('document_type_id', $targetDocTypeId);
+            if ($direct) {
+                return $direct;
+            }
+        }
 
         return $uploadedDocs->first(function (Document $doc) use ($code, $tmplName) {
             $typeName = strtolower($doc->document_type?->name ?? '');
             $fileName = strtolower($doc->file_name ?? '');
 
-            if ($typeName && (str_contains($tmplName, $typeName) || str_contains($typeName, $tmplName))) {
+            if ($typeName && ($typeName === $tmplName || str_contains($tmplName, $typeName) || str_contains($typeName, $tmplName))) {
                 return true;
             }
 
-            if (str_contains($code, 'dti') && (str_contains($typeName, 'dti') || str_contains($fileName, 'dti'))) return true;
-            if (str_contains($code, 'bir') && (str_contains($typeName, 'bir') || str_contains($fileName, 'bir'))) return true;
-            if (str_contains($code, 'mayor') && (str_contains($typeName, 'mayor') || str_contains($fileName, 'mayor'))) return true;
-            if (str_contains($code, 'receipt') && (str_contains($typeName, 'receipt') || str_contains($fileName, 'receipt'))) return true;
-            if (str_contains($code, 'quotation') && (str_contains($typeName, 'quotation') || str_contains($fileName, 'quotation') || str_contains($fileName, 'quote'))) return true;
-            if (str_contains($code, 'lease') && (str_contains($typeName, 'lease') || str_contains($fileName, 'lease') || str_contains($typeName, 'ownership') || str_contains($fileName, 'ownership'))) return true;
-            if (str_contains($code, 'board-res') && (str_contains($typeName, 'board resolution') || str_contains($fileName, 'board_res') || str_contains($fileName, 'board-res'))) return true;
-            if (str_contains($code, 'articles') && (str_contains($typeName, 'articles') || str_contains($fileName, 'articles') || str_contains($typeName, 'by-laws'))) return true;
-            if (str_contains($code, 'sec-cert') && (str_contains($typeName, 'secretary') || str_contains($fileName, 'sec_cert') || str_contains($fileName, 'secretary'))) return true;
-            if (str_contains($code, 'financial') && (str_contains($typeName, 'financial') || str_contains($fileName, 'financial') || str_contains($typeName, 'balance sheet') || str_contains($fileName, 'fs'))) return true;
-            if (str_contains($code, 'letter-of-intent') && (str_contains($typeName, 'intent') || str_contains($fileName, 'intent') || str_contains($fileName, 'loi'))) return true;
             if (str_contains($code, 'tna-01') && (str_contains($typeName, 'tna form 01') || str_contains($fileName, 'tna_01') || str_contains($fileName, 'tna-01') || str_contains($fileName, 'tna_form_1'))) return true;
+            if (str_contains($code, 'tna-form-4') && (str_contains($typeName, 'tna form 4') || str_contains($fileName, 'tna_form_4') || str_contains($fileName, 'tna-4') || str_contains($fileName, 'tna-form-4'))) return true;
             if (str_contains($code, 'gad-assessment') && (str_contains($typeName, 'gwp') || str_contains($fileName, 'gwp') || str_contains($fileName, 'gad_assessment'))) return true;
             if (str_contains($code, 'gad-checklist') && (str_contains($typeName, 'gad checklist') || str_contains($fileName, 'gad_checklist') || str_contains($fileName, 'gad-checklist'))) return true;
             if (str_contains($code, 'hazard-hunter') && (str_contains($typeName, 'hazard') || str_contains($fileName, 'hazard'))) return true;
-            if (str_contains($code, 'biodata') && (str_contains($typeName, 'bio-data') || str_contains($typeName, 'cv') || str_contains($fileName, 'biodata') || str_contains($fileName, 'cv'))) return true;
+
+            if (str_contains($code, 'mayors-permit') && (str_contains($typeName, 'mayor') || str_contains($fileName, 'mayor'))) return true;
+            if (str_contains($code, 'dti-registration') && (str_contains($typeName, 'dti') || str_contains($fileName, 'dti'))) return true;
+            if (str_contains($code, 'bir-registration') && (str_contains($typeName, 'bir') || str_contains($fileName, 'bir'))) return true;
+            if (str_contains($code, 'blank-or') && (str_contains($typeName, 'official receipt') || str_contains($fileName, 'receipt') || str_contains($typeName, 'receipt'))) return true;
+            if (str_contains($code, 'equipment-quotations') && (str_contains($typeName, 'quotation') || str_contains($fileName, 'quotation') || str_contains($fileName, 'quote'))) return true;
+            if (str_contains($code, 'lease-contract') && (str_contains($typeName, 'lease') || str_contains($fileName, 'lease'))) return true;
+
+            if (str_contains($code, 'board-res') && (str_contains($typeName, 'board resolution') || str_contains($fileName, 'board_res') || str_contains($fileName, 'board-res'))) return true;
+            if (str_contains($code, 'corp-sec-cda') && (str_contains($typeName, 'sec') || str_contains($typeName, 'cda') || str_contains($fileName, 'sec_cda') || str_contains($fileName, 'cda'))) return true;
+            if (str_contains($code, 'corp-aoi') && (str_contains($typeName, 'articles') || str_contains($fileName, 'articles') || str_contains($typeName, 'by-laws'))) return true;
+            if (str_contains($code, 'corp-sec-cert') && (str_contains($typeName, 'secretary') || str_contains($fileName, 'sec_cert') || str_contains($fileName, 'secretary'))) return true;
+
+            if (str_contains($code, 'financial-position') && (str_contains($typeName, 'position') || str_contains($fileName, 'position') || str_contains($typeName, 'balance sheet'))) return true;
+            if (str_contains($code, 'financial-operation') && (str_contains($typeName, 'operation') || str_contains($fileName, 'operation') || str_contains($typeName, 'income statement'))) return true;
+            if (str_contains($code, 'cash-flows') && (str_contains($typeName, 'cash flow') || str_contains($fileName, 'cash_flow') || str_contains($fileName, 'cashflow'))) return true;
+            if (str_contains($code, 'changes-equity') && (str_contains($typeName, 'equity') || str_contains($fileName, 'equity'))) return true;
+            if (str_contains($code, 'fs-notes') && (str_contains($typeName, 'notes to financial') || str_contains($fileName, 'notes'))) return true;
+
+            if (str_contains($code, 'loi-commitment') && (str_contains($typeName, 'intent') || str_contains($fileName, 'intent') || str_contains($fileName, 'loi'))) return true;
+
+            if (str_contains($code, 'biodata') && (str_contains($typeName, 'bio-data') || str_contains($typeName, 'biodata') || str_contains($fileName, 'biodata') || str_contains($fileName, 'cv'))) return true;
             if (str_contains($code, 'govt-id') && (str_contains($typeName, 'government-issued id') || str_contains($typeName, 'valid id') || str_contains($fileName, 'valid_id') || str_contains($fileName, 'govt_id'))) return true;
             if (str_contains($code, 'brgy-cert') && (str_contains($typeName, 'barangay') || str_contains($fileName, 'barangay') || str_contains($fileName, 'brgy'))) return true;
             if (str_contains($code, 'omnibus') && (str_contains($typeName, 'omnibus') || str_contains($fileName, 'omnibus'))) return true;
-
-            if (str_contains($code, 'dost-form-1') && (str_contains($typeName, 'form 1') || str_contains($typeName, 'form 1a') || str_contains($typeName, 'form 1b') || str_contains($typeName, 'proposal form') || str_contains($fileName, 'form_1') || str_contains($fileName, 'form1'))) return true;
-            if (str_contains($code, 'dost-form-2') && (str_contains($typeName, 'form 2') || str_contains($typeName, 'workplan') || str_contains($fileName, 'form_2') || str_contains($fileName, 'workplan'))) return true;
-            if (str_contains($code, 'dost-form-3') && (str_contains($typeName, 'form 3') || str_contains($typeName, 'financial plan') || str_contains($typeName, 'lib') || str_contains($fileName, 'form_3') || str_contains($fileName, 'budget') || str_contains($fileName, 'lib'))) return true;
-            if (str_contains($code, 'dost-form-4') && (str_contains($typeName, 'form 4') || str_contains($typeName, 'gender') || str_contains($fileName, 'form_4') || str_contains($fileName, 'gad'))) return true;
-            if (str_contains($code, 'dost-form-5') && (str_contains($typeName, 'form 5') || str_contains($typeName, 'curriculum vitae') || str_contains($fileName, 'form_5') || str_contains($fileName, 'cv'))) return true;
-            if (str_contains($code, 'dost-form-6') && (str_contains($typeName, 'form 6') || str_contains($typeName, 'endorsement') || str_contains($fileName, 'form_6') || str_contains($fileName, 'endorsement'))) return true;
-            if (str_contains($code, 'cofunding') && (str_contains($typeName, 'co-funding') || str_contains($typeName, 'counterpart') || str_contains($fileName, 'cofunding') || str_contains($fileName, 'counterpart'))) return true;
-            if (str_contains($code, 'sec-cda') && (str_contains($typeName, 'sec') || str_contains($typeName, 'cda') || str_contains($fileName, 'sec') || str_contains($fileName, 'cda'))) return true;
-            if (str_contains($code, 'audited-fs') && (str_contains($typeName, 'audited') || str_contains($fileName, 'audited') || str_contains($fileName, 'fs'))) return true;
-
-            $tmplWords = array_filter(explode(' ', preg_replace('/[^a-z0-9 ]/', '', $tmplName)), fn($w) => strlen($w) > 3 && !in_array($w, ['from', 'with', 'that', 'this', 'form', 'copy', 'each', 'past', 'years', 'least', 'indicates', 'indicating']));
-            $typeWords = array_filter(explode(' ', preg_replace('/[^a-z0-9 ]/', '', $typeName)), fn($w) => strlen($w) > 3);
-            if (count(array_intersect($tmplWords, $typeWords)) >= 2) {
-                return true;
-            }
 
             return false;
         });
