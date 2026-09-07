@@ -99,6 +99,21 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         'gia-s2-good-track-record' => 'Certification of Good Track Record with DOST',
     ];
 
+    public const STATUS_COMPLIED = 'Complied';
+    public const STATUS_MISSING = 'Missing';
+    public const STATUS_UNDER_REVIEW = 'Under Review';
+    public const STATUS_NEEDS_REVISION = 'Needs Revision';
+
+    public static function normalizeStatus(?string $status): string
+    {
+        return match (strtolower(trim((string) $status))) {
+            'complied', 'approved' => self::STATUS_COMPLIED,
+            'needs revision', 'needs_revision', 'returned_for_revision', 'returned' => self::STATUS_NEEDS_REVISION,
+            'under review', 'under_review', 'pending' => self::STATUS_UNDER_REVIEW,
+            default => self::STATUS_MISSING,
+        };
+    }
+
     public function __construct(
         protected DocumentChecklistRepositoryInterface $checklistRepository
     ) {}
@@ -196,29 +211,15 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs, $program, $expectedDocTypeId);
             }
 
-            $isPresent = $review ? $review->is_present : false;
-            $status = $review ? $review->status : 'Missing';
-
-            if ($matchedDoc) {
-                if ($review && $review->status !== 'Missing') {
-                    $isPresent = $review->is_present;
-                    $status = $review->status;
-                } else {
-                    $isDocApproved = $matchedDoc->status === 'approved';
-                    $isPresent = $isDocApproved;
-                    if ($matchedDoc->status === 'approved') {
-                        $status = 'Complied';
-                    } elseif ($matchedDoc->status === 'returned_for_revision') {
-                        $status = 'Needs Revision';
-                    } else {
-                        $status = 'Under Review';
-                    }
-                }
+            if ($review && $review->status && self::normalizeStatus($review->status) !== self::STATUS_MISSING) {
+                $status = self::normalizeStatus($review->status);
+                $isPresent = (bool) $review->is_present;
+            } elseif ($matchedDoc) {
+                $status = self::normalizeStatus($matchedDoc->status);
+                $isPresent = ($status === self::STATUS_COMPLIED);
             } else {
-                if (!$review) {
-                    $isPresent = false;
-                    $status = 'Missing';
-                }
+                $status = $review ? self::normalizeStatus($review->status) : self::STATUS_MISSING;
+                $isPresent = (bool) ($review?->is_present ?? false);
             }
 
             $remarks = $review?->remarks ?? $matchedDoc?->remarks ?? '';
@@ -228,7 +229,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
 
             if ($isMandatory) {
                 $totalRequired++;
-                if ($isPresent || $status === 'Complied') {
+                if ($isPresent || $status === self::STATUS_COMPLIED) {
                     $compliedCount++;
                 }
             }
@@ -465,6 +466,16 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         return true;
     }
 
+    public static function normalizeText(?string $value): string
+    {
+        if (!$value) {
+            return '';
+        }
+        $cleaned = preg_replace('/^[a-z0-9]+[\.\)]\s*/i', '', $value);
+        $cleaned = preg_replace('/[^a-z0-9]+/i', ' ', (string) $cleaned);
+        return trim(strtolower((string) $cleaned));
+    }
+
     protected function resolveDocumentTypeId(string $itemCode, string $program, Collection $allDocTypes): ?int
     {
         $targetName = self::TEMPLATE_CODE_TO_DOC_TYPE_NAME[$itemCode] ?? null;
@@ -485,9 +496,6 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         string $program,
         ?int $targetDocTypeId = null
     ): ?Document {
-        $code = strtolower($template->item_code);
-        $tmplName = strtolower(preg_replace('/^\d+\.\s*/', '', $template->document_name));
-
         if ($targetDocTypeId) {
             $direct = $uploadedDocs->firstWhere('document_type_id', $targetDocTypeId);
             if ($direct) {
@@ -495,48 +503,38 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             }
         }
 
-        return $uploadedDocs->first(function (Document $doc) use ($code, $tmplName, $program) {
+        $canonicalName = self::TEMPLATE_CODE_TO_DOC_TYPE_NAME[$template->item_code] ?? null;
+        $normalizedTarget = self::normalizeText($canonicalName ?: $template->document_name);
+        $targetTokens = array_values(array_filter(explode(' ', $normalizedTarget), fn($t) => strlen($t) >= 3));
+
+        return $uploadedDocs->first(function (Document $doc) use ($normalizedTarget, $targetTokens, $program) {
             if ($doc->document_type && !in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
                 return false;
             }
 
-            $typeName = strtolower($doc->document_type?->name ?? '');
-            $fileName = strtolower($doc->file_name ?? '');
+            $normalizedType = self::normalizeText($doc->document_type?->name);
+            $normalizedFile = self::normalizeText(pathinfo($doc->file_name ?? '', PATHINFO_FILENAME));
 
-            if ($typeName && ($typeName === $tmplName || str_contains($tmplName, $typeName) || str_contains($typeName, $tmplName))) {
+            if ($normalizedType && ($normalizedType === $normalizedTarget || str_contains($normalizedTarget, $normalizedType) || str_contains($normalizedType, $normalizedTarget))) {
                 return true;
             }
 
-            if (str_contains($code, 'tna-01') && (str_contains($typeName, 'tna form 01') || str_contains($fileName, 'tna_01') || str_contains($fileName, 'tna-01') || str_contains($fileName, 'tna_form_1'))) return true;
-            if (str_contains($code, 'tna-form-4') && (str_contains($typeName, 'tna form 4') || str_contains($fileName, 'tna_form_4') || str_contains($fileName, 'tna-4') || str_contains($fileName, 'tna-form-4'))) return true;
-            if (str_contains($code, 'gad-assessment') && (str_contains($typeName, 'gwp') || str_contains($fileName, 'gwp') || str_contains($fileName, 'gad_assessment'))) return true;
-            if (str_contains($code, 'gad-checklist') && (str_contains($typeName, 'gad checklist') || str_contains($fileName, 'gad_checklist') || str_contains($fileName, 'gad-checklist'))) return true;
-            if (str_contains($code, 'hazard-hunter') && (str_contains($typeName, 'hazard') || str_contains($fileName, 'hazard'))) return true;
+            if ($normalizedFile && ($normalizedFile === $normalizedTarget || str_contains($normalizedTarget, $normalizedFile) || str_contains($normalizedFile, $normalizedTarget))) {
+                return true;
+            }
 
-            if (str_contains($code, 'mayors-permit') && (str_contains($typeName, 'mayor') || str_contains($fileName, 'mayor'))) return true;
-            if (str_contains($code, 'dti-registration') && (str_contains($typeName, 'dti') || str_contains($fileName, 'dti'))) return true;
-            if (str_contains($code, 'bir-registration') && (str_contains($typeName, 'bir') || str_contains($fileName, 'bir'))) return true;
-            if (str_contains($code, 'blank-or') && (str_contains($typeName, 'official receipt') || str_contains($fileName, 'receipt') || str_contains($typeName, 'receipt'))) return true;
-            if (str_contains($code, 'equipment-quotations') && (str_contains($typeName, 'quotation') || str_contains($fileName, 'quotation') || str_contains($fileName, 'quote'))) return true;
-            if (str_contains($code, 'lease-contract') && (str_contains($typeName, 'lease') || str_contains($fileName, 'lease'))) return true;
-
-            if (str_contains($code, 'board-res') && (str_contains($typeName, 'board resolution') || str_contains($fileName, 'board_res') || str_contains($fileName, 'board-res'))) return true;
-            if (str_contains($code, 'corp-sec-cda') && (str_contains($typeName, 'sec') || str_contains($typeName, 'cda') || str_contains($fileName, 'sec_cda') || str_contains($fileName, 'cda'))) return true;
-            if (str_contains($code, 'corp-aoi') && (str_contains($typeName, 'articles') || str_contains($fileName, 'articles') || str_contains($typeName, 'by-laws'))) return true;
-            if (str_contains($code, 'corp-sec-cert') && (str_contains($typeName, 'secretary') || str_contains($fileName, 'sec_cert') || str_contains($fileName, 'secretary'))) return true;
-
-            if (str_contains($code, 'financial-position') && (str_contains($typeName, 'position') || str_contains($fileName, 'position') || str_contains($typeName, 'balance sheet'))) return true;
-            if (str_contains($code, 'financial-operation') && (str_contains($typeName, 'operation') || str_contains($fileName, 'operation') || str_contains($typeName, 'income statement'))) return true;
-            if (str_contains($code, 'cash-flows') && (str_contains($typeName, 'cash flow') || str_contains($fileName, 'cash_flow') || str_contains($fileName, 'cashflow'))) return true;
-            if (str_contains($code, 'changes-equity') && (str_contains($typeName, 'equity') || str_contains($fileName, 'equity'))) return true;
-            if (str_contains($code, 'fs-notes') && (str_contains($typeName, 'notes to financial') || str_contains($fileName, 'notes'))) return true;
-
-            if (str_contains($code, 'loi-commitment') && (str_contains($typeName, 'intent') || str_contains($fileName, 'intent') || str_contains($fileName, 'loi'))) return true;
-
-            if (str_contains($code, 'biodata') && (str_contains($typeName, 'bio-data') || str_contains($typeName, 'biodata') || str_contains($fileName, 'biodata') || str_contains($fileName, 'cv'))) return true;
-            if (str_contains($code, 'govt-id') && (str_contains($typeName, 'government-issued id') || str_contains($typeName, 'valid id') || str_contains($fileName, 'valid_id') || str_contains($fileName, 'govt_id'))) return true;
-            if (str_contains($code, 'brgy-cert') && (str_contains($typeName, 'barangay') || str_contains($fileName, 'barangay') || str_contains($fileName, 'brgy'))) return true;
-            if (str_contains($code, 'omnibus') && (str_contains($typeName, 'omnibus') || str_contains($fileName, 'omnibus'))) return true;
+            if (!empty($targetTokens) && ($normalizedType || $normalizedFile)) {
+                $combined = "{$normalizedType} {$normalizedFile}";
+                $matchCount = 0;
+                foreach ($targetTokens as $token) {
+                    if (str_contains($combined, $token)) {
+                        $matchCount++;
+                    }
+                }
+                if ($matchCount >= min(2, count($targetTokens))) {
+                    return true;
+                }
+            }
 
             return false;
         });

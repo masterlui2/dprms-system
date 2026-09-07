@@ -1124,59 +1124,63 @@ export async function ensureBackendToken(): Promise<string | null> {
   return null
 }
 
+function normalizeText(value?: string | null): string {
+  if (!value) return ''
+  return value
+    .toLowerCase()
+    .replace(/^[a-z0-9]+[\.\)]\s*/i, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+}
+
 function findMatchingUploadedDoc(
   reqId: string,
   reqName: string,
-  uploadedDocs: DocumentApiRecord[]
+  uploadedDocs: DocumentApiRecord[],
+  expectedDocTypeId?: number
 ): DocumentApiRecord | null {
-  const expectedDocTypeId = CHECKLIST_ITEM_DOC_TYPE_ID[reqId]
-  if (expectedDocTypeId) {
+  const targetDocTypeId = expectedDocTypeId || CHECKLIST_ITEM_DOC_TYPE_ID[reqId]
+  if (targetDocTypeId) {
     const exactMatch = uploadedDocs.find(
-      (doc) => doc.document_type_id === expectedDocTypeId || doc.document_type?.id === expectedDocTypeId
+      (doc) => doc.document_type_id === targetDocTypeId || doc.document_type?.id === targetDocTypeId
     )
     if (exactMatch) return exactMatch
   }
 
-  const code = reqId.toLowerCase()
-  const cleanName = reqName.toLowerCase().replace(/^\d+\.\s*/, '')
+  const normalizedTarget = normalizeText(reqName)
+  const targetTokens = normalizedTarget.split(' ').filter((t) => t.length >= 3)
 
   return (
     uploadedDocs.find((doc) => {
-      const typeName = (doc.document_type?.name || '').toLowerCase()
-      const fileName = (doc.file_name || '').toLowerCase()
+      const normalizedType = normalizeText(doc.document_type?.name)
+      const normalizedFile = normalizeText(doc.file_name?.replace(/\.[^/.]+$/, ''))
 
-      if (typeName && (cleanName.includes(typeName) || typeName.includes(cleanName))) return true
+      if (
+        normalizedType &&
+        (normalizedType === normalizedTarget ||
+          normalizedTarget.includes(normalizedType) ||
+          normalizedType.includes(normalizedTarget))
+      ) {
+        return true
+      }
 
-      if (code.includes('dti') && (typeName.includes('dti') || fileName.includes('dti'))) return true
-      if (code.includes('bir') && (typeName.includes('bir') || fileName.includes('bir'))) return true
-      if (code.includes('mayor') && (typeName.includes('mayor') || fileName.includes('mayor'))) return true
-      if (code.includes('receipt') && (typeName.includes('receipt') || fileName.includes('receipt'))) return true
-      if (code.includes('quotation') && (typeName.includes('quotation') || fileName.includes('quotation') || fileName.includes('quote'))) return true
-      if (code.includes('lease') && (typeName.includes('lease') || fileName.includes('lease') || typeName.includes('ownership') || fileName.includes('ownership'))) return true
-      if (code.includes('board-res') && (typeName.includes('board resolution') || fileName.includes('board_res') || fileName.includes('board-res'))) return true
-      if (code.includes('articles') && (typeName.includes('articles') || fileName.includes('articles') || typeName.includes('by-laws'))) return true
-      if (code.includes('sec-cert') && (typeName.includes('secretary') || fileName.includes('sec_cert') || fileName.includes('secretary'))) return true
-      if (code.includes('financial') && (typeName.includes('financial') || fileName.includes('financial') || typeName.includes('balance sheet') || fileName.includes('fs'))) return true
-      if (code.includes('letter-of-intent') && (typeName.includes('intent') || fileName.includes('intent') || fileName.includes('loi'))) return true
-      if (code.includes('tna-01') && (typeName.includes('tna form 01') || fileName.includes('tna_01') || fileName.includes('tna-01') || fileName.includes('tna_form_1') || fileName.includes('tna'))) return true
-      if (code.includes('tna-form-4') && (typeName.includes('tna form 4') || fileName.includes('tna_04') || fileName.includes('tna-04') || fileName.includes('tna_form_4'))) return true
-      if (code.includes('gad-assessment') && (typeName.includes('gwp') || fileName.includes('gwp') || fileName.includes('gad_assessment'))) return true
-      if (code.includes('gad-checklist') && (typeName.includes('gad checklist') || fileName.includes('gad_checklist') || fileName.includes('gad-checklist'))) return true
-      if (code.includes('hazard-hunter') && (typeName.includes('hazard') || fileName.includes('hazard'))) return true
-      if (code.includes('biodata') && (typeName.includes('bio-data') || typeName.includes('cv') || fileName.includes('biodata') || fileName.includes('cv'))) return true
-      if (code.includes('govt-id') && (typeName.includes('government-issued id') || typeName.includes('valid id') || fileName.includes('valid_id') || fileName.includes('govt_id'))) return true
-      if (code.includes('brgy-cert') && (typeName.includes('barangay') || fileName.includes('barangay') || fileName.includes('brgy'))) return true
-      if (code.includes('omnibus') && (typeName.includes('omnibus') || fileName.includes('omnibus'))) return true
+      if (
+        normalizedFile &&
+        (normalizedFile === normalizedTarget || normalizedTarget.includes(normalizedFile))
+      ) {
+        return true
+      }
 
-      if (code.includes('dost-form-1') && (typeName.includes('form 1') || typeName.includes('form 1a') || typeName.includes('form 1b') || typeName.includes('proposal form') || fileName.includes('form_1') || fileName.includes('form1'))) return true
-      if (code.includes('dost-form-2') && (typeName.includes('form 2') || typeName.includes('workplan') || fileName.includes('form_2') || fileName.includes('workplan'))) return true
-      if (code.includes('dost-form-3') && (typeName.includes('form 3') || typeName.includes('financial plan') || typeName.includes('lib') || fileName.includes('form_3') || fileName.includes('budget') || fileName.includes('lib'))) return true
-      if (code.includes('dost-form-4') && (typeName.includes('form 4') || typeName.includes('gender') || fileName.includes('form_4') || fileName.includes('gad'))) return true
-      if (code.includes('dost-form-5') && (typeName.includes('form 5') || typeName.includes('curriculum vitae') || fileName.includes('form_5') || fileName.includes('cv'))) return true
-      if (code.includes('dost-form-6') && (typeName.includes('form 6') || typeName.includes('endorsement') || fileName.includes('form_6') || fileName.includes('endorsement'))) return true
-      if (code.includes('cofunding') && (typeName.includes('co-funding') || typeName.includes('counterpart') || fileName.includes('cofunding') || fileName.includes('counterpart'))) return true
-      if (code.includes('sec-cda') && (typeName.includes('sec') || typeName.includes('cda') || fileName.includes('sec') || fileName.includes('cda'))) return true
-      if (code.includes('audited-fs') && (typeName.includes('audited') || fileName.includes('audited') || fileName.includes('fs'))) return true
+      if (targetTokens.length > 0 && (normalizedType || normalizedFile)) {
+        const combined = `${normalizedType} ${normalizedFile}`
+        let matchCount = 0
+        for (const token of targetTokens) {
+          if (combined.includes(token)) matchCount++
+        }
+        if (matchCount >= Math.min(2, targetTokens.length)) {
+          return true
+        }
+      }
 
       return false
     }) || null
