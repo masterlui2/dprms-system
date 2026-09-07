@@ -53,6 +53,11 @@ export function ProposalDocumentsSection({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  useEffect(() => {
+    setIframeLoaded(false);
+  }, [previewUrl]);
 
   // Local verification status state per document
   const [verifiedMap, setVerifiedMap] = useState<Record<number, "approved" | "pending" | "returned_for_revision">>({});
@@ -544,11 +549,23 @@ export function ProposalDocumentsSection({
                   </button>
                 </div>
               ) : previewUrl ? (
-                <iframe
-                  className="h-full min-h-[calc(92vh-220px)] w-full flex-1 border-0 bg-white"
-                  src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
-                  title={selectedDocument.file_name}
-                />
+                <div className="relative h-full min-h-[calc(92vh-220px)] w-full flex-1 bg-white">
+                  {!iframeLoaded && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white text-xs font-semibold text-slate-500">
+                      <Loader2 className="size-5 animate-spin text-[#0f53b7]" />
+                      <span>Loading document preview...</span>
+                    </div>
+                  )}
+                  <iframe
+                    className={cn(
+                      'h-full min-h-[calc(92vh-220px)] w-full flex-1 border-0 bg-white transition-opacity duration-200',
+                      iframeLoaded ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    )}
+                    onLoad={() => setIframeLoaded(true)}
+                    src={`${previewUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
+                    title={selectedDocument.file_name}
+                  />
+                </div>
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-slate-400">
                   <Eye className="size-6" />

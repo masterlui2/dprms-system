@@ -302,6 +302,26 @@ export async function fetchSetupDocumentaryRequirements(
 // submission and review flows use these records when a proposal id exists.
 // ---------------------------------------------------------------------------
 
+export interface ArchivedDocumentApiRecord {
+  id: number
+  document_id: number
+  proposal_id: number
+  document_type_id: number
+  uploaded_by: number
+  reviewed_by: number | null
+  file_name: string
+  file_path: string
+  file_size: number | null
+  mime_type: string | null
+  status: 'pending' | 'approved' | 'returned_for_revision'
+  remarks: string | null
+  reviewed_at: string | null
+  archived_at: string
+  version: number
+  created_at: string
+  updated_at: string
+}
+
 export interface DocumentApiRecord {
   id: number
   proposal_id: number
@@ -312,14 +332,12 @@ export interface DocumentApiRecord {
   file_path: string
   file_size: number | null
   mime_type: string | null
-  // Backend enum (see documents table migration): no "under review" state
-  // exists server-side today, so 'pending' is mapped to 'Uploaded' below —
-  // not to 'Under Review', which nothing currently sets.
   status: 'pending' | 'approved' | 'returned_for_revision'
   remarks: string | null
   reviewed_at: string | null
   created_at: string
   updated_at: string
+  archived_versions?: ArchivedDocumentApiRecord[]
   document_type?: {
     id: number
     name: string
