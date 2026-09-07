@@ -39,7 +39,7 @@ class DocumentChecklistController extends Controller
 
     public function batchSave(BatchSaveChecklistRequest $request, int $proposalId): JsonResponse
     {
-        $userId = Auth::id() ?? 1;
+        $userId = (int) Auth::id();
         $data = $this->checklistService->batchSaveReviews($proposalId, $request->validated(), $userId);
 
         return response()->json([
@@ -51,7 +51,7 @@ class DocumentChecklistController extends Controller
 
     public function reviewItem(ReviewChecklistItemRequest $request, int $proposalId, int $itemId): JsonResponse
     {
-        $userId = Auth::id() ?? 1;
+        $userId = (int) Auth::id();
         $review = $this->checklistService->updateItemReview($proposalId, $itemId, $request->validated(), $userId);
 
         return response()->json([
@@ -63,7 +63,7 @@ class DocumentChecklistController extends Controller
 
     public function complete(CompleteChecklistReviewRequest $request, int $proposalId): JsonResponse
     {
-        $userId = Auth::id() ?? 1;
+        $userId = (int) Auth::id();
         $summary = $this->checklistService->completeReview($proposalId, $request->validated('final_remarks'), $userId);
 
         return response()->json([

@@ -752,4 +752,157 @@ class DocumentChecklistTest extends TestCase
         ])->assertForbidden();
         $this->actingAs($rpmoUser)->postJson("/api/proposals/{$setupProp->id}/checklist/complete", [])->assertForbidden();
     }
+
+    public function test_document_matching_uses_canonical_names_and_enforces_program_isolation(): void
+    {
+        $user = User::factory()->create();
+        UserRole::create(['user_id' => $user->id, 'role_id' => Role::where('code', 'FOCAL')->first()->id]);
+
+        $setupProposal = Proposal::create([
+            'submitted_by' => $user->id,
+            'title' => 'SETUP Project with GIA docs',
+            'program_type' => 'SETUP',
+            'status' => 'Submitted',
+            'reference_number' => 'PROP-2026-SETUP-ISO',
+        ]);
+        SetupProposal::create([
+            'proposal_id' => $setupProposal->id,
+            'business_name' => 'Isolation Agri Enterprise',
+            'business_type' => 'Sole Proprietorship',
+            'industry_sector' => 'Agriculture',
+            'enterprise_size' => 'Micro',
+            'years_in_operation' => 3,
+            'business_address' => 'Mati City',
+            'region' => 'Region XI',
+            'province' => 'Davao Oriental',
+            'city_municipality' => 'Mati City',
+            'space_ownership' => 'Owned',
+        ]);
+
+        // Create a custom-ID DocumentType for Mayor's permit to verify ID-independent resolution
+        $customDocType = \App\Models\DocumentType::create([
+            'name' => "Recent Mayor's Permit",
+            'group' => 'Business Documents',
+            'set_number' => 'SET1',
+            'applicable_program' => 'BOTH',
+            'is_required' => true,
+            'is_applicant_visible' => true,
+        ]);
+
+        // Upload a Mayor's permit matching the custom DocumentType
+        \App\Models\Document::create([
+            'proposal_id' => $setupProposal->id,
+            'document_type_id' => $customDocType->id,
+            'file_name' => 'mayors_permit_2026.pdf',
+            'file_path' => 'proposals/docs/mayors_permit_2026.pdf',
+            'file_size' => 10240,
+            'mime_type' => 'application/pdf',
+            'status' => 'approved',
+            'uploaded_by' => $user->id,
+        ]);
+
+        // Create a strictly GIA document type and upload it to the SETUP proposal
+        $giaDocType = \App\Models\DocumentType::create([
+            'name' => 'CHED Accreditation',
+            'group' => 'GIA Specific',
+            'set_number' => 'GIA1',
+            'applicable_program' => 'GIA',
+            'is_required' => true,
+            'is_applicant_visible' => true,
+        ]);
+        \App\Models\Document::create([
+            'proposal_id' => $setupProposal->id,
+            'document_type_id' => $giaDocType->id,
+            'file_name' => 'ched_accreditation.pdf',
+            'file_path' => 'proposals/docs/ched_accreditation.pdf',
+            'file_size' => 10240,
+            'mime_type' => 'application/pdf',
+            'status' => 'approved',
+            'uploaded_by' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->getJson("/api/proposals/{$setupProposal->id}/checklist");
+        $response->assertOk();
+
+        $items = collect($response->json('data.items'));
+
+        // 1. Mayor's permit slot dynamically resolved and matched with the custom DocType ID
+        $mayorsSlot = $items->firstWhere('id', 'setup-s1-mayors-permit');
+        $this->assertNotNull($mayorsSlot);
+        $this->assertEquals($customDocType->id, $mayorsSlot['document_type_id']);
+        $this->assertNotNull($mayorsSlot['uploaded_doc']);
+        $this->assertEquals('mayors_permit_2026.pdf', $mayorsSlot['uploaded_doc']['file_name']);
+
+        // 2. GIA document is isolated and does not attach to any unrelated SETUP slot
+        foreach ($items as $item) {
+            if ($item['uploaded_doc']) {
+                $this->assertNotEquals('ched_accreditation.pdf', $item['uploaded_doc']['file_name']);
+            }
+        }
+    }
+
+    public function test_audit_log_accurately_records_authenticated_user(): void
+    {
+        $submitter = User::factory()->create(); // ID 1
+        $focalUser = User::factory()->create(); // ID 2
+        $this->assertNotEquals($submitter->id, $focalUser->id);
+        UserRole::create(['user_id' => $focalUser->id, 'role_id' => Role::where('code', 'FOCAL')->first()->id]);
+
+        $proposal = Proposal::create([
+            'submitted_by' => $submitter->id,
+            'title' => 'Audit Log User ID Test',
+            'program_type' => 'SETUP',
+            'status' => 'Submitted',
+            'reference_number' => 'PROP-2026-AUDIT',
+        ]);
+        SetupProposal::create([
+            'proposal_id' => $proposal->id,
+            'business_name' => 'Audit Enterprise',
+            'business_type' => 'Sole Proprietorship',
+            'industry_sector' => 'Manufacturing',
+            'enterprise_size' => 'Micro',
+            'years_in_operation' => 2,
+            'business_address' => 'Tagum City',
+            'region' => 'Region XI',
+            'province' => 'Davao del Norte',
+            'city_municipality' => 'Tagum City',
+            'space_ownership' => 'Owned',
+        ]);
+
+        $template = DocumentChecklistTemplate::where('item_code', 'setup-s1-mayors-permit')->first();
+
+        // 1. Review single item
+        $this->actingAs($focalUser)->putJson("/api/proposals/{$proposal->id}/checklist/items/{$template->id}", [
+            'is_present' => true,
+            'status' => 'Complied',
+            'remarks' => 'Verified by Focal',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('proposal_checklist_reviews', [
+            'proposal_id' => $proposal->id,
+            'template_item_id' => $template->id,
+            'reviewed_by' => $focalUser->id,
+        ]);
+        $this->assertDatabaseHas('proposal_checklist_histories', [
+            'proposal_id' => $proposal->id,
+            'user_id' => $focalUser->id,
+            'action' => 'REVIEW_APPROVED',
+        ]);
+
+        // 2. Complete review
+        $this->actingAs($focalUser)->postJson("/api/proposals/{$proposal->id}/checklist/complete", [
+            'final_remarks' => 'All verified by Focal',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('proposal_checklist_summaries', [
+            'proposal_id' => $proposal->id,
+            'is_completed' => true,
+            'completed_by' => $focalUser->id,
+        ]);
+        $this->assertDatabaseHas('proposal_checklist_histories', [
+            'proposal_id' => $proposal->id,
+            'user_id' => $focalUser->id,
+            'action' => 'COMPLETE_REVIEW',
+        ]);
+    }
 }

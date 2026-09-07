@@ -4,6 +4,7 @@ namespace App\Services\ProposalModule;
 
 use App\Models\Document;
 use App\Models\DocumentChecklistTemplate;
+use App\Models\DocumentType;
 use App\Models\Proposal;
 use App\Models\ProposalChecklistHistory;
 use App\Models\ProposalChecklistReview;
@@ -16,86 +17,86 @@ use Override;
 
 class DocumentChecklistService implements DocumentChecklistServiceInterface
 {
-    public const TEMPLATE_CODE_TO_DOC_TYPE_ID = [
+    public const TEMPLATE_CODE_TO_DOC_TYPE_NAME = [
         // SETUP SET 1
-        'setup-s1-tna-01' => 19,
-        'setup-s1-gad-assessment' => 20,
-        'setup-s1-gad-checklist' => 21,
-        'setup-s1-hazard-hunter' => 22,
-        'setup-s1-mayors-permit' => 3,
-        'setup-s1-dti-registration' => 4,
-        'setup-s1-bir-registration' => 6,
-        'setup-s1-blank-or' => 7,
-        'setup-s1-equipment-quotations' => 8,
-        'setup-s1-lease-contract' => 9,
-        'setup-s1-corp-board-res' => 10,
-        'setup-s1-corp-sec-cda' => 5,
-        'setup-s1-corp-aoi' => 11,
-        'setup-s1-corp-sec-cert' => 12,
-        'setup-s1-fs-financial-position' => 13,
-        'setup-s1-fs-financial-operation' => 14,
-        'setup-s1-fs-cash-flows' => 15,
-        'setup-s1-fs-changes-equity' => 16,
-        'setup-s1-fs-notes' => 17,
-        'setup-s1-loi-commitment' => 18,
+        'setup-s1-tna-01' => 'Filled-out TNA Form 01',
+        'setup-s1-gad-assessment' => 'GAD Assessment (GWP)',
+        'setup-s1-gad-checklist' => 'GAD Checklist for S&T Interventions in MSMEs',
+        'setup-s1-hazard-hunter' => 'Hazard Hunter',
+        'setup-s1-mayors-permit' => "Recent Mayor's Permit",
+        'setup-s1-dti-registration' => 'DTI Registration Certificate',
+        'setup-s1-bir-registration' => 'BIR Registration',
+        'setup-s1-blank-or' => 'Photocopy of Blank Official Receipt',
+        'setup-s1-equipment-quotations' => 'Three (3) Valid Equipment Quotations',
+        'setup-s1-lease-contract' => 'Lease Contract for Rented Manufacturing Space',
+        'setup-s1-corp-board-res' => 'Notarized Board Resolution',
+        'setup-s1-corp-sec-cda' => 'SEC Registration Certificate',
+        'setup-s1-corp-aoi' => 'Articles of Incorporation / Cooperation',
+        'setup-s1-corp-sec-cert' => "Secretary's Certificate of Incumbent Officers",
+        'setup-s1-fs-financial-position' => 'Statement of Financial Position',
+        'setup-s1-fs-financial-operation' => 'Statement of Financial Operations',
+        'setup-s1-fs-cash-flows' => 'Statement of Cash Flows',
+        'setup-s1-fs-changes-equity' => "Statement of Changes in Owner's Equity",
+        'setup-s1-fs-notes' => 'Notes to Financial Statements',
+        'setup-s1-loi-commitment' => 'Letter of Intent for SETUP Assistance',
 
         // SETUP SET 2
-        'setup-s2-biodata' => 23,
-        'setup-s2-govt-id' => 24,
-        'setup-s2-brgy-cert' => 25,
-        'setup-s2-omnibus' => 26,
-        'setup-s2-tna-form-4' => 27,
+        'setup-s2-biodata' => 'Bio-data of the Approved Signatory',
+        'setup-s2-govt-id' => 'Valid Government-issued ID of the Approved Signatory',
+        'setup-s2-brgy-cert' => 'Barangay Certificate of Permanent Residence',
+        'setup-s2-omnibus' => 'Omnibus Affidavit',
+        'setup-s2-tna-form-4' => 'TNA Form 4',
 
         // SETUP SET 3
-        'setup-s3-request-funds' => 28,
-        'setup-s3-lbp-waiver' => 29,
-        'setup-s3-payee-form' => 30,
-        'setup-s3-notarized-moa' => 31,
-        'setup-s3-pre-project-sheet' => 32,
-        'setup-s3-notice-approval' => 33,
-        'setup-s3-approved-lib' => 34,
-        'setup-s3-ard-approval' => 35,
-        'setup-s3-psto-endorsement' => 36,
-        'setup-s3-final-proposal' => 37,
-        'setup-s3-rtec-report' => 38,
-        'setup-s3-risk-register' => 39,
-        'setup-s3-seti-scorecard' => 40,
+        'setup-s3-request-funds' => 'Request for Release of Funds',
+        'setup-s3-lbp-waiver' => 'Waiver and Authorization to Tag LBP Account',
+        'setup-s3-payee-form' => 'Payee Data Form',
+        'setup-s3-notarized-moa' => 'Notarized and Signed MOA',
+        'setup-s3-pre-project-sheet' => 'Pre-Project Implementation Sheet',
+        'setup-s3-notice-approval' => 'Notice of Approval',
+        'setup-s3-approved-lib' => 'Approved Line-Item Budget',
+        'setup-s3-ard-approval' => 'Recommending Approval of ARD',
+        'setup-s3-psto-endorsement' => 'Endorsement Letter from C/PSTO',
+        'setup-s3-final-proposal' => 'Final Copy of Project Proposal',
+        'setup-s3-rtec-report' => 'RTEC Report',
+        'setup-s3-risk-register' => 'Candidate Risk Register',
+        'setup-s3-seti-scorecard' => 'SETI Scorecard',
 
         // GIA Stage 01
-        'gia-s1-loi' => 41,
-        'gia-s1-endorsement' => 36,
-        'gia-s1-eligibility' => 43,
-        'gia-s1-dost-form-4' => 42,
-        'gia-s1-dost-form-6' => 34,
-        'gia-s1-dost-form-5' => 44,
-        'gia-s1-rtec-report' => 38,
-        'gia-s1-seti-scorecard' => 40,
-        'gia-s1-gad-checklist' => 21,
-        'gia-s1-moa-resolution' => 31,
-        'gia-s1-cfa' => 45,
-        'gia-s1-ched-accreditation' => 51,
-        'gia-s1-good-track-record' => 52,
-        'gia-s1-sec-cda-dole' => 46,
-        'gia-s1-audited-fs' => 47,
-        'gia-s1-sworn-affidavit' => 48,
-        'gia-s1-secretary-cert' => 49,
-        'gia-s1-board-resolution' => 50,
+        'gia-s1-loi' => 'Letter of Intent or for Collaboration duly signed by the Head of IA',
+        'gia-s1-endorsement' => 'Endorsement Letter from C/PSTO',
+        'gia-s1-eligibility' => 'Project Leader Eligibility Checklist',
+        'gia-s1-dost-form-4' => 'Complete Project Proposal Form',
+        'gia-s1-dost-form-6' => 'Approved Line-Item Budget',
+        'gia-s1-dost-form-5' => 'Workplan and Implementation Schedule',
+        'gia-s1-rtec-report' => 'RTEC Report',
+        'gia-s1-seti-scorecard' => 'SETI Scorecard',
+        'gia-s1-gad-checklist' => 'GAD Checklist for S&T Interventions in MSMEs',
+        'gia-s1-moa-resolution' => 'Notarized and Signed MOA',
+        'gia-s1-cfa' => 'Certificate of Availability of Funds / Counterpart Funding',
+        'gia-s1-ched-accreditation' => 'CHED Accreditation',
+        'gia-s1-good-track-record' => 'Certification of Good Track Record with DOST',
+        'gia-s1-sec-cda-dole' => 'SEC/CDA/DOLE Registration and Articles of Incorporation/Cooperation with By-Laws',
+        'gia-s1-audited-fs' => 'Audited Financial Statements for the past three (3) years',
+        'gia-s1-sworn-affidavit' => 'Sworn Affidavit of no relationship',
+        'gia-s1-secretary-cert' => "Secretary's Certificate of directors and officers",
+        'gia-s1-board-resolution' => 'Board Resolution for the engagement of the NGO/CSO/PO for the project, assignment of the official representative, and authority to sign related documents and transact with DOST Davao Region',
 
         // GIA Stage 02
-        'gia-s2-request-release' => 28,
-        'gia-s2-payee-data-form' => 30,
-        'gia-s2-notarized-moa' => 31,
-        'gia-s2-rtec-report' => 38,
-        'gia-s2-dost-form-4b' => 42,
-        'gia-s2-dost-form-6' => 34,
-        'gia-s2-dost-form-5' => 44,
-        'gia-s2-cfa' => 45,
-        'gia-s2-loi' => 41,
-        'gia-s2-dost-form-7' => 52,
-        'gia-s2-brgy-bond' => 53,
-        'gia-s2-brgy-certification' => 54,
-        'gia-s2-ched-accreditation' => 51,
-        'gia-s2-good-track-record' => 52,
+        'gia-s2-request-release' => 'Request for Release of Funds',
+        'gia-s2-payee-data-form' => 'Payee Data Form',
+        'gia-s2-notarized-moa' => 'Notarized and Signed MOA',
+        'gia-s2-rtec-report' => 'RTEC Report',
+        'gia-s2-dost-form-4b' => 'Complete Project Proposal Form',
+        'gia-s2-dost-form-6' => 'Approved Line-Item Budget',
+        'gia-s2-dost-form-5' => 'Workplan and Implementation Schedule',
+        'gia-s2-cfa' => 'Certificate of Availability of Funds / Counterpart Funding',
+        'gia-s2-loi' => 'Letter of Intent or for Collaboration duly signed by the Head of IA',
+        'gia-s2-dost-form-7' => 'Certification of Good Track Record with DOST',
+        'gia-s2-brgy-bond' => 'Bond of Barangay Captain and Barangay Treasurer with an amount that can cover the funds to be granted',
+        'gia-s2-brgy-certification' => 'Certification or other equivalent documents of previously handled projects through downloaded funds from external sources, preferably government agencies, as applicable',
+        'gia-s2-ched-accreditation' => 'CHED Accreditation',
+        'gia-s2-good-track-record' => 'Certification of Good Track Record with DOST',
     ];
 
     public function __construct(
@@ -127,6 +128,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         $templates = $this->checklistRepository->getTemplatesByProgram($program);
         $existingReviews = $this->checklistRepository->getReviewsByProposalId($proposalId)->keyBy('template_item_id');
         $summary = $this->checklistRepository->getSummary($proposalId);
+        $allDocTypes = DocumentType::query()->select(['id', 'name', 'applicable_program'])->get();
 
         $uploadedDocs = $proposal->documents;
 
@@ -182,6 +184,8 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'has_equipment' => $hasEquipment,
             ]);
 
+            $expectedDocTypeId = $this->resolveDocumentTypeId($template->item_code, $program, $allDocTypes);
+
             $review = $existingReviews->get($template->id);
 
             $matchedDoc = null;
@@ -189,7 +193,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 $matchedDoc = $uploadedDocs->firstWhere('id', $review->document_id);
             }
             if (! $matchedDoc) {
-                $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs);
+                $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs, $program, $expectedDocTypeId);
             }
 
             $isPresent = $review ? $review->is_present : false;
@@ -228,8 +232,6 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                     $compliedCount++;
                 }
             }
-
-            $expectedDocTypeId = self::TEMPLATE_CODE_TO_DOC_TYPE_ID[$template->item_code] ?? null;
 
             $items[] = [
                 'id' => $template->item_code,
@@ -331,7 +333,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     #[Override]
     public function batchSaveReviews(int $proposalId, array $payload, int $userId): array
     {
-        return DB::transaction(function () use ($proposalId, $payload, $userId) {
+        DB::transaction(function () use ($proposalId, $payload, $userId) {
             if (isset($payload['overall_remarks'])) {
                 $this->checklistRepository->updateOrCreateSummary($proposalId, [
                     'overall_remarks' => $payload['overall_remarks'],
@@ -376,9 +378,9 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 null,
                 'Saved checklist review updates and notes.'
             );
-
-            return $this->getProposalChecklist($proposalId);
         });
+
+        return $this->getProposalChecklist($proposalId);
     }
 
     #[Override]
@@ -463,11 +465,28 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         return true;
     }
 
-    protected function findMatchingDocument(DocumentChecklistTemplate $template, Collection $uploadedDocs): ?Document
+    protected function resolveDocumentTypeId(string $itemCode, string $program, Collection $allDocTypes): ?int
     {
+        $targetName = self::TEMPLATE_CODE_TO_DOC_TYPE_NAME[$itemCode] ?? null;
+        if (!$targetName) {
+            return null;
+        }
+
+        $matched = $allDocTypes->first(function (DocumentType $dt) use ($targetName, $program) {
+            return $dt->name === $targetName && in_array($dt->applicable_program, [$program, 'BOTH'], true);
+        });
+
+        return $matched?->id ?? $allDocTypes->firstWhere('name', $targetName)?->id;
+    }
+
+    protected function findMatchingDocument(
+        DocumentChecklistTemplate $template,
+        Collection $uploadedDocs,
+        string $program,
+        ?int $targetDocTypeId = null
+    ): ?Document {
         $code = strtolower($template->item_code);
         $tmplName = strtolower(preg_replace('/^\d+\.\s*/', '', $template->document_name));
-        $targetDocTypeId = self::TEMPLATE_CODE_TO_DOC_TYPE_ID[$template->item_code] ?? null;
 
         if ($targetDocTypeId) {
             $direct = $uploadedDocs->firstWhere('document_type_id', $targetDocTypeId);
@@ -476,7 +495,11 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             }
         }
 
-        return $uploadedDocs->first(function (Document $doc) use ($code, $tmplName) {
+        return $uploadedDocs->first(function (Document $doc) use ($code, $tmplName, $program) {
+            if ($doc->document_type && !in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
+                return false;
+            }
+
             $typeName = strtolower($doc->document_type?->name ?? '');
             $fileName = strtolower($doc->file_name ?? '');
 
