@@ -905,4 +905,63 @@ class DocumentChecklistTest extends TestCase
             'action' => 'COMPLETE_REVIEW',
         ]);
     }
+
+    public function test_can_create_update_and_delete_checklist_template(): void
+    {
+        $admin = User::factory()->create();
+        $role = Role::where('code', 'SYSTEM_ADMIN')->first();
+        UserRole::create(['user_id' => $admin->id, 'role_id' => $role->id]);
+
+        $createRes = $this->actingAs($admin)->postJson('/api/document-checklist/templates', [
+            'program_type' => 'GIA',
+            'phase_code' => '01',
+            'phase_title' => 'Stage 01: Proposal Submission',
+            'item_code' => 'gia-s1-custom-test-item',
+            'document_name' => 'Custom Environmental Compliance Certificate',
+            'group_name' => 'Environmental Clearances',
+            'is_mandatory' => true,
+            'sort_order' => 120,
+        ]);
+
+        $createRes->assertStatus(201);
+        $createRes->assertJsonPath('status', 'success');
+        $templateId = $createRes->json('data.id');
+
+        $this->assertDatabaseHas('document_checklist_templates', [
+            'id' => $templateId,
+            'item_code' => 'gia-s1-custom-test-item',
+            'is_active' => true,
+        ]);
+
+        $updateRes = $this->actingAs($admin)->putJson("/api/document-checklist/templates/{$templateId}", [
+            'document_name' => 'Updated Environmental Compliance Certificate (ECC 2026)',
+            'group_name' => 'Updated Clearances',
+        ]);
+
+        $updateRes->assertStatus(200);
+        $this->assertDatabaseHas('document_checklist_templates', [
+            'id' => $templateId,
+            'document_name' => 'Updated Environmental Compliance Certificate (ECC 2026)',
+        ]);
+
+        $deleteRes = $this->actingAs($admin)->deleteJson("/api/document-checklist/templates/{$templateId}");
+        $deleteRes->assertStatus(200);
+
+        $this->assertDatabaseHas('document_checklist_templates', [
+            'id' => $templateId,
+            'is_active' => false,
+        ]);
+
+        $inactiveRes = $this->actingAs($admin)->getJson('/api/document-checklist/templates?program=GIA&include_inactive=true');
+        $inactiveRes->assertStatus(200);
+        $ids = collect($inactiveRes->json('data'))->pluck('id')->toArray();
+        $this->assertContains($templateId, $ids);
+
+        $restoreRes = $this->actingAs($admin)->patchJson("/api/document-checklist/templates/{$templateId}/restore");
+        $restoreRes->assertStatus(200);
+        $this->assertDatabaseHas('document_checklist_templates', [
+            'id' => $templateId,
+            'is_active' => true,
+        ]);
+    }
 }

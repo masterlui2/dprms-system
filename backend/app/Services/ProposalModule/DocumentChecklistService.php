@@ -119,9 +119,9 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     ) {}
 
     #[Override]
-    public function getChecklistTemplates(string $programType): Collection
+    public function getChecklistTemplates(string $programType, bool $includeInactive = false): Collection
     {
-        return $this->checklistRepository->getTemplatesByProgram(strtoupper($programType));
+        return $this->checklistRepository->getTemplatesByProgram(strtoupper($programType), $includeInactive);
     }
 
     #[Override]
@@ -426,6 +426,30 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             'details' => $details,
             'metadata' => $metadata,
         ]);
+    }
+
+    #[Override]
+    public function createTemplate(array $data): DocumentChecklistTemplate
+    {
+        return $this->checklistRepository->createTemplate($data);
+    }
+
+    #[Override]
+    public function updateTemplate(int $id, array $data): DocumentChecklistTemplate
+    {
+        return $this->checklistRepository->updateTemplate($id, $data);
+    }
+
+    #[Override]
+    public function restoreTemplate(int $id): DocumentChecklistTemplate
+    {
+        return $this->checklistRepository->updateTemplate($id, ['is_active' => true]);
+    }
+
+    #[Override]
+    public function deleteTemplate(int $id): bool
+    {
+        return $this->checklistRepository->deleteTemplate($id);
     }
 
     protected function evaluateApplicability(DocumentChecklistTemplate $template, array $context): bool

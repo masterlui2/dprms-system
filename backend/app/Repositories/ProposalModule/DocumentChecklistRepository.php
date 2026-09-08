@@ -19,13 +19,16 @@ class DocumentChecklistRepository extends BaseRepository implements DocumentChec
     }
 
     #[Override]
-    public function getTemplatesByProgram(string $programType): Collection
+    public function getTemplatesByProgram(string $programType, bool $includeInactive = false): Collection
     {
-        return DocumentChecklistTemplate::query()
-            ->where('program_type', $programType)
-            ->where('is_active', true)
-            ->orderBy('sort_order', 'asc')
-            ->get();
+        $query = DocumentChecklistTemplate::query()
+            ->where('program_type', $programType);
+
+        if (!$includeInactive) {
+            $query->where('is_active', true);
+        }
+
+        return $query->orderBy('sort_order', 'asc')->get();
     }
 
     #[Override]
@@ -91,5 +94,26 @@ class DocumentChecklistRepository extends BaseRepository implements DocumentChec
     public function createHistory(array $data): ProposalChecklistHistory
     {
         return ProposalChecklistHistory::query()->create($data);
+    }
+
+    #[Override]
+    public function createTemplate(array $data): DocumentChecklistTemplate
+    {
+        return DocumentChecklistTemplate::query()->create($data);
+    }
+
+    #[Override]
+    public function updateTemplate(int $id, array $data): DocumentChecklistTemplate
+    {
+        $template = DocumentChecklistTemplate::query()->findOrFail($id);
+        $template->update($data);
+        return $template->fresh();
+    }
+
+    #[Override]
+    public function deleteTemplate(int $id): bool
+    {
+        $template = DocumentChecklistTemplate::query()->findOrFail($id);
+        return $template->update(['is_active' => false]);
     }
 }

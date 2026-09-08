@@ -1827,3 +1827,53 @@ export function addChecklistHistoryLog(
   return newEntry
 }
 
+export interface ChecklistTemplatePayload {
+  program_type: ApplicationProgram
+  phase_code: string
+  phase_title: string
+  item_code: string
+  document_name: string
+  group_name: string
+  is_mandatory?: boolean
+  sort_order?: number
+  applicability_rules?: any
+}
+
+export async function fetchChecklistTemplates(
+  program: ApplicationProgram,
+  includeInactive = false
+): Promise<any[]> {
+  await ensureBackendToken()
+  const response = await api.get('/document-checklist/templates', {
+    params: { program, include_inactive: includeInactive },
+  })
+  return response.data?.data || []
+}
+
+export async function createChecklistTemplate(payload: ChecklistTemplatePayload): Promise<any> {
+  await ensureBackendToken()
+  const response = await api.post('/document-checklist/templates', payload)
+  return response.data?.data
+}
+
+export async function updateChecklistTemplate(
+  id: number,
+  payload: Partial<ChecklistTemplatePayload> & { is_active?: boolean }
+): Promise<any> {
+  await ensureBackendToken()
+  const response = await api.put(`/document-checklist/templates/${id}`, payload)
+  return response.data?.data
+}
+
+export async function restoreChecklistTemplate(id: number): Promise<any> {
+  await ensureBackendToken()
+  const response = await api.patch(`/document-checklist/templates/${id}/restore`)
+  return response.data?.data
+}
+
+export async function deleteChecklistTemplate(id: number): Promise<void> {
+  await ensureBackendToken()
+  await api.delete(`/document-checklist/templates/${id}`)
+}
+
+

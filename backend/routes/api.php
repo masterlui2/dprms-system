@@ -71,6 +71,14 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO,SYSTEM_ADMIN'])->group(function () {
     Route::get('document-checklist/templates', [DocumentChecklistController::class, 'getTemplates']);
+    Route::post('document-checklist/templates', [DocumentChecklistController::class, 'storeTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
+    Route::put('document-checklist/templates/{id}', [DocumentChecklistController::class, 'updateTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
+    Route::delete('document-checklist/templates/{id}', [DocumentChecklistController::class, 'destroyTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
+    Route::patch('document-checklist/templates/{id}/restore', [DocumentChecklistController::class, 'restoreTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::get('proposals/{proposalId}/checklist', [DocumentChecklistController::class, 'show']);
     Route::get('proposals/{proposalId}/checklist/history', [DocumentChecklistController::class, 'history']);
     Route::put('proposals/{proposalId}/checklist/batch', [DocumentChecklistController::class, 'batchSave'])
