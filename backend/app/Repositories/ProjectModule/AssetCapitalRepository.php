@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class AssetCapitalRepository extends BaseRepository implements AssetCapitalRepositoryInterface{
-    #[Override]
     public function __construct(AssetCapital $model)
     {
         parent::__construct($model);

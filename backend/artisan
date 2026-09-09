@@ -4,6 +4,15 @@
 use Illuminate\Foundation\Application;
 use Symfony\Component\Console\Input\ArgvInput;
 
+$iniDir = __DIR__ . '/.php';
+if (is_dir($iniDir)) {
+    $existing = getenv('PHP_INI_SCAN_DIR');
+    $scanDir = ($existing !== false && $existing !== '') ? $existing . ':' . $iniDir : ':' . $iniDir;
+    putenv("PHP_INI_SCAN_DIR={$scanDir}");
+    $_ENV['PHP_INI_SCAN_DIR'] = $scanDir;
+    $_SERVER['PHP_INI_SCAN_DIR'] = $scanDir;
+}
+
 define('LARAVEL_START', microtime(true));
 
 // Register the Composer autoloader...

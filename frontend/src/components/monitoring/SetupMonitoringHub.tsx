@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-  ArrowLeft,
   ArrowRight,
   BarChart3,
   Building2,
   Check,
   CheckCircle2,
+  ChevronRight,
   FileCheck2,
   FileDown,
   Globe2,
@@ -423,179 +423,179 @@ export function SetupMonitoringHub({
   }
 
   return (
-    <div className="w-full space-y-5 pb-20 font-sans">
-      {/* Top Header Card */}
-      <div className="rounded-2xl border border-[#B5BFCD]/80 bg-white p-5 shadow-sm space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3.5">
-            {onBack && (
-              <button
-                onClick={onBack}
-                type="button"
-                className="inline-flex size-10 items-center justify-center rounded-xl border border-[#B5BFCD] bg-[#E6EEF4]/50 text-[#285497] transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95 shadow-2xs"
-                title="Back to monitored projects"
-              >
-                <ArrowLeft className="size-5" />
-              </button>
-            )}
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-2xl font-black tracking-tight text-slate-900">
-                  {project.enterprise || project.title || record.enterpriseName}
-                </h1>
-                <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 font-mono text-xs font-bold text-[#285497]">
-                  {project.referenceNumber || project.id}
+    <div className="w-full space-y-4 pb-20 font-sans">
+      {/* Upper Header Breadcrumb Navigation */}
+      <nav aria-label="Breadcrumb" className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center text-slate-500 transition hover:text-[#0f53b7] hover:underline cursor-pointer"
+          >
+            DOST Regional Monitoring Hub
+          </button>
+        ) : (
+          <span>DOST Regional Monitoring Hub</span>
+        )}
+        <ChevronRight className="size-3.5 text-slate-400 shrink-0" />
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="inline-flex items-center text-slate-500 transition hover:text-[#0f53b7] hover:underline cursor-pointer"
+          >
+            Monitored Projects
+          </button>
+        ) : (
+          <span>Monitored Projects</span>
+        )}
+        <ChevronRight className="size-3.5 text-slate-400 shrink-0" />
+        <span className="font-bold text-[#285497]">{activeTabTitle}</span>
+      </nav>
+
+      {/* Header Section */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between py-1">
+        <div className="flex items-center gap-3">
+          <span className="h-10 w-1.5 rounded-full bg-[#0f53b7] shrink-0" />
+          <div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900">
+                {project.enterprise || project.title || record.enterpriseName}
+              </h1>
+              <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 font-mono text-xs font-bold text-[#285497]">
+                {project.referenceNumber || project.id}
+              </span>
+              {loadError && (
+                <span
+                  className="rounded-lg bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700"
+                  title={loadError}
+                >
+                  Showing cached data
                 </span>
-                {loadError && (
-                  <span
-                    className="rounded-lg bg-amber-100 px-2.5 py-0.5 text-xs font-bold text-amber-700"
-                    title={loadError}
-                  >
-                    Showing cached data
-                  </span>
-                )}
-                <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-[#0f53b7] border border-blue-200">
-                  {project.program || 'SETUP'} Track
-                </span>
-                {project.proposalId ? (
-                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                    Online Application
-                  </span>
-                ) : (
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">
-                    Active Project
-                  </span>
-                )}
-                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                  🟢 Newly Active
-                </span>
-              </div>
-              <p className="text-xs font-semibold text-slate-500 mt-1">
-                DOST Regional Monitoring Hub · <span className="text-[#285497] font-bold">{activeTabTitle}</span> · Cycle {selectedQuarter} {selectedYear}
-              </p>
+              )}
             </div>
-          </div>
-
-          {/* Right Action Controls */}
-          <div className="flex flex-wrap items-center gap-2">
-            {project.proposalId ? (
-              <button
-                type="button"
-                onClick={() => navigate(`/dashboard/document-checklist?proposalId=${project.proposalId}&program=SETUP`)}
-                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-[#0f53b7] active:scale-95"
-                title="Open Master Document Checklist"
-              >
-                <FileCheck2 className="size-4 text-[#0f53b7]" />
-                <span>Master Checklist</span>
-              </button>
-            ) : null}
-
-            {/* Quarter Selector Dropdown */}
-            <select
-              value={`${selectedQuarter} ${selectedYear}`}
-              onChange={(e) => {
-                const [q, y] = e.target.value.split(' ')
-                setSelectedQuarter(q as Quarter)
-                setSelectedYear(Number(y))
-              }}
-              className="h-9 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs focus:border-[#0f53b7] focus:outline-none cursor-pointer"
-            >
-              {quarterOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-
-            {/* Summary Metrics Sidebar Toggle Button */}
-            <button
-              type="button"
-              onClick={() => setShowSummarySidebar(!showSummarySidebar)}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition shadow-2xs active:scale-95 ${
-                showSummarySidebar
-                  ? 'border-[#0f53b7] bg-[#0f53b7] text-white shadow-md'
-                  : 'border-[#B5BFCD] bg-white text-slate-700 hover:bg-[#E6EEF4] hover:text-[#285497]'
-              }`}
-              title="Toggle Live Summary Sidebar"
-            >
-              <BarChart3 className="size-4" />
-              <span>Summary KPI</span>
-            </button>
-
-            {/* Save Snapshot Button */}
-            <button
-              type="button"
-              onClick={handleManualSave}
-              className="inline-flex size-9 items-center justify-center rounded-xl border border-[#B5BFCD] bg-white text-slate-700 shadow-2xs transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95"
-              title="Save Snapshot"
-            >
-              <SlidersHorizontal className="size-4" />
-            </button>
-
-            {/* Generate Report / Export Button */}
-            <button
-              type="button"
-              onClick={() => setShowExportModal(true)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b] active:scale-95"
-            >
-              <FileDown className="size-4" />
-              <span>Export Sheet</span>
-            </button>
           </div>
         </div>
 
-        {!canSyncToBackend && (
-          <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-amber-700">
-              No backend record exists yet for {selectedQuarter} {selectedYear} — changes are being
-              kept as a local draft only until this quarter is created on the server.
-            </p>
+        {/* Right Action Controls */}
+        <div className="flex flex-wrap items-center gap-2">
+          {project.proposalId ? (
             <button
               type="button"
-              onClick={handleCreateQuarterRecord}
-              disabled={isCreatingQuarter || readOnly}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => navigate(`/dashboard/document-checklist?proposalId=${project.proposalId}&program=SETUP`)}
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-[#0f53b7] active:scale-95 cursor-pointer"
+              title="Open Master Document Checklist"
             >
-              {isCreatingQuarter ? (
-                <>
-                  <LoaderCircle className="size-3 animate-spin" /> Creating...
-                </>
-              ) : (
-                <>Create quarterly metrics record</>
-              )}
+              <FileCheck2 className="size-4 text-[#0f53b7]" />
+              <span>Master Checklist</span>
             </button>
-          </div>
-        )}
+          ) : null}
 
-        {createQuarterError && (
-          <div className="flex items-center justify-between text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-            <span>{createQuarterError}</span>
-            <button
-              type="button"
-              onClick={handleCreateQuarterRecord}
-              disabled={isCreatingQuarter}
-              className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-700 disabled:opacity-60"
-            >
-              <RefreshCw className="size-3" /> Retry
-            </button>
-          </div>
-        )}
+          {/* Quarter Selector Dropdown */}
+          <select
+            value={`${selectedQuarter} ${selectedYear}`}
+            onChange={(e) => {
+              const [q, y] = e.target.value.split(' ')
+              setSelectedQuarter(q as Quarter)
+              setSelectedYear(Number(y))
+            }}
+            className="h-9 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs focus:border-[#0f53b7] focus:outline-none cursor-pointer"
+          >
+            {quarterOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
 
-        {syncStatus === 'error' && syncErrors.length > 0 && (
-          <div className="flex items-center justify-between text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2">
-            <span>
-              {syncErrors.length} section{syncErrors.length === 1 ? '' : 's'} failed to save to the
-              server ({syncErrors.map((e) => e.endpoint).join(', ')}). Your edits are still kept as a
-              local draft.
-            </span>
-            <button
-              type="button"
-              onClick={handleManualSave}
-              className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-700"
-            >
-              <RefreshCw className="size-3" /> Retry
-            </button>
-          </div>
-        )}
+          {/* Summary Metrics Sidebar Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowSummarySidebar(!showSummarySidebar)}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition shadow-2xs active:scale-95 cursor-pointer ${
+              showSummarySidebar
+                ? 'border-[#0f53b7] bg-[#0f53b7] text-white shadow-md'
+                : 'border-[#B5BFCD] bg-white text-slate-700 hover:bg-[#E6EEF4] hover:text-[#285497]'
+            }`}
+            title="Toggle Live Summary Sidebar"
+          >
+            <BarChart3 className="size-4" />
+            <span>Summary KPI</span>
+          </button>
+
+          {/* Save Snapshot Button */}
+          <button
+            type="button"
+            onClick={handleManualSave}
+            className="inline-flex size-9 items-center justify-center rounded-xl border border-[#B5BFCD] bg-white text-slate-700 shadow-2xs transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95 cursor-pointer"
+            title="Save Snapshot"
+          >
+            <SlidersHorizontal className="size-4" />
+          </button>
+
+          {/* Generate Report / Export Button */}
+          <button
+            type="button"
+            onClick={() => setShowExportModal(true)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b] active:scale-95 cursor-pointer"
+          >
+            <FileDown className="size-4" />
+            <span>Export Sheet</span>
+          </button>
+        </div>
       </div>
+
+      {!canSyncToBackend && (
+        <div className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between shadow-2xs">
+          <p className="text-xs text-amber-700">
+            No backend record exists yet for {selectedQuarter} {selectedYear} — changes are being
+            kept as a local draft only until this quarter is created on the server.
+          </p>
+          <button
+            type="button"
+            onClick={handleCreateQuarterRecord}
+            disabled={isCreatingQuarter || readOnly}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isCreatingQuarter ? (
+              <>
+                <LoaderCircle className="size-3 animate-spin" /> Creating...
+              </>
+            ) : (
+              <>Create quarterly metrics record</>
+            )}
+          </button>
+        </div>
+      )}
+
+      {createQuarterError && (
+        <div className="flex items-center justify-between text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2.5 shadow-2xs">
+          <span>{createQuarterError}</span>
+          <button
+            type="button"
+            onClick={handleCreateQuarterRecord}
+            disabled={isCreatingQuarter}
+            className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-700 disabled:opacity-60"
+          >
+            <RefreshCw className="size-3" /> Retry
+          </button>
+        </div>
+      )}
+
+      {syncStatus === 'error' && syncErrors.length > 0 && (
+        <div className="flex items-center justify-between text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-4 py-2.5 shadow-2xs">
+          <span>
+            {syncErrors.length} section{syncErrors.length === 1 ? '' : 's'} failed to save to the
+            server ({syncErrors.map((e) => e.endpoint).join(', ')}). Your edits are still kept as a
+            local draft.
+          </span>
+          <button
+            type="button"
+            onClick={handleManualSave}
+            className="ml-3 shrink-0 inline-flex items-center gap-1 rounded-lg bg-rose-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-rose-700"
+          >
+            <RefreshCw className="size-3" /> Retry
+          </button>
+        </div>
+      )}
 
       {/* Navigation Tabs & Autosave Status */}
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#B5BFCD]/50 pb-0.5">

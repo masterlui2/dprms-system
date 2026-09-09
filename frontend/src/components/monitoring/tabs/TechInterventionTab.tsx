@@ -43,7 +43,7 @@ export function TechInterventionTab({
       serviceName: 'Packaging and Labelling Assistance',
       availed: true,
       areaOfIntervention: 'Brand Design & Shelf-life Analysis',
-      date: 'Aug 2024',
+      date: '2024-08-01',
     }
     onChange({ ...record, consultancies: [...record.consultancies, newItem] })
   }
@@ -83,7 +83,7 @@ export function TechInterventionTab({
       id: 'tr_' + Date.now(),
       category: 'DOST',
       trainingName: 'Food Safety & GMP Seminar',
-      date: 'Jul 15, 2024',
+      date: '2024-07-15',
     }
     onChange({ ...record, trainings: [...record.trainings, newItem] })
   }
@@ -123,7 +123,7 @@ export function TechInterventionTab({
       id: 'tt_' + Date.now(),
       type: 'EQUIPMENT',
       details: 'Automated Bottling & Sealing Machine',
-      date: '2024-03',
+      date: '2024-03-01',
     }
     onChange({ ...record, techTransfers: [...record.techTransfers, newItem] })
   }
@@ -163,7 +163,7 @@ export function TechInterventionTab({
       id: 'sup_srv_' + Date.now(),
       type: 'Microbiology',
       productTestedParameters: 'E. coli, Coliform, Yeast & Mold Count',
-      date: 'Aug 2024',
+      date: '2024-08-01',
     }
     onChange({ ...record, supportServices: [...record.supportServices, newItem] })
   }
@@ -201,8 +201,8 @@ export function TechInterventionTab({
   const handleAddOtherProject = () => {
     const newItem: OtherDostProjectItem = {
       id: 'oth_' + Date.now(),
-      projectTitle: 'SETUP Level Up Phase II Proposal',
-      date: '2024-06',
+      projectTitle: 'OneSTore Hub E-Commerce Onboarding',
+      date: '2024-06-01',
     }
     onChange({ ...record, otherProjects: [...record.otherProjects, newItem] })
   }
@@ -299,7 +299,7 @@ export function TechInterventionTab({
                   </td>
                   <td className="p-1">
                     <input
-                      type="text"
+                      type="date"
                       value={c.date}
                       onChange={(e) => handleUpdateConsultancy(c.id, 'date', e.target.value)}
                       readOnly={readOnly}
@@ -398,7 +398,7 @@ export function TechInterventionTab({
                   </td>
                   <td className="p-1">
                     <input
-                      type="text"
+                      type="date"
                       value={t.date}
                       onChange={(e) => handleUpdateTraining(t.id, 'date', e.target.value)}
                       readOnly={readOnly}
@@ -497,7 +497,7 @@ export function TechInterventionTab({
                   </td>
                   <td className="p-1">
                     <input
-                      type="text"
+                      type="date"
                       value={tt.date}
                       onChange={(e) => handleUpdateTechTransfer(tt.id, 'date', e.target.value)}
                       readOnly={readOnly}
@@ -595,7 +595,7 @@ export function TechInterventionTab({
                       </td>
                       <td className="p-1">
                         <input
-                          type="text"
+                          type="date"
                           value={s.date}
                           onChange={(e) => handleUpdateSupport(s.id, 'date', e.target.value)}
                           readOnly={readOnly}
@@ -677,7 +677,7 @@ export function TechInterventionTab({
                       </td>
                       <td className="p-1">
                         <input
-                          type="text"
+                          type="date"
                           value={p.date}
                           onChange={(e) => handleUpdateOtherProject(p.id, 'date', e.target.value)}
                           readOnly={readOnly}

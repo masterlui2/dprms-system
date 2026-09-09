@@ -155,13 +155,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/setup/equipments', [SetupProposalController::class, 'getEquipmentQuotations']);
 });
 
-Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('projects')->group(function () {
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,SYSTEM_ADMIN,RPMO'])->prefix('projects')->group(function () {
     Route::get('/', [ProjectController::class, 'index']);
     Route::get('/{projectId}/quarterly-metrics', [QuarterlyMetricController::class, 'index']);
     Route::post('/{projectId}/quarterly-metrics', [QuarterlyMetricController::class, 'store']);
 });
 
-Route::middleware(['auth:sanctum','role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('quarterly-metrics')->group(function (){
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,SYSTEM_ADMIN,RPMO'])->prefix('quarterly-metrics')->group(function (){
     Route::post('/{quarterId}/product',[QuarterlyMetricController::class, 'storeProduct']);
     Route::post('/{quarterId}/cost',[QuarterlyMetricController::class, 'storeCost']);
     Route::post('/{quarterId}/employee',[QuarterlyMetricController::class, 'storeEmployee']);

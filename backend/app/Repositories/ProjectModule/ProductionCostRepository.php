@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class ProductionCostRepository extends BaseRepository implements ProductionCostRepositoryInterface{
-    #[Override]
     public function __construct(ProductCost $model)
     {
         parent::__construct($model);

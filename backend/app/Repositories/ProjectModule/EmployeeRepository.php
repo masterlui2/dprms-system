@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class EmployeeRepository extends BaseRepository implements EmployeeRepositoryInterface{
-    #[Override]
     public function __construct(Employee $model)
     {
         parent::__construct($model);
