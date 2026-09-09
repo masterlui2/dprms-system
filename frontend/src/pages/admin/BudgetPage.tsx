@@ -43,6 +43,22 @@ function formatFunding(value: number): string {
   }).format(value)
 }
 
+function formatReleaseDate(value?: string | null): string | null {
+  if (!value) return null
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00`)
+    : new Date(value)
+
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString('en-PH', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+}
+
 export function BudgetPage() {
   const navigate = useNavigate()
   const { projectId: projectIdParam } = useParams()
