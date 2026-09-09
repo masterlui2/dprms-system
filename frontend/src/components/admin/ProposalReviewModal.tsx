@@ -435,7 +435,7 @@ export function ProposalReviewModal({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 border border-emerald-200">
                   <CheckCircle2 className="size-3.5" />
-                  Approved (Handed Over to Monitoring)
+                  Approved
                 </span>
                 {proposal.proposalId ? (
                   <button
@@ -450,17 +450,19 @@ export function ProposalReviewModal({
                     Open Document Checklist
                   </button>
                 ) : null}
-                <button
-                  className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition"
-                  onClick={() => {
-                    onClose();
-                    navigate(`/dashboard/project-monitoring?program=${proposal.program}`);
-                  }}
-                  type="button"
-                >
-                  <span>Open in Monitored Projects</span>
-                  <ArrowRight className="size-3.5" />
-                </button>
+                {isFocal ? (
+                  <button
+                    className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-800"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/dashboard/project-monitoring?program=${proposal.program}&view=projects`);
+                    }}
+                    type="button"
+                  >
+                    <span>Open in Monitored Projects</span>
+                    <ArrowRight className="size-3.5" />
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

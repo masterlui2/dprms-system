@@ -7,6 +7,25 @@ import { ROLE_LABEL } from '../../config/permissions'
 import { clearMockUser, type MockUser } from '../../lib/mockAuth'
 import { cn } from '../../utils/cn'
 
+function isRoutePathActive(pathname: string, route: string): boolean {
+  const [routePath] = route.split('?')
+
+  if (routePath === '/dashboard') return pathname === routePath
+  return pathname === routePath || pathname.startsWith(`${routePath}/`)
+}
+
+function isSubRouteActive(pathname: string, search: string, route: string): boolean {
+  const [routePath, routeQuery] = route.split('?')
+  if (!isRoutePathActive(pathname, routePath)) return false
+  if (!routeQuery) return search === ''
+
+  const currentParams = new URLSearchParams(search)
+  const expectedParams = new URLSearchParams(routeQuery)
+  return Array.from(expectedParams.entries()).every(
+    ([key, value]) => currentParams.get(key) === value,
+  )
+}
+
 function SidebarItem({
   collapsed,
   isActive,
@@ -20,22 +39,25 @@ function SidebarItem({
 }) {
   const location = useLocation()
   const hasSubItems = Boolean(item.subItems && item.subItems.length > 0)
-  const isParentActive =
-    item.route === '/dashboard'
-      ? location.pathname === '/dashboard'
-      : location.pathname.startsWith(item.route)
+  const isParentActive = isRoutePathActive(location.pathname, item.route)
 
   const className = cn(
     'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition',
     collapsed && 'justify-center px-0',
     isActive
-      ? 'bg-white text-[#073b82] shadow-sm ring-1 ring-[#d7e5f5]'
+      ? 'bg-[#e8f1ff] text-[#073b82] shadow-sm ring-1 ring-[#b9d2f2]'
       : 'text-slate-700 hover:bg-white/75 hover:text-[#073b82]',
   )
 
   return (
     <div className="space-y-1">
-      <NavLink className={className} onClick={onNavigate} title={item.label} to={item.route}>
+      <NavLink
+        aria-current={isActive ? 'page' : undefined}
+        className={className}
+        onClick={onNavigate}
+        title={item.label}
+        to={item.route}
+      >
         <item.icon className="h-4 w-4 shrink-0" />
         {!collapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
       </NavLink>
@@ -43,13 +65,15 @@ function SidebarItem({
       {!collapsed && hasSubItems && isParentActive && item.subItems ? (
         <div className="ml-4 space-y-0.5 border-l-2 border-[#d8e1ee] pl-2 pt-1">
           {item.subItems.map((sub: SidebarSubItem) => {
-            const queryParam = sub.route.split('?')[1]
-            const isSubActive = queryParam
-              ? location.search.includes(queryParam)
-              : !location.search || location.search === ''
+            const isSubActive = isSubRouteActive(
+              location.pathname,
+              location.search,
+              sub.route,
+            )
 
             return (
               <NavLink
+                aria-current={isSubActive ? 'page' : undefined}
                 key={sub.label}
                 to={sub.route}
                 onClick={onNavigate}
@@ -84,9 +108,7 @@ export function AdminSidebar({
   const location = useLocation()
   const navigate = useNavigate()
   const visible = getSidebarItems(user.role, user.program)
-  const isActive = (route: string) => route === '/dashboard'
-    ? location.pathname === '/dashboard'
-    : location.pathname.startsWith(route)
+  const isActive = (route: string) => isRoutePathActive(location.pathname, route)
 
   function handleSignOut() {
     clearMockUser()

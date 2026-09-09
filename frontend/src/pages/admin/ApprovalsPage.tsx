@@ -18,12 +18,14 @@ import { type ProposalRecord } from "../../data/admin";
 import { cn } from "../../utils/cn";
 import { getAllProposals, applyProposalDecision } from "../../services/proposalStore";
 import { AnimatedTabs } from "../../components/common/AnimatedTabs";
+import { ROLES } from "../../config/permissions";
 import { getMockUser } from "../../lib/mockAuth";
 import type { ApplicationRecord } from "../../types/application";
 
 export function ApprovalsPage() {
   const navigate = useNavigate();
   const currentUser = getMockUser();
+  const canOpenProjectMonitoring = currentUser?.role === ROLES.FOCAL;
   const lockedProgram =
     currentUser?.program === "SETUP" || currentUser?.program === "GIA"
       ? currentUser.program
@@ -183,7 +185,15 @@ export function ApprovalsPage() {
   }
 
   useEffect(() => {
-    setLifecycleTab(getDefaultLifecycleTab());
+    if (currentUser?.role === ROLES.PROJECT_STAFF) {
+      setLifecycleTab("review");
+    } else if (currentUser?.role === ROLES.FOCAL) {
+      setLifecycleTab("in_process");
+    } else if (currentUser?.role === ROLES.PROVINCIAL_DIRECTOR) {
+      setLifecycleTab("for_approval");
+    } else {
+      setLifecycleTab("all");
+    }
   }, [currentUser?.role]);
 
   useEffect(() => {
@@ -318,7 +328,7 @@ export function ApprovalsPage() {
     {
       id: "title",
       header: "Project Title",
-      className: "w-[16%]",
+      className: "w-[15%]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
         <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2">
@@ -406,7 +416,7 @@ export function ApprovalsPage() {
     {
       id: "submitted",
       header: "Submission Date",
-      className: "w-[8%]",
+      className: "w-[9%]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="text-xs font-medium text-slate-600 whitespace-nowrap block">
@@ -417,7 +427,7 @@ export function ApprovalsPage() {
     {
       id: "status",
       header: "Status",
-      className: "w-[11%]",
+      className: "w-[12%]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
         if (proposal.status === "Approved") {
@@ -427,9 +437,11 @@ export function ApprovalsPage() {
                 <Check className="size-3" />
                 Approved
               </span>
-              <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
-                Handed Over to Monitoring
-              </span>
+              {canOpenProjectMonitoring ? (
+                <span className="text-[10px] font-medium leading-tight text-slate-500">
+                  Ready for monitoring
+                </span>
+              ) : null}
             </div>
           );
         }
@@ -459,11 +471,11 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[17%] text-right",
+      className: "w-[16%] text-right",
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
-            <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+            <div className="flex items-center justify-end gap-1.5">
               {proposal.proposalId ? (
                 <button
                   className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition shrink-0"
@@ -473,22 +485,25 @@ export function ApprovalsPage() {
                   }}
                   title="Open Document Checklist"
                   type="button"
+                  aria-label="Open Document Checklist"
                 >
                   <FileCheck2 className="size-4" />
                 </button>
               ) : null}
-              <button
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition whitespace-nowrap shrink-0"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  navigate(`/dashboard/project-monitoring?program=${proposal.program}`);
-                }}
-                type="button"
-                title="Open in Monitored Projects"
-              >
-                <span>Open in Monitoring</span>
-                <ArrowRight className="size-3.5" />
-              </button>
+              {canOpenProjectMonitoring ? (
+                <button
+                  className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-emerald-700 px-2.5 text-xs font-bold text-white shadow-xs transition hover:bg-emerald-800"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(`/dashboard/project-monitoring?program=${proposal.program}&view=projects`);
+                  }}
+                  type="button"
+                  title="Open in Project Monitoring"
+                >
+                  <span>Monitor</span>
+                  <ArrowRight className="size-3.5" />
+                </button>
+              ) : null}
               <button
                 className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition shrink-0"
                 onClick={(event) => {
@@ -497,6 +512,7 @@ export function ApprovalsPage() {
                 }}
                 title="View Intake Details (Read-Only)"
                 type="button"
+                aria-label="View Intake Details"
               >
                 <Eye className="size-4" />
               </button>
