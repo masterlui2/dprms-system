@@ -33,6 +33,7 @@ import {
   fetchGiaDocumentaryRequirements,
   fetchProposalDocuments,
   fetchSetupDocumentaryRequirements,
+  getDocuments,
   uploadDocument,
   type DocumentaryRequirement,
   type RequirementGroup,
@@ -40,12 +41,20 @@ import {
   type VerificationStatus,
 } from "../../services/documentStore";
 import {
+  saveApplication,
   syncUserApplicationsFromBackend,
+  updateApplicationStatus,
 } from "../../services/applicationStore";
 import { resubmitProposal } from "../../services/proposalStore";
-import { submitSetupProposal } from "../../services/setupProposalStore";
+import {
+  getSetupProposalId,
+  submitSetupProposal,
+} from "../../services/setupProposalStore";
 import type { ApplicationRecord } from "../../types/application";
 import {
+  getGiaDraft,
+  getGiaProposal,
+  getGiaProposalId,
   submitGiaProposal,
 } from "../../services/giaProposalStore";
 import type { GiaProposalData } from "../../types/giaProposal";
@@ -84,7 +93,7 @@ function extractUploadErrorMessage(error: unknown): string {
   const axiosErr = error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } };
   const response = axiosErr?.response;
   if (response?.status === 413) {
-    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 5MB.";
+    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 10MB.";
   }
   if (response?.status === 404) {
     return "The submission endpoint was not found (404 Not Found). Please ensure the backend server is running and your session is active.";
@@ -410,7 +419,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   );
 
   async function handleFile(requirement: DocumentaryRequirement, file?: File) {
-    if (!activeApplication || !file) return;
+    if (!file) return;
     if (
       isRevisionMode &&
       documents[requirement.id]?.verificationStatus !== "Needs Revision"
@@ -473,7 +482,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
           `${file.name} uploaded as the revised file. Resubmit when every flagged document has been replaced.`,
         );
       } else if (allRequiredUploaded) {
-        updateApplicationStatus(activeApplication.referenceNo, "Under review");
+        if (activeApplication) {
+          updateApplicationStatus(activeApplication.referenceNo, "Under review");
+        }
         setMessage(
           "All required documents are complete. Your application is ready for DOST initial review.",
         );
@@ -678,7 +689,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }
 
   async function handleResubmitRevisions() {
-    if (!activeProposalId || !isRevisionMode) return;
+    if (!activeApplication || !activeProposalId || !isRevisionMode) return;
 
     if (revisionDocuments.length > 0) {
       const firstRequirement = requirements.find(
@@ -916,7 +927,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
             </button>
           </div>
         </>
-      ) : (
+      ) : activeApplication ? (
         <>
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-7">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
@@ -1450,7 +1461,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         </>
       )}
     </>
-  )}
+  ) : null}
     </div>
   );
 }

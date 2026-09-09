@@ -38,7 +38,7 @@ function formatFunding(value: number): string {
   }).format(value)
 }
 
-function formatReleaseDate(value: string | null): string | null {
+function formatReleaseDate(value?: string | null): string | null {
   if (!value) return null
 
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
