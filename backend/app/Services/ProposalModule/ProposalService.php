@@ -23,6 +23,17 @@ class ProposalService implements ProposalServiceInterface{
     #[Override]
     public function submit(array $data): Proposal
     {
+        $userId = Auth::id();
+        if ($userId) {
+            $hasActiveProposal = Proposal::query()
+                ->where('submitted_by', $userId)
+                ->where('program_type', $data['program_type'])
+                ->whereNotIn('status', ['DISAPPROVED'])
+                ->exists();
+
+            abort_if($hasActiveProposal, 422, 'You already have an active application under review for this program.');
+        }
+
         return DB::transaction(function () use ($data) {
             $proposal = $this->proposalRepository->create([
                 'submitted_by' => Auth::id(),
@@ -182,6 +193,15 @@ class ProposalService implements ProposalServiceInterface{
             if ($this->projectService->getByProposalId($proposalId)->isEmpty()) {
                 $this->projectService->createFromProposal($existing, $remarks);
             }
+
+            \App\Models\Document::query()
+                ->where('proposal_id', $proposalId)
+                ->where('status', '!=', 'returned_for_revision')
+                ->update([
+                    'status' => 'approved',
+                    'reviewed_by' => \Illuminate\Support\Facades\Auth::id(),
+                    'reviewed_at' => now(),
+                ]);
 
             $proposal = $this->proposalRepository->findById($proposalId);
 

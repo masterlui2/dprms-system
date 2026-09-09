@@ -43,7 +43,7 @@ class Project extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function approver(): BelongsTo
+    public function approved_by(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');
     }

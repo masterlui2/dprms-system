@@ -178,7 +178,7 @@ export async function submitGiaProposal(
     program: 'GIA',
     projectTitle: data.projectTitle,
     referenceNo,
-    status: 'Draft Submitted',
+    status: 'Submitted',
   }
 
   saveApplication(application)

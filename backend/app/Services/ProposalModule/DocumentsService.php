@@ -56,12 +56,23 @@ class DocumentsService implements DocumentsServiceInterface
                 return $this->documentsRepository->create($attributes);
             }
 
-            $oldPath = $existing->file_path;
-            $existing->update($attributes);
+            \App\Models\ArchivedDocument::create([
+                'document_id' => $existing->id,
+                'proposal_id' => $existing->proposal_id,
+                'document_type_id' => $existing->document_type_id,
+                'uploaded_by' => $existing->uploaded_by,
+                'reviewed_by' => $existing->reviewed_by,
+                'file_name' => $existing->file_name,
+                'file_path' => $existing->file_path,
+                'file_size' => $existing->file_size,
+                'mime_type' => $existing->mime_type,
+                'status' => $existing->status ?? 'superseded',
+                'remarks' => $existing->remarks,
+                'reviewed_at' => $existing->reviewed_at,
+                'archived_at' => now(),
+            ]);
 
-            if ($oldPath !== $newPath) {
-                Storage::delete($oldPath);
-            }
+            $existing->update($attributes);
 
             return $existing->fresh();
         } catch (Throwable $error) {

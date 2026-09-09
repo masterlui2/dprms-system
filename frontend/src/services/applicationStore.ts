@@ -4,6 +4,7 @@ import type {
   ApplicationRecord,
   CreatedProjectRecord,
 } from '../types/application'
+import { getMockUser, setMockUser } from '../lib/mockAuth'
 
 const APPLICATIONS_KEY = 'dprms.applications'
 const LEGACY_APPLICATIONS_KEY = 'dprms.mock-applications'
@@ -44,6 +45,13 @@ export function saveApplication(application: ApplicationRecord) {
 export function clearApplications() {
   if (typeof window === 'undefined') return
   window.localStorage.removeItem(APPLICATIONS_KEY)
+}
+
+export function removeApplication(identifier: string) {
+  const existing = readApplications().filter(
+    (item) => item.id !== identifier && item.referenceNo !== identifier,
+  )
+  writeApplications(existing)
 }
 
 export function updateApplicationStatus(
@@ -141,34 +149,100 @@ export async function syncUserApplicationsFromBackend(user: {
   try {
     let proposals: BackendProposalRecord[] = []
     if (user.id) {
-      const response = await api.get<{ data: BackendProposalRecord[] }>(`/proposal/submitter/${user.id}`)
-      proposals = response.data.data ?? []
+      try {
+        const response = await api.get<{ data: BackendProposalRecord[] }>(`/proposal/submitter/${user.id}`)
+        proposals = response.data?.data ?? []
+      } catch {
+        //
+      }
     }
 
-    const mappedApps: ApplicationRecord[] = proposals.map((p) => ({
-      id: String(p.id),
-      proposalId: p.id,
-      applicantName: user.name,
-      contactEmail: user.email,
-      organizationName: `${user.name} Organization`,
-      program: p.program_type,
-      projectTitle: p.title,
-      referenceNo: p.reference_number,
-      remarks: p.remarks,
-      status: mapBackendProposalStatus(p.status),
-      submittedAt: p.submitted_at || p.created_at,
-      createdAt: p.created_at,
-      updatedAt: p.updated_at,
-    }))
+    if (proposals.length === 0) {
+      try {
+        const response = await api.get<{ data: BackendProposalRecord[] }>('/proposal/my-proposals')
+        proposals = response.data?.data ?? []
+      } catch {
+        try {
+          const response = await api.get<{ data: BackendProposalRecord[] }>('/proposal/submitter/me')
+          proposals = response.data?.data ?? []
+        } catch {
+          //
+        }
+      }
+    }
 
-    const remainingOtherApps = readApplications().filter(
-      (app) => app.contactEmail.toLowerCase() !== user.email.toLowerCase(),
+    if (!user.id && proposals.length > 0 && proposals[0].submitted_by) {
+      user.id = proposals[0].submitted_by
+      const currentMock = getMockUser()
+      if (currentMock && !currentMock.id) {
+        setMockUser({ ...currentMock, id: proposals[0].submitted_by })
+      }
+    }
+
+    const mappedApps: ApplicationRecord[] = proposals.map((p) => {
+      const setupObj = (p as any).setup_proposal?.[0]
+      const giaObj = (p as any).gia_proposal?.[0]
+      const orgName = setupObj?.business_name || giaObj?.organization_name || `${user.name} Organization`
+
+      return {
+        id: String(p.id),
+        proposalId: p.id,
+        applicantName: user.name,
+        contactEmail: user.email,
+        organizationName: orgName,
+        program: p.program_type,
+        projectTitle: p.title,
+        referenceNo: p.reference_number,
+        remarks: p.remarks,
+        status: mapBackendProposalStatus(p.status),
+        submittedAt: p.submitted_at || p.created_at,
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+      }
+    })
+
+    const localUserApps = readApplications().filter(
+      (app) => app.contactEmail.toLowerCase() === user.email.toLowerCase(),
     )
-    writeApplications([...mappedApps, ...remainingOtherApps])
 
-    return mappedApps
+    if (mappedApps.length > 0) {
+      const serverRefs = new Set(mappedApps.map((a) => a.referenceNo))
+      const serverIds = new Set(mappedApps.map((a) => a.proposalId).filter(Boolean))
+      const serverPrograms = new Set(mappedApps.map((a) => a.program))
+
+      if (!user.applicationReference || !serverRefs.has(user.applicationReference)) {
+        user.applicationReference = mappedApps[0].referenceNo
+        const currentMock = getMockUser()
+        if (currentMock) {
+          setMockUser({ ...currentMock, applicationReference: mappedApps[0].referenceNo })
+        }
+      }
+
+      const localDrafts = localUserApps.filter(
+        (app) =>
+          app.status === 'Draft Submitted' &&
+          !serverPrograms.has(app.program) &&
+          !serverRefs.has(app.referenceNo) &&
+          (!app.proposalId || !serverIds.has(app.proposalId)),
+      )
+
+      const mergedUserApps = [...mappedApps, ...localDrafts]
+      const remainingOtherApps = readApplications().filter(
+        (app) => app.contactEmail.toLowerCase() !== user.email.toLowerCase(),
+      )
+      writeApplications([...mergedUserApps, ...remainingOtherApps])
+
+      return mergedUserApps
+    } else {
+      if (localUserApps.length > 0) {
+        return localUserApps
+      }
+      return []
+    }
   } catch (error) {
     console.error('Failed to sync applications from backend:', error)
-    return readApplications()
+    return readApplications().filter(
+      (app) => app.contactEmail.toLowerCase() === user.email.toLowerCase(),
+    )
   }
 }

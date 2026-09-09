@@ -96,6 +96,7 @@ export interface GiaMonitoringDetails {
 export interface ProjectRecord {
   approvedAt?: string | null
   backendId?: number
+  proposalId?: number | null
   budget: number
   contactNumber?: string | null
   compliance: 'Compliant' | 'Due soon' | 'Overdue'
@@ -120,6 +121,11 @@ export interface ProjectRecord {
   program: Program
   progress: number
   referenceNumber?: string
+  checklistStats?: {
+    complied: number
+    total: number
+    percentage: number
+  }
   gia?: GiaMonitoringDetails
   status: 'Active' | 'At risk' | 'Completed'
   title: string

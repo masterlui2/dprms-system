@@ -4,12 +4,18 @@ namespace App\Services\ProjectModule;
 
 use App\Models\Project;
 use App\Models\SetupProgressReport;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class SetupMonitoringProjectService
 {
     private const PENDING_REPORT_STATUSES = ['DRAFT', 'RETURNED'];
+
+    public function __construct(
+        private readonly DocumentChecklistServiceInterface $checklistService,
+    ) {
+    }
 
     public function getProjects(array $filters): array
     {
@@ -148,6 +154,24 @@ class SetupMonitoringProjectService
             ?? $proposal?->user?->name
             ?? 'Unassigned';
 
+        $checklistStats = [
+            'complied' => 0,
+            'total' => 0,
+            'percentage' => 0,
+        ];
+
+        if ($project->proposal_id) {
+            try {
+                $checklist = $this->checklistService->getProposalChecklist($project->proposal_id);
+                $checklistStats = [
+                    'complied' => (int) ($checklist['complied_count'] ?? 0),
+                    'total' => (int) ($checklist['total_required'] ?? 0),
+                    'percentage' => (int) ($checklist['compliance_percentage'] ?? 0),
+                ];
+            } catch (\Throwable) {
+            }
+        }
+
         return [
             'id' => $project->id,
             'proposal_id' => $project->proposal_id,
@@ -171,6 +195,7 @@ class SetupMonitoringProjectService
             'last_monitored_at' => $latestMonitoring?->last_monitored_at?->toIso8601String(),
             'monitored' => $monitoringRecords->contains(fn ($record) => $record->last_monitored_at !== null),
             'pending_reports' => $reports->whereIn('status', self::PENDING_REPORT_STATUSES)->count(),
+            'checklist_stats' => $checklistStats,
             'latest_report' => $latestReport ? [
                 'id' => $latestReport->id,
                 'status' => $latestReport->status,

@@ -12,12 +12,16 @@ class ProjectController extends Controller
     public function __construct(protected ProjectService $projectService)
     {
     }
-    public function index()
+    public function index(Request $request)
     {
-        $data = $this->projectService->getIndex();
+        $status = $request->query('status');
+        if ($status && !in_array(strtoupper($status), ['SETUP', 'GIA'], true)) {
+            return response()->json(['message' => 'Invalid status'], 422);
+        }
+        $data = $this->projectService->getIndex($status);
         return response()->json([
             'message' => 'Display all Projects',
             'data' => $data,
-        ],200);
+        ], 200);
     }
 }

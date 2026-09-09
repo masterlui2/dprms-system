@@ -25,4 +25,18 @@ class ProjectRepository extends BaseRepository implements ProjectRepositoryInter
     {
         return $this->model->newQuery()->where("proposal_id",$proposalId)->get();
     }
+
+    #[Override]
+    public function allWhere(?string $status = null, array $relation = []): Collection
+    {
+        $query = $this->model->newQuery();
+        if ($status) {
+            if (in_array(strtoupper($status), ['SETUP', 'GIA'], true)) {
+                $query->where('program_type', strtoupper($status));
+            } else {
+                $query->where('status', strtolower($status));
+            }
+        }
+        return $query->with($relation)->get();
+    }
 }

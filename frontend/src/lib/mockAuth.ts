@@ -198,17 +198,20 @@ function getInitials(name: string) {
 }
 
 export function registerUserAccount({
+  id,
   email,
   name,
   password,
   program,
 }: {
+  id?: number;
   email: string;
   name: string;
   password: string;
   program: ApplicationProgram;
 }): MockUser {
   const user: MockUser = {
+    id,
     email: email.trim().toLowerCase(),
     initials: getInitials(name),
     name: name.trim(),

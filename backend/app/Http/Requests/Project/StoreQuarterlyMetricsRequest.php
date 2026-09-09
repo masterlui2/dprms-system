@@ -17,6 +17,15 @@ class StoreQuarterlyMetricsRequest extends FormRequest
         return Auth::check();
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->route('projectId')) {
+            $this->merge([
+                'project_id' => (int) $this->route('projectId'),
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

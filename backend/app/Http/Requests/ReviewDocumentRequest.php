@@ -17,7 +17,7 @@ class ReviewDocumentRequest extends FormRequest
         return [
             'status' => [
                 'required',
-                Rule::in(['approved', 'returned_for_revision']),
+                Rule::in(['approved', 'returned_for_revision', 'under_review', 'pending']),
             ],
             'remarks' => [
                 'nullable',

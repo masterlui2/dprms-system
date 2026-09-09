@@ -15,6 +15,7 @@ import { Unauthorized } from '../pages/Unauthorized'
 import { ApprovalsPage } from '../pages/admin/ApprovalsPage'
 import { AuditTrailPage } from '../pages/admin/AuditTrailPage'
 import { BudgetPage } from '../pages/admin/BudgetPage'
+import { DocumentChecklistPage } from '../pages/admin/DocumentChecklistPage'
 import { InventoryPage } from '../pages/admin/InventoryPage'
 import { MonitoringPage } from '../pages/admin/MonitoringPage'
 import { ReportsPage } from '../pages/admin/ReportsPage'
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: protect('dashboard', <DashboardHome />) },
       { path: 'applications', element: protect('applications', <ApprovalsPage />) },
+      { path: 'document-checklist', element: protect('documentChecklist', <DocumentChecklistPage />) },
       { path: 'applications/new', element: protect('newApplication', <ProposalSubmission />) },
       { path: 'my-applications', element: protect('myApplications', <MyApplicationPage />) },
       { path: 'my-application', element: protect('myApplications', <MyApplicationPage />) },
@@ -118,6 +120,16 @@ export const router = createBrowserRouter([
       { path: 'audit-logs', element: protect('auditLogs', <AuditTrailPage />) },
       { path: 'backup', element: protect('backup', <ModuleWorkspace title="Backup" description="Manage DPRMS data backup and recovery operations." />) },
       { path: 'system-settings', element: protect('systemSettings', <ModuleWorkspace title="System Settings" description="Manage shared DPRMS platform settings." />) },
+    ],
+  },
+  {
+    path: '/admin',
+    element: <DashboardLayout />,
+    children: [
+      { path: 'document-checklist', element: protect('documentChecklist', <DocumentChecklistPage />) },
+      { path: 'applications', element: protect('applications', <ApprovalsPage />) },
+      { path: 'approvals', element: protect('applications', <ApprovalsPage />) },
+      { path: 'projects', element: protect('projects', <MonitoringPage />) },
     ],
   },
   { path: '*', element: <NotFound /> },
