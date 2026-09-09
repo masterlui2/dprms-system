@@ -757,14 +757,16 @@ export function SetupMonitoringHub({
                         {selectedQuarter} {selectedYear}
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-slate-900">Oct 15, 2026</p>
+                    <p className="mt-2 text-xl font-black text-slate-900">
+                      {project.dueDate || project.latestReport?.dueDate || `${selectedQuarter} ${selectedYear}`}
+                    </p>
                     <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
-                      Next Quarterly Data Sheet Due
+                      {project.latestReport?.status ? `Report: ${project.latestReport.status}` : 'Quarterly Monitoring Period'}
                     </span>
                   </div>
                   <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
                     <CheckCircle2 className="size-3.5 text-emerald-600" />
-                    <span>Schedule On Track</span>
+                    <span>{project.compliance === 'Overdue' ? 'Action Required' : 'Schedule On Track'}</span>
                   </div>
                 </div>
 
@@ -773,10 +775,12 @@ export function SetupMonitoringHub({
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-wider text-purple-800">Equipment Outlay</span>
                       <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
-                        {record.equipmentAssets.length || 3} Units
+                        {(project.equipmentRecords?.length ?? record.equipmentAssets.length)} Units
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-purple-950">QR Tagged</p>
+                    <p className="mt-2 text-xl font-black text-purple-950">
+                      {(project.equipmentRecords?.length ?? record.equipmentAssets.length) > 0 ? 'Deployed & Logged' : 'No Outlay Recorded'}
+                    </p>
                     <span className="text-[11px] font-semibold text-purple-700 mt-0.5 block">
                       Verified Machinery Inventory
                     </span>
@@ -792,10 +796,12 @@ export function SetupMonitoringHub({
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">Master Checklist</span>
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                        92% Complied
+                        {project.checklistStats ? `${project.checklistStats.percentage}% Complied` : 'Compliant'}
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-slate-900">SET 1 Verified</p>
+                    <p className="mt-2 text-xl font-black text-slate-900">
+                      {project.checklistStats ? `${project.checklistStats.complied} of ${project.checklistStats.total} Docs` : 'Document Sets'}
+                    </p>
                     <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
                       Legal & Audit Clearance Satisfied
                     </span>
@@ -841,22 +847,25 @@ export function SetupMonitoringHub({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Proponent / Lead Person</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Maria SETUP Proponent'}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.proponentName || project.manager || 'Proponent'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Priority Industry Sector</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">Food Processing (Agri-Commodities)</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.industrySector || 'Food Processing'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Business Structure & Scale</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">Sole Proprietorship · Micro Enterprise</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">
+                          {project.businessStructure || 'Sole Proprietorship'}
+                          {project.enterpriseSize ? ` · ${project.enterpriseSize} Enterprise` : ''}
+                        </p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Contact Information</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">+63 917 123 4567</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.contactNumber || 'Not recorded'}</p>
                       </div>
                     </div>
 
@@ -864,7 +873,7 @@ export function SetupMonitoringHub({
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Manufacturing & Operating Facility</span>
                       <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-900">
                         <MapPin className="size-3.5 text-[#0f53b7] shrink-0" />
-                        <span>{project.location || record.enterpriseAddress || 'Davao del Sur, Region XI'}</span>
+                        <span>{project.location || record.enterpriseAddress || 'Location not recorded'}</span>
                       </p>
                     </div>
                   </div>
@@ -896,32 +905,38 @@ export function SetupMonitoringHub({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Assigned Monitoring Officer</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Maria SETUP Proponent'}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Unassigned'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">PSTO Implementing Center</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">DOST PSTO {project.district || 'Davao del Sur'}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">
+                          DOST PSTO {project.district || 'Davao Region'}
+                        </p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">TNA Evaluation Status</span>
-                        <p className="mt-1 text-xs font-bold text-emerald-700">✓ Form 01 & 04 Certified</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Focal / Supervision Officer</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.focalOfficer || 'PSTO Focal Person'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Refund Term Duration</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">36 Months (3 Years)</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Implementation Cycle</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">
+                          {project.startDate ? `${project.startDate} to ${project.dueDate || 'Present'}` : '36 Months (3 Years)'}
+                        </p>
                       </div>
                     </div>
 
                     <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Environmental & GAD Assessment</span>
-                        <p className="mt-0.5 text-xs font-bold text-slate-800">HazardHunter & GWP Checklist Complied</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Checklist Verification</span>
+                        <p className="mt-0.5 text-xs font-bold text-slate-800">
+                          {project.checklistStats ? `${project.checklistStats.complied}/${project.checklistStats.total} Document Sets Complied` : 'Pre-implementation Requirements Complied'}
+                        </p>
                       </div>
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                        Cleared
+                        {project.compliance}
                       </span>
                     </div>
                   </div>
@@ -959,17 +974,31 @@ export function SetupMonitoringHub({
                         <th className="py-2.5 px-3 text-center">Useful Life</th>
                         <th className="py-2.5 px-3 text-right">Acquisition Cost</th>
                         <th className="py-2.5 px-3 text-right">Book Value</th>
-                        <th className="py-2.5 px-3 text-center">QR & Status</th>
+                        <th className="py-2.5 px-3 text-center">Condition / Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(record.equipmentAssets.length > 0
-                        ? record.equipmentAssets
-                        : [
-                            { id: 'eq_1', equipmentName: 'Heavy-Duty Stainless Steel Grinder & Pulverizer', equipmentType: 'Machinery', usefulLifeYears: 10, yearAcquired: 2024, cost: 450000, depreciation: 0, bookValue: 450000 },
-                            { id: 'eq_2', equipmentName: 'Continuous Band Sealer with Gas Flushing Unit', equipmentType: 'Packaging', usefulLifeYears: 8, yearAcquired: 2024, cost: 180000, depreciation: 0, bookValue: 180000 },
-                            { id: 'eq_3', equipmentName: 'Automated Temperature Controlled Roasting Machine', equipmentType: 'Processing', usefulLifeYears: 10, yearAcquired: 2024, cost: 320000, depreciation: 0, bookValue: 320000 },
-                          ]
+                      {(project.equipmentRecords && project.equipmentRecords.length > 0
+                        ? project.equipmentRecords.map((item) => ({
+                            id: item.id,
+                            equipmentName: item.equipment_name,
+                            yearAcquired: item.year_acquired,
+                            usefulLifeYears: item.useful_life_years,
+                            cost: item.cost,
+                            bookValue: item.book_value,
+                            condition: item.condition,
+                          }))
+                        : record.equipmentAssets.length > 0
+                          ? record.equipmentAssets.map((item) => ({
+                              id: item.id,
+                              equipmentName: item.equipmentName,
+                              yearAcquired: item.yearAcquired,
+                              usefulLifeYears: item.usefulLifeYears,
+                              cost: item.cost,
+                              bookValue: item.bookValue,
+                              condition: 'Operational',
+                            }))
+                          : []
                       ).map((item, idx) => (
                         <tr key={item.id || idx} className="hover:bg-slate-50/70 transition">
                           <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-2">
@@ -982,11 +1011,18 @@ export function SetupMonitoringHub({
                           <td className="py-3 px-3 text-right font-mono font-bold text-[#0f53b7]">₱{(item.bookValue || 0).toLocaleString()}</td>
                           <td className="py-3 px-3 text-center">
                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                              ✓ Operational
+                              ✓ {item.condition || 'Operational'}
                             </span>
                           </td>
                         </tr>
                       ))}
+                      {(!project.equipmentRecords || project.equipmentRecords.length === 0) && record.equipmentAssets.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-6 text-center text-xs text-slate-400">
+                            No equipment records currently registered for this project.
+                          </td>
+                        </tr>
+                      ) : null}
                     </tbody>
                   </table>
                 </div>

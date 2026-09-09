@@ -546,11 +546,16 @@ interface BackendSetupMonitoringProject {
   reference_number: string
   title: string
   enterprise_name: string
+  proponent_name?: string | null
   contact_number: string | null
+  industry_sector?: string | null
+  business_structure?: string | null
+  enterprise_size?: string | null
   setup_funding: number
   amount_refunded?: number
   full_release: string | null
   manager: string
+  focal_officer?: string | null
   business_address: string | null
   district: string | null
   province: string | null
@@ -568,6 +573,15 @@ interface BackendSetupMonitoringProject {
     total: number
     percentage: number
   }
+  equipment_records?: Array<{
+    id: string
+    equipment_name: string
+    year_acquired: number
+    useful_life_years: number
+    cost: number
+    book_value: number
+    condition: string
+  }>
   latest_report: {
     status: string
     reporting_period: string
@@ -623,6 +637,12 @@ function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): Proj
     budget: project.setup_funding,
     compliance: project.pending_reports > 0 ? 'Due soon' : 'Compliant',
     contactNumber: project.contact_number,
+    proponentName: project.proponent_name,
+    industrySector: project.industry_sector,
+    businessStructure: project.business_structure,
+    enterpriseSize: project.enterprise_size,
+    focalOfficer: project.focal_officer,
+    equipmentRecords: project.equipment_records,
     district: project.district ?? undefined,
     dueDate: formatMonitoringDate(project.latest_report?.due_date ?? project.expected_end_date),
     enterprise: project.enterprise_name,

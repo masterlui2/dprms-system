@@ -127,6 +127,20 @@ export interface ProjectRecord {
     total: number
     percentage: number
   }
+  proponentName?: string | null
+  industrySector?: string | null
+  businessStructure?: string | null
+  enterpriseSize?: string | null
+  focalOfficer?: string | null
+  equipmentRecords?: Array<{
+    id: string
+    equipment_name: string
+    year_acquired: number
+    useful_life_years: number
+    cost: number
+    book_value: number
+    condition: string
+  }>
   gia?: GiaMonitoringDetails
   status: 'Active' | 'At risk' | 'Completed'
   title: string
