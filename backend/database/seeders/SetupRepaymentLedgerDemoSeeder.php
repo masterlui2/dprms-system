@@ -5,7 +5,10 @@ namespace Database\Seeders;
 use App\Models\Project;
 use App\Models\ProjectBudget;
 use App\Models\ProjectLedger;
+use App\Models\Proposal;
 use App\Models\RepaymentTransaction;
+use App\Models\Role;
+use App\Models\SetupProposal;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -29,9 +32,13 @@ class SetupRepaymentLedgerDemoSeeder extends Seeder
         $project = Project::query()
             ->where('program_type', 'SETUP')
             ->where('status', 'active')
-            ->with('proposal')
+            ->with(['proposal.setup_proposal'])
             ->orderBy('id')
             ->first();
+
+        if (! $project?->proposal) {
+            $project = $this->createOrResolveDemoProject();
+        }
 
         if (! $project?->proposal) {
             $this->command?->warn('No active SETUP project is available for repayment demo data.');
@@ -214,4 +221,93 @@ class SetupRepaymentLedgerDemoSeeder extends Seeder
             </svg>
             SVG;
     }
+
+    private function createOrResolveDemoProject(): ?Project
+    {
+        if (User::query()->count() === 0 || Role::query()->count() === 0) {
+            $this->call([
+                RoleSeeder::class,
+                DemoUserSeeder::class,
+            ]);
+        }
+
+        $proponent = User::query()
+            ->where('program_type', 'SETUP')
+            ->whereHas('role', fn ($query) => $query->whereIn('code', ['MSME_PROPONENT', 'PROPONENT']))
+            ->first()
+            ?? User::query()->where('email', 'setup.proponent@dost.gov.ph')->first()
+            ?? User::query()->first();
+
+        $director = User::query()
+            ->whereHas('role', fn ($query) => $query->whereIn('code', ['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR']))
+            ->first()
+            ?? User::query()->where('email', 'director@dost.gov.ph')->first()
+            ?? $proponent;
+
+        $focal = User::query()
+            ->where('program_type', 'SETUP')
+            ->whereHas('role', fn ($query) => $query->whereIn('code', [
+                'FOCAL',
+                'SSCP_FOCAL',
+                'SETUP_FOCAL',
+            ]))
+            ->first()
+            ?? User::query()->where('email', 'setup.focal@dost.gov.ph')->first();
+
+        if (! $proponent || ! $director) {
+            return null;
+        }
+
+        $proposal = Proposal::query()->firstOrCreate(
+            ['reference_number' => 'SETUP-2026-0001'],
+            [
+                'submitted_by' => $proponent->id,
+                'focal_id' => $focal?->id,
+                'program_type' => 'SETUP',
+                'title' => 'Upgrading of Food Processing and Packaging Facility',
+                'status' => 'APPROVED',
+                'submitted_at' => today()->subMonths(3),
+                'approved_at' => today()->subMonths(2),
+            ]
+        );
+
+        SetupProposal::query()->firstOrCreate(
+            ['proposal_id' => $proposal->id],
+            [
+                'business_name' => 'Mati Agri-Food Processing Enterprise',
+                'business_type' => 'SOLE-PROPRIETORSHIP',
+                'industry_sector' => 'Food Processing',
+                'enterprise_size' => 'MICRO',
+                'years_in_operation' => 5,
+                'business_address' => 'Barangay Central, Mati City, Davao Oriental',
+                'region' => 'Region XI',
+                'province' => 'Davao Oriental',
+                'city_municipality' => 'Mati City',
+                'form_snapshot' => [
+                    'businessName' => 'Mati Agri-Food Processing Enterprise',
+                    'contactPerson' => $proponent->name ?? 'Maria SETUP Proponent',
+                    'contactNumber' => '09171234567',
+                    'fullRelease' => '15 Jun 2026',
+                    'fullReleaseDate' => '2026-06-15',
+                ],
+            ]
+        );
+
+        $project = Project::query()->firstOrCreate(
+            ['proposal_id' => $proposal->id],
+            [
+                'created_by' => $proponent->id,
+                'approved_by' => $director->id,
+                'program_type' => 'SETUP',
+                'status' => 'active',
+                'approved_at' => today()->subMonths(2),
+                'notes' => 'Active SETUP Demo Project for Repayment Ledger.',
+            ]
+        );
+
+        $project->loadMissing(['proposal.setup_proposal']);
+
+        return $project;
+    }
 }
+
