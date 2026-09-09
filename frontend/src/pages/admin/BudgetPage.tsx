@@ -102,7 +102,7 @@ export function BudgetPage() {
   if (!hasSetupAccess) {
     return (
       <div className="space-y-6">
-        <AdminPageHeader description="" eyebrow="Financial Records" title="SETUP Repayment Ledger" />
+        <AdminPageHeader description="" eyebrow="Repayment Ledger" title="SETUP Repayment Ledger" />
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
           <AlertTriangle className="mx-auto size-7 text-amber-700" />
           <p className="mt-3 font-black text-amber-900">SETUP access required</p>
@@ -123,7 +123,7 @@ export function BudgetPage() {
       <AdminPageHeader
         action={isDirector ? <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-black text-slate-600">Read only</span> : null}
         description=""
-        eyebrow="Financial Records"
+        eyebrow="Repayment Ledger"
         title="SETUP Repayment Ledger"
       />
 

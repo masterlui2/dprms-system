@@ -89,7 +89,7 @@ export const sidebarItems: SidebarItem[] = [
   ),
   item(
     "repaymentMonitoring",
-    "Financial Records",
+    "Repayment Ledger",
     ReceiptText,
     "/dashboard/repayment-monitoring",
   ),
