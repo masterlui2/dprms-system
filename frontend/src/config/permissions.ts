@@ -47,7 +47,7 @@ export const modulePermissions = {
   executiveApproval: [ROLES.PROVINCIAL_DIRECTOR],
   projects: [ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   regionalMonitoring: [ROLES.RPMO],
-  aiAnalytics: [ROLES.RPMO],
+  riskAnalytics: [ROLES.RPMO],
   userManagement: [ROLES.SYSTEM_ADMIN],
   roleManagement: [ROLES.SYSTEM_ADMIN],
   programManagement: [ROLES.SYSTEM_ADMIN],

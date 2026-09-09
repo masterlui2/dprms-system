@@ -104,19 +104,19 @@ function dashboardContent(role: UserRole): {
       return {
         eyebrow: 'Regional Viewer',
         title: 'RPMO regional dashboard',
-        description: 'Read-only regional performance, funding, and AI risk indicators for informed monitoring.',
+        description: 'Read-only regional performance, funding, and intervention-risk indicators for informed monitoring.',
         cards: [
           { label: 'Active Projects', value: String(projectRecords.filter((project) => project.status === 'Active').length), detail: 'Province-wide portfolio', icon: Activity },
           { label: 'Funds Released', value: 'PHP 8.7M', detail: 'Current portfolio', icon: Landmark, tone: 'sky' },
-          { label: 'AI Risk Reports', value: String(highRisk), detail: 'Elevated risk projects', icon: AlertTriangle, tone: 'red' },
+          { label: 'Intervention Risk', value: String(highRisk), detail: 'Elevated risk projects', icon: AlertTriangle, tone: 'red' },
           { label: 'Reporting', value: '5 / 5', detail: 'Province coverage', icon: BarChart3, tone: 'green' },
         ],
         attention: [
-          { title: 'Regional risk summary', detail: `${highRisk} projects have elevated AI risk signals.`, tone: 'danger' },
+          { title: 'Regional risk summary', detail: `${highRisk} projects have elevated intervention-risk flags.`, tone: 'danger' },
           { title: 'Funding utilization', detail: 'Portfolio utilization is on track for the current quarter.', tone: 'success' },
           { title: 'Province comparison', detail: 'All provinces submitted their latest monitoring data.', tone: 'info' },
         ],
-        recent: ['Regional dashboard refreshed', 'AI risk summary updated', 'Province comparison report published'],
+        recent: ['Regional dashboard refreshed', 'Intervention-risk summary updated', 'Province comparison report published'],
       }
     default:
       return {

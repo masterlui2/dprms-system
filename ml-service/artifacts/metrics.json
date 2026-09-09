@@ -1,0 +1,354 @@
+{
+  "generated_at": "2026-09-09T15:02:02.410621+00:00",
+  "dataset": {
+    "path": "/home/erxanitea/Github/dprms-system/ml-service/data/observations.csv",
+    "observations": 741,
+    "projects": 196,
+    "at_risk_rate": 0.3657,
+    "synthetic": true
+  },
+  "validation": {
+    "scheme": "GroupKFold by project_code",
+    "n_splits": 5
+  },
+  "deployed_model": {
+    "model": "Random Forest (calibrated)",
+    "feature_set": "extended",
+    "accuracy": 0.7841,
+    "precision": 0.7876,
+    "recall": 0.5609,
+    "f1": 0.6552,
+    "roc_auc": 0.8006,
+    "brier": 0.1609,
+    "recall_sd_across_folds": 0.0577,
+    "confusion_matrix": [
+      [
+        429,
+        41
+      ],
+      [
+        119,
+        152
+      ]
+    ]
+  },
+  "comparison": [
+    {
+      "model": "Logistic Regression",
+      "feature_set": "extended",
+      "accuracy": 0.7557,
+      "precision": 0.649,
+      "recall": 0.7232,
+      "f1": 0.6841,
+      "roc_auc": 0.8188,
+      "brier": 0.1674,
+      "recall_sd_across_folds": 0.0673,
+      "confusion_matrix": [
+        [
+          364,
+          106
+        ],
+        [
+          75,
+          196
+        ]
+      ]
+    },
+    {
+      "model": "Logistic Regression",
+      "feature_set": "core",
+      "accuracy": 0.7409,
+      "precision": 0.627,
+      "recall": 0.7196,
+      "f1": 0.6701,
+      "roc_auc": 0.8162,
+      "brier": 0.1726,
+      "recall_sd_across_folds": 0.0886,
+      "confusion_matrix": [
+        [
+          354,
+          116
+        ],
+        [
+          76,
+          195
+        ]
+      ]
+    },
+    {
+      "model": "Decision Tree",
+      "feature_set": "core",
+      "accuracy": 0.6842,
+      "precision": 0.5569,
+      "recall": 0.6679,
+      "f1": 0.6074,
+      "roc_auc": 0.7441,
+      "brier": 0.2078,
+      "recall_sd_across_folds": 0.1779,
+      "confusion_matrix": [
+        [
+          326,
+          144
+        ],
+        [
+          90,
+          181
+        ]
+      ]
+    },
+    {
+      "model": "Decision Tree",
+      "feature_set": "extended",
+      "accuracy": 0.7004,
+      "precision": 0.5836,
+      "recall": 0.631,
+      "f1": 0.6064,
+      "roc_auc": 0.7382,
+      "brier": 0.2164,
+      "recall_sd_across_folds": 0.0814,
+      "confusion_matrix": [
+        [
+          348,
+          122
+        ],
+        [
+          100,
+          171
+        ]
+      ]
+    },
+    {
+      "model": "Persistence (rule on t)",
+      "feature_set": "n/a",
+      "accuracy": 0.7301,
+      "precision": 0.636,
+      "recall": 0.6125,
+      "f1": 0.6241,
+      "roc_auc": null,
+      "brier": null,
+      "recall_sd_across_folds": 0.0,
+      "confusion_matrix": [
+        [
+          375,
+          95
+        ],
+        [
+          105,
+          166
+        ]
+      ]
+    },
+    {
+      "model": "Random Forest",
+      "feature_set": "extended",
+      "accuracy": 0.7733,
+      "precision": 0.7289,
+      "recall": 0.6052,
+      "f1": 0.6613,
+      "roc_auc": 0.7993,
+      "brier": 0.1633,
+      "recall_sd_across_folds": 0.0525,
+      "confusion_matrix": [
+        [
+          409,
+          61
+        ],
+        [
+          107,
+          164
+        ]
+      ]
+    },
+    {
+      "model": "Random Forest",
+      "feature_set": "core",
+      "accuracy": 0.7341,
+      "precision": 0.6457,
+      "recall": 0.6052,
+      "f1": 0.6248,
+      "roc_auc": 0.7644,
+      "brier": 0.1818,
+      "recall_sd_across_folds": 0.0685,
+      "confusion_matrix": [
+        [
+          380,
+          90
+        ],
+        [
+          107,
+          164
+        ]
+      ]
+    },
+    {
+      "model": "Random Forest (calibrated)",
+      "feature_set": "extended",
+      "accuracy": 0.7841,
+      "precision": 0.7876,
+      "recall": 0.5609,
+      "f1": 0.6552,
+      "roc_auc": 0.8006,
+      "brier": 0.1609,
+      "recall_sd_across_folds": 0.0577,
+      "confusion_matrix": [
+        [
+          429,
+          41
+        ],
+        [
+          119,
+          152
+        ]
+      ]
+    },
+    {
+      "model": "Random Forest (calibrated)",
+      "feature_set": "core",
+      "accuracy": 0.7584,
+      "precision": 0.7805,
+      "recall": 0.4723,
+      "f1": 0.5885,
+      "roc_auc": 0.7654,
+      "brier": 0.176,
+      "recall_sd_across_folds": 0.0528,
+      "confusion_matrix": [
+        [
+          434,
+          36
+        ],
+        [
+          143,
+          128
+        ]
+      ]
+    },
+    {
+      "model": "Majority Class",
+      "feature_set": "core",
+      "accuracy": 0.6343,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": null,
+      "brier": null,
+      "recall_sd_across_folds": 0.0,
+      "confusion_matrix": [
+        [
+          470,
+          0
+        ],
+        [
+          271,
+          0
+        ]
+      ]
+    },
+    {
+      "model": "Majority Class",
+      "feature_set": "extended",
+      "accuracy": 0.6343,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": null,
+      "brier": null,
+      "recall_sd_across_folds": 0.0,
+      "confusion_matrix": [
+        [
+          470,
+          0
+        ],
+        [
+          271,
+          0
+        ]
+      ]
+    }
+  ],
+  "calibration": [
+    {
+      "bin": "0.0-0.2",
+      "n": 291,
+      "mean_predicted": 0.1207,
+      "observed_rate": 0.1409
+    },
+    {
+      "bin": "0.2-0.4",
+      "n": 214,
+      "mean_predicted": 0.2823,
+      "observed_rate": 0.2804
+    },
+    {
+      "bin": "0.4-0.6",
+      "n": 69,
+      "mean_predicted": 0.4879,
+      "observed_rate": 0.4783
+    },
+    {
+      "bin": "0.6-0.8",
+      "n": 45,
+      "mean_predicted": 0.6772,
+      "observed_rate": 0.6222
+    },
+    {
+      "bin": "0.8-1.0",
+      "n": 122,
+      "mean_predicted": 0.9276,
+      "observed_rate": 0.8934
+    }
+  ],
+  "review_capacity": [
+    {
+      "reviews_per_quarter": 5,
+      "total_reviewed": 30,
+      "threshold": 0.9722,
+      "true_cases_caught": 29,
+      "total_true_cases": 271,
+      "recall_at_capacity": 0.107,
+      "precision_at_capacity": 0.9667,
+      "wasted_reviews": 1
+    },
+    {
+      "reviews_per_quarter": 10,
+      "total_reviewed": 60,
+      "threshold": 0.9392,
+      "true_cases_caught": 55,
+      "total_true_cases": 271,
+      "recall_at_capacity": 0.203,
+      "precision_at_capacity": 0.9167,
+      "wasted_reviews": 5
+    },
+    {
+      "reviews_per_quarter": 15,
+      "total_reviewed": 90,
+      "threshold": 0.8881,
+      "true_cases_caught": 84,
+      "total_true_cases": 271,
+      "recall_at_capacity": 0.31,
+      "precision_at_capacity": 0.9333,
+      "wasted_reviews": 6
+    },
+    {
+      "reviews_per_quarter": 20,
+      "total_reviewed": 120,
+      "threshold": 0.8144,
+      "true_cases_caught": 107,
+      "total_true_cases": 271,
+      "recall_at_capacity": 0.3948,
+      "precision_at_capacity": 0.8917,
+      "wasted_reviews": 13
+    },
+    {
+      "reviews_per_quarter": 30,
+      "total_reviewed": 180,
+      "threshold": 0.5472,
+      "true_cases_caught": 143,
+      "total_true_cases": 271,
+      "recall_at_capacity": 0.5277,
+      "precision_at_capacity": 0.7944,
+      "wasted_reviews": 37
+    }
+  ],
+  "labeling_rule": "An observation at quarter t is labelled Additional Review or Follow-up when the verified subsequent quarter (t+1) records either a severe single deterioration -- a quarter-on-quarter Gross Sales decline of 25% or more, or employment 20% or more below the Pre-Implementation baseline -- or at least 2 of the following co-occurring conditions: a Gross Sales decline of 10% or more; employment below the Pre-Implementation baseline; a second consecutive quarter of declining Gross Sales; or a fall in Man-Months to 85% or less of the preceding quarter. All other observations are labelled Routine Monitoring. The classifier reads only quarter t and therefore anticipates, rather than restates, these subsequent conditions.",
+  "limitation": "All metrics are computed on synthetic observations. Per paper section 2.3.2.4 they validate feature computation, Random Forest integration, TreeSHAP processing and system output, and must NOT be reported as real-world predictive performance."
+}
