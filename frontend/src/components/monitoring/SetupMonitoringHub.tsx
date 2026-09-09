@@ -47,6 +47,10 @@ import { ProductionSalesTab } from './tabs/ProductionSalesTab'
 import { TechInterventionTab } from './tabs/TechInterventionTab'
 import { ExportMonitoringSheetModal } from './ExportMonitoringSheetModal'
 import type { ProjectRecord } from '../../data/admin'
+import {
+  normalizeSetupMonitoringPeriod,
+  setupMonitoringPeriodOptions,
+} from '../../utils/setupMonitoringPeriod'
 
 type ActiveTab =
   | 'profile'
@@ -61,10 +65,8 @@ type SyncStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
 
 interface Props {
   project: ProjectRecord
-  // Both now genuinely optional — when omitted, the hub opens on the real
-  // current quarter/year (see getCurrentQuarter()) instead of a hardcoded
-  // fallback. Pass these explicitly only when you want to deep-link into a
-  // specific historical quarter (e.g. from a report link or query param).
+  // Optional deep-link values. Invalid/out-of-cycle values fall back to the
+  // nearest valid program-cycle default.
   initialQuarter?: Quarter
   initialYear?: number
   onBack?: () => void
@@ -74,41 +76,6 @@ interface Props {
 const BACKEND_SYNC_DEBOUNCE_MS = 1200
 const LOCAL_DRAFT_DEBOUNCE_MS = 400
 
-// Single source of truth for "what quarter/year is it right now". Both the
-// component's default props and generateQuarterOptions() derive from this,
-// so they can never drift apart the way `initialQuarter = 'Q2'` /
-// `initialYear = 2024` used to.
-function getCurrentQuarter(referenceDate: Date = new Date()): { quarter: Quarter; year: number } {
-  const quarterNumber = Math.ceil((referenceDate.getMonth() + 1) / 3)
-  return { quarter: `Q${quarterNumber}` as Quarter, year: referenceDate.getFullYear() }
-}
-
-// Generates the last N quarters ("Q3 2026", "Q2 2026", ...) counting back from
-// today, so the selector isn't frozen on a hardcoded past year.
-function generateQuarterOptions(count = 8): Array<{ value: string; label: string; quarter: Quarter; year: number }> {
-  const { quarter: startQuarter, year: startYear } = getCurrentQuarter()
-  let quarter = Number(startQuarter.slice(1))
-  let year = startYear
-  const options: Array<{ value: string; label: string; quarter: Quarter; year: number }> = []
-
-  for (let i = 0; i < count; i += 1) {
-    const q = `Q${quarter}` as Quarter
-    options.push({
-      value: `${q} ${year}`,
-      label: `${['1st', '2nd', '3rd', '4th'][quarter - 1]} Quarter (${q} ${year})`,
-      quarter: q,
-      year,
-    })
-    quarter -= 1
-    if (quarter === 0) {
-      quarter = 4
-      year -= 1
-    }
-  }
-
-  return options
-}
-
 export function SetupMonitoringHub({
   project,
   initialQuarter,
@@ -117,13 +84,16 @@ export function SetupMonitoringHub({
   readOnly = false,
 }: Props) {
   const navigate = useNavigate()
-  const currentQuarter = useMemo(() => getCurrentQuarter(), [])
+  const initialPeriod = useMemo(
+    () => normalizeSetupMonitoringPeriod(initialQuarter, initialYear),
+    [initialQuarter, initialYear],
+  )
 
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(
-    initialQuarter ?? currentQuarter.quarter,
+    initialPeriod.quarter,
   )
   const [selectedYear, setSelectedYear] = useState<number>(
-    initialYear ?? currentQuarter.year,
+    initialPeriod.year,
   )
   const [activeTab, setActiveTab] = useState<ActiveTab>('production_sales')
   const [record, setRecord] = useState<SetupMonitoringQuarterRecord | null>(null)
@@ -154,8 +124,9 @@ export function SetupMonitoringHub({
   const quarterMetricIdRef = useRef<number | null>(null)
   const backendInFlightRef = useRef(false)
   const backendDirtyWhileSavingRef = useRef(false)
+  const recordVersionRef = useRef(0)
 
-  const quarterOptions = useMemo(() => generateQuarterOptions(8), [])
+  const quarterOptions = useMemo(() => setupMonitoringPeriodOptions(), [])
 
   const projectBackendId = String(project.backendId ?? project.id)
 
@@ -175,6 +146,9 @@ export function SetupMonitoringHub({
     setIsLoading(true)
     setLoadError(null)
     setCreateQuarterError(null)
+    quarterMetricIdRef.current = null
+    setQuarterMetricId(null)
+    backendDirtyWhileSavingRef.current = false
     clearPendingTimers()
 
     fetchQuarterlyMetricsWithId(projectBackendId, selectedYear, selectedQuarter, {
@@ -183,6 +157,7 @@ export function SetupMonitoringHub({
     })
       .then(({ record: loaded, quarterMetricId: qid }) => {
         if (requestId !== loadRequestRef.current) return
+        recordVersionRef.current = 0
         recordRef.current = loaded
         snapshotRef.current = buildSnapshot(loaded)
         quarterMetricIdRef.current = qid
@@ -204,6 +179,7 @@ export function SetupMonitoringHub({
   useEffect(() => {
     loadQuarter()
     return () => {
+      loadRequestRef.current += 1
       clearPendingTimers()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -225,21 +201,38 @@ export function SetupMonitoringHub({
       return
     }
 
+    const requestId = loadRequestRef.current
+    const syncedVersion = recordVersionRef.current
+    const recordToSync = recordRef.current
+    const snapshotToSync = snapshotRef.current
+
     backendInFlightRef.current = true
     setSyncStatus('saving')
-    syncQuarter(qid, recordRef.current, snapshotRef.current)
+    syncQuarter(qid, recordToSync, snapshotToSync)
       .then((result) => {
-        if (loadRequestRef.current === 0) return
-        recordRef.current = result.record
+        if (
+          requestId !== loadRequestRef.current
+          || qid !== quarterMetricIdRef.current
+        ) return
+
+        // Advance only the persisted baseline. A response must never replace
+        // newer edits in the live form or remount the currently focused row.
         snapshotRef.current = result.snapshot
-        setRecord(result.record)
         setSyncErrors(result.errors)
-        setSyncStatus(result.errors.length > 0 ? 'error' : 'saved')
+        setSyncStatus(
+          recordVersionRef.current === syncedVersion
+            ? (result.errors.length > 0 ? 'error' : 'saved')
+            : 'pending',
+        )
         if (result.errors.length > 0) {
           console.error('Some quarterly-metrics sections failed to save:', result.errors)
         }
       })
       .catch((error) => {
+        if (
+          requestId !== loadRequestRef.current
+          || qid !== quarterMetricIdRef.current
+        ) return
         console.error('Quarter sync failed outright:', error)
         setSyncStatus('error')
       })
@@ -247,12 +240,17 @@ export function SetupMonitoringHub({
         backendInFlightRef.current = false
         if (backendDirtyWhileSavingRef.current) {
           backendDirtyWhileSavingRef.current = false
+          if (backendSyncTimerRef.current) {
+            clearTimeout(backendSyncTimerRef.current)
+            backendSyncTimerRef.current = null
+          }
           runBackendSync()
         }
       })
   }
 
   const handleRecordChange = (updated: SetupMonitoringQuarterRecord) => {
+    recordVersionRef.current += 1
     recordRef.current = updated
     setRecord(updated)
 
@@ -270,6 +268,7 @@ export function SetupMonitoringHub({
 
     // Backend batch sync — only if this quarter already has a backend row.
     if (quarterMetricIdRef.current != null) {
+      if (backendInFlightRef.current) backendDirtyWhileSavingRef.current = true
       if (backendSyncTimerRef.current) clearTimeout(backendSyncTimerRef.current)
       setSyncStatus('pending')
       backendSyncTimerRef.current = setTimeout(() => {

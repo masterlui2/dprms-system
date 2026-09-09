@@ -19,6 +19,7 @@ import type {
 import type { ProjectRecord } from '../data/admin'
 import api from '../lib/axios'
 import type { ProjectPagination } from '../types/monitoring'
+import { normalizeMonitoringDate } from '../utils/monitoringDate'
 
 const STORAGE_PREFIX = 'dprms_setup_monitoring_record_'
 
@@ -1039,15 +1040,16 @@ export function mapBackendQuarterlyMetric(
   for (const iv of metric.intervention) {
     const type = (iv.type || '').toUpperCase()
     const availed = iv.availed === '1' || iv.availed?.toLowerCase() === 'true'
+    const interventionDate = normalizeMonitoringDate(iv.date, year) ?? ''
 
     if (type.includes('TRAIN')) {
-      trainings.push({ id: `tr_${iv.id}`, category: 'OTHER', trainingName: iv.name, date: iv.date })
+      trainings.push({ id: `tr_${iv.id}`, category: 'OTHER', trainingName: iv.name, date: interventionDate })
     } else if (type.includes('TECH')) {
-      techTransfers.push({ id: `tt_${iv.id}`, type: 'OTHER', details: iv.intervention || iv.name, date: iv.date })
+      techTransfers.push({ id: `tt_${iv.id}`, type: 'OTHER', details: iv.intervention || iv.name, date: interventionDate })
     } else if (type.includes('SUPPORT') || type.includes('TEST') || type.includes('CALIB')) {
-      supportServices.push({ id: `ss_${iv.id}`, type: 'Other', productTestedParameters: iv.intervention || iv.name, date: iv.date })
+      supportServices.push({ id: `ss_${iv.id}`, type: 'Other', productTestedParameters: iv.intervention || iv.name, date: interventionDate })
     } else if (type.includes('OTHER') || type.includes('PROJECT')) {
-      otherProjects.push({ id: `op_${iv.id}`, projectTitle: iv.name, date: iv.date })
+      otherProjects.push({ id: `op_${iv.id}`, projectTitle: iv.name, date: interventionDate })
     } else {
       // "CONSULTANCY" and anything unrecognized
       consultancies.push({
@@ -1055,7 +1057,7 @@ export function mapBackendQuarterlyMetric(
         serviceName: iv.name,
         availed,
         areaOfIntervention: iv.intervention,
-        date: iv.date,
+        date: interventionDate,
       })
     }
   }
@@ -1085,7 +1087,7 @@ export function mapBackendQuarterlyMetric(
     marketName: m.market_name,
     address: m.address,
     condition: (m.condition || '').toUpperCase() === 'NEW' ? 'NEW' : 'OLD',
-    effectivityDate: m.effective_date,
+    effectivityDate: normalizeMonitoringDate(m.effective_date, year) ?? '',
     contactPerson: m.contact_person,
     productServiceSold: m.service,
     volumeDelivered: m.volume,

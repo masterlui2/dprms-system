@@ -1,10 +1,16 @@
 // src/services/quarterResourceAdapters.ts
 
+import type { SetupMonitoringQuarterRecord } from '../types/setupMonitoring'
+import { normalizeMonitoringDate } from '../utils/monitoringDate'
+
 export interface ResourceAdapter<TFrontend = any> {
   endpoint: string // e.g. "product" -> /quarterly-metrics/{id}/product/batch
   recordKey: keyof any // the array on SetupMonitoringQuarterRecord this pulls from
   extraOnCreate?: (item: TFrontend) => Record<string, any> // e.g. fixed `type`
-  toPayload: (item: TFrontend) => Record<string, any> // shared create/update field map
+  toPayload: (
+    item: TFrontend,
+    record?: SetupMonitoringQuarterRecord,
+  ) => Record<string, any> // shared create/update field map
 }
 
 export const productAdapter: ResourceAdapter = {
@@ -148,15 +154,19 @@ export function marketAdapter(
   return {
     endpoint: 'market',
     recordKey,
-    toPayload: (m: any) => ({
-      market_name: m.marketName,
-      address: m.address,
-      condition: (m.condition || 'NEW').toLowerCase(),
-      effective_date: m.effectivityDate || null,
-      contact_person: m.contactPerson,
-      service: m.productServiceSold,
-      volume: m.volumeDelivered,
-    }),
+    toPayload: (m: any, record) => {
+      const effectiveDate = normalizeMonitoringDate(m.effectivityDate, record?.year)
+
+      return {
+        market_name: m.marketName,
+        address: m.address,
+        condition: (m.condition || 'NEW').toLowerCase(),
+        ...(effectiveDate ? { effective_date: effectiveDate } : {}),
+        contact_person: m.contactPerson,
+        service: m.productServiceSold,
+        volume: m.volumeDelivered,
+      }
+    },
   }
 }
 
@@ -168,18 +178,21 @@ export function interventionAdapter(
   return {
     endpoint: 'intervention',
     recordKey,
-    toPayload: (item: any) => {
+    toPayload: (item: any, record) => {
+      const date = normalizeMonitoringDate(item.date, record?.year)
+      const datePayload = date ? { date } : {}
+
       switch (type) {
         case 'CONSULTANCY':
-          return { name: item.serviceName, type, availed: !!item.availed, intervention: item.areaOfIntervention, date: item.date }
+          return { name: item.serviceName, type, availed: !!item.availed, intervention: item.areaOfIntervention, ...datePayload }
         case 'TRAINING':
-          return { name: item.trainingName, type, availed: true, intervention: item.category, date: item.date }
+          return { name: item.trainingName, type, availed: true, intervention: item.category, ...datePayload }
         case 'TECHNOLOGY':
-          return { name: item.details, type, availed: true, intervention: item.type, date: item.date }
+          return { name: item.details, type, availed: true, intervention: item.type, ...datePayload }
         case 'TESTING':
-          return { name: item.productTestedParameters, type, availed: true, intervention: item.type, date: item.date }
+          return { name: item.productTestedParameters, type, availed: true, intervention: item.type, ...datePayload }
         case 'OTHERS':
-          return { name: item.projectTitle, type, availed: true, intervention: 'N/A', date: item.date }
+          return { name: item.projectTitle, type, availed: true, intervention: 'N/A', ...datePayload }
       }
     },
   }
