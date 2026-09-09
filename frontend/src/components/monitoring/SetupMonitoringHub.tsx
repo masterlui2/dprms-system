@@ -551,7 +551,7 @@ export function SetupMonitoringHub({
               disabled={isCreatingQuarter}
               value={`${selectedQuarter} ${selectedYear}`}
               onChange={(event) => handlePeriodChange(event.target.value)}
-              className="h-full min-w-52 cursor-pointer bg-transparent pl-3 pr-2 text-xs font-bold text-slate-700 outline-none disabled:cursor-wait disabled:opacity-60"
+              className="h-full min-w-44 cursor-pointer bg-transparent pl-3 pr-2 text-xs font-bold text-slate-700 outline-none disabled:cursor-wait disabled:opacity-60"
             >
               {quarterOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>

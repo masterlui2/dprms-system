@@ -159,7 +159,7 @@ export function setupMonitoringPeriodOptions(
       ...period,
       context,
       value,
-      label: `${QUARTER_ORDINALS[quarterNumber - 1]} Quarter (${value}) (${isCurrent ? 'Current' : 'Backfill'})`,
+      label: `${QUARTER_ORDINALS[quarterNumber - 1]} Quarter (${value})`,
     })
   }
 
