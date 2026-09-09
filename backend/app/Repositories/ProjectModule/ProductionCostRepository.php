@@ -33,4 +33,34 @@ class ProductionCostRepository extends BaseRepository implements ProductionCostR
         $cost->fill($data);
         return $cost->save();
     }
+
+    #[Override]
+    public function createMany(array $rows): Collection
+    {
+        return Collection::make($rows)->map(function (array $rows){
+            return $this->model->newQuery()->create($rows);
+        });
+    }
+
+    #[Override]
+    public function updateMany(int $quarterId, array $rows): Collection
+    {
+        return Collection::make($rows)->map(function (array $rows) use ($quarterId) {
+            $id = $rows['id'];
+            $cost =  $this->model->newQuery()->where('quarter_id',$quarterId)->find($id);
+            if (! $cost){
+                abort(404,"Not Found");
+            }
+
+            $cost->fill(collect($rows)->except('id')->toArray());
+            $cost->save();
+            return $cost;
+        });
+    }
+
+    #[Override]
+    public function deleteMany(int $quarterId, array $rows): int
+    {
+        return $this->model->newQuery()->where('quarter_id',$quarterId)->whereIn('id',$rows)->delete();
+    }
 }

@@ -55,7 +55,9 @@ input {
   }
 
   .printable-analytics,
-  .printable-analytics * {
+  .printable-analytics *,
+  .printable-qr-sheet,
+  .printable-qr-sheet * {
     visibility: visible !important;
   }
 
@@ -67,6 +69,32 @@ input {
     border: 0 !important;
     box-shadow: none !important;
     background: #ffffff !important;
+  }
+
+  .printable-qr-sheet {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
+
+  .printable-qr-sheet .qr-sheet-heading {
+    display: block !important;
+    margin-bottom: 5mm !important;
+  }
+
+  .printable-qr-sheet .qr-sticker-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 3mm !important;
+  }
+
+  .printable-qr-sheet .qr-sticker {
+    min-height: 38mm !important;
+    border-radius: 2mm !important;
+    padding: 3mm !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
   }
 
   .print-hidden {

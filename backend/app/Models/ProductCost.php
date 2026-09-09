@@ -11,6 +11,7 @@ class ProductCost extends Model
     protected $fillable = [
         'quarter_id',
         'particulars',
+        'type',
         'month_1',
         'month_2',
         'month_3',

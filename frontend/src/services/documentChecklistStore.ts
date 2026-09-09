@@ -2,6 +2,7 @@ import api from '../lib/axios'
 import type { ApplicationProgram } from '../types/application'
 import {
   fetchProposalDocumentsForStaff,
+  getDocuments,
   reviewProposalDocument,
   type DocumentApiRecord,
 } from './documentStore'
@@ -936,64 +937,327 @@ function saveLocalChecklistCache(proposalId: number, items: DocumentChecklistIte
   }
 }
 
+function findMatchingUploadedDoc(
+  reqId: string,
+  reqName: string,
+  uploadedDocs: DocumentApiRecord[]
+): DocumentApiRecord | null {
+  const code = reqId.toLowerCase()
+  const cleanName = reqName.toLowerCase().replace(/^\d+\.\s*/, '')
+
+  return (
+    uploadedDocs.find((doc) => {
+      const typeName = (doc.document_type?.name || '').toLowerCase()
+      const fileName = (doc.file_name || '').toLowerCase()
+
+      if (typeName && (cleanName.includes(typeName) || typeName.includes(cleanName))) return true
+
+      if (code.includes('dti') && (typeName.includes('dti') || fileName.includes('dti'))) return true
+      if (code.includes('bir') && (typeName.includes('bir') || fileName.includes('bir'))) return true
+      if (code.includes('mayor') && (typeName.includes('mayor') || fileName.includes('mayor'))) return true
+      if (code.includes('receipt') && (typeName.includes('receipt') || fileName.includes('receipt'))) return true
+      if (code.includes('quotation') && (typeName.includes('quotation') || fileName.includes('quotation') || fileName.includes('quote'))) return true
+      if (code.includes('lease') && (typeName.includes('lease') || fileName.includes('lease') || typeName.includes('ownership') || fileName.includes('ownership'))) return true
+      if (code.includes('board-res') && (typeName.includes('board resolution') || fileName.includes('board_res') || fileName.includes('board-res'))) return true
+      if (code.includes('articles') && (typeName.includes('articles') || fileName.includes('articles') || typeName.includes('by-laws'))) return true
+      if (code.includes('sec-cert') && (typeName.includes('secretary') || fileName.includes('sec_cert') || fileName.includes('secretary'))) return true
+      if (code.includes('financial') && (typeName.includes('financial') || fileName.includes('financial') || typeName.includes('balance sheet') || fileName.includes('fs'))) return true
+      if (code.includes('letter-of-intent') && (typeName.includes('intent') || fileName.includes('intent') || fileName.includes('loi'))) return true
+      if (code.includes('tna-01') && (typeName.includes('tna form 01') || fileName.includes('tna_01') || fileName.includes('tna-01') || fileName.includes('tna_form_1'))) return true
+      if (code.includes('gad-assessment') && (typeName.includes('gwp') || fileName.includes('gwp') || fileName.includes('gad_assessment'))) return true
+      if (code.includes('gad-checklist') && (typeName.includes('gad checklist') || fileName.includes('gad_checklist') || fileName.includes('gad-checklist'))) return true
+      if (code.includes('hazard-hunter') && (typeName.includes('hazard') || fileName.includes('hazard'))) return true
+      if (code.includes('biodata') && (typeName.includes('bio-data') || typeName.includes('cv') || fileName.includes('biodata') || fileName.includes('cv'))) return true
+      if (code.includes('govt-id') && (typeName.includes('government-issued id') || typeName.includes('valid id') || fileName.includes('valid_id') || fileName.includes('govt_id'))) return true
+      if (code.includes('brgy-cert') && (typeName.includes('barangay') || fileName.includes('barangay') || fileName.includes('brgy'))) return true
+      if (code.includes('omnibus') && (typeName.includes('omnibus') || fileName.includes('omnibus'))) return true
+
+      if (code.includes('dost-form-1') && (typeName.includes('form 1') || typeName.includes('form 1a') || typeName.includes('form 1b') || typeName.includes('proposal form') || fileName.includes('form_1') || fileName.includes('form1'))) return true
+      if (code.includes('dost-form-2') && (typeName.includes('form 2') || typeName.includes('workplan') || fileName.includes('form_2') || fileName.includes('workplan'))) return true
+      if (code.includes('dost-form-3') && (typeName.includes('form 3') || typeName.includes('financial plan') || typeName.includes('lib') || fileName.includes('form_3') || fileName.includes('budget') || fileName.includes('lib'))) return true
+      if (code.includes('dost-form-4') && (typeName.includes('form 4') || typeName.includes('gender') || fileName.includes('form_4') || fileName.includes('gad'))) return true
+      if (code.includes('dost-form-5') && (typeName.includes('form 5') || typeName.includes('curriculum vitae') || fileName.includes('form_5') || fileName.includes('cv'))) return true
+      if (code.includes('dost-form-6') && (typeName.includes('form 6') || typeName.includes('endorsement') || fileName.includes('form_6') || fileName.includes('endorsement'))) return true
+      if (code.includes('cofunding') && (typeName.includes('co-funding') || typeName.includes('counterpart') || fileName.includes('cofunding') || fileName.includes('counterpart'))) return true
+      if (code.includes('sec-cda') && (typeName.includes('sec') || typeName.includes('cda') || fileName.includes('sec') || fileName.includes('cda'))) return true
+      if (code.includes('audited-fs') && (typeName.includes('audited') || fileName.includes('audited') || fileName.includes('fs'))) return true
+
+      return false
+    }) || null
+  )
+}
+
+function findMatchingLocalDoc(
+  reqId: string,
+  reqName: string,
+  localDocs: Record<string, any>,
+  proposalId?: number,
+): DocumentApiRecord | null {
+  const code = reqId.toLowerCase()
+  const cleanName = reqName.toLowerCase().replace(/^\d+\.\s*/, '')
+
+  for (const [key, doc] of Object.entries(localDocs)) {
+    if (!doc) continue
+    const keyLower = key.toLowerCase()
+    const nameLower = (doc.fileName || '').toLowerCase()
+
+    if (
+      keyLower === code ||
+      cleanName.includes(keyLower) ||
+      (code.includes('dti') && (keyLower.includes('dti') || nameLower.includes('dti'))) ||
+      (code.includes('bir') && (keyLower.includes('bir') || nameLower.includes('bir'))) ||
+      (code.includes('mayor') && (keyLower.includes('mayor') || nameLower.includes('mayor'))) ||
+      (code.includes('receipt') && (keyLower.includes('receipt') || nameLower.includes('receipt'))) ||
+      (code.includes('quotation') && (keyLower.includes('quotation') || nameLower.includes('quotation') || nameLower.includes('quote'))) ||
+      (code.includes('lease') && (keyLower.includes('lease') || nameLower.includes('lease') || keyLower.includes('ownership'))) ||
+      (code.includes('board-res') && (keyLower.includes('board-res') || nameLower.includes('board_res') || keyLower.includes('resolution'))) ||
+      (code.includes('sec-cda') && (keyLower.includes('sec') || keyLower.includes('cda') || nameLower.includes('sec') || nameLower.includes('cda'))) ||
+      (code.includes('financial') && (keyLower.includes('financial') || nameLower.includes('financial') || nameLower.includes('fs'))) ||
+      (code.includes('letter-of-intent') && (keyLower.includes('intent') || nameLower.includes('intent') || nameLower.includes('loi'))) ||
+      (code.includes('tna-01') && (keyLower.includes('tna') || nameLower.includes('tna'))) ||
+      (code.includes('gad-assessment') && (keyLower.includes('gad') || nameLower.includes('gwp'))) ||
+      (code.includes('hazard-hunter') && (keyLower.includes('hazard') || nameLower.includes('hazard'))) ||
+      (code.includes('biodata') && (keyLower.includes('biodata') || nameLower.includes('cv'))) ||
+      (code.includes('govt-id') && (keyLower.includes('id') || nameLower.includes('id'))) ||
+      (code.includes('brgy-cert') && (keyLower.includes('brgy') || keyLower.includes('barangay'))) ||
+      (code.includes('omnibus') && (keyLower.includes('omnibus') || nameLower.includes('omnibus')))
+    ) {
+      return {
+        id: doc.backendId || Math.floor(Math.random() * 100000),
+        proposal_id: proposalId || 0,
+        document_type_id: 1,
+        uploaded_by: 1,
+        reviewed_by: null,
+        file_name: doc.fileName || 'document.pdf',
+        file_path: doc.dataUrl || '',
+        file_size: doc.fileSize || 1024,
+        mime_type: doc.fileType || 'application/pdf',
+        status: doc.verificationStatus === 'Approved' ? 'approved' : 'pending',
+        remarks: doc.remarks || null,
+        reviewed_at: doc.reviewedAt || null,
+        created_at: doc.uploadedAt || new Date().toISOString(),
+        updated_at: doc.uploadedAt || new Date().toISOString(),
+      }
+    }
+  }
+  return null
+}
+
 export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord[]> {
   const localCache = getLocalChecklistCache()
   const records: ProposalChecklistRecord[] = []
 
   try {
-    const response = await api.get('/proposals')
-    const rawProposals = Array.isArray(response.data?.data) ? response.data.data : []
-
-    for (const proposal of rawProposals) {
-      const proposalId = proposal.id
-      const program: ApplicationProgram = proposal.program_type === 'GIA' ? 'GIA' : 'SETUP'
-      const setupObj = proposal.setup_proposal?.[0]
-      const giaObj = proposal.gia_proposal?.[0]
-
-      const enterpriseName =
-        setupObj?.business_name ||
-        giaObj?.organization_name ||
-        proposal.title ||
-        'Unnamed Enterprise'
-
-      const proponentName = proposal.user?.name || 'Proponent'
-      const proponentEmail = proposal.user?.email || ''
-      const district = setupObj?.city_municipality || setupObj?.province || 'Davao Oriental'
-      const referenceNumber = proposal.reference_number || `PROP-${proposalId}`
-      const submittedDate = proposal.submitted_at || proposal.created_at || new Date().toISOString()
-      const focalName = program === 'GIA' ? 'GIA Focal' : 'SETUP Focal'
-
-      let uploadedDocs: DocumentApiRecord[] = []
+    let rawProposals: any[] = []
+    try {
+      const response = await api.get('/proposals')
+      rawProposals = Array.isArray(response.data?.data) ? response.data.data : []
+    } catch {
       try {
-        uploadedDocs = await fetchProposalDocumentsForStaff(proposalId)
+        const response = await api.get('/proposal')
+        rawProposals = Array.isArray(response.data?.data) ? response.data.data : []
       } catch {
-        uploadedDocs = []
+        rawProposals = []
       }
+    }
 
+    const fetchedRecords = await Promise.all(
+      rawProposals.map(async (proposal: any) => {
+        const proposalId = proposal.id
+        const program: ApplicationProgram = proposal.program_type === 'GIA' ? 'GIA' : 'SETUP'
+        const setupObj = proposal.setup_proposal?.[0]
+        const giaObj = proposal.gia_proposal?.[0]
+
+        const enterpriseName =
+          setupObj?.business_name ||
+          giaObj?.organization_name ||
+          proposal.title ||
+          'Unnamed Enterprise'
+
+        const proponentName = proposal.user?.name || 'Proponent'
+        const proponentEmail = proposal.user?.email || ''
+        const district = setupObj?.city_municipality || setupObj?.province || giaObj?.city_municipality || giaObj?.province || ''
+        const referenceNumber = proposal.reference_number || `PROP-${proposalId}`
+        const submittedDate = proposal.submitted_at || proposal.created_at || new Date().toISOString()
+        const focalName = proposal.assigned_focal?.name || proposal.focal?.name || (program === 'GIA' ? 'GIA Focal' : 'SETUP Focal')
+
+        let serverChecklistData: any = null
+        try {
+          const checkRes = await api.get(`/proposals/${proposalId}/checklist`)
+          serverChecklistData = checkRes.data?.data
+        } catch {
+          serverChecklistData = null
+        }
+
+        if (serverChecklistData && Array.isArray(serverChecklistData.items) && serverChecklistData.items.length > 0) {
+          return {
+            proposalId: serverChecklistData.proposal_id,
+            referenceNumber: serverChecklistData.reference_number,
+            enterpriseName: serverChecklistData.enterprise_name,
+            proponentName: serverChecklistData.proponent_name,
+            proponentEmail: serverChecklistData.proponent_email,
+            program: serverChecklistData.program,
+            status: serverChecklistData.status,
+            submittedDate: serverChecklistData.submitted_date,
+            district: serverChecklistData.district,
+            focalName: serverChecklistData.focal_name,
+            totalRequired: serverChecklistData.total_required,
+            compliedCount: serverChecklistData.complied_count,
+            compliancePercentage: serverChecklistData.compliance_percentage,
+            overallRemarks: serverChecklistData.overall_remarks,
+            lastUpdated: serverChecklistData.last_updated,
+            items: serverChecklistData.items.map((item: any) => ({
+              id: item.id,
+              templateId: item.template_id,
+              name: item.name,
+              group: item.group,
+              setId: item.set_id,
+              stageId: item.stage_id,
+              isRequired: item.is_required,
+              isPresent: item.is_present,
+              status: item.status,
+              remarks: item.remarks || '',
+              uploadedDoc: item.uploaded_doc,
+              reviewedAt: item.reviewed_at,
+            })),
+          } as ProposalChecklistRecord
+        }
+
+        let uploadedDocs: DocumentApiRecord[] = []
+        try {
+          uploadedDocs = await fetchProposalDocumentsForStaff(proposalId)
+        } catch {
+          uploadedDocs = []
+        }
+
+        const localDocs = getDocuments(referenceNumber)
+        const cached = localCache[proposalId]
+
+        let items: DocumentChecklistItem[] = []
+
+        if (program === 'GIA') {
+          items = OFFICIAL_GIA_STAGE_ITEMS.map((req) => {
+            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs)
+            const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
+
+            let isPresent = false
+            let status: ChecklistItemStatus = 'Missing'
+
+            if (cachedItem) {
+              isPresent = cachedItem.isPresent
+              status = cachedItem.status
+            } else if (matchedUploaded) {
+              const isApproved = matchedUploaded.status === 'approved'
+              isPresent = isApproved
+              status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+            }
+
+            return {
+              id: req.id,
+              name: req.name,
+              group: req.group,
+              stageId: req.stageId,
+              isRequired: req.isRequired,
+              isPresent,
+              status,
+              remarks: cachedItem?.remarks ?? matchedUploaded?.remarks ?? '',
+              uploadedDoc: matchedUploaded ? {
+                ...matchedUploaded,
+                status: matchedUploaded.status,
+              } : null,
+              reviewedAt: matchedUploaded?.reviewed_at || cachedItem?.reviewedAt || null,
+            }
+          })
+        } else {
+          items = OFFICIAL_SETUP_SET_ITEMS.map((req) => {
+            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs)
+            const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
+
+            let isPresent = false
+            let status: ChecklistItemStatus = 'Missing'
+
+            if (cachedItem) {
+              isPresent = cachedItem.isPresent
+              status = cachedItem.status
+            } else if (matchedUploaded) {
+              const isApproved = matchedUploaded.status === 'approved'
+              isPresent = isApproved
+              status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+            }
+
+            return {
+              id: req.id,
+              name: req.name,
+              group: req.group,
+              setId: req.setId,
+              isRequired: req.isRequired,
+              isPresent,
+              status,
+              remarks: cachedItem?.remarks ?? matchedUploaded?.remarks ?? '',
+              uploadedDoc: matchedUploaded ? {
+                ...matchedUploaded,
+                status: matchedUploaded.status,
+              } : null,
+              reviewedAt: matchedUploaded?.reviewed_at || cachedItem?.reviewedAt || null,
+            }
+          })
+        }
+
+        const totalRequired = items.filter((i) => i.isRequired).length || items.length
+        const compliedCount = items.filter((i) => (i.isRequired ? i.isPresent : false)).length
+        const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
+
+        return {
+          proposalId,
+          referenceNumber,
+          enterpriseName,
+          proponentName,
+          proponentEmail,
+          program,
+          status: proposal.status || 'Submitted',
+          submittedDate,
+          district,
+          focalName,
+          totalRequired,
+          compliedCount,
+          compliancePercentage,
+          items,
+          overallRemarks: cached?.overallRemarks || proposal.remarks || '',
+          lastUpdated: cached?.lastUpdated || proposal.updated_at || submittedDate,
+        } as ProposalChecklistRecord
+      })
+    )
+
+    records.push(...fetchedRecords.filter(Boolean))
+  } catch (error) {
+    console.warn('Could not load proposals from API, building from applications store', error)
+  }
+
+  if (records.length === 0) {
+    const fallbackApps = getApplications()
+    fallbackApps.forEach((app, idx) => {
+      const proposalId = app.proposalId || (Number(app.id.replace(/\D/g, '')) > 0 ? Number(app.id.replace(/\D/g, '')) : idx + 1)
+      const localDocs = getDocuments(app.referenceNo)
       const cached = localCache[proposalId]
+      const program = app.program || 'SETUP'
 
       let items: DocumentChecklistItem[] = []
 
       if (program === 'GIA') {
         items = OFFICIAL_GIA_STAGE_ITEMS.map((req) => {
-          const matchedUploaded = uploadedDocs.find(
-            (doc) =>
-              (doc.document_type?.name &&
-                doc.document_type.name.toLowerCase().includes(req.name.toLowerCase().slice(0, 20))) ||
-              doc.file_name.toLowerCase().includes(req.name.toLowerCase().slice(0, 15))
-          )
-
+          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId)
           const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
 
-          const isPresent = cachedItem ? cachedItem.isPresent : Boolean(matchedUploaded)
+          let isPresent = false
           let status: ChecklistItemStatus = 'Missing'
 
-          if (matchedUploaded) {
-            if (matchedUploaded.status === 'approved') status = 'Complied'
-            else if (matchedUploaded.status === 'returned_for_revision') status = 'Needs Revision'
-            else status = 'Under Review'
-          } else if (isPresent) {
-            status = 'Complied'
+          if (cachedItem) {
+            isPresent = cachedItem.isPresent
+            status = cachedItem.status
+          } else if (matchedUploaded) {
+            const isApproved = matchedUploaded.status === 'approved'
+            isPresent = isApproved
+            status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
           }
 
           return {
@@ -1003,32 +1267,30 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
             stageId: req.stageId,
             isRequired: req.isRequired,
             isPresent,
-            status: cachedItem?.status || status,
-            remarks: cachedItem?.remarks ?? matchedUploaded?.remarks ?? '',
-            uploadedDoc: matchedUploaded || null,
-            reviewedAt: matchedUploaded?.reviewed_at || cachedItem?.reviewedAt || null,
+            status,
+            remarks: cachedItem?.remarks || matchedUploaded?.remarks || '',
+            uploadedDoc: matchedUploaded ? {
+              ...matchedUploaded,
+              status: matchedUploaded.status,
+            } : null,
+            reviewedAt: cachedItem?.reviewedAt || null,
           }
         })
       } else {
         items = OFFICIAL_SETUP_SET_ITEMS.map((req) => {
-          const matchedUploaded = uploadedDocs.find(
-            (doc) =>
-              (doc.document_type?.name &&
-                doc.document_type.name.toLowerCase().includes(req.name.toLowerCase().slice(0, 20))) ||
-              doc.file_name.toLowerCase().includes(req.name.toLowerCase().slice(0, 15))
-          )
-
+          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId)
           const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
 
-          const isPresent = cachedItem ? cachedItem.isPresent : Boolean(matchedUploaded)
+          let isPresent = false
           let status: ChecklistItemStatus = 'Missing'
 
-          if (matchedUploaded) {
-            if (matchedUploaded.status === 'approved') status = 'Complied'
-            else if (matchedUploaded.status === 'returned_for_revision') status = 'Needs Revision'
-            else status = 'Under Review'
-          } else if (isPresent) {
-            status = 'Complied'
+          if (cachedItem) {
+            isPresent = cachedItem.isPresent
+            status = cachedItem.status
+          } else if (matchedUploaded) {
+            const isApproved = matchedUploaded.status === 'approved'
+            isPresent = isApproved
+            status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
           }
 
           return {
@@ -1038,10 +1300,13 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
             setId: req.setId,
             isRequired: req.isRequired,
             isPresent,
-            status: cachedItem?.status || status,
-            remarks: cachedItem?.remarks ?? matchedUploaded?.remarks ?? '',
-            uploadedDoc: matchedUploaded || null,
-            reviewedAt: matchedUploaded?.reviewed_at || cachedItem?.reviewedAt || null,
+            status,
+            remarks: cachedItem?.remarks || matchedUploaded?.remarks || '',
+            uploadedDoc: matchedUploaded ? {
+              ...matchedUploaded,
+              status: matchedUploaded.status,
+            } : null,
+            reviewedAt: cachedItem?.reviewedAt || null,
           }
         })
       }
@@ -1052,86 +1317,14 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
 
       records.push({
         proposalId,
-        referenceNumber,
-        enterpriseName,
-        proponentName,
-        proponentEmail,
-        program,
-        status: proposal.status || 'Submitted',
-        submittedDate,
-        district,
-        focalName,
-        totalRequired,
-        compliedCount,
-        compliancePercentage,
-        items,
-        overallRemarks: cached?.overallRemarks || proposal.remarks || '',
-        lastUpdated: cached?.lastUpdated || proposal.updated_at || submittedDate,
-      })
-    }
-  } catch (error) {
-    console.warn('Could not load proposals from API, building from applications store', error)
-  }
-
-  if (records.length === 0) {
-    const fallbackApps = getApplications()
-    for (const app of fallbackApps) {
-      const proposalId = app.proposalId || Number(app.id.replace(/\D/g, '')) || 101
-      const cached = localCache[proposalId]
-      const program = app.program || 'SETUP'
-
-      let items: DocumentChecklistItem[] = []
-
-      if (program === 'GIA') {
-        items = OFFICIAL_GIA_STAGE_ITEMS.map((req, index) => {
-          const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
-          const isPresent = cachedItem ? cachedItem.isPresent : index < 6
-          return {
-            id: req.id,
-            name: req.name,
-            group: req.group,
-            stageId: req.stageId,
-            isRequired: req.isRequired,
-            isPresent,
-            status: isPresent ? 'Complied' : 'Missing',
-            remarks: cachedItem?.remarks || '',
-            uploadedDoc: null,
-            reviewedAt: cachedItem?.reviewedAt || null,
-          }
-        })
-      } else {
-        items = OFFICIAL_SETUP_SET_ITEMS.map((req, index) => {
-          const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
-          const isPresent = cachedItem ? cachedItem.isPresent : index < 8
-          return {
-            id: req.id,
-            name: req.name,
-            group: req.group,
-            setId: req.setId,
-            isRequired: req.isRequired,
-            isPresent,
-            status: isPresent ? 'Complied' : 'Missing',
-            remarks: cachedItem?.remarks || '',
-            uploadedDoc: null,
-            reviewedAt: cachedItem?.reviewedAt || null,
-          }
-        })
-      }
-
-      const totalRequired = items.filter((i) => i.isRequired).length || items.length
-      const compliedCount = items.filter((i) => i.isRequired && i.isPresent).length
-      const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
-
-      records.push({
-        proposalId,
-        referenceNumber: app.referenceNo || `PROP-2026-${proposalId}`,
+        referenceNumber: app.referenceNo || `PROP-${proposalId}`,
         enterpriseName: app.organizationName || app.projectTitle || 'Enterprise',
         proponentName: app.applicantName || 'Proponent',
-        proponentEmail: app.contactEmail || 'proponent@dost.gov.ph',
+        proponentEmail: app.contactEmail || '',
         program,
         status: app.status || 'Submitted',
         submittedDate: app.createdAt || new Date().toISOString(),
-        district: app.location || 'District 1, Davao Oriental',
+        district: app.location || '',
         focalName: program === 'GIA' ? 'GIA Focal' : 'SETUP Focal',
         totalRequired,
         compliedCount,
@@ -1140,7 +1333,7 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
         overallRemarks: cached?.overallRemarks || '',
         lastUpdated: cached?.lastUpdated || new Date().toISOString(),
       })
-    }
+    })
   }
 
   return records
@@ -1152,6 +1345,20 @@ export async function saveProposalChecklistReview(
   overallRemarks: string,
 ): Promise<void> {
   saveLocalChecklistCache(proposalId, items, overallRemarks)
+
+  try {
+    await api.put(`/proposals/${proposalId}/checklist/batch`, {
+      overall_remarks: overallRemarks,
+      items: items.map((item) => ({
+        id: item.id,
+        is_present: item.isPresent,
+        status: item.status,
+        remarks: item.remarks,
+      })),
+    })
+  } catch (err) {
+    console.warn(`Failed to sync batch checklist review to backend:`, err)
+  }
 
   const reviewPromises = items
     .filter((item) => item.uploadedDoc?.id)
@@ -1261,36 +1468,13 @@ export function getChecklistHistory(proposalId: number): ChecklistHistoryItem[] 
     const raw = localStorage.getItem(`${HISTORY_STORAGE_KEY_PREFIX}${proposalId}`)
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      if (Array.isArray(parsed)) return parsed
     }
   } catch {
     //
   }
 
-  // Fallback initial activity logs for demonstration
-  return [
-    {
-      id: `hist_init_1_${proposalId}`,
-      proposalId,
-      action: 'UPLOAD',
-      itemName: 'Technology Needs Assessment (TNA) Report',
-      fileName: 'TNA_Initial_Report.pdf',
-      userName: 'Maria Santos',
-      userRole: 'project_staff',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24 * 2).toISOString(),
-      details: 'Initial TNA documentation uploaded during proposal intake.',
-    },
-    {
-      id: `hist_init_2_${proposalId}`,
-      proposalId,
-      action: 'REVIEW_APPROVED',
-      itemName: 'Technology Needs Assessment (TNA) Report',
-      userName: 'Engr. Juan Dela Cruz',
-      userRole: 'focal',
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-      details: 'Reviewed and satisfied TNA compliance requirements.',
-    },
-  ]
+  return []
 }
 
 export function addChecklistHistoryLog(

@@ -39,4 +39,32 @@ class QuarterlyMetrics extends Model
     public function product_cost():HasMany{
         return $this->hasMany(ProductCost::class, 'quarter_id');
     }
+
+    public function asset():HasMany{
+        return $this->hasMany(Asset::class, 'quarter_id');
+    }
+
+    public function asset_capital():HasMany{
+        return $this->hasMany(AssetCapital::class, 'quarter_id');
+    }
+
+    public function intervention():HasMany{
+        return $this->hasMany(Intervention::class, 'quarter_id');
+    }
+
+    public function linkage():HasMany{
+        return $this->hasMany(Linkage::class, 'quarter_id');
+    }
+
+    public function market():HasMany{
+        return $this->hasMany(Market::class, 'quarter_id');
+    }
+
+    public function narrative():HasMany{
+        return $this->hasMany(Narrative::class, 'quarter_id');
+    }
+
+    public function production_material():HasMany{
+        return $this->hasMany(ProductionMaterial::class, 'quarter_id');
+    }
 }

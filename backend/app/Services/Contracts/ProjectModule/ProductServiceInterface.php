@@ -9,4 +9,5 @@ interface ProductServiceInterface{
     public function submit(int $quarterId,array $data): Product;
     public function getByQuarterlyMetricsId(int $quarterId): Collection;
     public function update(int $id, array $data): Product;
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes):Collection;
 }

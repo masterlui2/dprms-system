@@ -10,13 +10,12 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Override;
 
-class ProjectService implements ProjectServiceInterface{
-    public function __construct(protected ProjectRepositoryInterface $projectRepository)
-    {
-    }
+class ProjectService implements ProjectServiceInterface
+{
+    public function __construct(protected ProjectRepositoryInterface $projectRepository) {}
 
     #[Override]
-    public function createFromProposal(Proposal $proposal, ?string $notes = null):Project
+    public function createFromProposal(Proposal $proposal, ?string $notes = null): Project
     {
         return $this->projectRepository->createByProposal([
             'proposal_id' => $proposal->id,
@@ -36,8 +35,17 @@ class ProjectService implements ProjectServiceInterface{
     }
 
     #[Override]
-    public function getIndex(): Collection
+    public function getIndex(string $status): Collection
     {
-        return $this->projectRepository->all(['proposal','proposal.setup_proposal','user','approved_by']);
+        $relation = match($status){
+            'SETUP' => ['proposal', 'proposal.setup_proposal', 'user', 'approved_by'],
+            'GIA' => ['proposal', 'proposal.gia_proposal', 'user', 'approved_by'],
+            default => throw new \InvalidArgumentException("Unknown program type: {$status}"),
+        };
+
+        return $this->projectRepository->allWhere(
+            $status,
+            $relation
+        );
     }
 }

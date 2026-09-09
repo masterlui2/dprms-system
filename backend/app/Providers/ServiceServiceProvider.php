@@ -2,10 +2,23 @@
 
 namespace App\Providers;
 
+use App\Services\ProjectModule\AssetCapitalService;
+use App\Services\ProjectModule\AssetService;
+use App\Services\ProjectModule\InterventionService;
+use App\Services\ProjectModule\LinkageService;
+use App\Services\ProjectModule\MarketService;
+use App\Services\ProjectModule\ProductionMaterialsService;
 use App\Services\AuthorizationModule\AuthService;
 use App\Services\Contracts\AuthorizationModule\AuthServiceInterface;
+use App\Services\Contracts\ProjectModule\AssetCapitalServiceInterface;
+use App\Services\Contracts\ProjectModule\AssetServiceInterface;
 use App\Services\Contracts\ProjectModule\EmployeeServiceInterface;
+use App\Services\Contracts\ProjectModule\InterventionServiceInterface;
+use App\Services\Contracts\ProjectModule\LinkageServiceInterface;
+use App\Services\Contracts\ProjectModule\MarketServiceInterface;
+use App\Services\Contracts\ProjectModule\NarrativeServiceInterface;
 use App\Services\Contracts\ProjectModule\ProductionCostServiceInterface;
+use App\Services\Contracts\ProjectModule\ProductionMaterialsServiceInterface;
 use App\Services\Contracts\ProjectModule\ProductServiceInterface;
 use App\Services\Contracts\ProjectModule\ProjectServiceInterface;
 use App\Services\Contracts\ProjectModule\QuarterlyMetricsServiceInterface;
@@ -19,10 +32,13 @@ use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterfa
 use App\Services\Contracts\ProposalModule\SetupProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\SetupSubmissionServiceInterface;
 use App\Services\ProjectModule\EmployeeService;
+use App\Services\ProjectModule\NarrativeService;
 use App\Services\ProjectModule\ProductionCostService;
 use App\Services\ProjectModule\ProductService;
 use App\Services\ProjectModule\ProjectService;
 use App\Services\ProjectModule\QuarterlyMetricsService;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use App\Services\ProposalModule\DocumentChecklistService;
 use App\Services\ProposalModule\DocumentsService;
 use App\Services\ProposalModule\GiaProposalService;
 use App\Services\ProposalModule\GiaSubmissionService;
@@ -43,6 +59,7 @@ class ServiceServiceProvider extends ServiceProvider
         $this->app->bind(ReferenceNumberGeneratorServiceInterface::class, ReferenceNumberGeneratorService::class);
         $this->app->bind(ProposalServiceInterface::class, ProposalService::class);
         $this->app->bind(DocumentsServiceInterface::class, DocumentsService::class);
+        $this->app->bind(DocumentChecklistServiceInterface::class, DocumentChecklistService::class);
         $this->app->bind(SetupProposalServiceInterface::class, SetupProposalService::class);
         $this->app->bind(SetupSubmissionServiceInterface::class, SetupSubmissionService::class);
         $this->app->bind(GiaSubmissionServiceInterface::class, GiaSubmissionService::class);
@@ -53,5 +70,12 @@ class ServiceServiceProvider extends ServiceProvider
         $this->app->bind(ProductServiceInterface::class,ProductService::class);
         $this->app->bind(ProductionCostServiceInterface::class,ProductionCostService::class);
         $this->app->bind(EmployeeServiceInterface::class,EmployeeService::class);
+        $this->app->bind(AssetCapitalServiceInterface::class, AssetCapitalService::class);
+        $this->app->bind(AssetServiceInterface::class, AssetService::class);
+        $this->app->bind(InterventionServiceInterface::class, InterventionService::class);
+        $this->app->bind(LinkageServiceInterface::class, LinkageService::class);
+        $this->app->bind(MarketServiceInterface::class,MarketService::class);
+        $this->app->bind(NarrativeServiceInterface::class,NarrativeService::class);
+        $this->app->bind(ProductionMaterialsServiceInterface::class, ProductionMaterialsService::class);
     }
 }

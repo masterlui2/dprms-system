@@ -9,4 +9,5 @@ interface ProductionCostServiceInterface{
     public function submit(int $quarterId,array $data): ProductCost;
     public function getByQuarterlyMetricsId(int $quarterId): Collection;
     public function update(int $id, array $data): ProductCost;
+    public function batch(int $quarterId, array $creates, array $updates, array $deletes):Collection;
 }

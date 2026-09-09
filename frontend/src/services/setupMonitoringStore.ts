@@ -1,6 +1,20 @@
 import type {
+  BuildingAsset,
+  ConsultancyItem,
+  EmployeeItem,
+  EquipmentAsset,
+  MarketOutletItem,
+  MonthlyExpenseItem,
+  OtherDostProjectItem,
+  ProductSalesItem,
   Quarter,
+  RawMaterialItem,
   SetupMonitoringQuarterRecord,
+  SupportServiceItem,
+  TechTransferItem,
+  TrainingItem,
+  WorkerCount,
+  WorkingCapitalItem,
 } from '../types/setupMonitoring'
 import type { ProjectRecord } from '../data/admin'
 import api from '../lib/axios'
@@ -510,11 +524,17 @@ export interface SetupMonitoringStatistics {
   pendingReports: number
 }
 
+/**
+ * NOTE: `year` / `quarter` intentionally removed from here.
+ * The backend `/api/projects` endpoint (ProjectController::index) only
+ * accepts `status`. Year/quarter selection belongs to the quarterly-metrics
+ * flow (QuarterlyMetricController), not the project list, so it stays out
+ * of this filter shape. `search`, `district`, and `page` are applied
+ * client-side below since the backend doesn't support them yet either.
+ */
 export interface SetupMonitoringProjectFilters {
   search?: string
   district?: string
-  year: number
-  quarter: Quarter
   page?: number
 }
 
@@ -525,100 +545,112 @@ export interface SetupMonitoringProjectsResult {
   pagination: ProjectPagination
 }
 
-interface BackendSetupMonitoringProject {
+interface BackendApprovedByUser {
   id: number
+  name: string
+  email: string
+  email_verified_at: string | null
+  created_at: string
+  updated_at: string
+  is_active: boolean
+  last_login_at: string | null
+}
+
+interface BackendSetupProposal {
+  id: number
+  proposal_id: number
+  business_name: string
+  business_type: string
+  industry_sector: string
+  enterprise_size: string
+  years_in_operation: number
+  business_address: string
+  region: string
+  province: string
+  city_municipality: string
+  created_at: string
+  updated_at: string
+  form_snapshot: Record<string, unknown> | null
+}
+
+interface BackendProposal {
+  id: number
+  submitted_by: number
+  focal_id: number | null
+  reviewed_by: number | null
+  program_type: 'SETUP' | 'GIA'
   reference_number: string
   title: string
-  enterprise_name: string
-  manager: string
-  business_address: string | null
-  district: string | null
-  province: string | null
-  status: 'active'
+  status: string
+  submitted_at: string | null
   approved_at: string | null
+  disapproved_at: string | null
+  remarks: string | null
+  created_at: string
+  updated_at: string
+  assigned_staff_id: number | null
+  assigned_focal_id: number | null
+  setup_proposal: BackendSetupProposal[]
+}
+
+interface BackendProject {
+  id: number
+  proposal_id: number
+  created_by: number
+  approved_by: BackendApprovedByUser | null
+  program_type: 'SETUP' | 'GIA'
+  status: string
   start_date: string | null
   expected_end_date: string | null
-  monitoring_status: string
-  overall_compliance: number
-  last_monitored_at: string | null
-  monitored: boolean
-  pending_reports: number
-  latest_report: {
-    status: string
-    reporting_period: string
-    year: number
-    quarter: number | null
-    due_date: string | null
-  } | null
+  actual_end_date: string | null
+  notes: string | null
+  approved_at: string | null
+  created_at: string
+  updated_at: string
+  proposal: BackendProposal
+  user: BackendApprovedByUser
 }
 
-interface BackendSetupMonitoringResponse {
-  statistics: {
-    active_projects: number
-    monitored_count: number
-    pending_reports: number
-  }
-  filters: {
-    districts: string[]
-  }
-  data: BackendSetupMonitoringProject[]
-  pagination: {
-    current_page: number
-    last_page: number
-    per_page: number
-    total: number
-    from: number | null
-    to: number | null
-  }
+interface BackendProjectsResponse {
+  message: string
+  data: BackendProject[]
 }
 
-function formatMonitoringDate(value: string | null): string {
-  if (!value) return 'Not scheduled'
+function mapSetupMonitoringProject(project: BackendProject): ProjectRecord {
+  const setupProposal = project.proposal.setup_proposal?.[0]
 
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return value
-
-  return date.toLocaleDateString('en-PH', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
-
-function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): ProjectRecord {
-  const location = [project.district, project.province]
-    .filter(Boolean)
-    .join(', ') || project.business_address || 'Location not recorded'
+  const location =
+    [setupProposal?.city_municipality, setupProposal?.province, setupProposal?.region]
+      .filter(Boolean)
+      .join(', ') || 'Location not recorded'
 
   return {
     approvedAt: project.approved_at,
     backendId: project.id,
+    // Not returned by GET /api/projects — no budget field on Project/Proposal/SetupProposal yet.
     budget: 0,
-    compliance: project.pending_reports > 0 ? 'Due soon' : 'Compliant',
-    district: project.district ?? undefined,
-    dueDate: formatMonitoringDate(project.latest_report?.due_date ?? project.expected_end_date),
-    enterprise: project.enterprise_name,
+    // No monitoring/compliance data exists on this endpoint yet — placeholder until
+    // quarterly-metrics data is joined in.
+    compliance: 'Compliant',
+    // There's no dedicated `district` column on setup_proposal — using province as the
+    // closest available grouping until the backend adds one.
+    district: setupProposal?.province,
+    // No monitoring/report data returned yet.
+    dueDate: 'Not scheduled',
+    enterprise: setupProposal?.business_name ?? project.proposal.title,
     id: String(project.id),
-    lastMonitoredAt: project.last_monitored_at,
-    latestReport: project.latest_report
-      ? {
-          dueDate: project.latest_report.due_date,
-          quarter: project.latest_report.quarter,
-          reportingPeriod: project.latest_report.reporting_period,
-          status: project.latest_report.status,
-          year: project.latest_report.year,
-        }
-      : null,
+    lastMonitoredAt: null,
+    latestReport: null,
     location,
-    manager: project.manager,
-    monitored: project.monitored,
-    monitoringStatus: project.monitoring_status,
-    pendingReports: project.pending_reports,
-    program: 'SETUP',
-    progress: Math.max(0, Math.min(100, Math.round(project.overall_compliance))),
-    referenceNumber: project.reference_number,
+    manager: project.user?.name ?? 'Unassigned',
+    monitored: false,
+    monitoringStatus: 'Not started',
+    pendingReports: 0,
+    program: project.program_type,
+    progress: 0,
+    referenceNumber: project.proposal.reference_number,
     status: 'Active',
-    title: project.title,
+    title: project.proposal.title,
     used: 0,
   }
 }
@@ -626,31 +658,695 @@ function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): Proj
 export async function fetchSetupMonitoringProjects(
   filters: SetupMonitoringProjectFilters,
 ): Promise<SetupMonitoringProjectsResult> {
-  const response = await api.get<BackendSetupMonitoringResponse>('/setup/monitoring/projects', {
-    params: {
-      search: filters.search?.trim() || undefined,
-      district: filters.district || undefined,
-      year: filters.year,
-      quarter: Number(filters.quarter.slice(1)),
-      page: filters.page ?? 1,
-    },
+  const response = await api.get<BackendProjectsResponse>('/projects', {
+    params: { status: 'SETUP' },
   })
 
+  let projects = response.data.data.map(mapSetupMonitoringProject)
+
+  // The backend does not yet support search/district/pagination query params
+  // on this endpoint, so they're applied client-side for now.
+  const search = filters.search?.trim().toLowerCase()
+  if (search) {
+    projects = projects.filter(
+      (p) =>
+        p.enterprise.toLowerCase().includes(search) ||
+        p.title.toLowerCase().includes(search) ||
+        p.referenceNumber?.toLowerCase().includes(search),
+    )
+  }
+
+  if (filters.district) {
+    projects = projects.filter((p) => p.district === filters.district)
+  }
+
+  const perPage = 6
+  const page = Math.max(1, filters.page ?? 1)
+  const total = projects.length
+  const lastPage = Math.max(1, Math.ceil(total / perPage))
+  const safePage = Math.min(page, lastPage)
+  const paged = projects.slice((safePage - 1) * perPage, safePage * perPage)
+
   return {
-    projects: response.data.data.map(mapSetupMonitoringProject),
+    projects: paged,
     statistics: {
-      activeProjects: response.data.statistics.active_projects,
-      monitoredCount: response.data.statistics.monitored_count,
-      pendingReports: response.data.statistics.pending_reports,
+      activeProjects: total,
+      // Not returned by this endpoint yet — real values need a monitoring/quarterly-metrics join.
+      monitoredCount: 0,
+      pendingReports: 0,
     },
-    districts: response.data.filters.districts,
+    districts: [...new Set(projects.map((p) => p.district).filter((d): d is string => Boolean(d)))],
     pagination: {
-      currentPage: response.data.pagination.current_page,
-      lastPage: response.data.pagination.last_page,
-      perPage: response.data.pagination.per_page,
-      total: response.data.pagination.total,
-      from: response.data.pagination.from,
-      to: response.data.pagination.to,
+      currentPage: safePage,
+      lastPage,
+      perPage,
+      total,
+      from: total === 0 ? null : (safePage - 1) * perPage + 1,
+      to: total === 0 ? null : Math.min(safePage * perPage, total),
     },
+  }
+}
+
+// ===========================================================================
+// REAL QUARTERLY METRICS (GET /projects/{projectId}/quarterly-metrics)
+// ===========================================================================
+//
+// Everything below replaces createDefaultQuarterRecord's fake Madayaway data
+// with the actual backend payload, mapped onto SetupMonitoringQuarterRecord.
+// createDefaultQuarterRecord/getQuarterRecord/saveQuarterRecord above are
+// left untouched — keep them only if you still want a local-draft/demo path;
+// otherwise you can delete createDefaultQuarterRecord once nothing references
+// it.
+
+export interface BackendQuarterlyProductItem {
+  id: number
+  quarter_id: number
+  product_name: string
+  specifications: string
+  unit: string
+  price: string
+  quantity: number
+  gross_sales: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyEmployeeItem {
+  id: number
+  quarter_id: number
+  employee_name: string
+  age: number
+  status: string
+  gender: string
+  sectoral_group: string
+  days_of_attendance: number
+  salary_rate: string
+  total_salary: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyProductCostItem {
+  id: number
+  quarter_id: number
+  particulars: string
+  type: 'OPERATION' | 'LABOR' | 'MISCELLANEOUS'
+  month_1: string
+  month_2: string
+  month_3: string
+  total: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyAssetItem {
+  id: number
+  quarter_id: number
+  asset_name: string
+  type: string
+  lifespan: number
+  year_acquired: number
+  cost: string
+  depreciation: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyAssetCapitalItem {
+  id: number
+  quarter_id: number
+  name: string
+  amount: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyInterventionItem {
+  id: number
+  quarter_id: number
+  name: string
+  type: string
+  availed: string
+  intervention: string
+  date: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyLinkageItem {
+  id: number
+  quarter_id: number
+  name: string
+  type: string
+  male_quantity: number
+  female_quantity: number
+  total: number
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyMarketItem {
+  id: number
+  quarter_id: number
+  market_name: string
+  address: string
+  condition: string
+  effective_date: string
+  contact_person: string
+  service: string
+  volume: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyNarrativeItem {
+  id: number
+  quarter_id: number
+  particular: string
+  type: string
+  intervention: string
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyProductionMaterialItem {
+  id: number
+  quarter_id: number
+  materials: string
+  unit: string
+  quantity: number
+  cost: number
+  total: number
+  created_at: string
+  updated_at: string
+}
+
+export interface BackendQuarterlyMetric {
+  id: number
+  project_id: number
+  submitted_by: number
+  quarter: number
+  year: number
+  gross_sales: string
+  production_volume: number
+  employee_count: number
+  total_cost: string
+  submitted_at: string | null
+  created_at: string
+  updated_at: string
+  products: BackendQuarterlyProductItem[]
+  employees: BackendQuarterlyEmployeeItem[]
+  product_cost: BackendQuarterlyProductCostItem[]
+  asset: BackendQuarterlyAssetItem[]
+  asset_capital: BackendQuarterlyAssetCapitalItem[]
+  intervention: BackendQuarterlyInterventionItem[]
+  linkage: BackendQuarterlyLinkageItem[]
+  market: BackendQuarterlyMarketItem[]
+  narrative: BackendQuarterlyNarrativeItem[]
+  production_material: BackendQuarterlyProductionMaterialItem[]
+}
+
+interface BackendQuarterlyMetricsResponse {
+  message: string
+  data: BackendQuarterlyMetric[]
+}
+
+function num(val: string | number | null | undefined): number {
+  if (val === null || val === undefined) return 0
+  const n = typeof val === 'number' ? val : parseFloat(val)
+  return Number.isFinite(n) ? n : 0
+}
+
+function quarterNumberToLabel(q: number): Quarter {
+  return `Q${q}` as Quarter
+}
+
+// REVERSE of toBackendSectoralGroup in quarterResourceAdapters.ts. Must be
+// kept in sync with that mapping.
+//
+// 'Senior' -> 'SC' round-trips cleanly.
+// 'PWD' -> 'PWD' round-trips cleanly.
+// 'None' is ambiguous on the way back: it could be a genuine 'None', or it
+// could be a former 'Youth' employee that got flattened to 'None' on write
+// (see the DECISION note in employeeAdapter). There is no way to recover
+// which one it was from this payload alone — the distinction was lost at
+// write time. This always resolves to 'None', which means youthCount in
+// computeEmploymentTotals will read 0 for any employee loaded from the
+// backend, even ones that were originally tagged 'Youth' before their first
+// save. If youth tracking needs to survive a round trip, sectoral_group
+// needs a real 'Youth' value on the backend — flagging this again in case
+// priorities change later, even though it's parked for now.
+function fromBackendSectoralGroup(group: string | null | undefined): EmployeeItem['sectoralGroup'] {
+  if (group === 'Senior') return 'SC'
+  if (group === 'PWD') return 'PWD'
+  return 'None'
+}
+
+/**
+ * Maps a single backend quarterly-metrics record onto the frontend
+ * SetupMonitoringQuarterRecord shape.
+ *
+ * KNOWN BACKEND MISMATCHES — these are heuristics, not real classifications.
+ * Do not treat the resulting split (building/equipment, direct/indirect, etc.)
+ * as authoritative; it exists so nothing from the API response is silently
+ * dropped while the backend contract is still catching up to the frontend
+ * model. Revisit each of these once the backend adds the missing column:
+ *
+ * 1. `asset` — no field distinguishes Building vs Equipment. We bucket by
+ *    `type` containing "building" (case-insensitive); everything else is
+ *    treated as Equipment.
+ * 2. `market` — no field distinguishes International vs Local. Everything
+ *    currently lands in `localMarkets` until the backend adds a
+ *    classification column.
+ * 3. `employees` — no DIRECT/INDIRECT classification. Everything currently
+ *    lands in `directEmployees`; `indirectEmployees` stays empty.
+ * 4. `linkage.type` is "forward" (distributor) vs "backward" (supplier).
+ * 5. `product_cost` — no category (Operating / Labor / Misc). Everything
+ *    currently lands in `operatingExpenses`; `laborExpenses` and
+ *    `miscellaneousExpenses` stay empty until the backend adds a `category`
+ *    column.
+ * 6. `intervention.type` should route rows to Consultancy / Training / Tech
+ *    Transfer / Support Service / Other Project. Only "CONSULTANCY" has been
+ *    observed in sample data — unrecognized types fall back to Consultancy.
+ * 7. `narrative` has no HR/Technical/Financial/Market breakdown. Known
+ *    backend issue from rush coding — parked, not being fixed right now.
+ *    All PROBLEMS-type rows are concatenated into
+ *    `problemsAndActions.humanResource` and all PLANS-type rows into
+ *    `plansForImprovement.humanResource` as a temporary holding spot.
+ * 8. `enterpriseName` / `enterpriseAddress` are not part of this payload —
+ *    pass them in via `overrides` from the already-loaded ProjectRecord
+ *    (e.g. `project.enterprise`, `project.location`).
+ * 9. `status` ('Draft' | 'Verified') and `dateOfVisit` are inferred from
+ *    `submitted_at` since there's no dedicated field for either yet.
+ * 10. `employees[].sectoral_group` — 'None' is ambiguous (see
+ *     fromBackendSectoralGroup above); youth tagging does not survive a
+ *     round trip through the backend.
+ */
+export function mapBackendQuarterlyMetric(
+  projectId: string,
+  metric: BackendQuarterlyMetric,
+  overrides: Partial<
+    Pick<SetupMonitoringQuarterRecord, 'enterpriseName' | 'enterpriseAddress'>
+  > = {},
+): SetupMonitoringQuarterRecord {
+  const quarter = quarterNumberToLabel(metric.quarter)
+  const year = metric.year
+
+  // --- Assets (heuristic building/equipment split, see note 1) ---
+  const buildingAssets: BuildingAsset[] = []
+  const equipmentAssets: EquipmentAsset[] = []
+  for (const a of metric.asset) {
+    const cost = num(a.cost)
+    const usefulLifeYears = a.lifespan
+    const yearAcquired = a.year_acquired
+    const depreciation = num(a.depreciation)
+    const bookValue = Math.max(
+      0,
+      Math.round((cost - Math.max(0, year - yearAcquired) * depreciation) * 100) / 100,
+    )
+
+    const isBuilding = /^building:/i.test(a.type)
+    // strip the "Building: " / "Equipment: " marker we stamp on save
+    const cleanType = a.type.replace(/^(building|equipment):\s*/i, '')
+
+    if (isBuilding) {
+      buildingAssets.push({
+        id: `asset_${a.id}`,
+        buildingName: a.asset_name,
+        buildingType: cleanType,
+        usefulLifeYears,
+        yearAcquired,
+        cost,
+        depreciation,
+        bookValue,
+      })
+    } else {
+      equipmentAssets.push({
+        id: `asset_${a.id}`,
+        equipmentName: a.asset_name,
+        equipmentType: cleanType,
+        usefulLifeYears,
+        yearAcquired,
+        cost,
+        depreciation,
+        bookValue,
+      })
+    }
+  }
+
+  const workingCapital: WorkingCapitalItem[] = metric.asset_capital.map((c) => ({
+    id: `wc_${c.id}`,
+    particulars: c.name,
+    amount: num(c.amount),
+  }))
+
+  const sales: ProductSalesItem[] = metric.products.map((p) => ({
+    id: `prod_${p.id}`,
+    productName: p.product_name,
+    specifications: p.specifications,
+    unit: p.unit,
+    sellingPrice: num(p.price),
+    quantity: p.quantity,
+    totalSales: num(p.gross_sales),
+  }))
+
+  // --- Production cost (see note 5: now routed by `type`) ---
+  const operatingExpenses: MonthlyExpenseItem[] = []
+  const laborExpenses: MonthlyExpenseItem[] = []
+  const miscellaneousExpenses: MonthlyExpenseItem[] = []
+
+  for (const c of metric.product_cost) {
+    const item: MonthlyExpenseItem = {
+      id: `pc_${c.id}`,
+      particulars: c.particulars,
+      month1: num(c.month_1),
+      month2: num(c.month_2),
+      month3: num(c.month_3),
+      total: num(c.total),
+    }
+    if (c.type === 'LABOR') laborExpenses.push(item)
+    else if (c.type === 'MISCELLANEOUS') miscellaneousExpenses.push(item)
+    else operatingExpenses.push(item) // 'OPERATION' or unrecognized -> default bucket
+  }
+
+  const rawMaterials: RawMaterialItem[] = metric.production_material.map((m) => ({
+    id: `pm_${m.id}`,
+    rawMaterialName: m.materials,
+    unit: m.unit,
+    quantity: m.quantity,
+    costPerUnit: num(m.cost),
+    totalCost: num(m.total),
+  }))
+
+  // --- Employment (see note 3: everything lands in Direct for now) ---
+  const directEmployees: EmployeeItem[] = metric.employees.map((e) => ({
+    id: `emp_${e.id}`,
+    type: 'DIRECT',
+    name: e.employee_name,
+    age: e.age,
+    employmentStatus: (e.status as EmployeeItem['employmentStatus']) || 'Regular',
+    sex: (e.gender as EmployeeItem['sex']) || 'Male',
+    sectoralGroup: fromBackendSectoralGroup(e.sectoral_group),
+    workdaysQuarter: e.days_of_attendance,
+    salaryType: 'Daily',
+    salaryRate: num(e.salary_rate),
+    totalSalaryQuarter: num(e.total_salary),
+  }))
+  const indirectEmployees: EmployeeItem[] = []
+
+  // --- Interventions (see note 6: routed by `type`, default = Consultancy) ---
+  const consultancies: ConsultancyItem[] = []
+  const trainings: TrainingItem[] = []
+  const techTransfers: TechTransferItem[] = []
+  const supportServices: SupportServiceItem[] = []
+  const otherProjects: OtherDostProjectItem[] = []
+
+  for (const iv of metric.intervention) {
+    const type = (iv.type || '').toUpperCase()
+    const availed = iv.availed === '1' || iv.availed?.toLowerCase() === 'true'
+
+    if (type.includes('TRAIN')) {
+      trainings.push({ id: `tr_${iv.id}`, category: 'OTHER', trainingName: iv.name, date: iv.date })
+    } else if (type.includes('TECH')) {
+      techTransfers.push({ id: `tt_${iv.id}`, type: 'OTHER', details: iv.intervention || iv.name, date: iv.date })
+    } else if (type.includes('SUPPORT') || type.includes('TEST') || type.includes('CALIB')) {
+      supportServices.push({ id: `ss_${iv.id}`, type: 'Other', productTestedParameters: iv.intervention || iv.name, date: iv.date })
+    } else if (type.includes('OTHER') || type.includes('PROJECT')) {
+      otherProjects.push({ id: `op_${iv.id}`, projectTitle: iv.name, date: iv.date })
+    } else {
+      // "CONSULTANCY" and anything unrecognized
+      consultancies.push({
+        id: `cons_${iv.id}`,
+        serviceName: iv.name,
+        availed,
+        areaOfIntervention: iv.intervention,
+        date: iv.date,
+      })
+    }
+  }
+
+  // --- Linkages (routed by `type`, "forward" vs "backward") ---
+  const forwardDistributors: WorkerCount[] = []
+  const forwardSuppliers: WorkerCount[] = []
+  for (const l of metric.linkage) {
+    const item: WorkerCount = {
+      id: `link_${l.id}`,
+      name: l.name,
+      male: l.male_quantity,
+      female: l.female_quantity,
+      total: l.total,
+    }
+    if (/back/i.test(l.type)) {
+      forwardSuppliers.push(item)
+    } else {
+      forwardDistributors.push(item)
+    }
+  }
+
+  // --- Markets (see note 2: everything lands in Local for now) ---
+  const localMarkets: MarketOutletItem[] = metric.market.map((m) => ({
+    id: `mkt_${m.id}`,
+    marketType: 'LOCAL',
+    marketName: m.market_name,
+    address: m.address,
+    condition: (m.condition || '').toUpperCase() === 'NEW' ? 'NEW' : 'OLD',
+    effectivityDate: m.effective_date,
+    contactPerson: m.contact_person,
+    productServiceSold: m.service,
+    volumeDelivered: m.volume,
+  }))
+  const internationalMarkets: MarketOutletItem[] = []
+
+  // --- Narratives (see note 7: known backend issue, parked for now) ---
+  const problemsText = metric.narrative
+    .filter((n) => (n.type || '').toUpperCase().includes('PROBLEM'))
+    .map((n) => `${n.particular}${n.intervention ? ` — Action: ${n.intervention}` : ''}`)
+    .join('\n')
+  const plansText = metric.narrative
+    .filter((n) => (n.type || '').toUpperCase().includes('PLAN'))
+    .map((n) => `${n.particular}${n.intervention ? ` — Action: ${n.intervention}` : ''}`)
+    .join('\n')
+
+  const visitDate = metric.submitted_at ? metric.submitted_at.slice(0, 10) : ''
+
+  return {
+    id: `${projectId}-${year}-${quarter}`,
+    projectId,
+    enterpriseName: overrides.enterpriseName ?? '',
+    enterpriseAddress: overrides.enterpriseAddress ?? '',
+    year,
+    quarter,
+    dateOfVisit: visitDate,
+    status: metric.submitted_at ? 'Verified' : 'Draft',
+    buildingAssets,
+    equipmentAssets,
+    workingCapital,
+    internationalMarkets,
+    localMarkets,
+    forwardDistributors,
+    forwardSuppliers,
+    directEmployees,
+    indirectEmployees,
+    consultancies,
+    trainings,
+    techTransfers,
+    supportServices,
+    otherProjects,
+    operatingExpenses,
+    laborExpenses,
+    rawMaterials,
+    miscellaneousExpenses,
+    sales,
+    problemsAndActions: {
+      humanResource: problemsText,
+      technical: '',
+      financial: '',
+      market: '',
+    },
+    plansForImprovement: {
+      humanResource: plansText,
+      technical: '',
+      financial: '',
+      market: '',
+    },
+    signOff: {
+      interviewerName: '',
+      interviewerDesignation: '',
+      interviewerSignatureDate: '',
+      respondentName: '',
+      respondentDesignation: '',
+      respondentSignatureDate: '',
+      dateOfVisit: visitDate,
+    },
+  }
+}
+
+/**
+ * Fetches real quarterly metrics for a project from
+ * GET /projects/{projectId}/quarterly-metrics and returns the record for the
+ * requested year/quarter. Falls back to an EMPTY record (not the
+ * createDefaultQuarterRecord mock) if the backend has no data for that period
+ * yet, so the UI never silently shows fabricated numbers.
+ */
+export async function fetchQuarterlyMetrics(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+  overrides: Partial<
+    Pick<SetupMonitoringQuarterRecord, 'enterpriseName' | 'enterpriseAddress'>
+  > = {},
+): Promise<SetupMonitoringQuarterRecord> {
+  const response = await api.get<BackendQuarterlyMetricsResponse>(
+    `/projects/${projectId}/quarterly-metrics`,
+  )
+
+  const quarterNumber = Number(quarter.replace('Q', ''))
+  const match = response.data.data.find(
+    (m) => m.quarter === quarterNumber && m.year === year,
+  )
+
+  if (!match) {
+    return createEmptyQuarterRecord(projectId, year, quarter)
+  }
+
+  return mapBackendQuarterlyMetric(projectId, match, overrides)
+}
+
+export interface QuarterlyMetricsFetchResult {
+  record: SetupMonitoringQuarterRecord
+  /**
+   * Backend `quarterly_metrics.id` — required for every
+   * /quarterly-metrics/{quarterId}/{resource}/batch call. `null` means no
+   * row exists yet for this project/year/quarter combo. Call
+   * `createQuarterlyMetric()` (below) to create one — that's what
+   * `SetupMonitoringHub`'s "Create quarterly metrics" action does — then
+   * re-fetch or set this id directly so autosave can start working.
+   */
+  quarterMetricId: number | null
+}
+
+export async function fetchQuarterlyMetricsWithId(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+  overrides: Partial<
+    Pick<SetupMonitoringQuarterRecord, 'enterpriseName' | 'enterpriseAddress'>
+  > = {},
+): Promise<QuarterlyMetricsFetchResult> {
+  const response = await api.get<BackendQuarterlyMetricsResponse>(
+    `/projects/${projectId}/quarterly-metrics`,
+  )
+
+  const quarterNumber = Number(quarter.replace('Q', ''))
+  const match = response.data.data.find(
+    (m) => m.quarter === quarterNumber && m.year === year,
+  )
+
+  if (!match) {
+    return {
+      record: createEmptyQuarterRecord(projectId, year, quarter),
+      quarterMetricId: null,
+    }
+  }
+
+  return {
+    record: mapBackendQuarterlyMetric(projectId, match, overrides),
+    quarterMetricId: match.id,
+  }
+}
+
+// ===========================================================================
+// CREATE QUARTERLY METRICS ROW (POST /projects/{projectId}/quarterly-metrics)
+// ===========================================================================
+//
+// This is the piece that was missing end-to-end: fetchQuarterlyMetricsWithId
+// only ever GETs. When no row exists yet for the selected project/quarter/
+// year, `quarterMetricId` comes back `null` and the hub has no way to start
+// syncing — everything just sits in the local-draft/localStorage path
+// forever. This calls the actual `store()` endpoint your
+// StoreQuarterlyMetricsRequest validates against, so a real
+// `quarterly_metrics` row gets created and its id can be used for the
+// existing batch-sync endpoints immediately afterward.
+//
+// NOTE on `project_id` in the body: StoreQuarterlyMetricsRequest's unique
+// rule reads `$this->input('project_id')`, but the route only supplies
+// `{projectId}` as a URL segment — it is NOT automatically merged into the
+// request body. Unless the controller does `$request->merge([...])`
+// somewhere before validation runs, that closure evaluates against `null`
+// project_id, which makes the per-project uniqueness check on
+// (project_id, quarter, year) effectively a no-op. Sending `project_id`
+// explicitly here is the frontend's only lever on this — the backend
+// should also be checked/fixed to merge the route param in before validating.
+
+export interface CreateQuarterlyMetricResponse {
+  message: string
+  data: BackendQuarterlyMetric
+}
+
+export interface CreateQuarterlyMetricError {
+  message: string
+  errors?: Record<string, string[]>
+}
+
+/**
+ * Creates a brand-new (empty) quarterly_metrics row for the given project/
+ * quarter/year via POST /projects/{projectId}/quarterly-metrics, and returns
+ * its backend id. Throws on failure (422 validation — e.g. the quarter/year
+ * combo already exists for this project — or any other API error); callers
+ * should catch and surface `error.response?.data` as `CreateQuarterlyMetricError`.
+ */
+export async function createQuarterlyMetric(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+): Promise<number> {
+  const quarterNumber = Number(quarter.replace('Q', ''))
+
+  const response = await api.post<CreateQuarterlyMetricResponse>(
+    `/projects/${projectId}/quarterly-metrics`,
+    {
+      // Route already scopes this to the project, but the FormRequest's
+      // unique-rule closure reads project_id off the request body (see note
+      // above), so it's included here too.
+      project_id: Number(projectId),
+      quarter: quarterNumber,
+      year,
+    },
+  )
+
+  return response.data.data.id
+}
+
+/**
+ * Convenience wrapper: creates the quarterly_metrics row, then immediately
+ * maps the (empty) response into a SetupMonitoringQuarterRecord + id, in the
+ * same shape fetchQuarterlyMetricsWithId returns — so a caller can swap
+ * straight from "no backend row" to "backend row ready to sync" without a
+ * second round trip.
+ */
+export async function createQuarterlyMetricWithRecord(
+  projectId: string,
+  year: number,
+  quarter: Quarter,
+  overrides: Partial<
+    Pick<SetupMonitoringQuarterRecord, 'enterpriseName' | 'enterpriseAddress'>
+  > = {},
+): Promise<QuarterlyMetricsFetchResult> {
+  const quarterNumber = Number(quarter.replace('Q', ''))
+
+  const response = await api.post<CreateQuarterlyMetricResponse>(
+    `/projects/${projectId}/quarterly-metrics`,
+    {
+      project_id: Number(projectId),
+      quarter: quarterNumber,
+      year,
+    },
+  )
+
+  const created = response.data.data
+
+  return {
+    record: mapBackendQuarterlyMetric(projectId, created, overrides),
+    quarterMetricId: created.id,
   }
 }
