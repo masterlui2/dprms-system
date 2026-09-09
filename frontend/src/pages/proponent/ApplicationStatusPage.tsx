@@ -11,7 +11,7 @@ import {
   getDocuments,
   type DocumentaryRequirement,
 } from '../../services/documentStore'
-import { getApplications } from '../../services/applicationStore'
+import { getApplications, syncUserApplicationsFromBackend } from '../../services/applicationStore'
 import { getGiaProposal } from '../../services/giaProposalStore'
 import type { ApplicationRecord } from '../../types/application'
 
@@ -23,7 +23,23 @@ export function ApplicationStatusPage() {
     : location.pathname.startsWith('/setup')
       ? 'SETUP'
       : (user?.program ?? 'SETUP')
-  const applications = getApplications().filter(
+
+  const [allApplications, setAllApplications] = useState<ApplicationRecord[]>(() => getApplications())
+
+  useEffect(() => {
+    let cancelled = false
+    if (!user) return
+
+    void syncUserApplicationsFromBackend(user).then((apps) => {
+      if (!cancelled) setAllApplications(apps)
+    })
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id, user?.email, user?.applicationReference])
+
+  const applications = allApplications.filter(
     (item) =>
       item.program === activeProgram &&
       (!user?.email || item.contactEmail.toLowerCase() === user.email.toLowerCase()),

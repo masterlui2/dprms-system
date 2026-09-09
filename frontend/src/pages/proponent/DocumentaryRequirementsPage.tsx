@@ -33,6 +33,7 @@ import {
   fetchGiaDocumentaryRequirements,
   fetchProposalDocuments,
   fetchSetupDocumentaryRequirements,
+  getDocuments,
   uploadDocument,
   type DocumentaryRequirement,
   type RequirementGroup,
@@ -40,22 +41,26 @@ import {
   type VerificationStatus,
 } from "../../services/documentStore";
 import {
+  saveApplication,
   syncUserApplicationsFromBackend,
+  updateApplicationStatus,
 } from "../../services/applicationStore";
 import { resubmitProposal } from "../../services/proposalStore";
-import { submitSetupProposal } from "../../services/setupProposalStore";
+import {
+  getSetupProposalId,
+  submitSetupProposal,
+} from "../../services/setupProposalStore";
 import type { ApplicationRecord } from "../../types/application";
 import {
+  getGiaDraft,
+  getGiaProposal,
+  getGiaProposalId,
   submitGiaProposal,
 } from "../../services/giaProposalStore";
 import type { GiaProposalData } from "../../types/giaProposal";
 import type { SetupProposalData } from "../../types/setupProposal";
 import { cn } from "../../utils/cn";
 
-// Both SETUP and GIA now go through the real /documents API —
-// StoreDocumentRequest only accepts PDF up to 10MB (mimes:pdf|max:10240)
-// regardless of program, so the UI has to match or every non-PDF /
-// oversized upload will 422 after passing the client-side check.
 const BACKEND_MAX_FILE_SIZE = 10 * 1024 * 1024;
 const BACKEND_ACCEPTED_EXTENSIONS = ["pdf"];
 const groupOrder: RequirementGroup[] = [
@@ -84,7 +89,7 @@ function extractUploadErrorMessage(error: unknown): string {
   const axiosErr = error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } };
   const response = axiosErr?.response;
   if (response?.status === 413) {
-    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 5MB.";
+    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 10MB.";
   }
   if (response?.status === 404) {
     return "The submission endpoint was not found (404 Not Found). Please ensure the backend server is running and your session is active.";
@@ -132,16 +137,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   >(null);
   const [message, setMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-  // Numeric backend proposals.id for the active application (SETUP or GIA),
-  // resolved below (from activeApplication.proposalId, falling back to a
-  // lookup by referenceNo). Needed for every real /documents call —
-  // StoreDocumentRequest requires proposal_id, not the local referenceNo
-  // string.
   const [activeProposalId, setActiveProposalId] = useState<number | null>(null);
-  // Files picked before the proposal exists on the backend, keyed by
-  // document_type_id. There's no proposal_id to upload against yet, so
-  // these sit here until "Submit Application" creates the proposal and
-  // uploads them in one pass.
   const [pendingFiles, setPendingFiles] = useState<Record<string, File>>({});
   const setupFormRef = useRef<SetupProposalFormHandle>(null);
   const giaFormRef = useRef<GiaProposalFormHandle>(null);
@@ -410,7 +406,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   );
 
   async function handleFile(requirement: DocumentaryRequirement, file?: File) {
-    if (!activeApplication || !file) return;
+    if (!file) return;
     if (
       isRevisionMode &&
       documents[requirement.id]?.verificationStatus !== "Needs Revision"
@@ -473,7 +469,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
           `${file.name} uploaded as the revised file. Resubmit when every flagged document has been replaced.`,
         );
       } else if (allRequiredUploaded) {
-        updateApplicationStatus(activeApplication.referenceNo, "Under review");
+        if (activeApplication) {
+          updateApplicationStatus(activeApplication.referenceNo, "Under review");
+        }
         setMessage(
           "All required documents are complete. Your application is ready for DOST initial review.",
         );
@@ -558,11 +556,10 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
               Stage 2 Active: DOST Initial Review
             </p>
             <p style="font-size: 11px; color: #475569; margin: 0; line-height: 1.5;">
-              ${
-                app.program === "SETUP"
-                  ? "Your application is scheduled for a Technology Needs Assessment (TNA) site visit by DOST PSTO."
-                  : "Your GIA proposal is currently under technical review by the DOST evaluation committee."
-              }
+              ${app.program === "SETUP"
+          ? "Your application is scheduled for a Technology Needs Assessment (TNA) site visit by DOST PSTO."
+          : "Your GIA proposal is currently under technical review by the DOST evaluation committee."
+        }
             </p>
           </div>
         </div>
@@ -585,25 +582,6 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
-
-  /**
-   * Shared by SETUP and GIA. One click, one request: submitSetupProposal()
-   * / submitGiaProposal() send the proposal fields AND every file in
-   * `pendingFiles` together in a single multipart POST. The backend
-   * creates the Proposal, the SetupProposal/GiaProposal row, the
-   * auto-generated proposal PDF, and every supporting document inside one
-   * DB transaction — either all of it is created, or (validation failure,
-   * a bad file, anything) none of it is. There's no partial
-   * "proposal exists but some documents are missing" state to recover
-   * from, so there's nothing to retry piecemeal on failure — the whole
-   * submission just needs to be tried again.
-   *
-   * If a proposal already exists (activeProposalId set — e.g. the
-   * applicant is revisiting after a previous successful submit, or an
-   * older proposal created before this flow existed), there's nothing left
-   * to submit; any remaining pending files just go through the normal
-   * per-document upload control instead.
-   */
   async function handleSubmitApplication() {
     if (activeApplication && activeApplication.status !== "Draft Submitted" && activeApplication.status !== "Returned for Revision") {
       setMessage("You already have an active application currently under review. Multiple submissions are not allowed.");
@@ -669,6 +647,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         ...prev.filter((a) => a.referenceNo !== submittedApp.referenceNo),
       ]);
       setShowApplicationForm(false);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       showSubmittedDialog(submittedApp);
     } catch (error) {
       setMessage(extractUploadErrorMessage(error));
@@ -706,6 +685,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
             : application,
         ),
       );
+      window.scrollTo({ top: 0, behavior: "smooth" });
       await Swal.fire({
         confirmButtonColor: "#0f53b7",
         icon: "success",
@@ -721,6 +701,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
 
   const handleStartApplication = () => {
     setShowApplicationForm(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -916,7 +897,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
             </button>
           </div>
         </>
-      ) : (
+      ) : activeApplication ? (
         <>
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-7">
             <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-5">
@@ -1074,383 +1055,383 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                 </section>
               )}
 
-          {/* Attached Documents Section (Lower Page Divider) */}
-          {requirements.length ? (
-            <div className="mt-8 space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 pt-6">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900">
-                    {isRevisionMode ? "Document Revision Checklist" : "Attached Documentary Requirements"}
-                  </h3>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    {isRevisionMode
-                      ? "Only documents marked Needs Revision can be replaced. Other submitted files are locked."
-                      : isDraftMode
-                        ? "Upload required supporting documents to accompany your proposal submission."
-                        : "Submitted documentary requirements are currently under review by DOST evaluators."}
-                  </p>
-                </div>
-                <label className="relative block w-full sm:w-72">
-                  <span className="sr-only">
-                    Search supporting document checklist
-                  </span>
-                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:bg-white focus:ring-4 focus:ring-blue-100"
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search required documents..."
-                    type="search"
-                    value={query}
-                  />
-                </label>
-              </div>
+              {/* Attached Documents Section (Lower Page Divider) */}
+              {requirements.length ? (
+                <div className="mt-8 space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 pt-6">
+                    <div>
+                      <h3 className="text-lg font-black text-slate-900">
+                        {isRevisionMode ? "Document Revision Checklist" : "Attached Documentary Requirements"}
+                      </h3>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        {isRevisionMode
+                          ? "Only documents marked Needs Revision can be replaced. Other submitted files are locked."
+                          : isDraftMode
+                            ? "Upload required supporting documents to accompany your proposal submission."
+                            : "Submitted documentary requirements are currently under review by DOST evaluators."}
+                      </p>
+                    </div>
+                    <label className="relative block w-full sm:w-72">
+                      <span className="sr-only">
+                        Search supporting document checklist
+                      </span>
+                      <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-xs text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#0f53b7] focus:bg-white focus:ring-4 focus:ring-blue-100"
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search required documents..."
+                        type="search"
+                        value={query}
+                      />
+                    </label>
+                  </div>
 
-              {message ? (
-                <div
-                  className="flex items-start justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#073b82]"
-                  role="status"
-                >
-                  <span>{message}</span>
-                  <button
-                    aria-label="Dismiss message"
-                    className="shrink-0 text-lg leading-none"
-                    onClick={() => setMessage(null)}
-                    type="button"
-                  >
-                    ×
-                  </button>
+                  {message ? (
+                    <div
+                      className="flex items-start justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#073b82]"
+                      role="status"
+                    >
+                      <span>{message}</span>
+                      <button
+                        aria-label="Dismiss message"
+                        className="shrink-0 text-lg leading-none"
+                        onClick={() => setMessage(null)}
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ) : null}
+
+                  <div className="space-y-5">
+                    {groupOrder.map((group) => {
+                      const groupRequirements = visibleRequirements.filter(
+                        (requirement) => requirement.group === group,
+                      );
+                      if (!groupRequirements.length) return null;
+                      const groupUploaded = groupRequirements.filter(
+                        (requirement) => documents[requirement.id],
+                      ).length;
+
+                      return (
+                        <section
+                          className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70"
+                          key={group}
+                        >
+                          <div className="flex flex-col gap-3 bg-[#f8fbff] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                            <div className="flex items-center gap-3">
+                              <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]">
+                                <GroupIcon group={group} />
+                              </span>
+                              <div>
+                                <h2 className="font-black text-slate-900">
+                                  {group}
+                                </h2>
+                                <p className="mt-0.5 text-xs text-slate-500">
+                                  {groupUploaded} of {groupRequirements.length}{" "}
+                                  uploaded
+                                </p>
+                              </div>
+                            </div>
+                            {group === "Corporation / Cooperative Documents" ? (
+                              <span className="w-fit rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-bold text-indigo-700">
+                                Required for Corporations / Cooperatives
+                              </span>
+                            ) : null}
+                            {group === "Additional Documents" && activeProgram === "GIA" && liveGiaProposal?.proponentCategory ? (
+                              <span className="w-fit rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">
+                                Required for {liveGiaProposal.proponentCategory}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {group === "Financial Documents" ? (
+                            <div className="border-t border-blue-100 bg-blue-50/70 px-5 py-3 text-xs leading-5 text-[#073b82] sm:px-6">
+                              <span className="font-bold">Official Requirement Note:</span> Financial Statements for the past three (3) years for Small and Medium enterprises and at least one (1) year for microenterprises together with notarized Sworn Statement from the proponent that all information provided are correct and true.
+                            </div>
+                          ) : null}
+
+
+
+                          <div className="divide-y divide-slate-100">
+                            {groupRequirements.map((requirement) => {
+                              const storedDocument = documents[requirement.id];
+                              const pendingFile = storedDocument
+                                ? undefined
+                                : pendingFiles[requirement.id];
+                              const status: VerificationStatus = storedDocument
+                                ? storedDocument.verificationStatus
+                                : pendingFile
+                                  ? "Pending Upload"
+                                  : "Not Uploaded";
+                              const isDragging =
+                                draggingRequirement === requirement.id;
+                              const isUploading =
+                                uploadingRequirement === requirement.id;
+                              const isMissingRequired =
+                                !storedDocument && !pendingFile && requirement.required;
+                              const hasFile = Boolean(storedDocument || pendingFile);
+                              const needsRevision = status === "Needs Revision";
+                              const canReplace = isDraftMode || needsRevision;
+
+                              return (
+                                <article
+                                  className={cn(
+                                    "grid gap-4 px-5 py-5 transition sm:px-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(310px,1fr)] lg:items-center lg:gap-5",
+                                    isDragging &&
+                                    "bg-blue-50 ring-2 ring-inset ring-[#0f53b7]",
+                                    isMissingRequired &&
+                                    "bg-red-50/40 border-l-4 border-l-red-500",
+                                    needsRevision &&
+                                    "border-l-4 border-l-rose-500 bg-rose-50/60",
+                                  )}
+                                  id={`requirement-${requirement.id}`}
+                                  key={requirement.id}
+                                  onDragEnter={(event) => {
+                                    if (!canReplace) return;
+                                    event.preventDefault();
+                                    setDraggingRequirement(requirement.id);
+                                  }}
+                                  onDragLeave={(event) => {
+                                    if (
+                                      !event.currentTarget.contains(
+                                        event.relatedTarget as Node | null,
+                                      )
+                                    )
+                                      setDraggingRequirement(null);
+                                  }}
+                                  onDragOver={(event) => {
+                                    if (canReplace) event.preventDefault();
+                                  }}
+                                  onDrop={(event) => {
+                                    if (!canReplace) return;
+                                    event.preventDefault();
+                                    void handleFile(
+                                      requirement,
+                                      event.dataTransfer.files[0],
+                                    );
+                                  }}
+                                >
+                                  <div className="flex min-w-0 items-start gap-3">
+                                    <span
+                                      className={cn(
+                                        "mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border-2",
+                                        needsRevision
+                                          ? "border-rose-500 bg-rose-500 text-white"
+                                          : hasFile
+                                            ? "border-emerald-500 bg-emerald-500 text-white"
+                                            : isMissingRequired
+                                              ? "border-red-400 bg-red-50 text-red-500"
+                                              : "border-slate-200 text-slate-300",
+                                      )}
+                                    >
+                                      {needsRevision ? (
+                                        <AlertTriangle className="size-4" />
+                                      ) : hasFile ? (
+                                        <Check className="size-4" strokeWidth={3} />
+                                      ) : (
+                                        <FileText className="size-3.5" />
+                                      )}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <h3 className="font-bold leading-6 text-slate-900">
+                                        {requirement.title}
+                                        {requirement.required || activeApplication.program === "SETUP" ? (
+                                          <span
+                                            className="ml-1 font-extrabold text-red-600"
+                                            aria-label="required"
+                                          >
+                                            *
+                                          </span>
+                                        ) : (
+                                          <span className="ml-2 text-xs font-semibold text-slate-400">
+                                            Optional
+                                          </span>
+                                        )}
+                                      </h3>
+                                      {requirement.instructions ? (
+                                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                                          {requirement.instructions}
+                                        </p>
+                                      ) : requirement.description ? (
+                                        <p className="mt-1 text-xs leading-5 text-slate-500">
+                                          {requirement.description}
+                                        </p>
+                                      ) : null}
+                                      {storedDocument ? (
+                                        <p
+                                          className="mt-2 truncate text-xs font-semibold text-slate-600"
+                                          title={storedDocument.fileName}
+                                        >
+                                          {storedDocument.fileName} ·{" "}
+                                          {formatSize(storedDocument.fileSize)}
+                                        </p>
+                                      ) : pendingFile ? (
+                                        <p
+                                          className="mt-2 truncate text-xs font-semibold text-slate-600"
+                                          title={pendingFile.name}
+                                        >
+                                          {pendingFile.name} ·{" "}
+                                          {formatSize(pendingFile.size)}
+                                        </p>
+                                      ) : null}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-3">
+                                    {status !== "Not Uploaded" && status !== "Uploaded" && status !== "Pending Upload" ? (
+                                      <span
+                                        className={cn(
+                                          "inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold",
+                                          statusClasses[status],
+                                        )}
+                                      >
+                                        {status}
+                                      </span>
+                                    ) : null}
+                                    <div className="flex flex-wrap gap-2">
+                                      {requirement.templateUrl ? (
+                                        <a
+                                          className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-[#0f53b7] transition hover:bg-blue-100"
+                                          download
+                                          href={requirement.templateUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                        >
+                                          <Download className="size-3.5" />
+                                          Download Template
+                                        </a>
+                                      ) : null}
+                                      {canReplace ? <label
+                                        className={cn(
+                                          "inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white transition hover:bg-[#0b3f8b]",
+                                          isUploading &&
+                                          "pointer-events-none opacity-70",
+                                        )}
+                                      >
+                                        {isUploading ? (
+                                          <LoaderCircle className="size-3.5 animate-spin" />
+                                        ) : hasFile ? (
+                                          <RefreshCw className="size-3.5" />
+                                        ) : (
+                                          <FileUp className="size-3.5" />
+                                        )}
+                                        {isUploading
+                                          ? "Uploading"
+                                          : hasFile
+                                            ? "Replace File"
+                                            : "Upload"}
+                                        <input
+                                          accept=".pdf"
+                                          className="sr-only"
+                                          disabled={isUploading}
+                                          onChange={(event) => {
+                                            void handleFile(
+                                              requirement,
+                                              event.target.files?.[0],
+                                            );
+                                            event.target.value = "";
+                                          }}
+                                          type="file"
+                                        />
+                                      </label> : null}
+                                      {hasFile ? (
+                                        <>
+                                          <button
+                                            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                                            onClick={() =>
+                                              storedDocument
+                                                ? void viewDocument(storedDocument)
+                                                : pendingFile
+                                                  ? viewPendingFile(pendingFile)
+                                                  : undefined
+                                            }
+                                            type="button"
+                                          >
+                                            <Eye className="size-3.5" />
+                                            View File
+                                          </button>
+                                          {isDraftMode ? (
+                                            <button
+                                              className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-100 px-3 text-xs font-bold text-red-600 transition hover:bg-red-50"
+                                              onClick={() => void remove(requirement)}
+                                              type="button"
+                                            >
+                                              <Trash2 className="size-3.5" />
+                                              Delete File
+                                            </button>
+                                          ) : null}
+                                        </>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      );
+                    })}
+
+                    {!visibleRequirements.length ? (
+                      <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
+                        <Search className="mx-auto size-8 text-slate-300" />
+                        <p className="mt-3 font-bold text-slate-700">
+                          No documents match “{query}”
+                        </p>
+                        <button
+                          className="mt-3 text-sm font-bold text-[#0f53b7]"
+                          onClick={() => setQuery("")}
+                          type="button"
+                        >
+                          Clear search
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {(isDraftMode || isRevisionMode) && (
+                    <div className="flex justify-end pt-4 pb-8">
+                      <button
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#0d479e] hover:shadow-lg disabled:pointer-events-none disabled:opacity-70"
+                        disabled={
+                          isRevisionMode
+                            ? isResubmittingRevision || revisionDocuments.length > 0
+                            : isSubmittingApplication
+                        }
+                        onClick={() => {
+                          if (!activeApplication) return;
+                          if (isRevisionMode) void handleResubmitRevisions();
+                          else void handleSubmitApplication();
+                        }}
+                        type="button"
+                      >
+                        {isSubmittingApplication || isResubmittingRevision ? (
+                          <LoaderCircle className="size-4 animate-spin" />
+                        ) : null}
+                        {isRevisionMode
+                          ? isResubmittingRevision
+                            ? "Resubmitting"
+                            : revisionDocuments.length
+                              ? `${revisionDocuments.length} Revision${revisionDocuments.length === 1 ? "" : "s"} Remaining`
+                              : "Resubmit Revised Documents"
+                          : isSubmittingApplication
+                            ? "Submitting"
+                            : activeApplication.program === "GIA"
+                              ? "Submit GIA Proposal"
+                              : "Submit SETUP Application"}
+                        {isSubmittingApplication || isResubmittingRevision ? null : (
+                          <ArrowRight className="size-4" />
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ) : null}
-
-              <div className="space-y-5">
-                {groupOrder.map((group) => {
-                  const groupRequirements = visibleRequirements.filter(
-                    (requirement) => requirement.group === group,
-                  );
-                  if (!groupRequirements.length) return null;
-                  const groupUploaded = groupRequirements.filter(
-                    (requirement) => documents[requirement.id],
-                  ).length;
-
-                  return (
-                    <section
-                      className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70"
-                      key={group}
-                    >
-                      <div className="flex flex-col gap-3 bg-[#f8fbff] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                        <div className="flex items-center gap-3">
-                          <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]">
-                            <GroupIcon group={group} />
-                          </span>
-                          <div>
-                            <h2 className="font-black text-slate-900">
-                              {group}
-                            </h2>
-                            <p className="mt-0.5 text-xs text-slate-500">
-                              {groupUploaded} of {groupRequirements.length}{" "}
-                              uploaded
-                            </p>
-                          </div>
-                        </div>
-                        {group === "Corporation / Cooperative Documents" ? (
-                          <span className="w-fit rounded-full bg-indigo-50 px-3 py-1 text-[11px] font-bold text-indigo-700">
-                            Required for Corporations / Cooperatives
-                          </span>
-                        ) : null}
-                        {group === "Additional Documents" && activeProgram === "GIA" && liveGiaProposal?.proponentCategory ? (
-                          <span className="w-fit rounded-full bg-amber-50 px-3 py-1 text-[11px] font-bold text-amber-700">
-                            Required for {liveGiaProposal.proponentCategory}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {group === "Financial Documents" ? (
-                        <div className="border-t border-blue-100 bg-blue-50/70 px-5 py-3 text-xs leading-5 text-[#073b82] sm:px-6">
-                          <span className="font-bold">Official Requirement Note:</span> Financial Statements for the past three (3) years for Small and Medium enterprises and at least one (1) year for microenterprises together with notarized Sworn Statement from the proponent that all information provided are correct and true.
-                        </div>
-                      ) : null}
-
-
-
-                      <div className="divide-y divide-slate-100">
-                        {groupRequirements.map((requirement) => {
-                          const storedDocument = documents[requirement.id];
-                          const pendingFile = storedDocument
-                            ? undefined
-                            : pendingFiles[requirement.id];
-                          const status: VerificationStatus = storedDocument
-                            ? storedDocument.verificationStatus
-                            : pendingFile
-                              ? "Pending Upload"
-                              : "Not Uploaded";
-                          const isDragging =
-                            draggingRequirement === requirement.id;
-                          const isUploading =
-                            uploadingRequirement === requirement.id;
-                          const isMissingRequired =
-                            !storedDocument && !pendingFile && requirement.required;
-                          const hasFile = Boolean(storedDocument || pendingFile);
-                          const needsRevision = status === "Needs Revision";
-                          const canReplace = isDraftMode || needsRevision;
-
-                          return (
-                            <article
-                              className={cn(
-                                "grid gap-4 px-5 py-5 transition sm:px-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(310px,1fr)] lg:items-center lg:gap-5",
-                                isDragging &&
-                                  "bg-blue-50 ring-2 ring-inset ring-[#0f53b7]",
-                                isMissingRequired &&
-                                  "bg-red-50/40 border-l-4 border-l-red-500",
-                                needsRevision &&
-                                  "border-l-4 border-l-rose-500 bg-rose-50/60",
-                              )}
-                              id={`requirement-${requirement.id}`}
-                              key={requirement.id}
-                              onDragEnter={(event) => {
-                                if (!canReplace) return;
-                                event.preventDefault();
-                                setDraggingRequirement(requirement.id);
-                              }}
-                              onDragLeave={(event) => {
-                                if (
-                                  !event.currentTarget.contains(
-                                    event.relatedTarget as Node | null,
-                                  )
-                                )
-                                  setDraggingRequirement(null);
-                              }}
-                              onDragOver={(event) => {
-                                if (canReplace) event.preventDefault();
-                              }}
-                              onDrop={(event) => {
-                                if (!canReplace) return;
-                                event.preventDefault();
-                                void handleFile(
-                                  requirement,
-                                  event.dataTransfer.files[0],
-                                );
-                              }}
-                            >
-                              <div className="flex min-w-0 items-start gap-3">
-                                <span
-                                  className={cn(
-                                    "mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border-2",
-                                    needsRevision
-                                      ? "border-rose-500 bg-rose-500 text-white"
-                                      : hasFile
-                                      ? "border-emerald-500 bg-emerald-500 text-white"
-                                      : isMissingRequired
-                                        ? "border-red-400 bg-red-50 text-red-500"
-                                        : "border-slate-200 text-slate-300",
-                                  )}
-                                >
-                                  {needsRevision ? (
-                                    <AlertTriangle className="size-4" />
-                                  ) : hasFile ? (
-                                    <Check className="size-4" strokeWidth={3} />
-                                  ) : (
-                                    <FileText className="size-3.5" />
-                                  )}
-                                </span>
-                                <div className="min-w-0">
-                                  <h3 className="font-bold leading-6 text-slate-900">
-                                    {requirement.title}
-                                    {requirement.required || activeApplication.program === "SETUP" ? (
-                                      <span
-                                        className="ml-1 font-extrabold text-red-600"
-                                        aria-label="required"
-                                      >
-                                        *
-                                      </span>
-                                    ) : (
-                                      <span className="ml-2 text-xs font-semibold text-slate-400">
-                                        Optional
-                                      </span>
-                                    )}
-                                  </h3>
-                                  {requirement.instructions ? (
-                                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                                      {requirement.instructions}
-                                    </p>
-                                  ) : requirement.description ? (
-                                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                                      {requirement.description}
-                                    </p>
-                                  ) : null}
-                                  {storedDocument ? (
-                                    <p
-                                      className="mt-2 truncate text-xs font-semibold text-slate-600"
-                                      title={storedDocument.fileName}
-                                    >
-                                      {storedDocument.fileName} ·{" "}
-                                      {formatSize(storedDocument.fileSize)}
-                                    </p>
-                                  ) : pendingFile ? (
-                                    <p
-                                      className="mt-2 truncate text-xs font-semibold text-slate-600"
-                                      title={pendingFile.name}
-                                    >
-                                      {pendingFile.name} ·{" "}
-                                      {formatSize(pendingFile.size)}
-                                    </p>
-                                  ) : null}
-                                </div>
-                              </div>
-
-                              <div className="space-y-3">
-                                {status !== "Not Uploaded" && status !== "Uploaded" && status !== "Pending Upload" ? (
-                                  <span
-                                    className={cn(
-                                      "inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold",
-                                      statusClasses[status],
-                                    )}
-                                  >
-                                    {status}
-                                  </span>
-                                ) : null}
-                                <div className="flex flex-wrap gap-2">
-                                  {requirement.templateUrl ? (
-                                    <a
-                                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-[#0f53b7] transition hover:bg-blue-100"
-                                      download
-                                      href={requirement.templateUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                    >
-                                      <Download className="size-3.5" />
-                                      Download Template
-                                    </a>
-                                  ) : null}
-                                  {canReplace ? <label
-                                    className={cn(
-                                      "inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white transition hover:bg-[#0b3f8b]",
-                                      isUploading &&
-                                        "pointer-events-none opacity-70",
-                                    )}
-                                  >
-                                    {isUploading ? (
-                                      <LoaderCircle className="size-3.5 animate-spin" />
-                                    ) : hasFile ? (
-                                      <RefreshCw className="size-3.5" />
-                                    ) : (
-                                      <FileUp className="size-3.5" />
-                                    )}
-                                    {isUploading
-                                      ? "Uploading"
-                                      : hasFile
-                                        ? "Replace File"
-                                        : "Upload"}
-                                    <input
-                                      accept=".pdf"
-                                      className="sr-only"
-                                      disabled={isUploading}
-                                      onChange={(event) => {
-                                        void handleFile(
-                                          requirement,
-                                          event.target.files?.[0],
-                                        );
-                                        event.target.value = "";
-                                      }}
-                                      type="file"
-                                    />
-                                  </label> : null}
-                                  {hasFile ? (
-                                    <>
-                                      <button
-                                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
-                                        onClick={() =>
-                                          storedDocument
-                                            ? void viewDocument(storedDocument)
-                                            : pendingFile
-                                              ? viewPendingFile(pendingFile)
-                                              : undefined
-                                        }
-                                        type="button"
-                                      >
-                                        <Eye className="size-3.5" />
-                                        View File
-                                      </button>
-                                      {isDraftMode ? (
-                                        <button
-                                          className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-100 px-3 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                                          onClick={() => void remove(requirement)}
-                                          type="button"
-                                        >
-                                          <Trash2 className="size-3.5" />
-                                          Delete File
-                                        </button>
-                                      ) : null}
-                                    </>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  );
-                })}
-
-                {!visibleRequirements.length ? (
-                  <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center">
-                    <Search className="mx-auto size-8 text-slate-300" />
-                    <p className="mt-3 font-bold text-slate-700">
-                      No documents match “{query}”
-                    </p>
-                    <button
-                      className="mt-3 text-sm font-bold text-[#0f53b7]"
-                      onClick={() => setQuery("")}
-                      type="button"
-                    >
-                      Clear search
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-
-              {(isDraftMode || isRevisionMode) && (
-                <div className="flex justify-end pt-4 pb-8">
-                  <button
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#0d479e] hover:shadow-lg disabled:pointer-events-none disabled:opacity-70"
-                    disabled={
-                      isRevisionMode
-                        ? isResubmittingRevision || revisionDocuments.length > 0
-                        : isSubmittingApplication
-                    }
-                    onClick={() => {
-                      if (!activeApplication) return;
-                      if (isRevisionMode) void handleResubmitRevisions();
-                      else void handleSubmitApplication();
-                    }}
-                    type="button"
-                  >
-                    {isSubmittingApplication || isResubmittingRevision ? (
-                      <LoaderCircle className="size-4 animate-spin" />
-                    ) : null}
-                    {isRevisionMode
-                      ? isResubmittingRevision
-                        ? "Resubmitting"
-                        : revisionDocuments.length
-                          ? `${revisionDocuments.length} Revision${revisionDocuments.length === 1 ? "" : "s"} Remaining`
-                          : "Resubmit Revised Documents"
-                      : isSubmittingApplication
-                        ? "Submitting"
-                        : activeApplication.program === "GIA"
-                          ? "Submit GIA Proposal"
-                          : "Submit SETUP Application"}
-                    {isSubmittingApplication || isResubmittingRevision ? null : (
-                      <ArrowRight className="size-4" />
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : null}
+            </>
+          )}
         </>
-      )}
-    </>
-  )}
+      ) : null}
     </div>
   );
 }

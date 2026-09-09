@@ -2,7 +2,6 @@ import api from '../lib/axios'
 import type { ProposalFormData } from '../types/proposal'
 import type {
   ApplicationRecord,
-  CreatedProjectRecord,
 } from '../types/application'
 import { getMockUser, setMockUser } from '../lib/mockAuth'
 
@@ -45,6 +44,7 @@ export function saveApplication(application: ApplicationRecord) {
 export function clearApplications() {
   if (typeof window === 'undefined') return
   window.localStorage.removeItem(APPLICATIONS_KEY)
+  window.localStorage.removeItem(LEGACY_APPLICATIONS_KEY)
 }
 
 export function removeApplication(identifier: string) {
@@ -102,17 +102,6 @@ export function getApplicationByReference(referenceNo: string) {
   )
 }
 
-export function getProjects(): CreatedProjectRecord[] {
-  return readApplications()
-    .filter((application) => application.status === 'Approved')
-    .map((application) => ({
-      beneficiary: application.organizationName,
-      complianceStatus: 'For monitoring setup',
-      id: application.referenceNo,
-      program: application.program,
-      title: application.projectTitle,
-    }))
-}
 
 export interface BackendProposalRecord {
   id: number
@@ -234,10 +223,28 @@ export async function syncUserApplicationsFromBackend(user: {
 
       return mergedUserApps
     } else {
-      if (localUserApps.length > 0) {
-        return localUserApps
+      const localDrafts = localUserApps.filter(
+        (app) => app.status === 'Draft Submitted',
+      )
+      const remainingOtherApps = readApplications().filter(
+        (app) => app.contactEmail.toLowerCase() !== user.email.toLowerCase(),
+      )
+      writeApplications([...localDrafts, ...remainingOtherApps])
+
+      if (
+        user.applicationReference &&
+        !localDrafts.some((app) => app.referenceNo === user.applicationReference)
+      ) {
+        delete user.applicationReference
+        const currentMock = getMockUser()
+        if (currentMock) {
+          const updated = { ...currentMock }
+          delete updated.applicationReference
+          setMockUser(updated)
+        }
       }
-      return []
+
+      return localDrafts
     }
   } catch (error) {
     console.error('Failed to sync applications from backend:', error)

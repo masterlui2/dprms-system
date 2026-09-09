@@ -333,4 +333,6 @@ export function clearMockUser() {
 
   window.localStorage.removeItem(STORAGE_KEY);
   window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem("dprms.applications");
+  window.localStorage.removeItem("dprms.mock-applications");
 }

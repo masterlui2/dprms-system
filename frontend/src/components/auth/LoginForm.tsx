@@ -45,6 +45,8 @@ export function LoginForm() {
       const syncedApps = await syncUserApplicationsFromBackend(user);
       if (syncedApps.length > 0) {
         user.applicationReference = syncedApps[0].referenceNo;
+      } else {
+        delete user.applicationReference;
       }
       setMockUser(user);
       navigate(getDefaultRedirect(user));
