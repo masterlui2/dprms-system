@@ -48,9 +48,10 @@ class SetupMonitoringProjectService
         $this->applySearch($projectsQuery, $filters['search'] ?? null);
         $this->applyDistrict($projectsQuery, $filters['district'] ?? null);
 
+        $perPage = isset($filters['per_page']) ? max(1, min(100, (int) $filters['per_page'])) : 6;
         $paginator = $projectsQuery
             ->orderByDesc('approved_at')
-            ->paginate(6, ['*'], 'page', (int) ($filters['page'] ?? 1));
+            ->paginate($perPage, ['*'], 'page', (int) ($filters['page'] ?? 1));
         $projects = $paginator->getCollection()
             ->map(fn (Project $project) => $this->formatProject($project, $filters))
             ->values();
@@ -209,18 +210,37 @@ class SetupMonitoringProjectService
         if ($project->proposal_id) {
             $equipmentList = \App\Models\EquipmentRegistry::query()
                 ->where('proposal_id', $project->proposal_id)
+                ->with('qrCode')
                 ->get();
 
             if ($equipmentList->isNotEmpty()) {
                 $equipmentRecords = $equipmentList->map(function ($item) {
+                    $yearAcquired = $item->acquisition_date ? (int) $item->acquisition_date->format('Y') : (int) today()->year;
+                    $usefulLife = 5;
+                    $cost = (float) ($item->acquisition_cost ?? 0);
+                    $elapsedYears = max(0, 2026 - $yearAcquired);
+                    $depreciation = $usefulLife > 0 ? round($cost / $usefulLife, 2) : 0;
+                    $bookValue = max(0, round($cost - ($elapsedYears * $depreciation), 2));
+
                     return [
                         'id' => (string) $item->id,
                         'equipment_name' => $item->equipment_name,
-                        'year_acquired' => $item->acquisition_date ? (int) $item->acquisition_date->format('Y') : (int) today()->year,
-                        'useful_life_years' => 5,
-                        'cost' => (float) ($item->acquisition_cost ?? 0),
-                        'book_value' => (float) ($item->acquisition_cost ?? 0),
-                        'condition' => $item->current_condition ?? 'Operational',
+                        'brand' => $item->brand,
+                        'model' => $item->model,
+                        'serial_number' => $item->serial_number,
+                        'property_number' => $item->property_number,
+                        'qr_reference' => $item->qrCode?->qr_code_reference,
+                        'year_acquired' => $yearAcquired,
+                        'useful_life_years' => $usefulLife,
+                        'cost' => $cost,
+                        'book_value' => $bookValue,
+                        'condition' => match ($item->current_condition) {
+                            'GOOD' => 'Operational',
+                            'FAIR' => 'Fair',
+                            'POOR' => 'Needs Repair',
+                            'NON_FUNCTIONAL' => 'Non-Functional',
+                            default => 'Operational',
+                        },
                     ];
                 })->values()->all();
             } else {
@@ -230,13 +250,20 @@ class SetupMonitoringProjectService
 
                 if ($quotations->isNotEmpty()) {
                     $equipmentRecords = $quotations->map(function ($q) {
+                        $yearAcquired = $q->quotation_date ? (int) $q->quotation_date->format('Y') : (int) today()->year;
+                        $usefulLife = 5;
+                        $cost = (float) ($q->total_price ?? $q->unit_price ?? 0);
+                        $elapsedYears = max(0, 2026 - $yearAcquired);
+                        $depreciation = $usefulLife > 0 ? round($cost / $usefulLife, 2) : 0;
+                        $bookValue = max(0, round($cost - ($elapsedYears * $depreciation), 2));
+
                         return [
                             'id' => (string) $q->id,
                             'equipment_name' => $q->equipment_description,
-                            'year_acquired' => $q->quotation_date ? (int) $q->quotation_date->format('Y') : (int) today()->year,
-                            'useful_life_years' => 5,
-                            'cost' => (float) ($q->total_price ?? $q->unit_price ?? 0),
-                            'book_value' => (float) ($q->total_price ?? $q->unit_price ?? 0),
+                            'year_acquired' => $yearAcquired,
+                            'useful_life_years' => $usefulLife,
+                            'cost' => $cost,
+                            'book_value' => $bookValue,
                             'condition' => 'Operational',
                         ];
                     })->values()->all();

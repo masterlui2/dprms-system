@@ -140,6 +140,11 @@ export interface ProjectRecord {
     cost: number
     book_value: number
     condition: string
+    property_number?: string | null
+    serial_number?: string | null
+    brand?: string | null
+    model?: string | null
+    qr_reference?: string | null
   }>
   gia?: GiaMonitoringDetails
   status: 'Active' | 'At risk' | 'Completed'

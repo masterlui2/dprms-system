@@ -531,6 +531,7 @@ export interface SetupMonitoringProjectFilters {
   year?: number
   quarter?: Quarter
   page?: number
+  perPage?: number
 }
 
 export interface SetupMonitoringProjectsResult {
@@ -581,6 +582,11 @@ interface BackendSetupMonitoringProject {
     cost: number
     book_value: number
     condition: string
+    property_number?: string | null
+    serial_number?: string | null
+    brand?: string | null
+    model?: string | null
+    qr_reference?: string | null
   }>
   latest_report: {
     status: string
@@ -683,6 +689,7 @@ export async function fetchSetupMonitoringProjects(
       year: filters.year,
       quarter: filters.quarter ? Number(filters.quarter.slice(1)) : undefined,
       page: filters.page ?? 1,
+      per_page: filters.perPage,
     },
   })
 

@@ -391,7 +391,9 @@ export function SetupMonitoringHub({
   const totalBuildingBookValue =
     record?.buildingAssets.reduce((sum, b) => sum + (b.bookValue || 0), 0) ?? 0
   const totalEquipmentBookValue =
-    record?.equipmentAssets.reduce((sum, eq) => sum + (eq.bookValue || 0), 0) ?? 0
+    record && record.equipmentAssets.length > 0
+      ? record.equipmentAssets.reduce((sum, eq) => sum + (eq.bookValue || 0), 0)
+      : (project.equipmentRecords?.reduce((sum, eq) => sum + (eq.book_value || 0), 0) ?? 0)
   const totalFixedAssets = totalBuildingBookValue + totalEquipmentBookValue
 
   const totalFunding = project.budget || 0
@@ -982,6 +984,9 @@ export function SetupMonitoringHub({
                         ? project.equipmentRecords.map((item) => ({
                             id: item.id,
                             equipmentName: item.equipment_name,
+                            propertyNumber: item.property_number,
+                            serialNumber: item.serial_number,
+                            qrReference: item.qr_reference,
                             yearAcquired: item.year_acquired,
                             usefulLifeYears: item.useful_life_years,
                             cost: item.cost,
@@ -992,6 +997,9 @@ export function SetupMonitoringHub({
                           ? record.equipmentAssets.map((item) => ({
                               id: item.id,
                               equipmentName: item.equipmentName,
+                              propertyNumber: undefined,
+                              serialNumber: undefined,
+                              qrReference: undefined,
                               yearAcquired: item.yearAcquired,
                               usefulLifeYears: item.usefulLifeYears,
                               cost: item.cost,
@@ -1001,9 +1009,22 @@ export function SetupMonitoringHub({
                           : []
                       ).map((item, idx) => (
                         <tr key={item.id || idx} className="hover:bg-slate-50/70 transition">
-                          <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-2">
-                            <span className="size-1.5 rounded-full bg-[#0f53b7]" />
-                            <span>{item.equipmentName}</span>
+                          <td className="py-3 px-3">
+                            <div className="flex items-center gap-2 font-bold text-slate-900">
+                              <span className="size-1.5 rounded-full bg-[#0f53b7]" />
+                              <span>{item.equipmentName}</span>
+                            </div>
+                            {(item.propertyNumber || item.qrReference) && (
+                              <div className="ml-3.5 mt-0.5 flex flex-wrap items-center gap-2 text-[10px] text-slate-500 font-mono">
+                                {item.propertyNumber && <span>Prop: {item.propertyNumber}</span>}
+                                {item.qrReference && (
+                                  <span className="inline-flex items-center gap-1 rounded bg-purple-50 px-1.5 py-0.5 text-[9px] font-bold text-purple-700 border border-purple-200">
+                                    <QrCode className="size-2.5" />
+                                    {item.qrReference}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </td>
                           <td className="py-3 px-3 text-center text-slate-600 font-mono">{item.yearAcquired || 2024}</td>
                           <td className="py-3 px-3 text-center font-bold text-slate-800">{item.usefulLifeYears || 5} yrs</td>

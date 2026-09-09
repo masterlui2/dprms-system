@@ -13,6 +13,5 @@ class DatabaseSeeder extends Seeder
         $this->call(DocumentTypeSeeder::class); 
         $this->call(DocumentChecklistTemplateSeeder::class);
         $this->call(EquipmentCategorySeeder::class);
-        $this->call(SetupProjectSeeder::class);
     }
 }

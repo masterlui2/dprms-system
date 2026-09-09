@@ -317,10 +317,10 @@ export function ApprovalsPage() {
     {
       id: "id",
       header: "Reference",
-      className: "w-[8%]",
+      className: "w-[13%] min-w-[140px]",
       sortValue: (proposal) => proposal.id,
       render: (proposal) => (
-        <span className="font-mono text-[11px] font-bold text-slate-600 whitespace-nowrap block tracking-tight">
+        <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100/90 border border-slate-200/80 font-mono text-xs font-bold text-slate-700 whitespace-nowrap shadow-2xs">
           {proposal.id}
         </span>
       ),
@@ -328,10 +328,10 @@ export function ApprovalsPage() {
     {
       id: "title",
       header: "Project Title",
-      className: "w-[15%]",
+      className: "w-[24%] min-w-[220px]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
-        <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2">
+        <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2 hover:text-[#0f53b7] transition-colors">
           {proposal.title}
         </p>
       ),
@@ -339,18 +339,18 @@ export function ApprovalsPage() {
     {
       id: "proponent",
       header: "Proponent",
-      className: "w-[12%]",
+      className: "w-[13%] min-w-[130px]",
       sortValue: (proposal) => proposal.proponentName ?? "",
       render: (proposal) => (
         <p className="font-bold text-sm text-slate-900 leading-snug">
-          {proposal.proponentName ?? "Maria Proponent"}
+          {proposal.proponentName ?? "Proponent"}
         </p>
       ),
     },
     {
       id: "organization",
       header: "Organization",
-      className: "w-[16%]",
+      className: "w-[16%] min-w-[160px]",
       sortValue: (proposal) => proposal.organization,
       render: (proposal) => (
         <div className="space-y-0.5">
@@ -358,8 +358,8 @@ export function ApprovalsPage() {
             {proposal.organization || "—"}
           </p>
           {proposal.organizationType ? (
-            <p className="text-[11px] text-slate-500 font-medium">
-              {proposal.organizationType}
+            <p className="text-[11px] text-slate-500 font-medium capitalize">
+              {proposal.organizationType.toLowerCase().replaceAll("_", " ")}
             </p>
           ) : null}
           <p
@@ -374,7 +374,7 @@ export function ApprovalsPage() {
     {
       id: "classification",
       header: "Sector / Scale",
-      className: "w-[12%]",
+      className: "w-[13%] min-w-[130px]",
       sortValue: (proposal) =>
         proposal.program === "SETUP"
           ? proposal.industrySector ?? ""
@@ -391,8 +391,8 @@ export function ApprovalsPage() {
                 <span className="text-xs text-slate-400 font-medium">—</span>
               )}
               {proposal.enterpriseSize ? (
-                <p className="text-[11px] font-medium text-slate-500">
-                  {proposal.enterpriseSize} Enterprise
+                <p className="text-[11px] font-medium text-slate-500 capitalize">
+                  {proposal.enterpriseSize.toLowerCase()} Enterprise
                 </p>
               ) : null}
             </>
@@ -416,7 +416,7 @@ export function ApprovalsPage() {
     {
       id: "submitted",
       header: "Submission Date",
-      className: "w-[9%]",
+      className: "w-[10%] min-w-[110px]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="text-xs font-medium text-slate-600 whitespace-nowrap block">
@@ -427,13 +427,13 @@ export function ApprovalsPage() {
     {
       id: "status",
       header: "Status",
-      className: "w-[12%]",
+      className: "w-[11%] min-w-[110px]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
             <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap shadow-2xs">
                 <Check className="size-3" />
                 Approved
               </span>
@@ -471,7 +471,7 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[16%] text-right",
+      className: "w-[10%] min-w-[100px] text-right",
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
@@ -669,7 +669,6 @@ export function ApprovalsPage() {
           data={filteredProposals}
           emptyDescription="No applications match the selected filter."
           emptyTitle="No applications found"
-          fitColumns
           getRowKey={(proposal) => proposal.id}
           onRowClick={(proposal) => openReview(proposal, "overview")}
           searchPlaceholder="Search applications..."

@@ -25,6 +25,7 @@ class IndexSetupMonitoringProjectsRequest extends FormRequest
             'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'quarter' => ['nullable', 'integer', 'between:1,4'],
             'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ];
     }
 }

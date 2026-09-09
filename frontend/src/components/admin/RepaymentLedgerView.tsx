@@ -21,7 +21,6 @@ import {
   type SetupRepaymentLedger,
 } from '../../services/repaymentLedgerStore'
 import { cn } from '../../utils/cn'
-import { AdminPageHeader } from './AdminPageHeader'
 import { AdminPanel } from './AdminPanel'
 import { DataTable, type DataColumn } from './DataTable'
 import { LogPaymentModal } from './LogPaymentModal'
@@ -225,7 +224,7 @@ export function RepaymentLedgerView({
 
   const columns: DataColumn<RepaymentInstallment>[] = [
     {
-      className: 'w-[11%] !text-[11px]',
+      className: 'w-[10%] !text-[11px]',
       header: 'Month-Year',
       id: 'monthYear',
       render: (item) => (
@@ -236,7 +235,7 @@ export function RepaymentLedgerView({
       sortValue: (item) => item.dueDate,
     },
     {
-      className: 'w-[14%] !text-[11px] text-right',
+      className: 'w-[11%] !text-[11px] text-right',
       header: 'Amount',
       id: 'scheduledAmount',
       render: (item) => (
@@ -245,7 +244,21 @@ export function RepaymentLedgerView({
       sortValue: (item) => item.amount,
     },
     {
-      className: 'w-[16%] !text-[11px]',
+      className: 'w-[11%] !text-[11px] text-right',
+      header: 'Amount Paid',
+      id: 'amountPaid',
+      render: (item) => {
+        const verifiedPaid = item.amountPaid
+        return verifiedPaid > 0 ? (
+          <span className="font-bold text-emerald-700">{formatCurrency(verifiedPaid)}</span>
+        ) : (
+          <span className="text-slate-300">—</span>
+        )
+      },
+      sortValue: (item) => item.amountPaid,
+    },
+    {
+      className: 'w-[15%] !text-[11px]',
       header: 'Bank / Branch',
       id: 'bank',
       render: (item) => (
@@ -351,56 +364,64 @@ export function RepaymentLedgerView({
   }
 
   return (
-    <div className="space-y-6">
-      <AdminPageHeader
-        action={
-          (onBack
-            || ledger.permissions.readOnly
-            || ledger.permissions.canManageSchedule
-            || ledger.schedule.locked) ? (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {onBack ? (
-                <button
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-[#0f53b7] ring-1 ring-slate-200 hover:bg-blue-50"
-                  onClick={onBack}
-                  type="button"
-                >
-                  <ArrowLeft className="size-4" /> Projects
-                </button>
-              ) : null}
-              {ledger.permissions.readOnly ? (
-                <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-black text-slate-600">
-                  Read only
-                </span>
-              ) : null}
-              {ledger.schedule.locked ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-black text-amber-800">
-                  <LockKeyhole className="size-3.5" /> Schedule locked
-                </span>
-              ) : null}
-              {ledger.permissions.canManageSchedule && !isEditingSchedule ? (
-                <button
-                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white shadow-sm hover:bg-[#0b3f8b]"
-                  onClick={() => setIsEditingSchedule(true)}
-                  type="button"
-                >
-                  <PencilLine className="size-4" />
-                  {ledger.schedule.initialized ? 'Edit schedule' : 'Initialize ledger'}
-                </button>
-              ) : null}
+    <div className="space-y-6 font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 font-sans">
+        <div className="flex items-start gap-3">
+          <span className="mt-1 h-9 sm:h-10 w-1.5 rounded-full bg-[#0f53b7] shrink-0" />
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-semibold leading-none text-slate-400">
+              <span>Repayment Monitoring</span>
+              <span>&gt;</span>
+              <span className="font-mono font-bold text-[#285497]">{ledger.project.referenceNumber}</span>
             </div>
-          ) : undefined
-        }
-        description=""
-        eyebrow={ledger.project.referenceNumber}
-        title={ledger.project.title}
-      />
+            <h1 className="mt-1 text-2xl sm:text-3xl font-black leading-tight tracking-tight text-slate-900">
+              {ledger.project.title}
+            </h1>
+            <p className="mt-1 text-xs text-slate-500 font-medium">
+              <span className="font-bold text-slate-800">{ledger.project.cooperator}</span>
+              <span className="mx-2 text-slate-300">·</span>
+              {ledger.project.location}
+            </p>
+          </div>
+        </div>
 
-      <p className="text-sm text-slate-500">
-        <span className="font-bold text-slate-800">{ledger.project.cooperator}</span>
-        <span className="mx-2 text-slate-300">·</span>
-        {ledger.project.location}
-      </p>
+        {(onBack
+          || ledger.permissions.readOnly
+          || ledger.permissions.canManageSchedule
+          || ledger.schedule.locked) ? (
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+            {onBack ? (
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-xs hover:bg-slate-50 hover:text-[#0f53b7] transition"
+                onClick={onBack}
+                type="button"
+              >
+                <ArrowLeft className="size-3.5" /> Back to projects
+              </button>
+            ) : null}
+            {ledger.permissions.readOnly ? (
+              <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-black text-slate-600">
+                Read only
+              </span>
+            ) : null}
+            {ledger.schedule.locked ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                <LockKeyhole className="size-3" /> Schedule locked
+              </span>
+            ) : null}
+            {ledger.permissions.canManageSchedule && !isEditingSchedule ? (
+              <button
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-xs hover:bg-[#0b3f8b] transition"
+                onClick={() => setIsEditingSchedule(true)}
+                type="button"
+              >
+                <PencilLine className="size-3.5" />
+                {ledger.schedule.initialized ? 'Edit schedule' : 'Initialize ledger'}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       {ledger.schedule.initialized ? (
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -474,7 +495,7 @@ export function RepaymentLedgerView({
           groupedHeader={
             <tr className="border-b border-slate-200 text-center text-[11px] font-black uppercase tracking-wide">
               <th className="border-r border-blue-200 bg-blue-50 px-3 py-2.5 text-[#073b82]" colSpan={2}>Repayment Schedule</th>
-              <th className="border-r border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-900" colSpan={4}>Actual Repayment</th>
+              <th className="border-r border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-900" colSpan={5}>Actual Repayment</th>
               <th className="bg-slate-100 px-3 py-2.5 text-slate-600" colSpan={2}>Review</th>
             </tr>
           }
