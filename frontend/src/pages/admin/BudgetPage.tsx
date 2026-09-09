@@ -174,7 +174,7 @@ export function BudgetPage() {
                         </td>
                         <td className="px-4 py-4 font-black text-[#073b82]">{formatFunding(project.budget)}</td>
                         <td className="px-4 py-4 text-sm font-semibold text-slate-700">
-                          {project.fullRelease || <span className="font-normal text-slate-400">Not recorded</span>}
+                          {formatReleaseDate(project.fullRelease) || <span className="font-normal text-slate-400">Not recorded</span>}
                         </td>
                         <td className="px-5 py-4 text-right">
                           <button className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0f53b7] px-3 text-xs font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open<ArrowRight className="size-3.5" /></button>
@@ -198,7 +198,7 @@ export function BudgetPage() {
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-slate-50 p-3 text-xs">
                       <div><dt className="font-bold text-slate-400">Contact No.</dt><dd className="mt-1 font-semibold text-slate-700">{project.contactNumber || 'Not recorded'}</dd></div>
                       <div><dt className="font-bold text-slate-400">SETUP Funding</dt><dd className="mt-1 font-black text-[#073b82]">{formatFunding(project.budget)}</dd></div>
-                      <div className="col-span-2"><dt className="font-bold text-slate-400">Full Release</dt><dd className="mt-1 font-semibold text-slate-700">{project.fullRelease || 'Not recorded'}</dd></div>
+                      <div className="col-span-2"><dt className="font-bold text-slate-400">Full Release</dt><dd className="mt-1 font-semibold text-slate-700">{formatReleaseDate(project.fullRelease) || 'Not recorded'}</dd></div>
                     </dl>
                     <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open ledger<ArrowRight className="size-4" /></button>
                   </article>
