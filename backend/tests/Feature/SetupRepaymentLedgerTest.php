@@ -205,6 +205,15 @@ class SetupRepaymentLedgerTest extends TestCase
         ProjectBudget::query()->delete();
         Sanctum::actingAs($this->focal);
 
+        $this->getJson("/api/setup/projects/{$this->project->id}/ledger")
+            ->assertOk()
+            ->assertJsonPath('data.schedule.initialized', false)
+            ->assertJsonPath('data.summary.total_project_cost', 0)
+            ->assertJsonPath('data.summary.amount_paid', 0)
+            ->assertJsonPath('data.summary.outstanding_balance', 0)
+            ->assertJsonPath('data.permissions.can_manage_schedule', true)
+            ->assertJsonCount(0, 'data.installments');
+
         $this->putJson(
             "/api/setup/projects/{$this->project->id}/ledger/schedule",
             $this->schedulePayload(),

@@ -402,6 +402,7 @@ export function RepaymentLedgerView({
         {ledger.project.location}
       </p>
 
+      {ledger.schedule.initialized ? (
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard detail="Approved amount" icon={Wallet} label="Total Project Cost" value={formatCurrency(ledger.summary.totalProjectCost)} />
         <MetricCard detail="Verified payments" icon={CheckCircle2} label="Amount Refunded" tone="green" value={formatCurrency(ledger.summary.amountPaid)} />
@@ -420,6 +421,7 @@ export function RepaymentLedgerView({
           value={String(ledger.summary.overdueInstallments)}
         />
       </section>
+      ) : null}
 
       {isEditingSchedule ? (
         <RepaymentScheduleBuilder
@@ -427,23 +429,41 @@ export function RepaymentLedgerView({
           onCancel={() => setIsEditingSchedule(false)}
           onSaved={handleScheduleSaved}
         />
+      ) : !ledger.schedule.initialized ? (
+        <AdminPanel
+          description="Financial details and repayment activity will appear after initialization."
+          title="Repayment Schedule Required"
+        >
+          <div className="px-6 py-12 text-center sm:px-10">
+            <span className="mx-auto grid size-14 place-items-center rounded-2xl bg-blue-50 text-[#0f53b7]">
+              <Clock3 className="size-7" />
+            </span>
+            <p className="mt-4 font-black text-slate-900">
+              {ledger.permissions.canManageSchedule
+                ? 'Initialize this project’s repayment ledger'
+                : 'Waiting for the SSCP Focal'}
+            </p>
+            <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+              {ledger.permissions.canManageSchedule
+                ? 'Enter the approved funding, release date, amortization start, and repayment term before financial records can be displayed.'
+                : 'The funding summary, installment schedule, and payment controls will become available after the SSCP Focal saves the project’s repayment schedule.'}
+            </p>
+            {ledger.permissions.canManageSchedule ? (
+              <button
+                className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white shadow-sm hover:bg-[#0b3f8b]"
+                onClick={() => setIsEditingSchedule(true)}
+                type="button"
+              >
+                <PencilLine className="size-4" /> Initialize ledger
+              </button>
+            ) : null}
+          </div>
+        </AdminPanel>
       ) : (
         <AdminPanel
-          description={ledger.schedule.initialized
-            ? `${ledger.installments.length} installment${ledger.installments.length === 1 ? '' : 's'} from the live ledger`
-            : 'Funding terms and installments have not been configured yet.'}
+          description={`${ledger.installments.length} installment${ledger.installments.length === 1 ? '' : 's'} from the live ledger`}
           title="Repayment Schedule"
         >
-          {!ledger.schedule.initialized ? (
-            <div className="border-b border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
-              <p className="font-black">This project is ready for ledger initialization.</p>
-              <p className="mt-1 text-blue-700">
-                {ledger.permissions.canManageSchedule
-                  ? 'Use Initialize ledger to enter the funding terms and generate the repayment schedule.'
-                  : 'The SSCP Focal must enter the funding terms and generate the repayment schedule.'}
-              </p>
-            </div>
-          ) : null}
           <DataTable
           columns={columns}
           data={ledger.installments}
