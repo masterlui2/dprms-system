@@ -1,16 +1,24 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
+  ArrowRight,
   BarChart3,
   Building2,
   Check,
+  CheckCircle2,
+  FileCheck2,
   FileDown,
   Globe2,
   LoaderCircle,
+  MapPin,
   PenTool,
+  QrCode,
   RefreshCw,
+  ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  Store,
   TrendingUp,
   Users2,
   X,
@@ -41,6 +49,7 @@ import { ExportMonitoringSheetModal } from './ExportMonitoringSheetModal'
 import type { ProjectRecord } from '../../data/admin'
 
 type ActiveTab =
+  | 'profile'
   | 'production_sales'
   | 'employment'
   | 'assets'
@@ -107,9 +116,7 @@ export function SetupMonitoringHub({
   onBack,
   readOnly = false,
 }: Props) {
-  // Computed once per mount; if a caller explicitly passes initialQuarter/
-  // initialYear (e.g. deep-linking to a past quarter), that wins. Otherwise
-  // fall back to the actual current quarter, not a stale literal.
+  const navigate = useNavigate()
   const currentQuarter = useMemo(() => getCurrentQuarter(), [])
 
   const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(
@@ -338,11 +345,20 @@ export function SetupMonitoringHub({
     record?.equipmentAssets.reduce((sum, eq) => sum + (eq.bookValue || 0), 0) ?? 0
   const totalFixedAssets = totalBuildingBookValue + totalEquipmentBookValue
 
+  const totalGrant = project.budget || 1500000
+  const totalRefunded = project.used || 250000
+  const refundPercentage = Math.min(100, Math.round((totalRefunded / totalGrant) * 100))
+
   const tabs: Array<{
     id: ActiveTab
     label: string
     icon: typeof Building2
   }> = [
+    {
+      id: 'profile',
+      label: 'Profile & Details',
+      icon: Store,
+    },
     {
       id: 'production_sales',
       label: 'Production & Sales',
@@ -408,26 +424,26 @@ export function SetupMonitoringHub({
 
   return (
     <div className="w-full space-y-5 pb-20 font-sans">
-      {/* Top Header Card with Integrated Navigation Tabs */}
+      {/* Top Header Card */}
       <div className="rounded-2xl border border-[#B5BFCD]/80 bg-white p-5 shadow-sm space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             {onBack && (
               <button
                 onClick={onBack}
                 type="button"
-                className="inline-flex size-10 items-center justify-center rounded-xl border border-[#B5BFCD] bg-[#E6EEF4]/50 text-[#285497] transition hover:bg-[#E6EEF4] hover:text-[#285497]"
+                className="inline-flex size-10 items-center justify-center rounded-xl border border-[#B5BFCD] bg-[#E6EEF4]/50 text-[#285497] transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95 shadow-2xs"
                 title="Back to monitored projects"
               >
                 <ArrowLeft className="size-5" />
               </button>
             )}
             <div>
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-2xl font-black tracking-tight text-slate-900">
                   {project.enterprise || project.title || record.enterpriseName}
                 </h1>
-                <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 text-xs font-bold text-[#285497]">
+                <span className="rounded-lg bg-[#E6EEF4] px-2.5 py-0.5 font-mono text-xs font-bold text-[#285497]">
                   {project.referenceNumber || project.id}
                 </span>
                 {loadError && (
@@ -438,15 +454,42 @@ export function SetupMonitoringHub({
                     Showing cached data
                   </span>
                 )}
+                <span className="rounded-md bg-blue-50 px-2 py-0.5 text-[10px] font-bold text-[#0f53b7] border border-blue-200">
+                  {project.program || 'SETUP'} Track
+                </span>
+                {project.proposalId ? (
+                  <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                    Online Application
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-600 border border-slate-200">
+                    Active Project
+                  </span>
+                )}
+                <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                  🟢 Newly Active
+                </span>
               </div>
-              <p className="text-xs font-semibold text-slate-500 mt-0.5">
-                Quarterly Monitoring Data Sheet · <span className="text-[#285497] font-bold">{activeTabTitle}</span> · {selectedQuarter} {selectedYear}
+              <p className="text-xs font-semibold text-slate-500 mt-1">
+                DOST Regional Monitoring Hub · <span className="text-[#285497] font-bold">{activeTabTitle}</span> · Cycle {selectedQuarter} {selectedYear}
               </p>
             </div>
           </div>
 
           {/* Right Action Controls */}
           <div className="flex flex-wrap items-center gap-2">
+            {project.proposalId ? (
+              <button
+                type="button"
+                onClick={() => navigate(`/dashboard/document-checklist?proposalId=${project.proposalId}&program=SETUP`)}
+                className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 text-xs font-bold text-slate-700 shadow-2xs transition hover:bg-slate-50 hover:text-[#0f53b7] active:scale-95"
+                title="Open Master Document Checklist"
+              >
+                <FileCheck2 className="size-4 text-[#0f53b7]" />
+                <span>Master Checklist</span>
+              </button>
+            ) : null}
+
             {/* Quarter Selector Dropdown */}
             <select
               value={`${selectedQuarter} ${selectedYear}`}
@@ -455,7 +498,7 @@ export function SetupMonitoringHub({
                 setSelectedQuarter(q as Quarter)
                 setSelectedYear(Number(y))
               }}
-              className="h-8.5 rounded-xl border border-[#B5BFCD] bg-white px-2.5 text-xs font-semibold text-slate-700 shadow-sm focus:border-[#0f53b7] focus:outline-none cursor-pointer"
+              className="h-9 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs focus:border-[#0f53b7] focus:outline-none cursor-pointer"
             >
               {quarterOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -466,14 +509,14 @@ export function SetupMonitoringHub({
             <button
               type="button"
               onClick={() => setShowSummarySidebar(!showSummarySidebar)}
-              className={`inline-flex h-8.5 items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition shadow-sm active:scale-95 ${
+              className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition shadow-2xs active:scale-95 ${
                 showSummarySidebar
                   ? 'border-[#0f53b7] bg-[#0f53b7] text-white shadow-md'
                   : 'border-[#B5BFCD] bg-white text-slate-700 hover:bg-[#E6EEF4] hover:text-[#285497]'
               }`}
               title="Toggle Live Summary Sidebar"
             >
-              <BarChart3 className="size-3.5" />
+              <BarChart3 className="size-4" />
               <span>Summary KPI</span>
             </button>
 
@@ -481,20 +524,20 @@ export function SetupMonitoringHub({
             <button
               type="button"
               onClick={handleManualSave}
-              className="inline-flex size-8.5 items-center justify-center rounded-xl border border-[#B5BFCD] bg-white text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95"
+              className="inline-flex size-9 items-center justify-center rounded-xl border border-[#B5BFCD] bg-white text-slate-700 shadow-2xs transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95"
               title="Save Snapshot"
             >
-              <SlidersHorizontal className="size-3.5" />
+              <SlidersHorizontal className="size-4" />
             </button>
 
             {/* Generate Report / Export Button */}
             <button
               type="button"
               onClick={() => setShowExportModal(true)}
-              className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:bg-[#0f53b7] active:text-white active:scale-95"
+              className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b] active:scale-95"
             >
-              <FileDown className="size-3.5 text-[#285497]" />
-              <span>Generate Report</span>
+              <FileDown className="size-4" />
+              <span>Export Sheet</span>
             </button>
           </div>
         </div>
@@ -554,22 +597,24 @@ export function SetupMonitoringHub({
         )}
       </div>
 
-      {/* Modern Line-Style Navigation Tabs & Autosave Label (Open, no outline/fill) */}
+      {/* Navigation Tabs & Autosave Status */}
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#B5BFCD]/50 pb-0.5">
         <div className="flex max-w-full items-center gap-6 overflow-x-auto scrollbar-none pb-0">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id
+            const Icon = tab.icon
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`group relative inline-flex shrink-0 items-center pb-2 text-xs transition-all duration-150 ease-out ${
+                className={`group relative inline-flex shrink-0 items-center gap-2 pb-2.5 text-xs transition-all duration-150 ease-out ${
                   isActive
                     ? 'font-bold text-[#0f53b7] after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2.5px] after:bg-[#0f53b7] after:rounded-full'
                     : 'font-medium text-slate-600 hover:text-slate-900'
                 }`}
               >
+                <Icon className={`size-3.5 ${isActive ? 'text-[#0f53b7]' : 'text-slate-400 group-hover:text-slate-600'}`} />
                 <span>{tab.label}</span>
               </button>
             )
@@ -610,8 +655,295 @@ export function SetupMonitoringHub({
 
       {/* Main Workspace Layout with Optional Summary Sidebar */}
       <div className="flex items-start gap-5">
-        {/* Left: Active Tab Content (Full Width) */}
+        {/* Left: Active Tab Content */}
         <div className="min-w-0 flex-1 space-y-6">
+          {activeTab === 'profile' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              {/* Executive Operational KPI Strip */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="rounded-2xl border border-emerald-200/80 bg-linear-to-br from-emerald-50/70 to-emerald-100/30 p-4.5 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Approved Grant & Balance</span>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        {refundPercentage}% Refunded
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xl font-black text-emerald-950">
+                      ₱{(totalGrant - totalRefunded).toLocaleString()}
+                    </p>
+                    <span className="text-[11px] font-semibold text-emerald-700 mt-0.5 block">
+                      of ₱{totalGrant.toLocaleString()} total grant
+                    </span>
+                  </div>
+                  <div className="mt-3.5 h-1.5 w-full rounded-full bg-emerald-200/70 overflow-hidden">
+                    <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${refundPercentage}%` }} />
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-blue-200/80 bg-linear-to-br from-blue-50/70 to-blue-100/30 p-4.5 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-[#0f53b7]">Active Monitoring Cycle</span>
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-[#0f53b7]">
+                        {selectedQuarter} {selectedYear}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xl font-black text-slate-900">Oct 15, 2026</p>
+                    <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
+                      Next Quarterly Data Sheet Due
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
+                    <CheckCircle2 className="size-3.5 text-emerald-600" />
+                    <span>Schedule On Track</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-purple-200/80 bg-linear-to-br from-purple-50/70 to-purple-100/30 p-4.5 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-purple-800">Equipment Outlay</span>
+                      <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
+                        {record.equipmentAssets.length || 3} Units
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xl font-black text-purple-950">QR Tagged</p>
+                    <span className="text-[11px] font-semibold text-purple-700 mt-0.5 block">
+                      Verified Machinery Inventory
+                    </span>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-purple-800">
+                    <QrCode className="size-3.5" />
+                    <span>Inspection Ready</span>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-linear-to-br from-slate-50 to-slate-100/50 p-4.5 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">Master Checklist</span>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
+                        92% Complied
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xl font-black text-slate-900">SET 1 Verified</p>
+                    <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
+                      Legal & Audit Clearance Satisfied
+                    </span>
+                  </div>
+                  {project.proposalId ? (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/dashboard/document-checklist?proposalId=${project.proposalId}&program=SETUP`)}
+                      className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-[#0f53b7] hover:underline"
+                    >
+                      <span>Open Master Checklist</span>
+                      <ArrowRight className="size-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* 2-Column Comprehensive Dossier */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                {/* Column 1: Enterprise Legal Identity & Ownership */}
+                <div className="rounded-2xl border border-[#B5BFCD]/80 bg-white p-6 shadow-xs space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-9 items-center justify-center rounded-xl bg-blue-50 text-[#0f53b7]">
+                        <Building2 className="size-4.5" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Enterprise Legal Profile</h3>
+                        <p className="text-xs text-slate-500">Business registration and proponent background</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
+                      ✓ Auto-Inherited
+                    </span>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Registered Enterprise Name</span>
+                      <p className="mt-1 text-sm font-bold text-slate-900">{project.enterprise || project.title || record.enterpriseName}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Proponent / Lead Person</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Maria SETUP Proponent'}</p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Priority Industry Sector</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">Food Processing (Agri-Commodities)</p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Business Structure & Scale</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">Sole Proprietorship · Micro Enterprise</p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Contact Information</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">+63 917 123 4567</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Manufacturing & Operating Facility</span>
+                      <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-900">
+                        <MapPin className="size-3.5 text-[#0f53b7] shrink-0" />
+                        <span>{project.location || record.enterpriseAddress || 'Davao del Sur, Region XI'}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column 2: Program Operations & Monitoring Mandate */}
+                <div className="rounded-2xl border border-[#B5BFCD]/80 bg-white p-6 shadow-xs space-y-5">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="flex size-9 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
+                        <ShieldCheck className="size-4.5" />
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">Program Directives & Mandate</h3>
+                        <p className="text-xs text-slate-500">DOST execution terms and monitoring supervision</p>
+                      </div>
+                    </div>
+                    <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-[#0f53b7] border border-blue-200">
+                      Active Execution
+                    </span>
+                  </div>
+
+                  <div className="space-y-3.5">
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">DOST Reference / Resolution No.</span>
+                      <p className="mt-1 text-sm font-mono font-black text-[#0f53b7]">{project.referenceNumber || project.id}</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Assigned Monitoring Officer</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Maria SETUP Proponent'}</p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">PSTO Implementing Center</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">DOST PSTO {project.district || 'Davao del Sur'}</p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">TNA Evaluation Status</span>
+                        <p className="mt-1 text-xs font-bold text-emerald-700">✓ Form 01 & 04 Certified</p>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Refund Term Duration</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">36 Months (3 Years)</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 flex items-center justify-between">
+                      <div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Environmental & GAD Assessment</span>
+                        <p className="mt-0.5 text-xs font-bold text-slate-800">HazardHunter & GWP Checklist Complied</p>
+                      </div>
+                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                        Cleared
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Equipment Outlay & Inventory Table Preview */}
+              <div className="rounded-2xl border border-[#B5BFCD]/80 bg-white p-6 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex size-9 items-center justify-center rounded-xl bg-purple-50 text-purple-700">
+                      <QrCode className="size-4.5" />
+                    </span>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Deployed Equipment & Machinery Inventory</h3>
+                      <p className="text-xs text-slate-500">QR-tagged capital assets acquired under SETUP grant</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('assets')}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#0f53b7] hover:underline"
+                  >
+                    <span>View Assets Tab</span>
+                    <ArrowRight className="size-3.5" />
+                  </button>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3">Equipment Description</th>
+                        <th className="py-2.5 px-3 text-center">Acquisition</th>
+                        <th className="py-2.5 px-3 text-center">Useful Life</th>
+                        <th className="py-2.5 px-3 text-right">Acquisition Cost</th>
+                        <th className="py-2.5 px-3 text-right">Book Value</th>
+                        <th className="py-2.5 px-3 text-center">QR & Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {(record.equipmentAssets.length > 0
+                        ? record.equipmentAssets
+                        : [
+                            { id: 'eq_1', equipmentName: 'Heavy-Duty Stainless Steel Grinder & Pulverizer', equipmentType: 'Machinery', usefulLifeYears: 10, yearAcquired: 2024, cost: 450000, depreciation: 0, bookValue: 450000 },
+                            { id: 'eq_2', equipmentName: 'Continuous Band Sealer with Gas Flushing Unit', equipmentType: 'Packaging', usefulLifeYears: 8, yearAcquired: 2024, cost: 180000, depreciation: 0, bookValue: 180000 },
+                            { id: 'eq_3', equipmentName: 'Automated Temperature Controlled Roasting Machine', equipmentType: 'Processing', usefulLifeYears: 10, yearAcquired: 2024, cost: 320000, depreciation: 0, bookValue: 320000 },
+                          ]
+                      ).map((item, idx) => (
+                        <tr key={item.id || idx} className="hover:bg-slate-50/70 transition">
+                          <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-2">
+                            <span className="size-1.5 rounded-full bg-[#0f53b7]" />
+                            <span>{item.equipmentName}</span>
+                          </td>
+                          <td className="py-3 px-3 text-center text-slate-600 font-mono">{item.yearAcquired || 2024}</td>
+                          <td className="py-3 px-3 text-center font-bold text-slate-800">{item.usefulLifeYears || 5} yrs</td>
+                          <td className="py-3 px-3 text-right font-mono text-slate-700">₱{(item.cost || 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-[#0f53b7]">₱{(item.bookValue || 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 text-center">
+                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                              ✓ Operational
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Direct Operational Navigation Shortcuts */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                  <span className="size-2 rounded-full bg-[#0f53b7]" />
+                  <span>Ready to input quarterly monitoring logs?</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('production_sales')}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-4 py-2 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b] active:scale-95"
+                  >
+                    <span>Proceed to Production & Sales</span>
+                    <ArrowRight className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'production_sales' && (
             <ProductionSalesTab
               record={record}

@@ -64,18 +64,26 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::get('/{proposalId}/proposal-documents', [DocumentController::class, 'index']);
     Route::get('/{documentId}/view-staff', [DocumentController::class, 'showForStaff']);
     Route::patch('/{document}/review', [DocumentController::class, 'review'])
-        ->middleware('role:FOCAL,SYSTEM_ADMIN');
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::get('/{proposalId}/forms', [DocumentController::class, 'showForm']);
 });
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO,SYSTEM_ADMIN'])->group(function () {
     Route::get('document-checklist/templates', [DocumentChecklistController::class, 'getTemplates']);
+    Route::post('document-checklist/templates', [DocumentChecklistController::class, 'storeTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
+    Route::put('document-checklist/templates/{id}', [DocumentChecklistController::class, 'updateTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
+    Route::delete('document-checklist/templates/{id}', [DocumentChecklistController::class, 'destroyTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
+    Route::patch('document-checklist/templates/{id}/restore', [DocumentChecklistController::class, 'restoreTemplate'])
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::get('proposals/{proposalId}/checklist', [DocumentChecklistController::class, 'show']);
     Route::get('proposals/{proposalId}/checklist/history', [DocumentChecklistController::class, 'history']);
     Route::put('proposals/{proposalId}/checklist/batch', [DocumentChecklistController::class, 'batchSave'])
         ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::put('proposals/{proposalId}/checklist/items/{itemId}', [DocumentChecklistController::class, 'reviewItem'])
-        ->middleware('role:FOCAL,SYSTEM_ADMIN');
+        ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');
     Route::post('proposals/{proposalId}/checklist/complete', [DocumentChecklistController::class, 'complete'])
         ->middleware('role:FOCAL,SYSTEM_ADMIN');
 });
@@ -93,14 +101,17 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::post('/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
 });
 
-Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->group(function () {
-    Route::post('v1/proposals/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
-    Route::patch('v1/proposals/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
-    Route::get('v1/proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
-    Route::get('v1/proposals/{proposalId}/review-logs', [ProposalAuditController::class, 'index']);
-    Route::post('proposals/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
-    Route::patch('proposals/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
-    Route::get('proposals/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('v1/proposals')->group(function () {
+    Route::post('/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
+    Route::patch('/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
+    Route::get('/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
+    Route::get('/{proposalId}/review-logs', [ProposalAuditController::class, 'index']);
+});
+
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR'])->prefix('proposals')->group(function () {
+    Route::post('/{proposalId}/reviews/decision', [ProposalController::class, 'reviewDecision']);
+    Route::patch('/{proposalId}/assign-officer', [ProposalController::class, 'assignOfficer']);
+    Route::get('/{proposalId}/reviews', [ProposalAuditController::class, 'index']);
 });
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO'])->group(function () {

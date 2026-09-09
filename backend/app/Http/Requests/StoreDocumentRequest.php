@@ -15,6 +15,15 @@ class StoreDocumentRequest extends FormRequest
      */
     public function authorize(): bool
     {
+        $user = $this->user();
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR', 'RPMO', 'ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'])) {
+            return true;
+        }
+
         $documentType = DocumentType::query()->find($this->input('document_type_id'));
 
         if (! $documentType) {
@@ -24,26 +33,14 @@ class StoreDocumentRequest extends FormRequest
         $proposal = Proposal::query()->find($this->input('proposal_id'));
 
         if (! $documentType->is_applicant_visible) {
-            if (! ($this->user()?->hasRole('PROJECT_STAFF') ?? false)) {
-                return false;
-            }
-
-            if (! $proposal) {
-                return true;
-            }
-
-            return in_array(
-                $documentType->applicable_program,
-                [$proposal->program_type, 'BOTH'],
-                true,
-            );
+            return false;
         }
 
         if (! $proposal) {
             return true;
         }
 
-        if ($proposal->submitted_by !== $this->user()?->id) {
+        if ($proposal->submitted_by !== $user->id) {
             return false;
         }
 

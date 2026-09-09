@@ -2,6 +2,7 @@
 
 namespace App\Services\Contracts\ProposalModule;
 
+use App\Models\DocumentChecklistTemplate;
 use App\Models\ProposalChecklistHistory;
 use App\Models\ProposalChecklistReview;
 use App\Models\ProposalChecklistSummary;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Collection;
 
 interface DocumentChecklistServiceInterface
 {
-    public function getChecklistTemplates(string $programType): Collection;
+    public function getChecklistTemplates(string $programType, bool $includeInactive = false): Collection;
 
     public function getProposalChecklist(int $proposalId): array;
 
@@ -22,4 +23,12 @@ interface DocumentChecklistServiceInterface
     public function getChecklistHistory(int $proposalId): Collection;
 
     public function logActivity(int $proposalId, int $userId, string $action, ?string $itemName, ?string $fileName, ?string $details = null, ?array $metadata = null): ProposalChecklistHistory;
+
+    public function createTemplate(array $data): DocumentChecklistTemplate;
+
+    public function updateTemplate(int $id, array $data): DocumentChecklistTemplate;
+
+    public function restoreTemplate(int $id): DocumentChecklistTemplate;
+
+    public function deleteTemplate(int $id): bool;
 }

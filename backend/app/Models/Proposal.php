@@ -96,4 +96,24 @@ class Proposal extends Model
     {
         return $this->hasOne(ProjectBudget::class);
     }
+
+    public function checklist_reviews(): HasMany
+    {
+        return $this->hasMany(ProposalChecklistReview::class);
+    }
+
+    public function checklist_summary(): HasOne
+    {
+        return $this->hasOne(ProposalChecklistSummary::class);
+    }
+
+    public function checklist_histories(): HasMany
+    {
+        return $this->hasMany(ProposalChecklistHistory::class);
+    }
+
+    public function archived_documents(): HasMany
+    {
+        return $this->hasMany(ArchivedDocument::class);
+    }
 }

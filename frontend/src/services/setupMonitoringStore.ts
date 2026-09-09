@@ -609,6 +609,23 @@ interface BackendProject {
   updated_at: string
   proposal: BackendProposal
   user: BackendApprovedByUser
+  monitoring_status?: string
+  overall_compliance?: number
+  last_monitored_at?: string | null
+  monitored?: boolean
+  pending_reports?: number
+  checklist_stats?: {
+    complied: number
+    total: number
+    percentage: number
+  }
+  latest_report?: {
+    status: string
+    reporting_period: string
+    year: number
+    quarter: number | null
+    due_date: string | null
+  } | null
 }
 
 interface BackendProjectsResponse {
@@ -627,20 +644,24 @@ function mapSetupMonitoringProject(project: BackendProject): ProjectRecord {
   return {
     approvedAt: project.approved_at,
     backendId: project.id,
-    // Not returned by GET /api/projects — no budget field on Project/Proposal/SetupProposal yet.
+    proposalId: project.proposal_id ?? project.id,
     budget: 0,
-    // No monitoring/compliance data exists on this endpoint yet — placeholder until
-    // quarterly-metrics data is joined in.
     compliance: 'Compliant',
-    // There's no dedicated `district` column on setup_proposal — using province as the
-    // closest available grouping until the backend adds one.
     district: setupProposal?.province,
-    // No monitoring/report data returned yet.
     dueDate: 'Not scheduled',
     enterprise: setupProposal?.business_name ?? project.proposal.title,
     id: String(project.id),
-    lastMonitoredAt: null,
-    latestReport: null,
+    lastMonitoredAt: project.last_monitored_at ?? null,
+    checklistStats: project.checklist_stats,
+    latestReport: project.latest_report
+      ? {
+          dueDate: project.latest_report.due_date,
+          quarter: project.latest_report.quarter,
+          reportingPeriod: project.latest_report.reporting_period,
+          status: project.latest_report.status,
+          year: project.latest_report.year,
+        }
+      : null,
     location,
     manager: project.user?.name ?? 'Unassigned',
     monitored: false,

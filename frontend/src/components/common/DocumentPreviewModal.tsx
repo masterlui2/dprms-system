@@ -62,6 +62,11 @@ export function DocumentPreviewModal({
   onOpenNewTab,
 }: DocumentPreviewModalProps) {
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [iframeLoaded, setIframeLoaded] = useState(false)
+
+  useEffect(() => {
+    setIframeLoaded(false)
+  }, [blobUrl, isOpen])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -212,11 +217,27 @@ export function DocumentPreviewModal({
                 />
               </div>
             ) : isPdf ? (
-              <div className="flex flex-1 items-center justify-center p-2 sm:p-4 bg-slate-100 overflow-hidden">
-                <div className="h-full w-full max-w-4xl bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+              <div className="relative flex flex-1 items-center justify-center p-2 sm:p-4 bg-slate-100 overflow-hidden">
+                <div className="relative h-full w-full max-w-4xl bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden flex flex-col">
+                  {!iframeLoaded && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white p-6 text-center">
+                      <div className="flex size-14 items-center justify-center rounded-2xl bg-[#E6EEF4] text-[#0f53b7] shadow-xs animate-pulse">
+                        <FileCheck2 className="size-7" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="size-4 animate-spin text-[#0f53b7]" />
+                        <p className="text-xs font-bold text-slate-700">Loading document preview...</p>
+                      </div>
+                      <p className="text-[11px] text-slate-400">Rendering document</p>
+                    </div>
+                  )}
                   <iframe
                     src={`${blobUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=0`}
-                    className="h-full w-full flex-1 border-0 bg-white"
+                    onLoad={() => setIframeLoaded(true)}
+                    className={cn(
+                      'h-full w-full flex-1 border-0 bg-white transition-opacity duration-200',
+                      iframeLoaded ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    )}
                     title={fileName || 'PDF Document'}
                   />
                 </div>

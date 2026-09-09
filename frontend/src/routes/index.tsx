@@ -120,5 +120,15 @@ export const router = createBrowserRouter([
       { path: 'system-settings', element: protect('systemSettings', <ModuleWorkspace title="System Settings" description="Manage shared DPRMS platform settings." />) },
     ],
   },
+  {
+    path: '/admin',
+    element: <DashboardLayout />,
+    children: [
+      { path: 'document-checklist', element: protect('documentChecklist', <DocumentChecklistPage />) },
+      { path: 'applications', element: protect('applications', <ApprovalsPage />) },
+      { path: 'approvals', element: protect('applications', <ApprovalsPage />) },
+      { path: 'projects', element: protect('projects', <MonitoringPage />) },
+    ],
+  },
   { path: '*', element: <NotFound /> },
 ])

@@ -98,6 +98,11 @@ export function InternalDocumentsSection({
   const [previewVersion, setPreviewVersion] = useState(0);
   const [downloading, setDownloading] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
+  const [iframeLoaded, setIframeLoaded] = useState(false);
+
+  useEffect(() => {
+    setIframeLoaded(false);
+  }, [previewUrl]);
 
   const canUpload = mode === "edit";
   const canReview = mode === "review";
@@ -630,11 +635,23 @@ export function InternalDocumentsSection({
                   Loading PDF from server...
                 </div>
               ) : previewUrl ? (
-                <iframe
-                  className="h-full min-h-[360px] w-full flex-1 border-0 bg-white"
-                  src={`${previewUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=1`}
-                  title={selectedDocument.label}
-                />
+                <div className="relative h-full min-h-[360px] w-full flex-1 bg-white">
+                  {!iframeLoaded && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-white text-xs font-semibold text-slate-500">
+                      <Loader2 className="size-4 animate-spin text-[#0f53b7]" />
+                      <span>Loading document preview...</span>
+                    </div>
+                  )}
+                  <iframe
+                    className={cn(
+                      'h-full min-h-[360px] w-full flex-1 border-0 bg-white transition-opacity duration-200',
+                      iframeLoaded ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                    )}
+                    onLoad={() => setIframeLoaded(true)}
+                    src={`${previewUrl}#view=FitH&toolbar=0&navpanes=0&scrollbar=1`}
+                    title={selectedDocument.label}
+                  />
+                </div>
               ) : (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center text-slate-500">
                   <FileCheck2 className="size-8 text-emerald-600" />

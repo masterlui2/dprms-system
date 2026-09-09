@@ -37,4 +37,9 @@ class Document extends Model
     public function proposal():BelongsTo{
         return $this->belongsTo(Proposal::class);
     }
+
+    public function archived_versions()
+    {
+        return $this->hasMany(ArchivedDocument::class)->orderByDesc('archived_at');
+    }
 }

@@ -27,7 +27,7 @@ export interface StoredDocument {
    * Present for documents backed by the real /documents API.
    */
   backendId?: number
-  dataUrl: string
+  dataUrl?: string
   fileName: string
   fileSize: number
   fileType: string
@@ -302,6 +302,26 @@ export async function fetchSetupDocumentaryRequirements(
 // submission and review flows use these records when a proposal id exists.
 // ---------------------------------------------------------------------------
 
+export interface ArchivedDocumentApiRecord {
+  id: number
+  document_id: number
+  proposal_id: number
+  document_type_id: number
+  uploaded_by: number
+  reviewed_by: number | null
+  file_name: string
+  file_path: string
+  file_size: number | null
+  mime_type: string | null
+  status: 'pending' | 'approved' | 'returned_for_revision'
+  remarks: string | null
+  reviewed_at: string | null
+  archived_at: string
+  version: number
+  created_at: string
+  updated_at: string
+}
+
 export interface DocumentApiRecord {
   id: number
   proposal_id: number
@@ -312,14 +332,12 @@ export interface DocumentApiRecord {
   file_path: string
   file_size: number | null
   mime_type: string | null
-  // Backend enum (see documents table migration): no "under review" state
-  // exists server-side today, so 'pending' is mapped to 'Uploaded' below —
-  // not to 'Under Review', which nothing currently sets.
   status: 'pending' | 'approved' | 'returned_for_revision'
   remarks: string | null
   reviewed_at: string | null
   created_at: string
   updated_at: string
+  archived_versions?: ArchivedDocumentApiRecord[]
   document_type?: {
     id: number
     name: string
@@ -641,9 +659,31 @@ export function getDocuments(referenceNo: string) {
 }
 
 export function saveDocument(referenceNo: string, requirementId: string, document: StoredDocument) {
-  const store = readStore()
-  store[referenceNo] = { ...(store[referenceNo] ?? {}), [requirementId]: document }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+  try {
+    const store = readStore()
+    const docToStore: StoredDocument = { ...document }
+    if (docToStore.dataUrl && docToStore.dataUrl.startsWith('data:') && docToStore.dataUrl.length > 2048) {
+      docToStore.dataUrl = ''
+    }
+    store[referenceNo] = { ...(store[referenceNo] ?? {}), [requirementId]: docToStore }
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+  } catch {
+    try {
+      const store = readStore()
+      for (const ref of Object.keys(store)) {
+        for (const req of Object.keys(store[ref])) {
+          if (store[ref][req]?.dataUrl && store[ref][req].dataUrl!.length > 2048) {
+            store[ref][req].dataUrl = ''
+          }
+        }
+      }
+      const safeDoc: StoredDocument = { ...document, dataUrl: '' }
+      store[referenceNo] = { ...(store[referenceNo] ?? {}), [requirementId]: safeDoc }
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store))
+    } catch {
+      //
+    }
+  }
 }
 
 export function deleteDocument(referenceNo: string, requirementId: string) {

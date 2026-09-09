@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Eye,
   Check,
   X,
   Loader2,
+  FileCheck2,
+  ArrowRight,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
@@ -19,6 +22,7 @@ import { getMockUser } from "../../lib/mockAuth";
 import type { ApplicationRecord } from "../../types/application";
 
 export function ApprovalsPage() {
+  const navigate = useNavigate();
   const currentUser = getMockUser();
   const lockedProgram =
     currentUser?.program === "SETUP" || currentUser?.program === "GIA"
@@ -303,7 +307,7 @@ export function ApprovalsPage() {
     {
       id: "id",
       header: "Reference",
-      className: "w-[10%]",
+      className: "w-[8%]",
       sortValue: (proposal) => proposal.id,
       render: (proposal) => (
         <span className="font-mono text-[11px] font-bold text-slate-600 whitespace-nowrap block tracking-tight">
@@ -314,7 +318,7 @@ export function ApprovalsPage() {
     {
       id: "title",
       header: "Project Title",
-      className: "w-[17%]",
+      className: "w-[16%]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
         <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2">
@@ -325,7 +329,7 @@ export function ApprovalsPage() {
     {
       id: "proponent",
       header: "Proponent",
-      className: "w-[13%]",
+      className: "w-[12%]",
       sortValue: (proposal) => proposal.proponentName ?? "",
       render: (proposal) => (
         <p className="font-bold text-sm text-slate-900 leading-snug">
@@ -336,7 +340,7 @@ export function ApprovalsPage() {
     {
       id: "organization",
       header: "Organization",
-      className: "w-[19%]",
+      className: "w-[16%]",
       sortValue: (proposal) => proposal.organization,
       render: (proposal) => (
         <div className="space-y-0.5">
@@ -360,7 +364,7 @@ export function ApprovalsPage() {
     {
       id: "classification",
       header: "Sector / Scale",
-      className: "w-[14%]",
+      className: "w-[12%]",
       sortValue: (proposal) =>
         proposal.program === "SETUP"
           ? proposal.industrySector ?? ""
@@ -402,7 +406,7 @@ export function ApprovalsPage() {
     {
       id: "submitted",
       header: "Submission Date",
-      className: "w-[9%]",
+      className: "w-[8%]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="text-xs font-medium text-slate-600 whitespace-nowrap block">
@@ -413,13 +417,25 @@ export function ApprovalsPage() {
     {
       id: "status",
       header: "Status",
-      className: "w-[7%]",
+      className: "w-[11%]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
-        let toneClass = "text-[#0f53b7]";
         if (proposal.status === "Approved") {
-          toneClass = "text-emerald-600";
-        } else if (
+          return (
+            <div className="flex flex-col gap-0.5 min-w-0">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap">
+                <Check className="size-3" />
+                Approved
+              </span>
+              <span className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                Handed Over to Monitoring
+              </span>
+            </div>
+          );
+        }
+
+        let toneClass = "text-[#0f53b7]";
+        if (
           proposal.status === "Rejected" ||
           proposal.status === "Disapproved"
         ) {
@@ -443,8 +459,51 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[11%] text-right",
+      className: "w-[17%] text-right",
       render: (proposal) => {
+        if (proposal.status === "Approved") {
+          return (
+            <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
+              {proposal.proposalId ? (
+                <button
+                  className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition shrink-0"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(`/dashboard/document-checklist?proposalId=${proposal.proposalId}&program=${proposal.program}`);
+                  }}
+                  title="Open Document Checklist"
+                  type="button"
+                >
+                  <FileCheck2 className="size-4" />
+                </button>
+              ) : null}
+              <button
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-700 px-3 py-1.5 text-xs font-bold text-white shadow-xs hover:bg-emerald-800 transition whitespace-nowrap shrink-0"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(`/dashboard/project-monitoring?program=${proposal.program}`);
+                }}
+                type="button"
+                title="Open in Monitored Projects"
+              >
+                <span>Open in Monitoring</span>
+                <ArrowRight className="size-3.5" />
+              </button>
+              <button
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition shrink-0"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openReview(proposal, "overview");
+                }}
+                title="View Intake Details (Read-Only)"
+                type="button"
+              >
+                <Eye className="size-4" />
+              </button>
+            </div>
+          );
+        }
+
         const canDecide =
           currentUser?.role === "provincial_director" &&
           (proposal.status === "Executive Approval" || proposal.stage === 3);
@@ -458,6 +517,19 @@ export function ApprovalsPage() {
         if (canDecide) {
           return (
             <div className="flex items-center justify-end gap-1.5">
+              {proposal.proposalId ? (
+                <button
+                  className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    navigate(`/dashboard/document-checklist?proposalId=${proposal.proposalId}&program=${proposal.program}`);
+                  }}
+                  title="Open Document Checklist"
+                  type="button"
+                >
+                  <FileCheck2 className="size-4" />
+                </button>
+              ) : null}
               <button
                 className="inline-flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs hover:bg-emerald-700 transition"
                 onClick={(event) => {
@@ -498,7 +570,20 @@ export function ApprovalsPage() {
         }
 
         return (
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-1.5">
+            {proposal.proposalId ? (
+              <button
+                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(`/dashboard/document-checklist?proposalId=${proposal.proposalId}&program=${proposal.program}`);
+                }}
+                title="Open Document Checklist"
+                type="button"
+              >
+                <FileCheck2 className="size-4" />
+              </button>
+            ) : null}
             <button
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0b3f8b] transition hover:shadow-md"
               onClick={(event) => {

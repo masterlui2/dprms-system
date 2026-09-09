@@ -47,6 +47,7 @@ interface BackendGiaMilestone {
 
 interface BackendGiaMonitoringProject {
   id: number
+  proposal_id?: number | null
   reference_number: string
   title: string
   implementing_agency: string
@@ -60,6 +61,11 @@ interface BackendGiaMonitoringProject {
   monitoring_status: string
   last_monitored_at: string | null
   milestone_progress: number
+  checklist_stats?: {
+    complied: number
+    total: number
+    percentage: number
+  }
   milestones: BackendGiaMilestone[]
   latest_report: {
     status: string
@@ -151,12 +157,14 @@ function mapProject(project: BackendGiaMonitoringProject): ProjectRecord {
   return {
     approvedAt: project.approved_at,
     backendId: project.id,
+    proposalId: project.proposal_id ?? project.id,
     budget: project.grant_amount,
     compliance: delayed ? 'Overdue' : pending ? 'Due soon' : 'Compliant',
     dueDate: formatDate(project.latest_report?.due_date ?? project.expected_end_date),
     enterprise: project.implementing_agency,
     id: String(project.id),
     lastMonitoredAt: project.last_monitored_at,
+    checklistStats: project.checklist_stats,
     location: project.office_address ?? 'Location not recorded',
     manager: project.project_leader,
     monitored: project.last_monitored_at !== null,
