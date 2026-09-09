@@ -18,7 +18,6 @@ import type { ProjectRecord } from '../../data/admin'
 import { getMockUser } from '../../lib/mockAuth'
 import { fetchSetupMonitoringProjects } from '../../services/setupMonitoringStore'
 import type { ProjectPagination } from '../../types/monitoring'
-import type { Quarter } from '../../types/setupMonitoring'
 
 const emptyPagination: ProjectPagination = {
   currentPage: 1,
@@ -29,10 +28,6 @@ const emptyPagination: ProjectPagination = {
   total: 0,
 }
 
-function currentQuarter(): Quarter {
-  return `Q${Math.ceil((new Date().getMonth() + 1) / 3)}` as Quarter
-}
-
 function formatFunding(value: number): string {
   if (value <= 0) return 'Not recorded'
 
@@ -41,6 +36,22 @@ function formatFunding(value: number): string {
     maximumFractionDigits: 2,
     style: 'currency',
   }).format(value)
+}
+
+function formatReleaseDate(value: string | null): string | null {
+  if (!value) return null
+
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00`)
+    : new Date(value)
+
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString('en-PH', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
 }
 
 export function BudgetPage() {
@@ -66,9 +77,7 @@ export function BudgetPage() {
       setError(null)
       fetchSetupMonitoringProjects({
         page,
-        quarter: currentQuarter(),
         search,
-        year: new Date().getFullYear(),
       })
         .then((result) => {
           if (cancelled) return
@@ -147,6 +156,7 @@ export function BudgetPage() {
                 <tbody className="divide-y divide-slate-100">
                   {projects.map((project) => {
                     const id = project.backendId ?? project.id
+                    const needsInitialization = project.budget <= 0 || !project.fullRelease
                     return (
                       <tr className="transition hover:bg-blue-50/40" key={id}>
                         <td className="px-5 py-4">
@@ -158,10 +168,13 @@ export function BudgetPage() {
                         </td>
                         <td className="px-4 py-4 font-black text-[#073b82]">{formatFunding(project.budget)}</td>
                         <td className="px-4 py-4 text-sm font-semibold text-slate-700">
-                          {project.fullRelease || <span className="font-normal text-slate-400">Not recorded</span>}
+                          {formatReleaseDate(project.fullRelease) || <span className="font-normal text-slate-400">Not recorded</span>}
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <button className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0f53b7] px-3 text-xs font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open<ArrowRight className="size-3.5" /></button>
+                          <button className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0f53b7] px-3 text-xs font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">
+                            {isDirector ? 'View' : needsInitialization ? 'Initialize' : 'Open'}
+                            <ArrowRight className="size-3.5" />
+                          </button>
                         </td>
                       </tr>
                     )
@@ -173,6 +186,7 @@ export function BudgetPage() {
             <div className="divide-y divide-slate-100 lg:hidden">
               {projects.map((project) => {
                 const id = project.backendId ?? project.id
+                const needsInitialization = project.budget <= 0 || !project.fullRelease
                 return (
                   <article className="space-y-3 px-5 py-4" key={id}>
                     <div>
@@ -182,9 +196,12 @@ export function BudgetPage() {
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-slate-50 p-3 text-xs">
                       <div><dt className="font-bold text-slate-400">Contact No.</dt><dd className="mt-1 font-semibold text-slate-700">{project.contactNumber || 'Not recorded'}</dd></div>
                       <div><dt className="font-bold text-slate-400">SETUP Funding</dt><dd className="mt-1 font-black text-[#073b82]">{formatFunding(project.budget)}</dd></div>
-                      <div className="col-span-2"><dt className="font-bold text-slate-400">Full Release</dt><dd className="mt-1 font-semibold text-slate-700">{project.fullRelease || 'Not recorded'}</dd></div>
+                      <div className="col-span-2"><dt className="font-bold text-slate-400">Full Release</dt><dd className="mt-1 font-semibold text-slate-700">{formatReleaseDate(project.fullRelease) || 'Not recorded'}</dd></div>
                     </dl>
-                    <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open ledger<ArrowRight className="size-4" /></button>
+                    <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">
+                      {isDirector ? 'View ledger' : needsInitialization ? 'Initialize ledger' : 'Open ledger'}
+                      <ArrowRight className="size-4" />
+                    </button>
                   </article>
                 )
               })}

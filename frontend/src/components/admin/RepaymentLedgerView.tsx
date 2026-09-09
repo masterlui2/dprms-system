@@ -6,6 +6,8 @@ import {
   Clock3,
   Eye,
   LoaderCircle,
+  LockKeyhole,
+  PencilLine,
   ReceiptText,
   Wallet,
 } from 'lucide-react'
@@ -24,6 +26,7 @@ import { AdminPanel } from './AdminPanel'
 import { DataTable, type DataColumn } from './DataTable'
 import { LogPaymentModal } from './LogPaymentModal'
 import { MetricCard } from './MetricCard'
+import { RepaymentScheduleBuilder } from './RepaymentScheduleBuilder'
 import { VerifyPaymentModal } from './VerifyPaymentModal'
 
 function formatCurrency(value: number): string {
@@ -104,13 +107,19 @@ export function RepaymentLedgerView({
     transaction: RepaymentTransaction
   } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const loadLedger = useCallback(async () => {
     setIsLoading(true)
     setError(null)
     try {
-      setLedger(await fetchSetupRepaymentLedger(projectId))
+      const loadedLedger = await fetchSetupRepaymentLedger(projectId)
+      setLedger(loadedLedger)
+      setIsEditingSchedule(
+        !loadedLedger.schedule.initialized
+          && loadedLedger.permissions.canManageSchedule,
+      )
     } catch (loadError) {
       setError(repaymentErrorMessage(loadError))
     } finally {
@@ -327,12 +336,29 @@ export function RepaymentLedgerView({
     })
   }
 
+  function handleScheduleSaved(updated: SetupRepaymentLedger) {
+    setLedger(updated)
+    setIsEditingSchedule(false)
+    void Swal.fire({
+      icon: 'success',
+      position: 'top-end',
+      showConfirmButton: false,
+      text: 'The funding terms and installment rows are now live.',
+      timer: 2800,
+      title: 'Repayment schedule saved',
+      toast: true,
+    })
+  }
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
         action={
-          onBack || ledger.permissions.readOnly ? (
-            <div className="flex items-center gap-2">
+          (onBack
+            || ledger.permissions.readOnly
+            || ledger.permissions.canManageSchedule
+            || ledger.schedule.locked) ? (
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {onBack ? (
                 <button
                   className="inline-flex h-10 items-center gap-2 rounded-xl bg-white px-4 text-sm font-bold text-[#0f53b7] ring-1 ring-slate-200 hover:bg-blue-50"
@@ -346,6 +372,21 @@ export function RepaymentLedgerView({
                 <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-black text-slate-600">
                   Read only
                 </span>
+              ) : null}
+              {ledger.schedule.locked ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-xs font-black text-amber-800">
+                  <LockKeyhole className="size-3.5" /> Schedule locked
+                </span>
+              ) : null}
+              {ledger.permissions.canManageSchedule && !isEditingSchedule ? (
+                <button
+                  className="inline-flex h-10 items-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white shadow-sm hover:bg-[#0b3f8b]"
+                  onClick={() => setIsEditingSchedule(true)}
+                  type="button"
+                >
+                  <PencilLine className="size-4" />
+                  {ledger.schedule.initialized ? 'Edit schedule' : 'Initialize ledger'}
+                </button>
               ) : null}
             </div>
           ) : undefined
@@ -361,20 +402,49 @@ export function RepaymentLedgerView({
         {ledger.project.location}
       </p>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard detail="Approved amount" icon={Wallet} label="Total Project Cost" value={formatCurrency(ledger.summary.totalProjectCost)} />
         <MetricCard detail="Verified payments" icon={CheckCircle2} label="Amount Refunded" tone="green" value={formatCurrency(ledger.summary.amountPaid)} />
         <MetricCard
-          detail={ledger.summary.overdueInstallments ? `${ledger.summary.overdueInstallments} overdue` : 'No overdue payments'}
-          icon={ledger.summary.overdueInstallments ? AlertTriangle : Clock3}
+          detail="Unpaid scheduled amount"
+          icon={Clock3}
           label="Remaining Balance"
-          tone={ledger.summary.overdueInstallments ? 'red' : 'sky'}
+          tone="sky"
           value={formatCurrency(ledger.summary.outstandingBalance)}
+        />
+        <MetricCard
+          detail={ledger.summary.overdueInstallments ? 'Needs follow-up' : 'Payments are on track'}
+          icon={ledger.summary.overdueInstallments ? AlertTriangle : CheckCircle2}
+          label="Overdue Count"
+          tone={ledger.summary.overdueInstallments ? 'red' : 'green'}
+          value={String(ledger.summary.overdueInstallments)}
         />
       </section>
 
-      <AdminPanel description={`${ledger.installments.length} monthly installment${ledger.installments.length === 1 ? '' : 's'}`} title="Repayment Schedule">
-        <DataTable
+      {isEditingSchedule ? (
+        <RepaymentScheduleBuilder
+          ledger={ledger}
+          onCancel={() => setIsEditingSchedule(false)}
+          onSaved={handleScheduleSaved}
+        />
+      ) : (
+        <AdminPanel
+          description={ledger.schedule.initialized
+            ? `${ledger.installments.length} installment${ledger.installments.length === 1 ? '' : 's'} from the live ledger`
+            : 'Funding terms and installments have not been configured yet.'}
+          title="Repayment Schedule"
+        >
+          {!ledger.schedule.initialized ? (
+            <div className="border-b border-blue-100 bg-blue-50 px-5 py-4 text-sm text-blue-900">
+              <p className="font-black">This project is ready for ledger initialization.</p>
+              <p className="mt-1 text-blue-700">
+                {ledger.permissions.canManageSchedule
+                  ? 'Use Initialize ledger to enter the funding terms and generate the repayment schedule.'
+                  : 'The SSCP Focal must enter the funding terms and generate the repayment schedule.'}
+              </p>
+            </div>
+          ) : null}
+          <DataTable
           columns={columns}
           data={ledger.installments}
           emptyDescription="No repayment schedule is available for this project."
@@ -423,8 +493,9 @@ export function RepaymentLedgerView({
             return `${item.period} ${item.dueDate} ${item.status} ${transaction?.orNumber ?? ''} ${transaction?.bankBranch ?? ''} ${transaction?.checkNumber ?? ''} ${transaction?.remarks ?? ''}`
           }}
           variant="clean"
-        />
-      </AdminPanel>
+          />
+        </AdminPanel>
+      )}
 
       {paymentInstallment ? <LogPaymentModal installment={paymentInstallment} onClose={() => setPaymentInstallment(null)} onSubmitted={handlePaymentSubmitted} projectId={ledger.project.id} /> : null}
       {reviewSelection ? <VerifyPaymentModal canVerify={ledger.permissions.canVerifyPayment} installment={reviewSelection.installment} onClose={() => setReviewSelection(null)} onReviewed={handlePaymentReviewed} projectId={ledger.project.id} transaction={reviewSelection.transaction} /> : null}

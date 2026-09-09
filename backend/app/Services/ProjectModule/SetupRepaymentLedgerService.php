@@ -3,9 +3,11 @@
 namespace App\Services\ProjectModule;
 
 use App\Models\Project;
+use App\Models\ProjectBudget;
 use App\Models\ProjectLedger;
 use App\Models\RepaymentTransaction;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
@@ -74,14 +76,22 @@ class SetupRepaymentLedgerService
             ->where('status', 'verified')
             ->sum('amount_paid');
         $scheduledAmount = (float) $ledgers->sum('amount');
-        $budgetAmount = (float) ($project->proposal?->projectBudget?->total_amount ?? 0);
+        $budget = $project->proposal?->projectBudget;
+        $budgetAmount = (float) ($budget?->total_amount ?? 0);
         $totalProjectCost = $budgetAmount > 0 ? $budgetAmount : $scheduledAmount;
         $installments = $ledgers->map(fn (ProjectLedger $ledger) => $this->formatInstallment($ledger));
+        $hasPaymentActivity = $ledgers->contains(
+            fn (ProjectLedger $ledger) => $ledger->repaymentTransactions->isNotEmpty(),
+        );
         $isDirector = $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR']);
         $isSetupFocal = $this->isSetupFocal($user);
         $isOwner = $this->isSetupProponentOwner($user, $project);
 
         $setup = $project->proposal?->setup_proposal?->first();
+        $legacyFullRelease = data_get($setup?->form_snapshot, 'fullRelease')
+            ?? data_get($setup?->form_snapshot, 'fullReleaseDate');
+        $fullReleaseDate = $budget?->full_release_date?->toDateString()
+            ?? $this->normalizeDate($legacyFullRelease);
 
         return [
             'project' => [
@@ -92,8 +102,8 @@ class SetupRepaymentLedgerService
                     ?? $project->proposal?->user?->name
                     ?? 'Cooperator not recorded',
                 'contact_number' => data_get($setup?->form_snapshot, 'contactNumber'),
-                'full_release' => data_get($setup?->form_snapshot, 'fullRelease')
-                    ?? data_get($setup?->form_snapshot, 'fullReleaseDate'),
+                'full_release' => $budget?->full_release_date?->toDateString()
+                    ?? $legacyFullRelease,
                 'location' => $setup?->business_address ?? 'Location not recorded',
                 'status' => $project->status,
             ],
@@ -104,12 +114,81 @@ class SetupRepaymentLedgerService
                 'overdue_installments' => $installments->where('status', 'overdue')->count(),
             ],
             'installments' => $installments->values(),
+            'schedule' => [
+                'initialized' => $budgetAmount > 0 && $ledgers->isNotEmpty(),
+                'full_release_date' => $fullReleaseDate,
+                'amortization_start_date' => $budget?->amortization_start_date?->toDateString()
+                    ?? $ledgers->first()?->due_date?->toDateString(),
+                'repayment_term_months' => $budget?->repayment_term_months
+                    ?? ($ledgers->isNotEmpty() ? $ledgers->count() : null),
+                'scheduled_total' => round($scheduledAmount, 2),
+                'locked' => $hasPaymentActivity,
+            ],
             'permissions' => [
                 'can_record_payment' => $isOwner,
                 'can_verify_payment' => $isSetupFocal,
+                'can_manage_schedule' => $isSetupFocal && ! $hasPaymentActivity,
                 'read_only' => $isDirector,
             ],
         ];
+    }
+
+    public function upsertSchedule(User $user, Project $project, array $data): array
+    {
+        $this->authorizeScheduleManagement($user, $project);
+
+        DB::transaction(function () use ($user, $project, $data) {
+            $lockedProject = Project::query()->lockForUpdate()->findOrFail($project->id);
+            $ledgerQuery = ProjectLedger::query()
+                ->where('project_id', $lockedProject->id)
+                ->where('program_type', 'SETUP')
+                ->where('ledger_type', 'repayment');
+            $ledgerIds = (clone $ledgerQuery)->lockForUpdate()->pluck('id');
+
+            if ($ledgerIds->isNotEmpty()
+                && RepaymentTransaction::query()->whereIn('project_ledger_id', $ledgerIds)->exists()) {
+                throw ValidationException::withMessages([
+                    'installments' => [
+                        'The repayment schedule cannot be changed after payment activity has started.',
+                    ],
+                ]);
+            }
+
+            $budget = ProjectBudget::query()
+                ->lockForUpdate()
+                ->firstOrNew(['proposal_id' => $lockedProject->proposal_id]);
+            $budget->fill([
+                'created_by' => $budget->created_by ?: $user->id,
+                'program_type' => 'SETUP',
+                'total_amount' => $data['total_project_cost'],
+                'currency' => 'PHP',
+                'fiscal_year' => Carbon::parse($data['full_release_date'])->year,
+                'full_release_date' => $data['full_release_date'],
+                'amortization_start_date' => $data['amortization_start_date'],
+                'repayment_term_months' => $data['repayment_term_months'],
+                'budget_ceiling' => $data['total_project_cost'],
+                'status' => 'ACTIVE',
+            ]);
+            $budget->save();
+
+            $ledgerQuery->delete();
+
+            foreach ($data['installments'] as $installment) {
+                $dueDate = Carbon::parse($installment['due_date']);
+                ProjectLedger::query()->create([
+                    'project_id' => $lockedProject->id,
+                    'program_type' => 'SETUP',
+                    'ledger_type' => 'repayment',
+                    'period_label' => trim($installment['period_label']),
+                    'amount' => $installment['amount'],
+                    'due_date' => $installment['due_date'],
+                    'status' => $dueDate->isBefore(today()) ? 'overdue' : 'pending',
+                    'notes' => 'Configured through the SETUP repayment schedule builder.',
+                ]);
+            }
+        });
+
+        return $this->getLedger($user, $project->fresh());
     }
 
     public function submitPayment(
@@ -345,6 +424,13 @@ class SetupRepaymentLedgerService
         abort_unless($this->isSetupFocal($user), 403);
     }
 
+    private function authorizeScheduleManagement(User $user, Project $project): void
+    {
+        $this->authorizeView($user, $project);
+
+        abort_unless($this->isSetupFocal($user), 403);
+    }
+
     private function ensureLedgerBelongsToProject(Project $project, ProjectLedger $ledger): void
     {
         abort_unless(
@@ -378,5 +464,18 @@ class SetupRepaymentLedgerService
         $project->loadMissing('proposal:id,submitted_by');
 
         return $project->proposal?->submitted_by === $user->id;
+    }
+
+    private function normalizeDate(mixed $value): ?string
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->toDateString();
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

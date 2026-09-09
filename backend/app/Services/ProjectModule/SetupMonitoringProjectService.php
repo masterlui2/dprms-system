@@ -14,8 +14,7 @@ class SetupMonitoringProjectService
 
     public function __construct(
         private readonly DocumentChecklistServiceInterface $checklistService,
-    ) {
-    }
+    ) {}
 
     public function getProjects(array $filters): array
     {
@@ -180,7 +179,8 @@ class SetupMonitoringProjectService
             'enterprise_name' => $setup?->business_name ?? $proposal?->user?->name ?? 'Approved enterprise',
             'contact_number' => data_get($setup?->form_snapshot, 'contactNumber'),
             'setup_funding' => (float) ($budget?->total_amount ?? 0),
-            'full_release' => data_get($setup?->form_snapshot, 'fullRelease')
+            'full_release' => $budget?->full_release_date?->toDateString()
+                ?? data_get($setup?->form_snapshot, 'fullRelease')
                 ?? data_get($setup?->form_snapshot, 'fullReleaseDate'),
             'manager' => $manager,
             'business_address' => $setup?->business_address,
