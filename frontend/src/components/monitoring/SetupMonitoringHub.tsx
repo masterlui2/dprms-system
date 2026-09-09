@@ -65,8 +65,8 @@ type SyncStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
 
 interface Props {
   project: ProjectRecord
-  // Optional deep-link values. Invalid/out-of-cycle values fall back to the
-  // nearest valid program-cycle default.
+  // Optional deep-link values. Invalid, pre-inception, and future values fall
+  // back to the project's current selectable monitoring period.
   initialQuarter?: Quarter
   initialYear?: number
   onBack?: () => void
@@ -84,17 +84,27 @@ export function SetupMonitoringHub({
   readOnly = false,
 }: Props) {
   const navigate = useNavigate()
+  const periodBounds = useMemo(
+    () => ({
+      approvedAt: project.approvedAt,
+      startDate: project.startDate,
+    }),
+    [project.approvedAt, project.startDate],
+  )
+  const quarterOptions = useMemo(
+    () => setupMonitoringPeriodOptions(periodBounds),
+    [periodBounds],
+  )
   const initialPeriod = useMemo(
-    () => normalizeSetupMonitoringPeriod(initialQuarter, initialYear),
-    [initialQuarter, initialYear],
+    () => normalizeSetupMonitoringPeriod(initialQuarter, initialYear, periodBounds),
+    [initialQuarter, initialYear, periodBounds],
   )
 
-  const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(
-    initialPeriod.quarter,
-  )
-  const [selectedYear, setSelectedYear] = useState<number>(
-    initialPeriod.year,
-  )
+  // Keep year and quarter in one state value so a period change can never
+  // briefly request a new quarter with the previous year (or vice versa).
+  const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod)
+  const selectedQuarter = selectedPeriod.quarter
+  const selectedYear = selectedPeriod.year
   const [activeTab, setActiveTab] = useState<ActiveTab>('production_sales')
   const [record, setRecord] = useState<SetupMonitoringQuarterRecord | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -126,8 +136,6 @@ export function SetupMonitoringHub({
   const backendDirtyWhileSavingRef = useRef(false)
   const recordVersionRef = useRef(0)
 
-  const quarterOptions = useMemo(() => setupMonitoringPeriodOptions(), [])
-
   const projectBackendId = String(project.backendId ?? project.id)
 
   const clearPendingTimers = () => {
@@ -150,6 +158,20 @@ export function SetupMonitoringHub({
     setQuarterMetricId(null)
     backendDirtyWhileSavingRef.current = false
     clearPendingTimers()
+
+    // Do not leave the previous quarter's figures visible under the newly
+    // selected period while its request is in flight.
+    if (
+      recordRef.current
+      && (
+        recordRef.current.quarter !== selectedQuarter
+        || recordRef.current.year !== selectedYear
+      )
+    ) {
+      recordRef.current = null
+      snapshotRef.current = {}
+      setRecord(null)
+    }
 
     fetchQuarterlyMetricsWithId(projectBackendId, selectedYear, selectedQuarter, {
       enterpriseName: project.enterprise,
@@ -299,6 +321,34 @@ export function SetupMonitoringHub({
     loadQuarter()
   }
 
+  const handlePeriodChange = (value: string) => {
+    const nextPeriod = quarterOptions.find((option) => option.value === value)
+    if (
+      !nextPeriod
+      || (
+        nextPeriod.quarter === selectedQuarter
+        && nextPeriod.year === selectedYear
+      )
+    ) return
+
+    // Invalidate any older request immediately. The effect for the new
+    // period will issue a fresh request with the matching year and quarter.
+    loadRequestRef.current += 1
+    clearPendingTimers()
+    recordRef.current = null
+    snapshotRef.current = {}
+    quarterMetricIdRef.current = null
+    setRecord(null)
+    setQuarterMetricId(null)
+    setIsLoading(true)
+    setLoadError(null)
+    setCreateQuarterError(null)
+    setSelectedPeriod({
+      quarter: nextPeriod.quarter,
+      year: nextPeriod.year,
+    })
+  }
+
   // Creates the missing backend quarterly_metrics row for the currently
   // selected quarter/year, then immediately pushes whatever is already in
   // the local draft (record) up to the server so nothing typed before
@@ -392,6 +442,9 @@ export function SetupMonitoringHub({
 
   const activeTabTitle = tabs.find((t) => t.id === activeTab)?.label || 'Quarterly Monitoring'
   const canSyncToBackend = quarterMetricId != null
+  const selectedPeriodContext = quarterOptions.find(
+    (option) => option.quarter === selectedQuarter && option.year === selectedYear,
+  )?.context ?? 'current'
 
   if (isLoading && !record) {
     return (
@@ -490,20 +543,30 @@ export function SetupMonitoringHub({
             </button>
           ) : null}
 
-          {/* Quarter Selector Dropdown */}
-          <select
-            value={`${selectedQuarter} ${selectedYear}`}
-            onChange={(e) => {
-              const [q, y] = e.target.value.split(' ')
-              setSelectedQuarter(q as Quarter)
-              setSelectedYear(Number(y))
-            }}
-            className="h-9 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs focus:border-[#0f53b7] focus:outline-none cursor-pointer"
-          >
-            {quarterOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          {/* Project-bound quarter selector. Historical periods remain
+              available for backfill, while future periods never appear. */}
+          <div className="flex h-9 items-center overflow-hidden rounded-xl border border-[#B5BFCD] bg-white shadow-2xs focus-within:border-[#0f53b7]">
+            <select
+              aria-label="Monitoring period"
+              disabled={isCreatingQuarter}
+              value={`${selectedQuarter} ${selectedYear}`}
+              onChange={(event) => handlePeriodChange(event.target.value)}
+              className="h-full min-w-52 cursor-pointer bg-transparent pl-3 pr-2 text-xs font-bold text-slate-700 outline-none disabled:cursor-wait disabled:opacity-60"
+            >
+              {quarterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+            <span
+              className={`mr-2 rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                selectedPeriodContext === 'current'
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              {selectedPeriodContext === 'current' ? 'Current' : 'Backfill'}
+            </span>
+          </div>
 
           {/* Summary Metrics Sidebar Toggle Button */}
           <button

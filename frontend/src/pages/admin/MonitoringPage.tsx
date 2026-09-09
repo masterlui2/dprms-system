@@ -30,8 +30,6 @@ import { cn } from '../../utils/cn'
 import {
   defaultSetupMonitoringPeriod,
   parseSetupMonitoringPeriod,
-  SETUP_CYCLE_END_YEAR,
-  SETUP_CYCLE_START_YEAR,
   setupMonitoringPeriodOptions,
 } from '../../utils/setupMonitoringPeriod'
 
@@ -123,16 +121,12 @@ export function MonitoringPage() {
   const initialQuarter = (() => {
     const quarter = searchParams.get('quarter')
     const year = Number(searchParams.get('year'))
-    if (
-      /^Q[1-4]$/.test(quarter ?? '')
-      && Number.isInteger(year)
-      && year >= SETUP_CYCLE_START_YEAR
-      && year <= SETUP_CYCLE_END_YEAR
-    ) {
-      return `${quarter} ${year}`
-    }
     const current = defaultSetupMonitoringPeriod()
-    return `${current.quarter} ${current.year}`
+    const period = quarter && Number.isInteger(year)
+      ? parseSetupMonitoringPeriod(`${quarter} ${year}`)
+      : current
+
+    return `${period.quarter} ${period.year}`
   })()
   const initialSemester = (() => {
     const semester = Number(searchParams.get('semester'))
@@ -312,6 +306,7 @@ export function MonitoringPage() {
     return (
       <div className="space-y-6 font-sans">
         <SetupMonitoringHub
+          key={String(selectedProject.backendId ?? selectedProject.id)}
           project={selectedProject}
           initialQuarter={setupPeriod.quarter}
           initialYear={setupPeriod.year}
@@ -421,12 +416,13 @@ export function MonitoringPage() {
               }}
               className="h-9 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-bold text-slate-700 shadow-sm outline-none focus:border-[#0f53b7]"
             >
-              {(selectedProgram === 'SETUP'
-                ? setupMonitoringPeriodOptions().map((option) => option.value)
-                : semesterPeriods()
-              ).map((period) => (
-                <option key={period} value={period}>{period}</option>
-              ))}
+              {selectedProgram === 'SETUP'
+                ? setupMonitoringPeriodOptions().map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))
+                : semesterPeriods().map((period) => (
+                    <option key={period} value={period}>{period}</option>
+                  ))}
             </select>
           </div>
 

@@ -616,6 +616,7 @@ function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): Proj
 
   return {
     approvedAt: project.approved_at,
+    startDate: project.start_date,
     backendId: project.id,
     proposalId: project.proposal_id ?? project.id,
     budget: project.setup_funding,
@@ -1175,6 +1176,12 @@ export async function fetchQuarterlyMetrics(
 ): Promise<SetupMonitoringQuarterRecord> {
   const response = await api.get<BackendQuarterlyMetricsResponse>(
     `/projects/${projectId}/quarterly-metrics`,
+    {
+      params: {
+        quarter: Number(quarter.slice(1)),
+        year,
+      },
+    },
   )
 
   const quarterNumber = Number(quarter.replace('Q', ''))
@@ -1212,6 +1219,12 @@ export async function fetchQuarterlyMetricsWithId(
 ): Promise<QuarterlyMetricsFetchResult> {
   const response = await api.get<BackendQuarterlyMetricsResponse>(
     `/projects/${projectId}/quarterly-metrics`,
+    {
+      params: {
+        quarter: Number(quarter.slice(1)),
+        year,
+      },
+    },
   )
 
   const quarterNumber = Number(quarter.replace('Q', ''))

@@ -95,6 +95,7 @@ export interface GiaMonitoringDetails {
 
 export interface ProjectRecord {
   approvedAt?: string | null
+  startDate?: string | null
   backendId?: number
   proposalId?: number | null
   budget: number
