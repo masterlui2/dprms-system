@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Override;
 
 class Project extends Model
@@ -18,7 +19,7 @@ class Project extends Model
         'expected_end_date',
         'actual_end_date',
         'notes',
-        'approved_at'
+        'approved_at',
     ];
 
     #[Override]
@@ -32,15 +33,23 @@ class Project extends Model
         ];
     }
 
-    public function proposal():BelongsTo{
+    public function proposal(): BelongsTo
+    {
         return $this->belongsTo(Proposal::class);
     }
 
-    public function user():BelongsTo{
-        return $this->belongsTo(User::class,'created_by');
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function approver():BelongsTo{
-        return $this->belongsTo(User::class,'approved_by');
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    public function ledgers(): HasMany
+    {
+        return $this->hasMany(ProjectLedger::class);
     }
 }

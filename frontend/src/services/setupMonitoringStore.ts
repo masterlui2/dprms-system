@@ -530,6 +530,9 @@ interface BackendSetupMonitoringProject {
   reference_number: string
   title: string
   enterprise_name: string
+  contact_number: string | null
+  setup_funding: number
+  full_release: string | null
   manager: string
   business_address: string | null
   district: string | null
@@ -593,11 +596,13 @@ function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): Proj
   return {
     approvedAt: project.approved_at,
     backendId: project.id,
-    budget: 0,
+    budget: project.setup_funding,
     compliance: project.pending_reports > 0 ? 'Due soon' : 'Compliant',
+    contactNumber: project.contact_number,
     district: project.district ?? undefined,
     dueDate: formatMonitoringDate(project.latest_report?.due_date ?? project.expected_end_date),
     enterprise: project.enterprise_name,
+    fullRelease: project.full_release,
     id: String(project.id),
     lastMonitoredAt: project.last_monitored_at,
     latestReport: project.latest_report

@@ -179,13 +179,13 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
   proponent: [],
 };
 
-export function getSidebarItems(role: UserRole) {
+export function getSidebarItems(role: UserRole, program?: 'SETUP' | 'GIA') {
   const order = sidebarOrderByRole[role];
   return sidebarItems
     .filter(
       (sidebarItem) =>
         order.includes(sidebarItem.id) &&
-        canAccessModule(role, sidebarItem.id),
+        canAccessModule(role, sidebarItem.id, program),
     )
     .sort((left, right) => order.indexOf(left.id) - order.indexOf(right.id));
 }

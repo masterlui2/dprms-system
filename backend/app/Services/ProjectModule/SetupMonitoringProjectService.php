@@ -18,14 +18,12 @@ class SetupMonitoringProjectService
         $statistics = [
             'active_projects' => (clone $baseQuery)->count(),
             'monitored_count' => (clone $baseQuery)
-                ->whereHas('proposal.monitoringRecords', fn (Builder $query) =>
-                    $query->whereNotNull('last_monitored_at')
+                ->whereHas('proposal.monitoringRecords', fn (Builder $query) => $query->whereNotNull('last_monitored_at')
                 )
                 ->count(),
             'pending_reports' => SetupProgressReport::query()
                 ->whereIn('status', self::PENDING_REPORT_STATUSES)
-                ->whereHas('monitoringRecord.proposal.project', fn (Builder $query) =>
-                    $query->where('program_type', 'SETUP')->where('status', 'active')
+                ->whereHas('monitoringRecord.proposal.project', fn (Builder $query) => $query->where('program_type', 'SETUP')->where('status', 'active')
                 )
                 ->count(),
         ];
@@ -36,6 +34,7 @@ class SetupMonitoringProjectService
                 'proposal.assigned_staff:id,name,email',
                 'proposal.assigned_focal:id,name,email',
                 'proposal.setup_proposal',
+                'proposal.projectBudget:id,proposal_id,total_amount,currency',
                 'proposal.monitoringRecords.monitor:id,name,email',
                 'proposal.monitoringRecords.setupProgressReports',
             ]);
@@ -88,8 +87,7 @@ class SetupMonitoringProjectService
                 $proposalQuery
                     ->whereRaw('LOWER(reference_number) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(title) LIKE ?', [$like])
-                    ->orWhereHas('user', fn (Builder $userQuery) =>
-                        $userQuery->whereRaw('LOWER(name) LIKE ?', [$like])
+                    ->orWhereHas('user', fn (Builder $userQuery) => $userQuery->whereRaw('LOWER(name) LIKE ?', [$like])
                     )
                     ->orWhereHas('setup_proposal', function (Builder $setupQuery) use ($like) {
                         $setupQuery
@@ -109,8 +107,7 @@ class SetupMonitoringProjectService
             return;
         }
 
-        $query->whereHas('proposal.setup_proposal', fn (Builder $setupQuery) =>
-            $setupQuery->whereRaw('LOWER(city_municipality) = ?', [mb_strtolower($district)])
+        $query->whereHas('proposal.setup_proposal', fn (Builder $setupQuery) => $setupQuery->whereRaw('LOWER(city_municipality) = ?', [mb_strtolower($district)])
         );
     }
 
@@ -130,6 +127,7 @@ class SetupMonitoringProjectService
     {
         $proposal = $project->proposal;
         $setup = $proposal?->setup_proposal->first();
+        $budget = $proposal?->projectBudget;
         $monitoringRecords = $proposal?->monitoringRecords ?? collect();
         $latestMonitoring = $monitoringRecords
             ->sortByDesc(fn ($record) => $record->last_monitored_at?->getTimestamp() ?? 0)
@@ -156,6 +154,10 @@ class SetupMonitoringProjectService
             'reference_number' => $proposal?->reference_number,
             'title' => $proposal?->title,
             'enterprise_name' => $setup?->business_name ?? $proposal?->user?->name ?? 'Approved enterprise',
+            'contact_number' => data_get($setup?->form_snapshot, 'contactNumber'),
+            'setup_funding' => (float) ($budget?->total_amount ?? 0),
+            'full_release' => data_get($setup?->form_snapshot, 'fullRelease')
+                ?? data_get($setup?->form_snapshot, 'fullReleaseDate'),
             'manager' => $manager,
             'business_address' => $setup?->business_address,
             'district' => $setup?->city_municipality,

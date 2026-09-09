@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Project;
+use App\Models\ProjectBudget;
 use App\Models\ProjectMonitoringRecord;
 use App\Models\Proposal;
 use App\Models\Role;
@@ -48,6 +49,9 @@ class SetupMonitoringProjectsTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $activeSetup->id)
             ->assertJsonPath('data.0.enterprise_name', 'Mati Food Works')
+            ->assertJsonPath('data.0.contact_number', '09171234567')
+            ->assertJsonPath('data.0.setup_funding', 500000)
+            ->assertJsonPath('data.0.full_release', '15 Jun 2026')
             ->assertJsonPath('statistics.active_projects', 1);
     }
 
@@ -168,6 +172,20 @@ class SetupMonitoringProjectsTest extends TestCase
                 'region' => 'Region XI',
                 'province' => 'Davao Region',
                 'city_municipality' => $city,
+                'form_snapshot' => [
+                    'contactNumber' => '09171234567',
+                    'fullRelease' => '15 Jun 2026',
+                ],
+            ]);
+
+            ProjectBudget::create([
+                'proposal_id' => $proposal->id,
+                'created_by' => $owner->id,
+                'program_type' => 'SETUP',
+                'total_amount' => 500000,
+                'currency' => 'PHP',
+                'fiscal_year' => 2026,
+                'status' => 'ACTIVE',
             ]);
         }
 

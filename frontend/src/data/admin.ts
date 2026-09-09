@@ -97,10 +97,12 @@ export interface ProjectRecord {
   approvedAt?: string | null
   backendId?: number
   budget: number
+  contactNumber?: string | null
   compliance: 'Compliant' | 'Due soon' | 'Overdue'
   dueDate: string
   district?: string
   enterprise: string
+  fullRelease?: string | null
   id: string
   location?: string
   lastMonitoredAt?: string | null

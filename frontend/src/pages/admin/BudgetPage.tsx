@@ -1,508 +1,208 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
-  Download,
-  FileCheck2,
-  History,
-  TrendingUp,
-  Wallet,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
+  LoaderCircle,
+  ReceiptText,
 } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
 
+import { AdminSearch } from '../../components/admin/AdminFilters'
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { AdminPanel } from '../../components/admin/AdminPanel'
-import { MetricCard } from '../../components/admin/MetricCard'
-import { ModalShell } from '../../components/admin/ModalShell'
-import {
-  DataTable,
-  type DataColumn,
-} from '../../components/admin/DataTable'
-import { StatusPill } from '../../components/admin/StatusPill'
-import {
-  formatCurrency,
-  projectRecords,
-  transactions,
-  type ProjectRecord,
-} from '../../data/admin'
+import { RepaymentLedgerView } from '../../components/admin/RepaymentLedgerView'
+import { ROLES } from '../../config/permissions'
+import type { ProjectRecord } from '../../data/admin'
 import { getMockUser } from '../../lib/mockAuth'
+import { fetchSetupMonitoringProjects } from '../../services/setupMonitoringStore'
+import type { ProjectPagination } from '../../types/monitoring'
+import type { Quarter } from '../../types/setupMonitoring'
 
-interface FinancialTransaction {
-  amount: number
-  date: string
-  id: string
-  reference: string
-  status: 'Completed' | 'For validation'
-  type: string
+const emptyPagination: ProjectPagination = {
+  currentPage: 1,
+  from: null,
+  lastPage: 1,
+  perPage: 6,
+  to: null,
+  total: 0,
 }
 
-type RecentTransaction = (typeof transactions)[number]
-
-const recentTransactionColumns: DataColumn<RecentTransaction>[] = [
-  {
-    id: 'date',
-    header: 'Date',
-    sortValue: (transaction) => transaction.date,
-    render: (transaction) => transaction.date,
-  },
-  {
-    id: 'project',
-    header: 'Project',
-    sortValue: (transaction) => transaction.projectId,
-    render: (transaction) => (
-      <span className="font-mono text-xs text-[#0f53b7]">
-        {transaction.projectId}
-      </span>
-    ),
-  },
-  {
-    id: 'description',
-    header: 'Transaction',
-    sortValue: (transaction) => transaction.description,
-    render: (transaction) => (
-      <span className="font-bold text-slate-900">
-        {transaction.description}
-      </span>
-    ),
-  },
-  {
-    id: 'amount',
-    header: 'Amount',
-    sortValue: (transaction) => transaction.amount,
-    render: (transaction) => (
-      <span className="font-black text-red-600">
-        -{formatCurrency(transaction.amount)}
-      </span>
-    ),
-  },
-  {
-    id: 'status',
-    header: 'Status',
-    render: () => <span className="font-bold text-emerald-700">Recorded</span>,
-  },
-]
-
-const allocationColumns: DataColumn<ProjectRecord>[] = [
-  {
-    id: 'project',
-    header: 'Project',
-    sortValue: (project) => project.enterprise,
-    render: (project) => (
-      <div>
-        <p className="font-black text-slate-900">
-          {project.title} - {project.enterprise}
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          {project.id} - Due {project.dueDate}
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: 'program',
-    header: 'Program',
-    sortValue: (project) => project.program,
-    render: (project) => (
-      <span
-        className={
-          project.program === 'GIA'
-            ? 'font-black text-[#0f53b7]'
-            : 'font-black text-emerald-700'
-        }
-      >
-        {project.program}
-      </span>
-    ),
-  },
-  {
-    id: 'utilization',
-    header: 'Utilization',
-    sortValue: (project) => Math.round((project.used / project.budget) * 100),
-    render: (project) => {
-      const percentage = Math.round((project.used / project.budget) * 100)
-
-      return (
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-blue-50">
-              <div
-                className={
-                  percentage >= 95
-                    ? 'h-full rounded-full bg-red-600'
-                    : 'h-full rounded-full bg-[#0f53b7]'
-                }
-                style={{ width: `${Math.min(percentage, 100)}%` }}
-              />
-            </div>
-            <span className="w-10 text-right text-xs font-black text-slate-600">
-              {percentage}%
-            </span>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            {formatCurrency(project.used)} of {formatCurrency(project.budget)}
-          </p>
-        </div>
-      )
-    },
-  },
-  {
-    id: 'used',
-    header: 'Used',
-    sortValue: (project) => project.used,
-    render: (project) => (
-      <span className="font-bold text-slate-900">
-        {formatCurrency(project.used)}
-      </span>
-    ),
-  },
-  {
-    id: 'status',
-    header: 'Status',
-    sortValue: (project) => project.status,
-    render: (project) => (
-      <StatusPill
-        tone={
-          project.status === 'At risk'
-            ? 'danger'
-            : project.status === 'Completed'
-              ? 'success'
-              : 'info'
-        }
-      >
-        {project.status}
-      </StatusPill>
-    ),
-  },
-]
-
-function createTransactions(project: ProjectRecord): FinancialTransaction[] {
-  const factors = [0.28, 0.18, 0.15, 0.12, 0.1, 0.09, 0.08]
-  const types = [
-    'Equipment Downpayment',
-    'Fund Release',
-    'Installation Payment',
-    'Materials Reimbursement',
-    'Training Expense',
-    'Site Preparation',
-    'Final Adjustment',
-  ]
-  const dates = [
-    'Jun 22, 2026',
-    'Jun 10, 2026',
-    'May 28, 2026',
-    'May 14, 2026',
-    'Apr 30, 2026',
-    'Apr 18, 2026',
-    'Apr 5, 2026',
-  ]
-
-  return factors.map((factor, index) => ({
-    id: `${project.id}-TX-${index + 1}`,
-    date: dates[index],
-    type: types[index],
-    amount: Math.round(project.used * factor),
-    reference: `DV-2026-${project.id.slice(2)}${String(index + 1).padStart(2, '0')}`,
-    status: index === 2 ? 'For validation' : 'Completed',
-  }))
+function currentQuarter(): Quarter {
+  return `Q${Math.ceil((new Date().getMonth() + 1) / 3)}` as Quarter
 }
 
-function ProjectTransactionModal({
-  onClose,
-  project,
-}: {
-  onClose: () => void
-  project: ProjectRecord
-}) {
-  const transactionRecords = createTransactions(project)
-  const remaining = project.budget - project.used
-  const transactionColumns: DataColumn<FinancialTransaction>[] = [
-    {
-      id: 'date',
-      header: 'Date',
-      sortValue: (item) => item.date,
-      render: (item) => item.date,
-    },
-    {
-      id: 'type',
-      header: 'Transaction',
-      sortValue: (item) => item.type,
-      render: (item) => (
-        <span className="font-bold text-slate-900">{item.type}</span>
-      ),
-    },
-    {
-      id: 'amount',
-      header: 'Amount',
-      sortValue: (item) => item.amount,
-      render: (item) => (
-        <span className="font-semibold">{formatCurrency(item.amount)}</span>
-      ),
-    },
-    {
-      id: 'reference',
-      header: 'Reference',
-      sortValue: (item) => item.reference,
-      render: (item) => (
-        <span className="font-mono text-xs text-[#0f53b7]">
-          {item.reference}
-        </span>
-      ),
-    },
-    {
-      id: 'status',
-      header: 'Status',
-      sortValue: (item) => item.status,
-      render: (item) => (
-        <span
-          className={
-            item.status === 'Completed'
-              ? 'font-bold text-emerald-700'
-              : 'font-bold text-amber-700'
-          }
-        >
-          {item.status}
-        </span>
-      ),
-    },
-  ]
+function formatFunding(value: number): string {
+  if (value <= 0) return 'Not recorded'
 
-  return (
-    <ModalShell
-      description={`${project.id} - ${project.title} / ${project.enterprise}`}
-      footer={
-        <div className="flex justify-end">
-          <button
-            className="h-10 rounded-lg px-4 text-sm font-bold text-slate-600 hover:bg-slate-100"
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
-        </div>
-      }
-      onClose={onClose}
-      title="Project Transaction History"
-      width="xl"
-    >
-      <section className="mb-5 grid gap-4 sm:grid-cols-3">
-        {[
-          ['Total Allocation', formatCurrency(project.budget), 'text-[#073b82]'],
-          ['Amount Utilized', formatCurrency(project.used), 'text-red-600'],
-          ['Remaining Balance', formatCurrency(remaining), 'text-emerald-700'],
-        ].map(([label, value, color]) => (
-          <div className="rounded-xl bg-slate-50 p-4" key={label}>
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-              {label}
-            </p>
-            <p className={`mt-2 text-2xl font-black ${color}`}>{value}</p>
-          </div>
-        ))}
-      </section>
-
-      <div className="overflow-hidden rounded-xl border border-slate-200">
-        <DataTable
-          columns={transactionColumns}
-          data={transactionRecords}
-          getRowKey={(item) => item.id}
-          initialRowsPerPage={5}
-          searchPlaceholder="Search transaction or reference..."
-          searchText={(item) =>
-            `${item.date} ${item.type} ${item.reference} ${item.status}`
-          }
-        />
-      </div>
-    </ModalShell>
-  )
-}
-
-function RecentTransactionsModal({ onClose }: { onClose: () => void }) {
-  return (
-    <ModalShell
-      description="Recorded disbursements and recent payment activities"
-      footer={
-        <div className="flex justify-end">
-          <button
-            className="h-10 rounded-lg px-4 text-sm font-bold text-slate-600 hover:bg-slate-100"
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
-        </div>
-      }
-      onClose={onClose}
-      title="Recent transactions"
-      width="xl"
-    >
-      <div className="overflow-hidden rounded-xl border border-slate-200">
-        <DataTable
-          columns={recentTransactionColumns}
-          data={transactions}
-          emptyTitle="No recent transactions"
-          getRowKey={(transaction) => transaction.id}
-          initialRowsPerPage={5}
-          searchPlaceholder="Search project or transaction..."
-          searchText={(transaction) =>
-            `${transaction.projectId} ${transaction.description} ${transaction.date}`
-          }
-          variant="clean"
-        />
-      </div>
-    </ModalShell>
-  )
+  return new Intl.NumberFormat('en-PH', {
+    currency: 'PHP',
+    maximumFractionDigits: 2,
+    style: 'currency',
+  }).format(value)
 }
 
 export function BudgetPage() {
-  const currentUser = getMockUser()
-  const lockedProgram =
-    currentUser?.program === 'SETUP' || currentUser?.program === 'GIA'
-      ? currentUser.program
-      : currentUser?.email?.toLowerCase().startsWith('gia.') ||
-          currentUser?.email?.toLowerCase().includes('gia') ||
-          currentUser?.name?.toUpperCase().includes('GIA') ||
-          currentUser?.name?.toUpperCase().includes('CEST')
-        ? 'GIA'
-        : currentUser?.email?.toLowerCase().startsWith('setup.') ||
-            currentUser?.email?.toLowerCase().includes('setup') ||
-            currentUser?.name?.toUpperCase().includes('SETUP') ||
-            currentUser?.name?.toUpperCase().includes('SSCP')
-          ? 'SETUP'
-          : null
+  const navigate = useNavigate()
+  const { projectId: projectIdParam } = useParams()
+  const user = getMockUser()
+  const [projects, setProjects] = useState<ProjectRecord[]>([])
+  const [pagination, setPagination] = useState<ProjectPagination>(emptyPagination)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const isDirector = user?.role === ROLES.PROVINCIAL_DIRECTOR
+  const hasSetupAccess = isDirector || (user?.role === ROLES.FOCAL && user.program === 'SETUP')
+  const projectId = Number(projectIdParam)
 
-  const [selectedProject, setSelectedProject] = useState<ProjectRecord | null>(null)
-  const [recentTransactionsOpen, setRecentTransactionsOpen] = useState(false)
+  useEffect(() => {
+    if (!hasSetupAccess || projectIdParam) return
 
-  const visibleProjects = projectRecords.filter(
-    (project) => !lockedProgram || project.program === lockedProgram,
-  )
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      setIsLoading(true)
+      setError(null)
+      fetchSetupMonitoringProjects({
+        page,
+        quarter: currentQuarter(),
+        search,
+        year: new Date().getFullYear(),
+      })
+        .then((result) => {
+          if (cancelled) return
+          setProjects(result.projects)
+          setPagination(result.pagination)
+        })
+        .catch((loadError: unknown) => {
+          if (cancelled) return
+          setError(loadError instanceof Error ? loadError.message : 'Could not load SETUP projects.')
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false)
+        })
+    }, 250)
 
-  const totalAllocated = visibleProjects.reduce(
-    (total, project) => total + project.budget,
-    0,
-  )
-  const totalUsed = visibleProjects.reduce(
-    (total, project) => total + project.used,
-    0,
-  )
-  const utilization = Math.round((totalUsed / Math.max(totalAllocated, 1)) * 100)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [hasSetupAccess, page, projectIdParam, search])
 
-  const headerEyebrow =
-    lockedProgram === 'SETUP'
-      ? 'SSCP Finance & Amortization'
-      : lockedProgram === 'GIA'
-        ? 'CEST Grants & Disbursements'
-        : 'Financial Management'
+  if (!hasSetupAccess) {
+    return (
+      <div className="space-y-6">
+        <AdminPageHeader description="" eyebrow="Financial Records" title="SETUP Repayment Ledger" />
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
+          <AlertTriangle className="mx-auto size-7 text-amber-700" />
+          <p className="mt-3 font-black text-amber-900">SETUP access required</p>
+          <p className="mt-1 text-sm text-amber-700">This ledger is available to the SSCP Focal and Provincial Director.</p>
+        </div>
+      </div>
+    )
+  }
 
-  const headerTitle =
-    lockedProgram === 'SETUP'
-      ? 'SETUP Repayment & Amortization Records'
-      : lockedProgram === 'GIA'
-        ? 'GIA Grant Budget & Disbursements'
-        : 'Financial Records'
-
-  const headerDescription =
-    lockedProgram === 'SETUP'
-      ? 'Monitor MSME equipment amortization schedules, quarterly refund ledgers, and repayment collection efficiency.'
-      : lockedProgram === 'GIA'
-        ? 'Monitor GIA fund release tranches, Line-Item Budget (LIB) allocations, and financial liquidation compliance.'
-        : 'Monitor disbursements, billing compliance, payment schedules, and auditable financial records.'
+  if (projectIdParam) {
+    return Number.isInteger(projectId) && projectId > 0
+      ? <RepaymentLedgerView onBack={() => navigate('/dashboard/repayment-monitoring')} projectId={projectId} />
+      : <div className="rounded-2xl border border-rose-200 bg-rose-50 p-8 text-center font-bold text-rose-800">Invalid project ledger.</div>
+  }
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-6">
       <AdminPageHeader
-        action={
-          <div className="flex items-center gap-2">
-            <button
-              aria-label="Open recent transactions"
-              className="inline-flex size-11 items-center justify-center rounded-xl border border-[#d8e1ee] bg-white text-[#073b82] transition hover:border-blue-300 hover:bg-blue-50"
-              onClick={() => setRecentTransactionsOpen(true)}
-              title="Recent transactions"
-              type="button"
-            >
-              <History className="size-5" />
-            </button>
-            <button
-              className="inline-flex h-11 items-center gap-2 rounded-xl border border-[#d8e1ee] bg-white px-4 text-sm font-bold text-slate-800 transition hover:border-blue-300 hover:text-[#0f53b7]"
-              type="button"
-            >
-              <Download className="size-4" />
-              Export
-            </button>
-          </div>
-        }
-        description={headerDescription}
-        eyebrow={headerEyebrow}
-        title={headerTitle}
+        action={isDirector ? <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-black text-slate-600">Read only</span> : null}
+        description=""
+        eyebrow="Financial Records"
+        title="SETUP Repayment Ledger"
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
-        <MetricCard
-          detail={lockedProgram ? `Across active ${lockedProgram} projects` : 'Across active funded projects'}
-          icon={Wallet}
-          label="Total Allocated"
-          value={formatCurrency(totalAllocated)}
-        />
-        <MetricCard
-          detail={`${utilization}% utilization`}
-          icon={TrendingUp}
-          label="Disbursed YTD"
-          tone="orange"
-          value={formatCurrency(totalUsed)}
-        />
-        <MetricCard
-          detail="Official receipts validated"
-          icon={FileCheck2}
-          label="Billing Compliance"
-          tone="sky"
-          value="94%"
-        />
-        <MetricCard
-          detail="Schedule or compliance issues"
-          icon={AlertTriangle}
-          label="Alerts"
-          tone="red"
-          value="3"
-        />
-      </section>
-
       <AdminPanel
-        action={
-          <button
-            aria-label="Open recent transactions"
-            className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-200 text-[#0f53b7] transition hover:border-blue-300 hover:bg-blue-50"
-            onClick={() => setRecentTransactionsOpen(true)}
-            title="Recent transactions"
-            type="button"
-          >
-            <History className="size-4" />
-          </button>
-        }
-        title={lockedProgram ? `${lockedProgram} project allocations` : 'Project allocations'}
+        action={<span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#0f53b7]"><ReceiptText className="size-3.5" />{pagination.total} active</span>}
+        title="Active SETUP Projects"
       >
-        <DataTable
-          columns={allocationColumns}
-          data={visibleProjects}
-          getRowKey={(project) => project.id}
-          initialRowsPerPage={5}
-          onRowClick={setSelectedProject}
-          searchPlaceholder="Search project, enterprise, or status..."
-          searchText={(project) =>
-            `${project.id} ${project.title} ${project.enterprise} ${project.status} ${project.dueDate}`
-          }
-          variant="clean"
-        />
+        <div className="border-b border-slate-200 p-4 sm:p-5">
+          <AdminSearch onChange={(value) => { setSearch(value); setPage(1) }} placeholder="Search project or beneficiary…" value={search} />
+        </div>
+
+        {error ? <div className="border-b border-rose-100 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-800">{error}</div> : null}
+
+        {isLoading ? (
+          <div className="grid min-h-56 place-items-center"><LoaderCircle className="size-7 animate-spin text-[#0f53b7]" /></div>
+        ) : projects.length ? (
+          <>
+            <div className="hidden lg:block">
+              <table className="w-full table-fixed text-left text-sm">
+                <thead className="border-b border-slate-200 bg-[#f8fbff] text-xs font-black uppercase tracking-wide text-[#5c7394]">
+                  <tr>
+                    <th className="w-[26%] px-5 py-4">Project Title</th>
+                    <th className="w-[20%] px-4 py-4">Project Beneficiary</th>
+                    <th className="w-[15%] px-4 py-4">Contact No.</th>
+                    <th className="w-[16%] px-4 py-4">SETUP Funding</th>
+                    <th className="w-[12%] px-4 py-4">Full Release</th>
+                    <th className="w-[11%] px-5 py-4 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {projects.map((project) => {
+                    const id = project.backendId ?? project.id
+                    return (
+                      <tr className="transition hover:bg-blue-50/40" key={id}>
+                        <td className="px-5 py-4">
+                          <p className="truncate font-black text-slate-900">{project.title}</p>
+                        </td>
+                        <td className="px-4 py-4 font-semibold text-slate-700">{project.enterprise}</td>
+                        <td className="px-4 py-4 font-semibold text-slate-700">
+                          {project.contactNumber || <span className="font-normal text-slate-400">Not recorded</span>}
+                        </td>
+                        <td className="px-4 py-4 font-black text-[#073b82]">{formatFunding(project.budget)}</td>
+                        <td className="px-4 py-4 text-sm font-semibold text-slate-700">
+                          {project.fullRelease || <span className="font-normal text-slate-400">Not recorded</span>}
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <button className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0f53b7] px-3 text-xs font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open<ArrowRight className="size-3.5" /></button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="divide-y divide-slate-100 lg:hidden">
+              {projects.map((project) => {
+                const id = project.backendId ?? project.id
+                return (
+                  <article className="space-y-3 px-5 py-4" key={id}>
+                    <div>
+                      <h2 className="font-black text-slate-900">{project.title}</h2>
+                      <p className="mt-1 text-sm font-semibold text-slate-600">{project.enterprise}</p>
+                    </div>
+                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-xl bg-slate-50 p-3 text-xs">
+                      <div><dt className="font-bold text-slate-400">Contact No.</dt><dd className="mt-1 font-semibold text-slate-700">{project.contactNumber || 'Not recorded'}</dd></div>
+                      <div><dt className="font-bold text-slate-400">SETUP Funding</dt><dd className="mt-1 font-black text-[#073b82]">{formatFunding(project.budget)}</dd></div>
+                      <div className="col-span-2"><dt className="font-bold text-slate-400">Full Release</dt><dd className="mt-1 font-semibold text-slate-700">{project.fullRelease || 'Not recorded'}</dd></div>
+                    </dl>
+                    <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open ledger<ArrowRight className="size-4" /></button>
+                  </article>
+                )
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="px-6 py-14 text-center"><ReceiptText className="mx-auto size-7 text-slate-300" /><p className="mt-3 font-bold text-slate-800">No active SETUP projects found</p></div>
+        )}
+
+        <div className="flex items-center justify-between border-t border-slate-200 px-5 py-4">
+          <p className="text-xs text-slate-500">{pagination.from ?? 0}-{pagination.to ?? 0} of {pagination.total}</p>
+          <nav aria-label="Project pagination" className="flex items-center gap-2">
+            <button aria-label="Previous project page" className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40" disabled={page <= 1 || isLoading} onClick={() => setPage((current) => Math.max(1, current - 1))} type="button"><ChevronLeft className="size-4" /></button>
+            <span className="min-w-20 text-center text-xs font-bold text-slate-600">Page {pagination.currentPage} of {pagination.lastPage}</span>
+            <button aria-label="Next project page" className="grid size-9 place-items-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 disabled:opacity-40" disabled={page >= pagination.lastPage || isLoading} onClick={() => setPage((current) => Math.min(pagination.lastPage, current + 1))} type="button"><ChevronRight className="size-4" /></button>
+          </nav>
+        </div>
       </AdminPanel>
-
-      {selectedProject ? (
-        <ProjectTransactionModal
-          onClose={() => setSelectedProject(null)}
-          project={selectedProject}
-        />
-      ) : null}
-
-      {recentTransactionsOpen ? (
-        <RecentTransactionsModal
-          onClose={() => setRecentTransactionsOpen(false)}
-        />
-      ) : null}
     </div>
   )
 }

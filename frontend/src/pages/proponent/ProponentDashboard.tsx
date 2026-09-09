@@ -13,7 +13,7 @@ import {
   Info,
   Wrench,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { MetricCard } from '../../components/admin/MetricCard'
@@ -35,6 +35,7 @@ type TabType = 'overview' | 'monitoring' | 'equipment' | 'repayment' | 'notifica
 
 export function ProponentDashboard() {
   const location = useLocation()
+  const navigate = useNavigate()
   const user = getMockUser()
   const [activeTab, setActiveTab] = useState<TabType>('overview')
   const [allApplications, setAllApplications] = useState<ApplicationRecord[]>(() => getApplications())
@@ -163,7 +164,13 @@ export function ProponentDashboard() {
                   : 'border-transparent text-slate-500 hover:text-slate-700'
               }`}
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                if (tab.id === 'repayment' && activeProgram === 'SETUP') {
+                  navigate('/setup/dashboard/finance')
+                  return
+                }
+                setActiveTab(tab.id)
+              }}
               type="button"
             >
               {tab.icon}
