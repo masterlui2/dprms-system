@@ -22,7 +22,7 @@ export function FaqSection() {
               <p className="mt-4 text-lg font-black text-[#07195f]">Need program details?</p>
               <p className="mt-2 text-sm leading-6 text-slate-600">
                 This area can connect to official requirements, program
-                guidelines, and regional DOST contact information.
+                guidelines, and regional DOST contact information.q
               </p>
             </CardContent>
           </Card>

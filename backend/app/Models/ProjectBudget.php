@@ -14,6 +14,9 @@ class ProjectBudget extends Model
         'total_amount',
         'currency',
         'fiscal_year',
+        'full_release_date',
+        'amortization_start_date',
+        'repayment_term_months',
         'budget_ceiling',
         'status',
         'notes',
@@ -24,6 +27,9 @@ class ProjectBudget extends Model
         return [
             'total_amount' => 'decimal:2',
             'budget_ceiling' => 'decimal:2',
+            'full_release_date' => 'date',
+            'amortization_start_date' => 'date',
+            'repayment_term_months' => 'integer',
         ];
     }
 

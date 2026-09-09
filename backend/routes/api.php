@@ -132,6 +132,9 @@ Route::middleware(['auth:sanctum', 'role:PROPONENT,MSME_PROPONENT'])
 Route::middleware(['auth:sanctum', 'role:FOCAL,SSCP_FOCAL,SETUP_FOCAL,PROVINCIAL_DIRECTOR,PSTO_DIRECTOR,PROPONENT,MSME_PROPONENT'])
     ->get('setup/projects/{project}/ledger', [SetupRepaymentLedgerController::class, 'show']);
 
+Route::middleware(['auth:sanctum', 'role:FOCAL,SSCP_FOCAL,SETUP_FOCAL,PROVINCIAL_DIRECTOR,PSTO_DIRECTOR'])
+    ->put('setup/projects/{project}/ledger/schedule', [SetupRepaymentLedgerController::class, 'upsertSchedule']);
+
 Route::middleware(['auth:sanctum', 'role:PROPONENT,MSME_PROPONENT'])
     ->post('setup/projects/{project}/ledger/{ledger}/payments', [SetupRepaymentLedgerController::class, 'storePayment']);
 

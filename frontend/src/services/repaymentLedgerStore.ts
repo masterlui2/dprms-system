@@ -42,12 +42,33 @@ export interface RepaymentInstallment {
   transactions: RepaymentTransaction[]
 }
 
+export interface RepaymentScheduleInput {
+  amortizationStartDate: string
+  fullReleaseDate: string
+  installments: Array<{
+    amount: number
+    dueDate: string
+    periodLabel: string
+  }>
+  repaymentTermMonths: number
+  totalProjectCost: number
+}
+
 export interface SetupRepaymentLedger {
   installments: RepaymentInstallment[]
   permissions: {
+    canManageSchedule: boolean
     canRecordPayment: boolean
     canVerifyPayment: boolean
     readOnly: boolean
+  }
+  schedule: {
+    amortizationStartDate: string | null
+    fullReleaseDate: string | null
+    initialized: boolean
+    locked: boolean
+    repaymentTermMonths: number | null
+    scheduledTotal: number
   }
   project: {
     cooperator: string
@@ -107,9 +128,18 @@ interface ApiInstallment {
 interface ApiLedger {
   installments: ApiInstallment[]
   permissions: {
+    can_manage_schedule: boolean
     can_record_payment: boolean
     can_verify_payment: boolean
     read_only: boolean
+  }
+  schedule: {
+    amortization_start_date: string | null
+    full_release_date: string | null
+    initialized: boolean
+    locked: boolean
+    repayment_term_months: number | null
+    scheduled_total: number
   }
   project: {
     cooperator: string
@@ -174,6 +204,7 @@ function mapLedger(ledger: ApiLedger): SetupRepaymentLedger {
       })),
     })),
     permissions: {
+      canManageSchedule: ledger.permissions.can_manage_schedule,
       canRecordPayment: ledger.permissions.can_record_payment,
       canVerifyPayment: ledger.permissions.can_verify_payment,
       readOnly: ledger.permissions.read_only,
@@ -187,6 +218,14 @@ function mapLedger(ledger: ApiLedger): SetupRepaymentLedger {
       referenceNumber: ledger.project.reference_number || `SETUP-${ledger.project.id}`,
       status: ledger.project.status,
       title: ledger.project.title || 'SETUP Project',
+    },
+    schedule: {
+      amortizationStartDate: ledger.schedule.amortization_start_date,
+      fullReleaseDate: ledger.schedule.full_release_date,
+      initialized: ledger.schedule.initialized,
+      locked: ledger.schedule.locked,
+      repaymentTermMonths: ledger.schedule.repayment_term_months,
+      scheduledTotal: ledger.schedule.scheduled_total,
     },
     summary: {
       amountPaid: ledger.summary.amount_paid,
@@ -210,6 +249,28 @@ export function repaymentErrorMessage(error: unknown): string {
 
 export async function fetchSetupRepaymentLedger(projectId: number): Promise<SetupRepaymentLedger> {
   const response = await api.get<LedgerResponse>(`/setup/projects/${projectId}/ledger`)
+  return mapLedger(response.data.data)
+}
+
+export async function saveSetupRepaymentSchedule(
+  projectId: number,
+  payload: RepaymentScheduleInput,
+): Promise<SetupRepaymentLedger> {
+  const response = await api.put<LedgerResponse>(
+    `/setup/projects/${projectId}/ledger/schedule`,
+    {
+      amortization_start_date: payload.amortizationStartDate,
+      full_release_date: payload.fullReleaseDate,
+      installments: payload.installments.map((installment) => ({
+        amount: installment.amount,
+        due_date: installment.dueDate,
+        period_label: installment.periodLabel.trim(),
+      })),
+      repayment_term_months: payload.repaymentTermMonths,
+      total_project_cost: payload.totalProjectCost,
+    },
+  )
+
   return mapLedger(response.data.data)
 }
 

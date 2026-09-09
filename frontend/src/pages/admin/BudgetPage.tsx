@@ -18,7 +18,6 @@ import type { ProjectRecord } from '../../data/admin'
 import { getMockUser } from '../../lib/mockAuth'
 import { fetchSetupMonitoringProjects } from '../../services/setupMonitoringStore'
 import type { ProjectPagination } from '../../types/monitoring'
-import type { Quarter } from '../../types/setupMonitoring'
 
 const emptyPagination: ProjectPagination = {
   currentPage: 1,
@@ -27,10 +26,6 @@ const emptyPagination: ProjectPagination = {
   perPage: 6,
   to: null,
   total: 0,
-}
-
-function currentQuarter(): Quarter {
-  return `Q${Math.ceil((new Date().getMonth() + 1) / 3)}` as Quarter
 }
 
 function formatFunding(value: number): string {
@@ -82,9 +77,7 @@ export function BudgetPage() {
       setError(null)
       fetchSetupMonitoringProjects({
         page,
-        quarter: currentQuarter(),
         search,
-        year: new Date().getFullYear(),
       })
         .then((result) => {
           if (cancelled) return
@@ -109,7 +102,7 @@ export function BudgetPage() {
   if (!hasSetupAccess) {
     return (
       <div className="space-y-6">
-        <AdminPageHeader description="" eyebrow="Financial Records" title="SETUP Repayment Ledger" />
+        <AdminPageHeader description="" eyebrow="Repayment Ledger" title="SETUP Repayment Ledger" />
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-8 text-center">
           <AlertTriangle className="mx-auto size-7 text-amber-700" />
           <p className="mt-3 font-black text-amber-900">SETUP access required</p>
@@ -130,7 +123,7 @@ export function BudgetPage() {
       <AdminPageHeader
         action={isDirector ? <span className="rounded-full bg-slate-200 px-3 py-1.5 text-xs font-black text-slate-600">Read only</span> : null}
         description=""
-        eyebrow="Financial Records"
+        eyebrow="Repayment Ledger"
         title="SETUP Repayment Ledger"
       />
 
@@ -163,6 +156,7 @@ export function BudgetPage() {
                 <tbody className="divide-y divide-slate-100">
                   {projects.map((project) => {
                     const id = project.backendId ?? project.id
+                    const needsInitialization = project.budget <= 0 || !project.fullRelease
                     return (
                       <tr className="transition hover:bg-blue-50/40" key={id}>
                         <td className="px-5 py-4">
@@ -177,7 +171,10 @@ export function BudgetPage() {
                           {formatReleaseDate(project.fullRelease) || <span className="font-normal text-slate-400">Not recorded</span>}
                         </td>
                         <td className="px-5 py-4 text-right">
-                          <button className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0f53b7] px-3 text-xs font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open<ArrowRight className="size-3.5" /></button>
+                          <button className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#0f53b7] px-3 text-xs font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">
+                            {isDirector ? 'View' : needsInitialization ? 'Initialize' : 'Open'}
+                            <ArrowRight className="size-3.5" />
+                          </button>
                         </td>
                       </tr>
                     )
@@ -189,6 +186,7 @@ export function BudgetPage() {
             <div className="divide-y divide-slate-100 lg:hidden">
               {projects.map((project) => {
                 const id = project.backendId ?? project.id
+                const needsInitialization = project.budget <= 0 || !project.fullRelease
                 return (
                   <article className="space-y-3 px-5 py-4" key={id}>
                     <div>
@@ -200,7 +198,10 @@ export function BudgetPage() {
                       <div><dt className="font-bold text-slate-400">SETUP Funding</dt><dd className="mt-1 font-black text-[#073b82]">{formatFunding(project.budget)}</dd></div>
                       <div className="col-span-2"><dt className="font-bold text-slate-400">Full Release</dt><dd className="mt-1 font-semibold text-slate-700">{formatReleaseDate(project.fullRelease) || 'Not recorded'}</dd></div>
                     </dl>
-                    <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">Open ledger<ArrowRight className="size-4" /></button>
+                    <button className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-4 text-sm font-bold text-white hover:bg-[#0b3f8b]" onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)} type="button">
+                      {isDirector ? 'View ledger' : needsInitialization ? 'Initialize ledger' : 'Open ledger'}
+                      <ArrowRight className="size-4" />
+                    </button>
                   </article>
                 )
               })}

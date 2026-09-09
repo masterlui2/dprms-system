@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\IndexMySetupRepaymentProjectsRequest;
 use App\Http\Requests\ShowSetupRepaymentLedgerRequest;
 use App\Http\Requests\StoreSetupRepaymentPaymentRequest;
+use App\Http\Requests\UpsertSetupRepaymentScheduleRequest;
 use App\Http\Requests\VerifySetupRepaymentPaymentRequest;
 use App\Models\Project;
 use App\Models\ProjectLedger;
@@ -30,6 +31,20 @@ class SetupRepaymentLedgerController extends Controller
         return response()->json([
             'message' => 'SETUP repayment ledger retrieved successfully.',
             'data' => $this->service->getLedger($request->user(), $project),
+        ]);
+    }
+
+    public function upsertSchedule(
+        UpsertSetupRepaymentScheduleRequest $request,
+        Project $project,
+    ): JsonResponse {
+        return response()->json([
+            'message' => 'SETUP repayment schedule saved successfully.',
+            'data' => $this->service->upsertSchedule(
+                $request->user(),
+                $project,
+                $request->validated(),
+            ),
         ]);
     }
 

@@ -198,6 +198,121 @@ class SetupRepaymentLedgerTest extends TestCase
         $this->getJson("/api/setup/projects/{$this->project->id}/ledger")->assertForbidden();
     }
 
+    public function test_setup_focal_can_initialize_a_live_repayment_schedule(): void
+    {
+        RepaymentTransaction::query()->delete();
+        ProjectLedger::query()->delete();
+        ProjectBudget::query()->delete();
+        Sanctum::actingAs($this->focal);
+
+        $this->getJson("/api/setup/projects/{$this->project->id}/ledger")
+            ->assertOk()
+            ->assertJsonPath('data.schedule.initialized', false)
+            ->assertJsonPath('data.summary.total_project_cost', 0)
+            ->assertJsonPath('data.summary.amount_paid', 0)
+            ->assertJsonPath('data.summary.outstanding_balance', 0)
+            ->assertJsonPath('data.permissions.can_manage_schedule', true)
+            ->assertJsonCount(0, 'data.installments');
+
+        $this->putJson(
+            "/api/setup/projects/{$this->project->id}/ledger/schedule",
+            $this->schedulePayload(),
+        )
+            ->assertOk()
+            ->assertJsonPath('data.project.reference_number', 'SETUP-LEDGER-001')
+            ->assertJsonPath('data.project.cooperator', 'Mati Food Works')
+            ->assertJsonPath('data.project.full_release', '2026-06-30')
+            ->assertJsonPath('data.summary.total_project_cost', 1500)
+            ->assertJsonPath('data.summary.amount_paid', 0)
+            ->assertJsonPath('data.summary.outstanding_balance', 1500)
+            ->assertJsonPath('data.summary.overdue_installments', 1)
+            ->assertJsonPath('data.schedule.initialized', true)
+            ->assertJsonPath('data.schedule.amortization_start_date', '2026-08-31')
+            ->assertJsonPath('data.schedule.repayment_term_months', 3)
+            ->assertJsonPath('data.schedule.scheduled_total', 1500)
+            ->assertJsonPath('data.permissions.can_manage_schedule', true)
+            ->assertJsonCount(3, 'data.installments');
+
+        $this->assertDatabaseHas('project_budgets', [
+            'proposal_id' => $this->project->proposal_id,
+            'total_amount' => 1500,
+            'repayment_term_months' => 3,
+        ]);
+        $budget = ProjectBudget::query()->where('proposal_id', $this->project->proposal_id)->firstOrFail();
+        $this->assertSame('2026-06-30', $budget->full_release_date->toDateString());
+        $this->assertSame('2026-08-31', $budget->amortization_start_date->toDateString());
+        $firstInstallment = ProjectLedger::query()
+            ->where('project_id', $this->project->id)
+            ->orderBy('due_date')
+            ->firstOrFail();
+        $this->assertSame('August 2026', $firstInstallment->period_label);
+        $this->assertSame(400.0, (float) $firstInstallment->amount);
+        $this->assertSame('2026-08-31', $firstInstallment->due_date->toDateString());
+    }
+
+    public function test_schedule_requires_matching_installment_totals(): void
+    {
+        RepaymentTransaction::query()->delete();
+        ProjectLedger::query()->delete();
+        Sanctum::actingAs($this->focal);
+        $payload = $this->schedulePayload();
+        $payload['installments'][2]['amount'] = 499.99;
+
+        $this->putJson(
+            "/api/setup/projects/{$this->project->id}/ledger/schedule",
+            $payload,
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('installments');
+    }
+
+    public function test_schedule_requires_complete_funding_terms(): void
+    {
+        RepaymentTransaction::query()->delete();
+        ProjectLedger::query()->delete();
+        Sanctum::actingAs($this->focal);
+
+        $this->putJson(
+            "/api/setup/projects/{$this->project->id}/ledger/schedule",
+            [],
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors([
+                'total_project_cost',
+                'full_release_date',
+                'amortization_start_date',
+                'repayment_term_months',
+                'installments',
+            ]);
+    }
+
+    public function test_director_and_proponent_cannot_manage_the_schedule(): void
+    {
+        Sanctum::actingAs($this->director);
+        $this->putJson(
+            "/api/setup/projects/{$this->project->id}/ledger/schedule",
+            $this->schedulePayload(),
+        )->assertForbidden();
+
+        Sanctum::actingAs($this->proponent);
+        $this->putJson(
+            "/api/setup/projects/{$this->project->id}/ledger/schedule",
+            $this->schedulePayload(),
+        )->assertForbidden();
+    }
+
+    public function test_schedule_is_locked_after_payment_activity_starts(): void
+    {
+        Sanctum::actingAs($this->focal);
+
+        $this->putJson(
+            "/api/setup/projects/{$this->project->id}/ledger/schedule",
+            $this->schedulePayload(),
+        )
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('installments');
+    }
+
     public function test_setup_proponent_can_submit_payment_for_verification(): void
     {
         Sanctum::actingAs($this->proponent);
@@ -415,6 +530,33 @@ class SetupRepaymentLedgerTest extends TestCase
             'check_date' => '2026-09-03',
             'payment_date' => '2026-09-04',
             'payment_proof' => UploadedFile::fake()->image('official-receipt.jpg'),
+        ];
+    }
+
+    private function schedulePayload(): array
+    {
+        return [
+            'total_project_cost' => 1500,
+            'full_release_date' => '2026-06-30',
+            'amortization_start_date' => '2026-08-31',
+            'repayment_term_months' => 3,
+            'installments' => [
+                [
+                    'period_label' => 'August 2026',
+                    'amount' => 400,
+                    'due_date' => '2026-08-31',
+                ],
+                [
+                    'period_label' => 'September 2026',
+                    'amount' => 500,
+                    'due_date' => '2026-09-30',
+                ],
+                [
+                    'period_label' => 'October 2026',
+                    'amount' => 600,
+                    'due_date' => '2026-10-31',
+                ],
+            ],
         ];
     }
 
