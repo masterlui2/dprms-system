@@ -32,7 +32,11 @@ class ProposalRepository extends BaseRepository implements ProposalRepositoryInt
     #[Override]
     public function findBySubmitter(int $userId): Collection
     {
-        return $this->model->newQuery()->where("submitted_by",$userId)->get();
+        return $this->model->newQuery()
+            ->with(['setup_proposal', 'gia_proposal'])
+            ->where("submitted_by", $userId)
+            ->orderBy('id', 'desc')
+            ->get();
     }
 
     #[Override]

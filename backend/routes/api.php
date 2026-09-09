@@ -45,6 +45,7 @@ Route::middleware('auth:sanctum')->prefix('proposal')->group(function () {
     Route::put('/{id}/disapprove', [ProposalController::class, 'disapprove'])
         ->middleware('role:PROVINCIAL_DIRECTOR');
     Route::get('/reference-number/{referenceNumber}', [ProposalController::class, 'getByReferenceNumber']);
+    Route::get('/my-proposals', [ProposalController::class, 'getMyProposals']);
     Route::get('/submitter/{userId}', [ProposalController::class, 'getSubmitterProposals']);
     Route::put('/{proposal}/resubmit', [ProposalController::class, 'resubmit']);
     Route::put('/{proposal}/return-for-revision', [ProposalController::class, 'returnForRevision'])

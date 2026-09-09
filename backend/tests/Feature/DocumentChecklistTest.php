@@ -964,4 +964,135 @@ class DocumentChecklistTest extends TestCase
             'is_active' => true,
         ]);
     }
+
+    public function test_internal_documents_not_falsely_assumed_and_sync_with_checklist(): void
+    {
+        $user = User::factory()->create();
+        $staff = User::factory()->create();
+        $staffRole = Role::where('code', 'PROJECT_STAFF')->first();
+        UserRole::create(['user_id' => $staff->id, 'role_id' => $staffRole->id]);
+
+        $proposal = Proposal::create([
+            'submitted_by' => $user->id,
+            'title' => 'SETUP Enterprise Sync Test',
+            'program_type' => 'SETUP',
+            'status' => 'Submitted',
+            'reference_number' => 'SETUP-2026-SYNC',
+        ]);
+        SetupProposal::create([
+            'proposal_id' => $proposal->id,
+            'business_name' => 'Sync Enterprise',
+            'business_type' => 'Sole Proprietorship',
+            'industry_sector' => 'Manufacturing',
+            'enterprise_size' => 'Micro',
+            'years_in_operation' => 2,
+            'business_address' => 'Davao City',
+            'region' => 'Region XI',
+            'province' => 'Davao del Sur',
+            'city_municipality' => 'Davao City',
+            'space_ownership' => 'Owned',
+        ]);
+
+        $proposalDocType = \App\Models\DocumentType::firstOrCreate([
+            'name' => 'Project Proposal Form (SETUP Form 001)',
+            'set_number' => 'PROPOSAL',
+            'applicable_program' => 'SETUP',
+        ]);
+        \App\Models\Document::create([
+            'proposal_id' => $proposal->id,
+            'document_type_id' => $proposalDocType->id,
+            'uploaded_by' => $user->id,
+            'file_name' => 'project_proposal_form_001.pdf',
+            'file_path' => 'documents/proposal.pdf',
+            'file_size' => 2048,
+            'mime_type' => 'application/pdf',
+            'status' => 'approved',
+            'reviewed_at' => now(),
+        ]);
+
+        $res = $this->actingAs($staff)->getJson("/api/proposals/{$proposal->id}/checklist");
+        $res->assertOk();
+        $items = collect($res->json('data.items'))->keyBy('id');
+
+        $this->assertNull($items['setup-s1-tna-01']['uploaded_doc']);
+        $this->assertFalse($items['setup-s1-tna-01']['is_present']);
+        $this->assertEquals('Missing', $items['setup-s1-tna-01']['status']);
+
+        $this->assertNull($items['setup-s1-gad-assessment']['uploaded_doc']);
+        $this->assertFalse($items['setup-s1-gad-assessment']['is_present']);
+        $this->assertEquals('Missing', $items['setup-s1-gad-assessment']['status']);
+
+        $this->assertNull($items['setup-s2-tna-form-4']['uploaded_doc']);
+        $this->assertFalse($items['setup-s2-tna-form-4']['is_present']);
+        $this->assertEquals('Missing', $items['setup-s2-tna-form-4']['status']);
+
+        $tnaDocType = \App\Models\DocumentType::firstOrCreate([
+            'name' => 'Filled-out TNA Form 01',
+            'set_number' => 'SET1',
+            'applicable_program' => 'SETUP',
+            'is_applicant_visible' => false,
+        ]);
+        $internalDoc = \App\Models\Document::create([
+            'proposal_id' => $proposal->id,
+            'document_type_id' => $tnaDocType->id,
+            'uploaded_by' => $staff->id,
+            'file_name' => 'tna_form_01_signed.pdf',
+            'file_path' => 'documents/tna01.pdf',
+            'file_size' => 4096,
+            'mime_type' => 'application/pdf',
+            'status' => 'approved',
+            'reviewed_at' => now(),
+        ]);
+
+        $resAfterUpload = $this->actingAs($staff)->getJson("/api/proposals/{$proposal->id}/checklist");
+        $resAfterUpload->assertOk();
+        $itemsAfter = collect($resAfterUpload->json('data.items'))->keyBy('id');
+
+        $this->assertNotNull($itemsAfter['setup-s1-tna-01']['uploaded_doc']);
+        $this->assertEquals('tna_form_01_signed.pdf', $itemsAfter['setup-s1-tna-01']['uploaded_doc']['file_name']);
+        $this->assertTrue($itemsAfter['setup-s1-tna-01']['is_present']);
+        $this->assertEquals('Complied', $itemsAfter['setup-s1-tna-01']['status']);
+
+        $batchRes = $this->actingAs($staff)->putJson("/api/proposals/{$proposal->id}/checklist/batch", [
+            'items' => [
+                [
+                    'id' => 'setup-s1-tna-01',
+                    'document_id' => $internalDoc->id,
+                    'status' => 'Needs Revision',
+                    'is_present' => false,
+                    'remarks' => 'Signatures missing on section 3',
+                ],
+            ],
+        ]);
+        $batchRes->assertOk();
+
+        $this->assertDatabaseHas('documents', [
+            'id' => $internalDoc->id,
+            'status' => 'returned_for_revision',
+            'remarks' => 'Signatures missing on section 3',
+        ]);
+    }
+
+    public function test_user_cannot_submit_multiple_active_proposals_for_same_program(): void
+    {
+        $user = User::factory()->create();
+        Proposal::create([
+            'submitted_by' => $user->id,
+            'program_type' => 'SETUP',
+            'title' => 'First Proposal',
+            'status' => 'SUBMITTED',
+            'reference_number' => 'SETUP-2026-TEST1',
+        ]);
+
+        $this->actingAs($user);
+        $service = app(\App\Services\Contracts\ProposalModule\ProposalServiceInterface::class);
+
+        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->expectExceptionMessage('You already have an active application under review for this program.');
+
+        $service->submit([
+            'program_type' => 'SETUP',
+            'title' => 'Second Proposal',
+        ]);
+    }
 }

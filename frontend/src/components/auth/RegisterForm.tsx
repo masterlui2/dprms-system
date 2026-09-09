@@ -114,6 +114,7 @@ export function RegisterForm() {
 
       grantProgramAccess(program);
       const registeredUser = registerUserAccount({
+        id: result.user.id,
         email: form.email,
         name: form.fullName,
         password: form.password,
@@ -125,6 +126,7 @@ export function RegisterForm() {
       clearGiaDraft();
       setMockUser({
         ...registeredUser,
+        id: result.user.id,
         role: result.user.role || registeredUser.role,
       });
 

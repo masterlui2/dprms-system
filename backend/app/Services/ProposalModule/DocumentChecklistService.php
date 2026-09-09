@@ -200,6 +200,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             ]);
 
             $expectedDocTypeId = $this->resolveDocumentTypeId($template->item_code, $program, $allDocTypes);
+            $isInternal = $this->isInternalDocumentTemplate($template, $expectedDocTypeId, $allDocTypes);
 
             $review = $existingReviews->get($template->id);
 
@@ -208,18 +209,25 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 $matchedDoc = $uploadedDocs->firstWhere('id', $review->document_id);
             }
             if (! $matchedDoc) {
-                $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs, $program, $expectedDocTypeId);
+                $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs, $program, $expectedDocTypeId, $isInternal);
             }
 
-            if ($review && $review->status && self::normalizeStatus($review->status) !== self::STATUS_MISSING) {
-                $status = self::normalizeStatus($review->status);
-                $isPresent = (bool) $review->is_present;
-            } elseif ($matchedDoc) {
-                $status = self::normalizeStatus($matchedDoc->status);
-                $isPresent = ($status === self::STATUS_COMPLIED);
+            if ($matchedDoc) {
+                if ($review && $review->status && in_array(self::normalizeStatus($review->status), [self::STATUS_COMPLIED, self::STATUS_NEEDS_REVISION], true)) {
+                    $status = self::normalizeStatus($review->status);
+                    $isPresent = ($status === self::STATUS_COMPLIED);
+                } else {
+                    $status = self::normalizeStatus($matchedDoc->status);
+                    $isPresent = ($status === self::STATUS_COMPLIED);
+                }
             } else {
-                $status = $review ? self::normalizeStatus($review->status) : self::STATUS_MISSING;
-                $isPresent = (bool) ($review?->is_present ?? false);
+                if ($isInternal) {
+                    $status = self::STATUS_MISSING;
+                    $isPresent = false;
+                } else {
+                    $status = $review ? self::normalizeStatus($review->status) : self::STATUS_MISSING;
+                    $isPresent = (bool) ($review?->is_present ?? false);
+                }
             }
 
             $remarks = $review?->remarks ?? $matchedDoc?->remarks ?? '';
@@ -317,6 +325,23 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'reviewed_at' => now(),
             ]);
 
+            if (!empty($data['document_id'])) {
+                $docStatus = match ($data['status'] ?? '') {
+                    self::STATUS_COMPLIED => 'approved',
+                    self::STATUS_NEEDS_REVISION => 'returned_for_revision',
+                    self::STATUS_UNDER_REVIEW => 'pending',
+                    default => null,
+                };
+                if ($docStatus) {
+                    Document::query()->where('id', (int) $data['document_id'])->update([
+                        'status' => $docStatus,
+                        'reviewed_by' => $userId,
+                        'reviewed_at' => now(),
+                        'remarks' => $data['remarks'] ?? null,
+                    ]);
+                }
+            }
+
             $action = ($data['status'] ?? '') === 'Complied' ? 'REVIEW_APPROVED' : 'REVIEW_RETURNED';
             $this->logActivity(
                 $proposalId,
@@ -362,6 +387,20 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                         ];
                         if ($docId) {
                             $reviewData['document_id'] = $docId;
+                            $docStatus = match ($reviewData['status']) {
+                                self::STATUS_COMPLIED => 'approved',
+                                self::STATUS_NEEDS_REVISION => 'returned_for_revision',
+                                self::STATUS_UNDER_REVIEW => 'pending',
+                                default => null,
+                            };
+                            if ($docStatus) {
+                                Document::query()->where('id', (int) $docId)->update([
+                                    'status' => $docStatus,
+                                    'reviewed_by' => $userId,
+                                    'reviewed_at' => now(),
+                                    'remarks' => $reviewData['remarks'] ?? null,
+                                ]);
+                            }
                         } elseif (array_key_exists('document_id', $item) && $item['document_id'] === null) {
                             $reviewData['document_id'] = null;
                         }
@@ -514,11 +553,54 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         return $matched?->id ?? $allDocTypes->firstWhere('name', $targetName)?->id;
     }
 
+    public function isInternalDocumentTemplate(
+        DocumentChecklistTemplate $template,
+        ?int $targetDocTypeId,
+        Collection $allDocTypes
+    ): bool {
+        if ($targetDocTypeId) {
+            $docType = $allDocTypes->firstWhere('id', $targetDocTypeId);
+            if ($docType && ! $docType->is_applicant_visible) {
+                return true;
+            }
+        }
+
+        $phase = strtoupper((string) ($template->phase_code ?? ''));
+        if (in_array($phase, ['SET3', 'STAGE 02', 'STAGE 03', 'STAGE 04', 'STAGE 05', 'STAGE02', 'STAGE03', 'STAGE04', 'STAGE05'], true)) {
+            return true;
+        }
+
+        return in_array($template->item_code, [
+            'setup-s1-tna-01',
+            'setup-s1-gad-assessment',
+            'setup-s1-gad-checklist',
+            'setup-s1-hazard-hunter',
+            'setup-s2-tna-form-4',
+            'setup-s3-pre-project-sheet',
+            'setup-s3-request-funds',
+            'setup-s3-lbp-waiver',
+            'setup-s3-payee-form',
+            'setup-s3-notarized-moa',
+            'setup-s3-notice-approval',
+            'setup-s3-approved-lib',
+            'setup-s3-ard-approval',
+            'setup-s3-psto-endorsement',
+            'setup-s3-final-proposal',
+            'setup-s3-rtec-report',
+            'setup-s3-risk-register',
+            'setup-s3-seti-scorecard',
+            'gia-s1-endorsement',
+            'gia-s1-rtec-report',
+            'gia-s1-seti-scorecard',
+        ], true);
+    }
+
     protected function findMatchingDocument(
         DocumentChecklistTemplate $template,
         Collection $uploadedDocs,
         string $program,
-        ?int $targetDocTypeId = null
+        ?int $targetDocTypeId = null,
+        bool $isInternal = false
     ): ?Document {
         if ($targetDocTypeId) {
             $direct = $uploadedDocs->firstWhere('document_type_id', $targetDocTypeId);
@@ -528,34 +610,55 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         }
 
         $canonicalName = self::TEMPLATE_CODE_TO_DOC_TYPE_NAME[$template->item_code] ?? null;
-        $normalizedTarget = self::normalizeText($canonicalName ?: $template->document_name);
-        $targetTokens = array_values(array_filter(explode(' ', $normalizedTarget), fn($t) => strlen($t) >= 3));
+        if ($canonicalName) {
+            $exactTypeMatch = $uploadedDocs->first(function (Document $doc) use ($canonicalName, $program) {
+                if (! $doc->document_type) {
+                    return false;
+                }
+                if ($doc->document_type->set_number === 'PROPOSAL') {
+                    return false;
+                }
+                if (! in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
+                    return false;
+                }
+                return strcasecmp(trim($doc->document_type->name), trim($canonicalName)) === 0;
+            });
 
-        return $uploadedDocs->first(function (Document $doc) use ($normalizedTarget, $targetTokens, $program) {
-            if ($doc->document_type && !in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
+            if ($exactTypeMatch) {
+                return $exactTypeMatch;
+            }
+        }
+
+        if ($isInternal) {
+            return null;
+        }
+
+        $normalizedTarget = self::normalizeText($canonicalName ?: $template->document_name);
+
+        return $uploadedDocs->first(function (Document $doc) use ($normalizedTarget, $program) {
+            if ($doc->document_type && $doc->document_type->set_number === 'PROPOSAL') {
+                return false;
+            }
+            if ($doc->document_type && ! in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
                 return false;
             }
 
             $normalizedType = self::normalizeText($doc->document_type?->name);
-            $normalizedFile = self::normalizeText(pathinfo($doc->file_name ?? '', PATHINFO_FILENAME));
-
-            if ($normalizedType && ($normalizedType === $normalizedTarget || str_contains($normalizedTarget, $normalizedType) || str_contains($normalizedType, $normalizedTarget))) {
-                return true;
-            }
-
-            if ($normalizedFile && ($normalizedFile === $normalizedTarget || str_contains($normalizedTarget, $normalizedFile) || str_contains($normalizedFile, $normalizedTarget))) {
-                return true;
-            }
-
-            if (!empty($targetTokens) && ($normalizedType || $normalizedFile)) {
-                $combined = "{$normalizedType} {$normalizedFile}";
-                $matchCount = 0;
-                foreach ($targetTokens as $token) {
-                    if (str_contains($combined, $token)) {
-                        $matchCount++;
-                    }
+            if ($normalizedType) {
+                if ($normalizedType === $normalizedTarget
+                    || (strlen($normalizedType) >= 3 && str_contains($normalizedTarget, $normalizedType))
+                    || (strlen($normalizedTarget) >= 3 && str_contains($normalizedType, $normalizedTarget))
+                ) {
+                    return true;
                 }
-                if ($matchCount >= min(2, count($targetTokens))) {
+            }
+
+            $normalizedFile = self::normalizeText(pathinfo($doc->file_name ?? '', PATHINFO_FILENAME));
+            if ($normalizedFile && strlen($normalizedFile) >= 3) {
+                if ($normalizedFile === $normalizedTarget
+                    || str_contains($normalizedTarget, $normalizedFile)
+                    || str_contains($normalizedFile, $normalizedTarget)
+                ) {
                     return true;
                 }
             }

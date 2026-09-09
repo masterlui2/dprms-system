@@ -1132,53 +1132,105 @@ function normalizeText(value?: string | null): string {
     .trim()
 }
 
+export function isInternalChecklistItem(reqId: string, reqName?: string): boolean {
+  if (
+    reqId.startsWith('setup-s3-') ||
+    reqId.startsWith('gia-s2-') ||
+    reqId.startsWith('gia-s3-') ||
+    reqId.startsWith('gia-s4-') ||
+    reqId.startsWith('gia-s5-')
+  ) {
+    return true
+  }
+  if (
+    [
+      'setup-s1-tna-01',
+      'setup-s1-gad-assessment',
+      'setup-s1-gad-checklist',
+      'setup-s1-hazard-hunter',
+      'setup-s2-tna-form-4',
+      'gia-s1-endorsement',
+      'gia-s1-rtec-report',
+      'gia-s1-seti-scorecard',
+    ].includes(reqId)
+  ) {
+    return true
+  }
+  if (reqName) {
+    const nameLower = reqName.toLowerCase()
+    if (
+      nameLower.includes('tna form') ||
+      nameLower.includes('gad assessment') ||
+      nameLower.includes('hazard hunter')
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 function findMatchingUploadedDoc(
   reqId: string,
   reqName: string,
   uploadedDocs: DocumentApiRecord[],
   expectedDocTypeId?: number
 ): DocumentApiRecord | null {
+  const isInternal = isInternalChecklistItem(reqId, reqName)
   const targetDocTypeId = expectedDocTypeId || CHECKLIST_ITEM_DOC_TYPE_ID[reqId]
+
+  const isProposalDoc = (doc: DocumentApiRecord) => {
+    const setNum = (doc.document_type as any)?.set_number
+    if (setNum === 'PROPOSAL') return true
+    const docName = doc.document_type?.name?.toLowerCase() || ''
+    const fileName = doc.file_name?.toLowerCase() || ''
+    return docName.includes('setup form 001') || fileName.includes('setup_form_001') || docName.includes('project proposal form')
+  }
+
   if (targetDocTypeId) {
     const exactMatch = uploadedDocs.find(
-      (doc) => doc.document_type_id === targetDocTypeId || doc.document_type?.id === targetDocTypeId
+      (doc) =>
+        (doc.document_type_id === targetDocTypeId || doc.document_type?.id === targetDocTypeId) &&
+        !isProposalDoc(doc)
     )
     if (exactMatch) return exactMatch
   }
 
-  const normalizedTarget = normalizeText(reqName)
-  const targetTokens = normalizedTarget.split(' ').filter((t) => t.length >= 3)
+  const canonicalName = normalizeText(reqName)
+  const exactNameMatch = uploadedDocs.find((doc) => {
+    if (isProposalDoc(doc)) return false
+    const norm = normalizeText(doc.document_type?.name)
+    return norm && norm === canonicalName
+  })
+  if (exactNameMatch) return exactNameMatch
+
+  if (isInternal) {
+    return null
+  }
+
+  const normalizedTarget = canonicalName
 
   return (
     uploadedDocs.find((doc) => {
+      if (isProposalDoc(doc)) return false
       const normalizedType = normalizeText(doc.document_type?.name)
       const normalizedFile = normalizeText(doc.file_name?.replace(/\.[^/.]+$/, ''))
 
       if (
         normalizedType &&
         (normalizedType === normalizedTarget ||
-          normalizedTarget.includes(normalizedType) ||
-          normalizedType.includes(normalizedTarget))
+          (normalizedType.length >= 4 && normalizedTarget.includes(normalizedType)) ||
+          (normalizedTarget.length >= 4 && normalizedType.includes(normalizedTarget)))
       ) {
         return true
       }
 
       if (
         normalizedFile &&
-        (normalizedFile === normalizedTarget || normalizedTarget.includes(normalizedFile))
+        (normalizedFile === normalizedTarget ||
+          (normalizedFile.length >= 4 && normalizedTarget.includes(normalizedFile)) ||
+          (normalizedTarget.length >= 4 && normalizedFile.includes(normalizedTarget)))
       ) {
         return true
-      }
-
-      if (targetTokens.length > 0 && (normalizedType || normalizedFile)) {
-        const combined = `${normalizedType} ${normalizedFile}`
-        let matchCount = 0
-        for (const token of targetTokens) {
-          if (combined.includes(token)) matchCount++
-        }
-        if (matchCount >= Math.min(2, targetTokens.length)) {
-          return true
-        }
       }
 
       return false
@@ -1222,6 +1274,7 @@ function findMatchingLocalDoc(
   proposalId?: number,
 ): DocumentApiRecord | null {
   const expectedDocTypeId = CHECKLIST_ITEM_DOC_TYPE_ID[reqId]
+  const isInternal = isInternalChecklistItem(reqId)
 
   if (localDocs[reqId]) {
     return makeLocalDocRecord(localDocs[reqId], expectedDocTypeId, reqName, proposalId)
@@ -1229,6 +1282,10 @@ function findMatchingLocalDoc(
 
   if (expectedDocTypeId && localDocs[String(expectedDocTypeId)]) {
     return makeLocalDocRecord(localDocs[String(expectedDocTypeId)], expectedDocTypeId, reqName, proposalId)
+  }
+
+  if (isInternal) {
+    return null
   }
 
   if (expectedDocTypeId) {
@@ -1260,9 +1317,6 @@ function findMatchingLocalDoc(
       (code.includes('sec-cda') && (keyLower.includes('sec') || keyLower.includes('cda') || nameLower.includes('sec') || nameLower.includes('cda'))) ||
       (code.includes('financial') && (keyLower.includes('financial') || nameLower.includes('financial') || nameLower.includes('fs'))) ||
       (code.includes('letter-of-intent') && (keyLower.includes('intent') || nameLower.includes('intent') || nameLower.includes('loi'))) ||
-      (code.includes('tna-01') && (keyLower.includes('tna') || nameLower.includes('tna'))) ||
-      (code.includes('gad-assessment') && (keyLower.includes('gad') || nameLower.includes('gwp'))) ||
-      (code.includes('hazard-hunter') && (keyLower.includes('hazard') || nameLower.includes('hazard'))) ||
       (code.includes('biodata') && (keyLower.includes('biodata') || nameLower.includes('cv'))) ||
       (code.includes('govt-id') && (keyLower.includes('id') || nameLower.includes('id'))) ||
       (code.includes('brgy-cert') && (keyLower.includes('brgy') || keyLower.includes('barangay'))) ||
@@ -1370,19 +1424,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
 
         if (program === 'GIA') {
           items = OFFICIAL_GIA_STAGE_ITEMS.map((req) => {
+            const isInternal = isInternalChecklistItem(req.id, req.name)
             const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
-            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || cachedItem?.uploadedDoc || null
+            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
             let isPresent = false
             let status: ChecklistItemStatus = 'Missing'
 
-            if (cachedItem) {
-              isPresent = cachedItem.isPresent
-              status = cachedItem.status
-            } else if (matchedUploaded) {
+            if (matchedUploaded) {
               const isApproved = matchedUploaded.status === 'approved'
               isPresent = isApproved
               status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+            } else if (isInternal) {
+              isPresent = false
+              status = 'Missing'
+            } else if (cachedItem) {
+              isPresent = cachedItem.isPresent
+              status = cachedItem.status
             }
 
             return {
@@ -1404,19 +1462,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
           })
         } else {
           items = OFFICIAL_SETUP_SET_ITEMS.map((req) => {
+            const isInternal = isInternalChecklistItem(req.id, req.name)
             const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
-            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || cachedItem?.uploadedDoc || null
+            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
             let isPresent = false
             let status: ChecklistItemStatus = 'Missing'
 
-            if (cachedItem) {
-              isPresent = cachedItem.isPresent
-              status = cachedItem.status
-            } else if (matchedUploaded) {
+            if (matchedUploaded) {
               const isApproved = matchedUploaded.status === 'approved'
               isPresent = isApproved
               status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+            } else if (isInternal) {
+              isPresent = false
+              status = 'Missing'
+            } else if (cachedItem) {
+              isPresent = cachedItem.isPresent
+              status = cachedItem.status
             }
 
             return {
@@ -1480,19 +1542,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
 
       if (program === 'GIA') {
         items = OFFICIAL_GIA_STAGE_ITEMS.map((req) => {
+          const isInternal = isInternalChecklistItem(req.id, req.name)
           const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
-          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || cachedItem?.uploadedDoc || null
+          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
           let isPresent = false
           let status: ChecklistItemStatus = 'Missing'
 
-          if (cachedItem) {
-            isPresent = cachedItem.isPresent
-            status = cachedItem.status
-          } else if (matchedUploaded) {
+          if (matchedUploaded) {
             const isApproved = matchedUploaded.status === 'approved'
             isPresent = isApproved
             status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+          } else if (isInternal) {
+            isPresent = false
+            status = 'Missing'
+          } else if (cachedItem) {
+            isPresent = cachedItem.isPresent
+            status = cachedItem.status
           }
 
           return {
@@ -1514,19 +1580,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
         })
       } else {
         items = OFFICIAL_SETUP_SET_ITEMS.map((req) => {
+          const isInternal = isInternalChecklistItem(req.id, req.name)
           const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
-          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || cachedItem?.uploadedDoc || null
+          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
           let isPresent = false
           let status: ChecklistItemStatus = 'Missing'
 
-          if (cachedItem) {
-            isPresent = cachedItem.isPresent
-            status = cachedItem.status
-          } else if (matchedUploaded) {
+          if (matchedUploaded) {
             const isApproved = matchedUploaded.status === 'approved'
             isPresent = isApproved
             status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+          } else if (isInternal) {
+            isPresent = false
+            status = 'Missing'
+          } else if (cachedItem) {
+            isPresent = cachedItem.isPresent
+            status = cachedItem.status
           }
 
           return {
@@ -1673,6 +1743,16 @@ export async function uploadChecklistDocument(
   }
 
   if (uploadedDoc) {
+    try {
+      await api.patch(`/documents/${uploadedDoc.id}/review`, {
+        status: 'approved',
+        remarks: 'Uploaded by staff via checklist',
+      })
+      uploadedDoc.status = 'approved'
+      uploadedDoc.reviewed_at = new Date().toISOString()
+    } catch {
+      //
+    }
     try {
       await api.put(`/proposals/${proposalId}/checklist/batch`, {
         items: [

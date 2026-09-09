@@ -39,7 +39,7 @@ export function ProjectSelectorModal({
             </span>
             <div>
               <h3 className="text-base font-bold text-slate-950">Select Project Proposal</h3>
-              <p className="text-xs text-slate-500">Choose a {activeProgram} proposal to inspect its document checklist</p>
+              <p className="text-xs text-slate-500">Choose a {activeProgram} project to inspect its document checklist</p>
             </div>
           </div>
 
@@ -114,6 +114,9 @@ export function ProjectSelectorModal({
                       <h4 className="truncate text-xs sm:text-sm font-bold text-slate-950" title={proposal.enterpriseName}>
                         {proposal.enterpriseName}
                       </h4>
+                      <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.2 text-[10px] font-bold">
+                        Approved
+                      </span>
                       {isSelected && (
                         <span className="rounded-full bg-[#0f53b7] px-2 py-0.2 text-[10px] font-bold text-white">
                           Active

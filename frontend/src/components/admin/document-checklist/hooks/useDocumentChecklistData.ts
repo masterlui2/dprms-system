@@ -112,7 +112,11 @@ export function useDocumentChecklistData() {
   }, [activeProgram]);
 
   const programProposals = useMemo(() => {
-    return proposals.filter((p) => p.program === activeProgram);
+    return proposals.filter(
+      (p) =>
+        p.program === activeProgram &&
+        (p.status?.toUpperCase() === 'APPROVED' || p.status === 'Approved'),
+    );
   }, [proposals, activeProgram]);
 
   const activeProposal = useMemo(() => {

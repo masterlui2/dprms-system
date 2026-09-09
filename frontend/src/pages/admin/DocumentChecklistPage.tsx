@@ -86,10 +86,10 @@ export function DocumentChecklistPage() {
             <FolderOpen className="size-6" />
           </span>
           <h3 className="mt-3 text-base font-bold text-slate-900">
-            No {data.activeProgram} Proposals Found
+            No Approved {data.activeProgram} Applications Found
           </h3>
           <p className="mt-1 max-w-md text-xs text-slate-500">
-            There are currently no proposals registered under the {data.activeProgram} program.
+            There are currently no approved applications under the {data.activeProgram} program to inspect in the document checklist.
           </p>
         </div>
       ) : (

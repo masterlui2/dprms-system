@@ -32,7 +32,7 @@ class DocumentTypeController extends Controller
 
         if ($visibility === 'internal') {
             abort_unless(
-                $request->user()?->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR']),
+                $request->user()?->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR', 'RPMO', 'ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN']),
                 403,
             );
         }
