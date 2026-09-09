@@ -548,6 +548,7 @@ interface BackendSetupMonitoringProject {
   enterprise_name: string
   contact_number: string | null
   setup_funding: number
+  amount_refunded?: number
   full_release: string | null
   manager: string
   business_address: string | null
@@ -648,7 +649,7 @@ function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): Proj
     referenceNumber: project.reference_number,
     status: 'Active',
     title: project.title,
-    used: 0,
+    used: project.amount_refunded ?? 0,
   }
 }
 

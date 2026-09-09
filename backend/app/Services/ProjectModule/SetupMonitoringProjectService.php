@@ -3,6 +3,7 @@
 namespace App\Services\ProjectModule;
 
 use App\Models\Project;
+use App\Models\RepaymentTransaction;
 use App\Models\SetupProgressReport;
 use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -172,6 +173,15 @@ class SetupMonitoringProjectService
             }
         }
 
+        $amountRefunded = (float) RepaymentTransaction::query()
+            ->whereHas('projectLedger', fn (Builder $query) => $query
+                ->where('project_id', $project->id)
+                ->where('program_type', 'SETUP')
+                ->where('ledger_type', 'repayment')
+            )
+            ->where('status', 'verified')
+            ->sum('amount_paid');
+
         return [
             'id' => $project->id,
             'proposal_id' => $project->proposal_id,
@@ -180,6 +190,7 @@ class SetupMonitoringProjectService
             'enterprise_name' => $setup?->business_name ?? $proposal?->user?->name ?? 'Approved enterprise',
             'contact_number' => data_get($setup?->form_snapshot, 'contactNumber'),
             'setup_funding' => (float) ($budget?->total_amount ?? 0),
+            'amount_refunded' => round($amountRefunded, 2),
             'full_release' => data_get($setup?->form_snapshot, 'fullRelease')
                 ?? data_get($setup?->form_snapshot, 'fullReleaseDate'),
             'manager' => $manager,

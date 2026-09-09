@@ -394,9 +394,12 @@ export function SetupMonitoringHub({
     record?.equipmentAssets.reduce((sum, eq) => sum + (eq.bookValue || 0), 0) ?? 0
   const totalFixedAssets = totalBuildingBookValue + totalEquipmentBookValue
 
-  const totalGrant = project.budget || 1500000
-  const totalRefunded = project.used || 250000
-  const refundPercentage = Math.min(100, Math.round((totalRefunded / totalGrant) * 100))
+  const totalFunding = project.budget || 0
+  const totalRefunded = project.used || 0
+  const hasFunding = totalFunding > 0
+  const refundPercentage = hasFunding
+    ? Math.min(100, Math.round((totalRefunded / totalFunding) * 100))
+    : 0
 
   const tabs: Array<{
     id: ActiveTab
@@ -714,17 +717,32 @@ export function SetupMonitoringHub({
                 <div className="rounded-2xl border border-emerald-200/80 bg-linear-to-br from-emerald-50/70 to-emerald-100/30 p-4.5 shadow-xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Approved Grant & Balance</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                        {hasFunding ? 'Approved Funding & Balance' : 'Repayment Terms'}
+                      </span>
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                        {refundPercentage}% Refunded
+                        {hasFunding ? `${refundPercentage}% Refunded` : 'Pending'}
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-emerald-950">
-                      ₱{(totalGrant - totalRefunded).toLocaleString()}
-                    </p>
-                    <span className="text-[11px] font-semibold text-emerald-700 mt-0.5 block">
-                      of ₱{totalGrant.toLocaleString()} total grant
-                    </span>
+                    {hasFunding ? (
+                      <>
+                        <p className="mt-2 text-xl font-black text-emerald-950">
+                          ₱{(totalFunding - totalRefunded).toLocaleString()}
+                        </p>
+                        <span className="text-[11px] font-semibold text-emerald-700 mt-0.5 block">
+                          of ₱{totalFunding.toLocaleString()} total funding
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-2 text-base font-bold text-slate-600">
+                          Schedule Pending
+                        </p>
+                        <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
+                          Repayment terms not initialized
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div className="mt-3.5 h-1.5 w-full rounded-full bg-emerald-200/70 overflow-hidden">
                     <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${refundPercentage}%` }} />
