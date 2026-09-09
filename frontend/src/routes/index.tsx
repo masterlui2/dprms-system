@@ -27,6 +27,7 @@ import { MyApplicationPage } from '../pages/proponent/MyApplicationPage'
 import { MyProposalPage } from '../pages/proponent/MyProposalPage'
 import { ProfilePage } from '../pages/proponent/ProfilePage'
 import { ProponentDashboard } from '../pages/proponent/ProponentDashboard'
+import { RepaymentLedgerPage } from '../pages/proponent/RepaymentLedgerPage'
 
 const protect = (module: ModuleId, element: ReactNode) => (
   <ProtectedRoute module={module}>{element}</ProtectedRoute>
@@ -54,7 +55,7 @@ export const router = createBrowserRouter([
       { path: 'dashboard/application-status', element: protect('myApplications', <ApplicationStatusPage />) },
       { path: 'dashboard/project-monitoring', element: protect('projectOverview', <ProponentDashboard />) },
       { path: 'dashboard/equipment', element: protect('equipmentAssigned', <ProponentDashboard />) },
-      { path: 'dashboard/finance', element: protect('repaymentLedger', <ProponentDashboard />) },
+      { path: 'dashboard/finance', element: protect('repaymentLedger', <RepaymentLedgerPage />) },
       { path: 'dashboard/notifications', element: protect('dashboard', <ProponentDashboard />) },
       { path: 'dashboard/profile', element: protect('profile', <ProfilePage />) },
     ],
@@ -103,6 +104,7 @@ export const router = createBrowserRouter([
       { path: 'profile', element: protect('profile', <ProfilePage />) },
       { path: 'equipment-tracking', element: protect('equipmentTracking', <InventoryPage />) },
       { path: 'repayment-monitoring', element: protect('repaymentMonitoring', <BudgetPage />) },
+      { path: 'repayment-monitoring/:projectId', element: protect('repaymentMonitoring', <BudgetPage />) },
       { path: 'application-review', element: protect('applicationReview', <ApprovalsPage />) },
       { path: 'project-monitoring', element: protect('projectMonitoring', <MonitoringPage />) },
       { path: 'executive-approval', element: protect('executiveApproval', <ApprovalsPage />) },

@@ -8,7 +8,13 @@ class IndexSetupMonitoringProjectsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->canAccessProgram('SETUP') ?? false;
+        $user = $this->user();
+        if (! $user) {
+            return false;
+        }
+
+        return $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR'])
+            || $user->canAccessProgram('SETUP');
     }
 
     public function rules(): array

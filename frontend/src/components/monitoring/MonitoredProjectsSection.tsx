@@ -400,14 +400,164 @@ export function MonitoredProjectsSection({
           <div className={cn("grid gap-4.5 p-5 sm:grid-cols-2 xl:grid-cols-3 transition-opacity duration-150", isFiltering ? "opacity-60" : "opacity-100")}>
             {projects.map((project) => {
               const isGiaProject = project.program === 'GIA'
-              const Icon = isGiaProject ? Building2 : Store
-              const totalGrant = project.budget || 1500000
-              const totalRefunded = project.used || 250000
-              const progressPercent = project.progress
-                ? project.progress
-                : isGiaProject
-                  ? 68
-                  : Math.min(100, Math.round((totalRefunded / totalGrant) * 100))
+
+              if (isGiaProject) {
+                const grantAmount = project.budget || 0
+                const milestoneProgress = Math.max(0, Math.min(100, Math.round(project.progress ?? 0)))
+                const agency = project.enterprise || project.gia?.agency || 'Implementing Agency'
+                const leader = project.manager || 'Project Leader'
+
+                return (
+                  <article
+                    key={project.backendId || project.id}
+                    onClick={() => onSelectProject(project)}
+                    className="group relative flex min-w-0 flex-col justify-between rounded-2xl border border-purple-200/80 bg-linear-to-b from-white to-purple-50/20 p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-purple-500 hover:shadow-md cursor-pointer space-y-4"
+                  >
+                    <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition shadow-2xs">
+                            <Building2 className="size-5.5" />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-purple-800">
+                                GIA Grant
+                              </span>
+                              {project.proposalId ? (
+                                <span className="rounded bg-sky-50 px-1.5 py-0.2 text-[10px] font-bold text-sky-700 border border-sky-200">
+                                  Online
+                                </span>
+                              ) : null}
+                            </div>
+                            <h3 className="mt-1 text-base font-black tracking-tight text-slate-900 truncate group-hover:text-purple-700 transition" title={project.title}>
+                              {project.title}
+                            </h3>
+                            <div className="mt-0.5 font-mono text-xs font-bold text-slate-500">
+                              <span>{project.referenceNumber || project.id}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1 shrink-0">
+                          <ProjectStatus project={project} />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onSelectProject(project)
+                            }}
+                            className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition"
+                            title="Options"
+                          >
+                            <MoreHorizontal className="size-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-3.5 space-y-1 rounded-xl bg-purple-50/50 p-2.5 border border-purple-100/60">
+                        <p className="text-xs font-semibold text-slate-800 truncate" title={agency}>
+                          <span className="text-purple-700 font-bold">Agency:</span> {agency}
+                        </p>
+                        <p className="flex items-center gap-1.5 text-xs text-slate-600">
+                          <MapPin className="size-3.5 shrink-0 text-purple-400" />
+                          <span className="truncate">{project.location || 'Location not recorded'}</span>
+                        </p>
+                      </div>
+
+                      <div className="mt-4 rounded-xl border border-purple-100 bg-white p-3 space-y-2 shadow-2xs">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-purple-900">Milestone Progress</span>
+                          <span className="font-extrabold text-purple-700 font-mono">
+                            {milestoneProgress}% Completed
+                          </span>
+                        </div>
+                        <div className="h-2 w-full rounded-full bg-purple-100 overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-purple-600 transition-all duration-500"
+                            style={{ width: `${Math.max(4, milestoneProgress)}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500">
+                          <span>Approved Grant:</span>
+                          <strong className="font-mono font-bold text-slate-800">
+                            {grantAmount > 0 ? `₱${grantAmount.toLocaleString()}` : 'Funding Pending'}
+                          </strong>
+                        </div>
+                      </div>
+
+                      <div className="mt-3.5 flex items-center justify-between gap-2 text-xs text-slate-600">
+                        <div className="flex items-center gap-2 min-w-0" title={`Project Leader: ${leader}`}>
+                          <div className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-purple-600 text-[10px] font-black text-white">
+                            {getInitials(leader)}
+                          </div>
+                          <span className="font-bold text-slate-800 truncate text-xs">
+                            {leader}
+                          </span>
+                        </div>
+
+                        {(() => {
+                          const compliedDocs = project.checklistStats?.complied ?? 0
+                          const totalDocs = project.checklistStats?.total ?? 0
+
+                          return (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                if (project.proposalId || project.backendId) {
+                                  e.stopPropagation()
+                                  navigate(`/dashboard/document-checklist?proposalId=${project.proposalId || project.backendId}&program=GIA`)
+                                }
+                              }}
+                              className="inline-flex items-center gap-1.5 shrink-0 font-semibold text-slate-600 text-xs hover:text-purple-700 transition cursor-pointer"
+                              title={`Document Checklist: ${compliedDocs} of ${totalDocs} required documents complied`}
+                            >
+                              <CheckSquare className="size-3.5 text-purple-400" />
+                              <span>{compliedDocs}/{totalDocs} docs</span>
+                            </button>
+                          )
+                        })()}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-purple-100 flex items-center gap-2">
+                      {project.proposalId || project.backendId ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/dashboard/document-checklist?proposalId=${project.proposalId || project.backendId}&program=GIA`)
+                          }}
+                          className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl border border-purple-200 bg-white px-3 text-xs font-bold text-purple-800 shadow-2xs hover:bg-purple-50 transition shrink-0"
+                          title="Open Document Checklist"
+                        >
+                          <FileCheck2 className="size-3.5 text-purple-700" />
+                          <span>Checklist</span>
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onSelectProject(project)
+                        }}
+                        className="inline-flex h-8.5 flex-1 items-center justify-center gap-1.5 rounded-xl bg-purple-700 px-3 text-xs font-bold text-white shadow-xs transition hover:bg-purple-800 active:scale-[0.98]"
+                      >
+                        <span>Open Workspace</span>
+                        <ArrowRight className="size-3.5" />
+                      </button>
+                    </div>
+                  </article>
+                )
+              }
+
+              const totalGrant = Number(project.budget) || 0
+              const totalRefunded = Number(project.used) || 0
+              const hasFunding = totalGrant > 0
+              const refundPercent = hasFunding
+                ? Math.min(100, Math.round((totalRefunded / totalGrant) * 100))
+                : 0
 
               return (
                 <article
@@ -416,11 +566,10 @@ export function MonitoredProjectsSection({
                   className="group relative flex min-w-0 flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0f53b7] hover:shadow-md cursor-pointer space-y-4"
                 >
                   <div>
-                    {/* Top Header: Enterprise Icon + Title & Ref + Status Badge & Menu */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
                         <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-[#E6EEF4] text-[#0f53b7] group-hover:bg-[#0f53b7] group-hover:text-white transition shadow-2xs">
-                          <Icon className="size-5.5" />
+                          <Store className="size-5.5" />
                         </span>
                         <div className="min-w-0">
                           <h3 className="text-base font-black tracking-tight text-slate-900 truncate group-hover:text-[#0f53b7] transition">
@@ -453,48 +602,44 @@ export function MonitoredProjectsSection({
                       </div>
                     </div>
 
-                    {/* Sector, Business Structure & Location Details */}
                     <div className="mt-3.5 space-y-1">
                       <p className="text-xs font-semibold text-slate-700">
-                        {project.industrySector || (isGiaProject ? 'Community Empowerment' : 'Food Processing')}
+                        {project.industrySector || 'Food Processing'}
                         {' '}<span className="text-slate-300">•</span>{' '}
                         <span className="font-medium text-slate-500">{project.businessStructure || 'Sole Proprietorship'}</span>
                       </p>
                       <p className="flex items-center gap-1.5 text-xs text-slate-500">
                         <MapPin className="size-3.5 shrink-0 text-slate-400" />
-                        <span className="truncate">{project.location || 'sd, Davao del Sur'}</span>
+                        <span className="truncate">{project.location || 'Davao Region'}</span>
                       </p>
                     </div>
 
-                    {/* Progress Bar (Explicitly Labeled) */}
                     <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3 space-y-2">
                       <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700">
-                          {isGiaProject ? 'Milestone Progress' : 'Refund Progress'}
-                        </span>
+                        <span className="font-bold text-slate-700">Refund Progress</span>
                         <span className="font-extrabold text-slate-900 font-mono">
-                          {isGiaProject
-                            ? `${progressPercent}%`
-                            : `₱${totalRefunded.toLocaleString()} / ₱${totalGrant.toLocaleString()} (${progressPercent}%)`
-                          }
+                          {hasFunding
+                            ? `₱${totalRefunded.toLocaleString()} / ₱${totalGrant.toLocaleString()} (${refundPercent}%)`
+                            : 'Schedule Pending'}
                         </span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-slate-200/80 overflow-hidden">
                         <div
                           className={cn(
                             "h-full rounded-full transition-all duration-500",
-                            isGiaProject
-                              ? "bg-purple-600"
-                              : "bg-[#0f53b7]"
+                            hasFunding && refundPercent > 0 ? "bg-[#0f53b7]" : "bg-slate-300"
                           )}
-                          style={{ width: `${Math.min(100, Math.max(8, progressPercent))}%` }}
+                          style={{ width: `${hasFunding ? Math.max(4, refundPercent) : 0}%` }}
                         />
                       </div>
+                      {!hasFunding ? (
+                        <p className="text-[11px] text-slate-400 font-medium">
+                          Repayment ledger not yet initialized
+                        </p>
+                      ) : null}
                     </div>
 
-                    {/* Proponent & Documents 0/0 Representation */}
                     <div className="mt-3.5 flex items-center justify-between gap-2 text-xs text-slate-600">
-                      {/* Proponent / Lead Name */}
                       <div className="flex items-center gap-2 min-w-0" title={`Assigned Monitor: ${project.manager || 'Maria SETUP Proponent'}`}>
                         <div className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-[#0f53b7] text-[10px] font-black text-white">
                           {getInitials(project.manager || 'Maria SETUP Proponent')}
@@ -504,7 +649,6 @@ export function MonitoredProjectsSection({
                         </span>
                       </div>
 
-                      {/* Clean 0/0 Documents Representation matching sample style with real whole-sets data */}
                       {(() => {
                         const compliedDocs = project.checklistStats?.complied ?? 0
                         const totalDocs = project.checklistStats?.total ?? 0
@@ -529,7 +673,6 @@ export function MonitoredProjectsSection({
                     </div>
                   </div>
 
-                  {/* Direct Action Buttons */}
                   <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
                     {project.proposalId || project.backendId ? (
                       <button
@@ -564,72 +707,103 @@ export function MonitoredProjectsSection({
           </div>
         ) : (
           <div className="divide-y divide-[#B5BFCD]/40">
-            {projects.map((project) => (
-              <article
-                key={project.backendId}
-                onClick={() => onSelectProject(project)}
-                className="grid gap-4 px-6 py-4.5 transition hover:bg-[#E6EEF4]/40 md:grid-cols-[minmax(240px,1.5fr)_minmax(180px,1fr)_minmax(150px,0.9fr)_minmax(130px,0.8fr)_auto] md:items-center cursor-pointer"
-              >
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="truncate text-sm font-bold text-slate-900">{project.enterprise || project.title}</h3>
-                    <ProjectStatus project={project} />
+            {projects.map((project) => {
+              const isGiaProject = project.program === 'GIA'
+              const totalFunding = Number(project.budget) || 0
+              const totalRefunded = Number(project.used) || 0
+
+              return (
+                <article
+                  key={project.backendId || project.id}
+                  onClick={() => onSelectProject(project)}
+                  className={cn(
+                    "grid gap-4 px-6 py-4.5 transition cursor-pointer md:grid-cols-[minmax(240px,1.5fr)_minmax(180px,1fr)_minmax(150px,0.9fr)_minmax(130px,0.8fr)_auto] md:items-center",
+                    isGiaProject ? "hover:bg-purple-50/40" : "hover:bg-[#E6EEF4]/40"
+                  )}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "rounded px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
+                        isGiaProject ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                      )}>
+                        {project.program || (isGia ? 'GIA' : 'SETUP')}
+                      </span>
+                      <h3 className="truncate text-sm font-bold text-slate-900">{project.enterprise || project.title}</h3>
+                      <ProjectStatus project={project} />
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs">
+                      <span className="font-mono text-[11px] font-bold text-[#285497]">{project.referenceNumber || project.id}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-[11px] text-slate-500">{project.proposalId ? 'Online Application' : 'Active Project'}</span>
+                    </div>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs">
-                    <span className="font-mono text-[11px] font-bold text-[#285497]">{project.referenceNumber || project.id}</span>
-                    <span className="text-slate-300">•</span>
-                    <span className="text-[11px] text-slate-500">{project.proposalId ? 'Online Application' : 'Active Project'}</span>
+
+                  <div className="min-w-0 text-xs">
+                    <p className="font-bold text-slate-800 truncate">{project.industrySector || (isGiaProject ? (project.enterprise || 'Implementing Agency') : 'Food Processing')}</p>
+                    <p className="text-[11px] text-slate-500 truncate mt-0.5">{project.businessStructure || (isGiaProject ? 'Grant Grantee' : 'Sole Proprietorship')} · {project.manager}</p>
                   </div>
-                </div>
 
-                <div className="min-w-0 text-xs">
-                  <p className="font-bold text-slate-800 truncate">{project.industrySector || 'Food Processing'}</p>
-                  <p className="text-[11px] text-slate-500 truncate mt-0.5">{project.businessStructure || 'Sole Proprietorship'} · {project.manager}</p>
-                </div>
+                  <div className="min-w-0 text-xs">
+                    <p className="flex items-center gap-1 text-slate-600 truncate">
+                      <MapPin className="size-3 text-slate-400 shrink-0" />
+                      <span className="truncate">{project.location || 'Davao Region'}</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">Monitor / Lead: <strong className="text-slate-700">{project.manager}</strong></p>
+                  </div>
 
-                <div className="min-w-0 text-xs">
-                  <p className="flex items-center gap-1 text-slate-600 truncate">
-                    <MapPin className="size-3 text-slate-400 shrink-0" />
-                    <span className="truncate">{project.location || 'Davao Region'}</span>
-                  </p>
-                  <p className="text-[11px] text-slate-400 mt-0.5 truncate">Monitor: <strong className="text-slate-700">{project.manager}</strong></p>
-                </div>
+                  <div className="text-xs">
+                    <span className="text-[10px] text-slate-400 font-bold block uppercase">
+                      {isGiaProject ? 'Grant Outlay' : 'Repayment Status'}
+                    </span>
+                    {isGiaProject ? (
+                      <p className="font-extrabold text-purple-900 text-sm">
+                        {totalFunding > 0 ? `₱${totalFunding.toLocaleString()}` : 'Pending'}
+                      </p>
+                    ) : totalFunding > 0 ? (
+                      <p className="font-extrabold text-slate-900 text-sm">
+                        ₱{totalRefunded.toLocaleString()}
+                        <span className="text-xs font-normal text-slate-500"> / ₱{totalFunding.toLocaleString()}</span>
+                      </p>
+                    ) : (
+                      <p className="font-medium text-slate-400 text-xs">Schedule Pending</p>
+                    )}
+                  </div>
 
-                <div className="text-xs">
-                  <span className="text-[10px] text-slate-400 font-bold block uppercase">Approved Grant</span>
-                  <p className="font-extrabold text-slate-900 text-sm">₱{(project.budget || 1500000).toLocaleString()}</p>
-                </div>
+                  <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                    {project.proposalId || project.backendId ? (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          navigate(`/dashboard/document-checklist?proposalId=${project.proposalId || project.backendId}&program=${project.program}`)
+                        }}
+                        className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
+                        title="Open Document Checklist"
+                      >
+                        <FileCheck2 className="size-3.5 text-[#0f53b7]" />
+                        <span>Checklist</span>
+                      </button>
+                    ) : null}
 
-                <div className="flex items-center justify-end gap-2 whitespace-nowrap">
-                  {project.proposalId || project.backendId ? (
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation()
-                        navigate(`/dashboard/document-checklist?proposalId=${project.proposalId || project.backendId}&program=${project.program}`)
+                        onSelectProject(project)
                       }}
-                      className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
-                      title="Open Document Checklist"
+                      className={cn(
+                        "inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-bold text-white shadow-2xs transition",
+                        isGiaProject ? "bg-purple-700 hover:bg-purple-800" : "bg-[#0f53b7] hover:bg-[#0b3f8b]"
+                      )}
                     >
-                      <FileCheck2 className="size-3.5 text-[#0f53b7]" />
-                      <span>Checklist</span>
+                      <span>Workspace</span>
+                      <ArrowRight className="size-3.5" />
                     </button>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onSelectProject(project)
-                    }}
-                    className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#0b3f8b]"
-                  >
-                    <span>Workspace</span>
-                    <ArrowRight className="size-3.5" />
-                  </button>
-                </div>
-              </article>
-            ))}
+                  </div>
+                </article>
+              )
+            })}
           </div>
         )}
 

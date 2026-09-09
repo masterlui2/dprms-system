@@ -47,6 +47,10 @@ import { ProductionSalesTab } from './tabs/ProductionSalesTab'
 import { TechInterventionTab } from './tabs/TechInterventionTab'
 import { ExportMonitoringSheetModal } from './ExportMonitoringSheetModal'
 import type { ProjectRecord } from '../../data/admin'
+import {
+  normalizeSetupMonitoringPeriod,
+  setupMonitoringPeriodOptions,
+} from '../../utils/setupMonitoringPeriod'
 
 type ActiveTab =
   | 'profile'
@@ -61,10 +65,8 @@ type SyncStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
 
 interface Props {
   project: ProjectRecord
-  // Both now genuinely optional — when omitted, the hub opens on the real
-  // current quarter/year (see getCurrentQuarter()) instead of a hardcoded
-  // fallback. Pass these explicitly only when you want to deep-link into a
-  // specific historical quarter (e.g. from a report link or query param).
+  // Optional deep-link values. Invalid, pre-inception, and future values fall
+  // back to the project's current selectable monitoring period.
   initialQuarter?: Quarter
   initialYear?: number
   onBack?: () => void
@@ -74,41 +76,6 @@ interface Props {
 const BACKEND_SYNC_DEBOUNCE_MS = 1200
 const LOCAL_DRAFT_DEBOUNCE_MS = 400
 
-// Single source of truth for "what quarter/year is it right now". Both the
-// component's default props and generateQuarterOptions() derive from this,
-// so they can never drift apart the way `initialQuarter = 'Q2'` /
-// `initialYear = 2024` used to.
-function getCurrentQuarter(referenceDate: Date = new Date()): { quarter: Quarter; year: number } {
-  const quarterNumber = Math.ceil((referenceDate.getMonth() + 1) / 3)
-  return { quarter: `Q${quarterNumber}` as Quarter, year: referenceDate.getFullYear() }
-}
-
-// Generates the last N quarters ("Q3 2026", "Q2 2026", ...) counting back from
-// today, so the selector isn't frozen on a hardcoded past year.
-function generateQuarterOptions(count = 8): Array<{ value: string; label: string; quarter: Quarter; year: number }> {
-  const { quarter: startQuarter, year: startYear } = getCurrentQuarter()
-  let quarter = Number(startQuarter.slice(1))
-  let year = startYear
-  const options: Array<{ value: string; label: string; quarter: Quarter; year: number }> = []
-
-  for (let i = 0; i < count; i += 1) {
-    const q = `Q${quarter}` as Quarter
-    options.push({
-      value: `${q} ${year}`,
-      label: `${['1st', '2nd', '3rd', '4th'][quarter - 1]} Quarter (${q} ${year})`,
-      quarter: q,
-      year,
-    })
-    quarter -= 1
-    if (quarter === 0) {
-      quarter = 4
-      year -= 1
-    }
-  }
-
-  return options
-}
-
 export function SetupMonitoringHub({
   project,
   initialQuarter,
@@ -117,14 +84,27 @@ export function SetupMonitoringHub({
   readOnly = false,
 }: Props) {
   const navigate = useNavigate()
-  const currentQuarter = useMemo(() => getCurrentQuarter(), [])
+  const periodBounds = useMemo(
+    () => ({
+      approvedAt: project.approvedAt,
+      startDate: project.startDate,
+    }),
+    [project.approvedAt, project.startDate],
+  )
+  const quarterOptions = useMemo(
+    () => setupMonitoringPeriodOptions(periodBounds),
+    [periodBounds],
+  )
+  const initialPeriod = useMemo(
+    () => normalizeSetupMonitoringPeriod(initialQuarter, initialYear, periodBounds),
+    [initialQuarter, initialYear, periodBounds],
+  )
 
-  const [selectedQuarter, setSelectedQuarter] = useState<Quarter>(
-    initialQuarter ?? currentQuarter.quarter,
-  )
-  const [selectedYear, setSelectedYear] = useState<number>(
-    initialYear ?? currentQuarter.year,
-  )
+  // Keep year and quarter in one state value so a period change can never
+  // briefly request a new quarter with the previous year (or vice versa).
+  const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod)
+  const selectedQuarter = selectedPeriod.quarter
+  const selectedYear = selectedPeriod.year
   const [activeTab, setActiveTab] = useState<ActiveTab>('production_sales')
   const [record, setRecord] = useState<SetupMonitoringQuarterRecord | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -154,8 +134,7 @@ export function SetupMonitoringHub({
   const quarterMetricIdRef = useRef<number | null>(null)
   const backendInFlightRef = useRef(false)
   const backendDirtyWhileSavingRef = useRef(false)
-
-  const quarterOptions = useMemo(() => generateQuarterOptions(8), [])
+  const recordVersionRef = useRef(0)
 
   const projectBackendId = String(project.backendId ?? project.id)
 
@@ -175,7 +154,24 @@ export function SetupMonitoringHub({
     setIsLoading(true)
     setLoadError(null)
     setCreateQuarterError(null)
+    quarterMetricIdRef.current = null
+    setQuarterMetricId(null)
+    backendDirtyWhileSavingRef.current = false
     clearPendingTimers()
+
+    // Do not leave the previous quarter's figures visible under the newly
+    // selected period while its request is in flight.
+    if (
+      recordRef.current
+      && (
+        recordRef.current.quarter !== selectedQuarter
+        || recordRef.current.year !== selectedYear
+      )
+    ) {
+      recordRef.current = null
+      snapshotRef.current = {}
+      setRecord(null)
+    }
 
     fetchQuarterlyMetricsWithId(projectBackendId, selectedYear, selectedQuarter, {
       enterpriseName: project.enterprise,
@@ -183,6 +179,7 @@ export function SetupMonitoringHub({
     })
       .then(({ record: loaded, quarterMetricId: qid }) => {
         if (requestId !== loadRequestRef.current) return
+        recordVersionRef.current = 0
         recordRef.current = loaded
         snapshotRef.current = buildSnapshot(loaded)
         quarterMetricIdRef.current = qid
@@ -204,6 +201,7 @@ export function SetupMonitoringHub({
   useEffect(() => {
     loadQuarter()
     return () => {
+      loadRequestRef.current += 1
       clearPendingTimers()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -225,21 +223,38 @@ export function SetupMonitoringHub({
       return
     }
 
+    const requestId = loadRequestRef.current
+    const syncedVersion = recordVersionRef.current
+    const recordToSync = recordRef.current
+    const snapshotToSync = snapshotRef.current
+
     backendInFlightRef.current = true
     setSyncStatus('saving')
-    syncQuarter(qid, recordRef.current, snapshotRef.current)
+    syncQuarter(qid, recordToSync, snapshotToSync)
       .then((result) => {
-        if (loadRequestRef.current === 0) return
-        recordRef.current = result.record
+        if (
+          requestId !== loadRequestRef.current
+          || qid !== quarterMetricIdRef.current
+        ) return
+
+        // Advance only the persisted baseline. A response must never replace
+        // newer edits in the live form or remount the currently focused row.
         snapshotRef.current = result.snapshot
-        setRecord(result.record)
         setSyncErrors(result.errors)
-        setSyncStatus(result.errors.length > 0 ? 'error' : 'saved')
+        setSyncStatus(
+          recordVersionRef.current === syncedVersion
+            ? (result.errors.length > 0 ? 'error' : 'saved')
+            : 'pending',
+        )
         if (result.errors.length > 0) {
           console.error('Some quarterly-metrics sections failed to save:', result.errors)
         }
       })
       .catch((error) => {
+        if (
+          requestId !== loadRequestRef.current
+          || qid !== quarterMetricIdRef.current
+        ) return
         console.error('Quarter sync failed outright:', error)
         setSyncStatus('error')
       })
@@ -247,12 +262,17 @@ export function SetupMonitoringHub({
         backendInFlightRef.current = false
         if (backendDirtyWhileSavingRef.current) {
           backendDirtyWhileSavingRef.current = false
+          if (backendSyncTimerRef.current) {
+            clearTimeout(backendSyncTimerRef.current)
+            backendSyncTimerRef.current = null
+          }
           runBackendSync()
         }
       })
   }
 
   const handleRecordChange = (updated: SetupMonitoringQuarterRecord) => {
+    recordVersionRef.current += 1
     recordRef.current = updated
     setRecord(updated)
 
@@ -270,6 +290,7 @@ export function SetupMonitoringHub({
 
     // Backend batch sync — only if this quarter already has a backend row.
     if (quarterMetricIdRef.current != null) {
+      if (backendInFlightRef.current) backendDirtyWhileSavingRef.current = true
       if (backendSyncTimerRef.current) clearTimeout(backendSyncTimerRef.current)
       setSyncStatus('pending')
       backendSyncTimerRef.current = setTimeout(() => {
@@ -298,6 +319,34 @@ export function SetupMonitoringHub({
 
   const handleRetry = () => {
     loadQuarter()
+  }
+
+  const handlePeriodChange = (value: string) => {
+    const nextPeriod = quarterOptions.find((option) => option.value === value)
+    if (
+      !nextPeriod
+      || (
+        nextPeriod.quarter === selectedQuarter
+        && nextPeriod.year === selectedYear
+      )
+    ) return
+
+    // Invalidate any older request immediately. The effect for the new
+    // period will issue a fresh request with the matching year and quarter.
+    loadRequestRef.current += 1
+    clearPendingTimers()
+    recordRef.current = null
+    snapshotRef.current = {}
+    quarterMetricIdRef.current = null
+    setRecord(null)
+    setQuarterMetricId(null)
+    setIsLoading(true)
+    setLoadError(null)
+    setCreateQuarterError(null)
+    setSelectedPeriod({
+      quarter: nextPeriod.quarter,
+      year: nextPeriod.year,
+    })
   }
 
   // Creates the missing backend quarterly_metrics row for the currently
@@ -345,9 +394,12 @@ export function SetupMonitoringHub({
     record?.equipmentAssets.reduce((sum, eq) => sum + (eq.bookValue || 0), 0) ?? 0
   const totalFixedAssets = totalBuildingBookValue + totalEquipmentBookValue
 
-  const totalGrant = project.budget || 1500000
-  const totalRefunded = project.used || 250000
-  const refundPercentage = Math.min(100, Math.round((totalRefunded / totalGrant) * 100))
+  const totalFunding = project.budget || 0
+  const totalRefunded = project.used || 0
+  const hasFunding = totalFunding > 0
+  const refundPercentage = hasFunding
+    ? Math.min(100, Math.round((totalRefunded / totalFunding) * 100))
+    : 0
 
   const tabs: Array<{
     id: ActiveTab
@@ -491,20 +543,21 @@ export function SetupMonitoringHub({
             </button>
           ) : null}
 
-          {/* Quarter Selector Dropdown */}
-          <select
-            value={`${selectedQuarter} ${selectedYear}`}
-            onChange={(e) => {
-              const [q, y] = e.target.value.split(' ')
-              setSelectedQuarter(q as Quarter)
-              setSelectedYear(Number(y))
-            }}
-            className="h-9 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-bold text-slate-700 shadow-2xs focus:border-[#0f53b7] focus:outline-none cursor-pointer"
-          >
-            {quarterOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          {/* Project-bound quarter selector. Historical periods remain
+              available for backfill, while future periods never appear. */}
+          <div className="flex h-9 items-center overflow-hidden rounded-xl border border-[#B5BFCD] bg-white shadow-2xs focus-within:border-[#0f53b7]">
+            <select
+              aria-label="Monitoring period"
+              disabled={isCreatingQuarter}
+              value={`${selectedQuarter} ${selectedYear}`}
+              onChange={(event) => handlePeriodChange(event.target.value)}
+              className="h-full cursor-pointer bg-transparent px-3 text-xs font-bold text-slate-700 outline-none disabled:cursor-wait disabled:opacity-60"
+            >
+              {quarterOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
 
           {/* Summary Metrics Sidebar Toggle Button */}
           <button
@@ -664,17 +717,32 @@ export function SetupMonitoringHub({
                 <div className="rounded-2xl border border-emerald-200/80 bg-linear-to-br from-emerald-50/70 to-emerald-100/30 p-4.5 shadow-xs flex flex-col justify-between">
                   <div>
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">Approved Grant & Balance</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-800">
+                        {hasFunding ? 'Approved Funding & Balance' : 'Repayment Terms'}
+                      </span>
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                        {refundPercentage}% Refunded
+                        {hasFunding ? `${refundPercentage}% Refunded` : 'Pending'}
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-emerald-950">
-                      ₱{(totalGrant - totalRefunded).toLocaleString()}
-                    </p>
-                    <span className="text-[11px] font-semibold text-emerald-700 mt-0.5 block">
-                      of ₱{totalGrant.toLocaleString()} total grant
-                    </span>
+                    {hasFunding ? (
+                      <>
+                        <p className="mt-2 text-xl font-black text-emerald-950">
+                          ₱{(totalFunding - totalRefunded).toLocaleString()}
+                        </p>
+                        <span className="text-[11px] font-semibold text-emerald-700 mt-0.5 block">
+                          of ₱{totalFunding.toLocaleString()} total funding
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-2 text-base font-bold text-slate-600">
+                          Schedule Pending
+                        </p>
+                        <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
+                          Repayment terms not initialized
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div className="mt-3.5 h-1.5 w-full rounded-full bg-emerald-200/70 overflow-hidden">
                     <div className="h-full bg-emerald-600 rounded-full" style={{ width: `${refundPercentage}%` }} />
@@ -689,14 +757,16 @@ export function SetupMonitoringHub({
                         {selectedQuarter} {selectedYear}
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-slate-900">Oct 15, 2026</p>
+                    <p className="mt-2 text-xl font-black text-slate-900">
+                      {project.dueDate || project.latestReport?.dueDate || `${selectedQuarter} ${selectedYear}`}
+                    </p>
                     <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
-                      Next Quarterly Data Sheet Due
+                      {project.latestReport?.status ? `Report: ${project.latestReport.status}` : 'Quarterly Monitoring Period'}
                     </span>
                   </div>
                   <div className="mt-3 flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
                     <CheckCircle2 className="size-3.5 text-emerald-600" />
-                    <span>Schedule On Track</span>
+                    <span>{project.compliance === 'Overdue' ? 'Action Required' : 'Schedule On Track'}</span>
                   </div>
                 </div>
 
@@ -705,10 +775,12 @@ export function SetupMonitoringHub({
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-wider text-purple-800">Equipment Outlay</span>
                       <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-800">
-                        {record.equipmentAssets.length || 3} Units
+                        {(project.equipmentRecords?.length ?? record.equipmentAssets.length)} Units
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-purple-950">QR Tagged</p>
+                    <p className="mt-2 text-xl font-black text-purple-950">
+                      {(project.equipmentRecords?.length ?? record.equipmentAssets.length) > 0 ? 'Deployed & Logged' : 'No Outlay Recorded'}
+                    </p>
                     <span className="text-[11px] font-semibold text-purple-700 mt-0.5 block">
                       Verified Machinery Inventory
                     </span>
@@ -724,10 +796,12 @@ export function SetupMonitoringHub({
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-700">Master Checklist</span>
                       <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-800">
-                        92% Complied
+                        {project.checklistStats ? `${project.checklistStats.percentage}% Complied` : 'Compliant'}
                       </span>
                     </div>
-                    <p className="mt-2 text-xl font-black text-slate-900">SET 1 Verified</p>
+                    <p className="mt-2 text-xl font-black text-slate-900">
+                      {project.checklistStats ? `${project.checklistStats.complied} of ${project.checklistStats.total} Docs` : 'Document Sets'}
+                    </p>
                     <span className="text-[11px] font-semibold text-slate-500 mt-0.5 block">
                       Legal & Audit Clearance Satisfied
                     </span>
@@ -773,22 +847,25 @@ export function SetupMonitoringHub({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Proponent / Lead Person</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Maria SETUP Proponent'}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.proponentName || project.manager || 'Proponent'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Priority Industry Sector</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">Food Processing (Agri-Commodities)</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.industrySector || 'Food Processing'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Business Structure & Scale</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">Sole Proprietorship · Micro Enterprise</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">
+                          {project.businessStructure || 'Sole Proprietorship'}
+                          {project.enterpriseSize ? ` · ${project.enterpriseSize} Enterprise` : ''}
+                        </p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Contact Information</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">+63 917 123 4567</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.contactNumber || 'Not recorded'}</p>
                       </div>
                     </div>
 
@@ -796,7 +873,7 @@ export function SetupMonitoringHub({
                       <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Manufacturing & Operating Facility</span>
                       <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-slate-900">
                         <MapPin className="size-3.5 text-[#0f53b7] shrink-0" />
-                        <span>{project.location || record.enterpriseAddress || 'Davao del Sur, Region XI'}</span>
+                        <span>{project.location || record.enterpriseAddress || 'Location not recorded'}</span>
                       </p>
                     </div>
                   </div>
@@ -828,32 +905,38 @@ export function SetupMonitoringHub({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Assigned Monitoring Officer</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Maria SETUP Proponent'}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.manager || 'Unassigned'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">PSTO Implementing Center</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">DOST PSTO {project.district || 'Davao del Sur'}</p>
+                        <p className="mt-1 text-xs font-bold text-slate-900">
+                          DOST PSTO {project.district || 'Davao Region'}
+                        </p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">TNA Evaluation Status</span>
-                        <p className="mt-1 text-xs font-bold text-emerald-700">✓ Form 01 & 04 Certified</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Focal / Supervision Officer</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">{project.focalOfficer || 'PSTO Focal Person'}</p>
                       </div>
 
                       <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Refund Term Duration</span>
-                        <p className="mt-1 text-xs font-bold text-slate-900">36 Months (3 Years)</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Implementation Cycle</span>
+                        <p className="mt-1 text-xs font-bold text-slate-900">
+                          {project.startDate ? `${project.startDate} to ${project.dueDate || 'Present'}` : '36 Months (3 Years)'}
+                        </p>
                       </div>
                     </div>
 
                     <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 flex items-center justify-between">
                       <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Environmental & GAD Assessment</span>
-                        <p className="mt-0.5 text-xs font-bold text-slate-800">HazardHunter & GWP Checklist Complied</p>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Checklist Verification</span>
+                        <p className="mt-0.5 text-xs font-bold text-slate-800">
+                          {project.checklistStats ? `${project.checklistStats.complied}/${project.checklistStats.total} Document Sets Complied` : 'Pre-implementation Requirements Complied'}
+                        </p>
                       </div>
                       <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                        Cleared
+                        {project.compliance}
                       </span>
                     </div>
                   </div>
@@ -891,17 +974,31 @@ export function SetupMonitoringHub({
                         <th className="py-2.5 px-3 text-center">Useful Life</th>
                         <th className="py-2.5 px-3 text-right">Acquisition Cost</th>
                         <th className="py-2.5 px-3 text-right">Book Value</th>
-                        <th className="py-2.5 px-3 text-center">QR & Status</th>
+                        <th className="py-2.5 px-3 text-center">Condition / Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {(record.equipmentAssets.length > 0
-                        ? record.equipmentAssets
-                        : [
-                            { id: 'eq_1', equipmentName: 'Heavy-Duty Stainless Steel Grinder & Pulverizer', equipmentType: 'Machinery', usefulLifeYears: 10, yearAcquired: 2024, cost: 450000, depreciation: 0, bookValue: 450000 },
-                            { id: 'eq_2', equipmentName: 'Continuous Band Sealer with Gas Flushing Unit', equipmentType: 'Packaging', usefulLifeYears: 8, yearAcquired: 2024, cost: 180000, depreciation: 0, bookValue: 180000 },
-                            { id: 'eq_3', equipmentName: 'Automated Temperature Controlled Roasting Machine', equipmentType: 'Processing', usefulLifeYears: 10, yearAcquired: 2024, cost: 320000, depreciation: 0, bookValue: 320000 },
-                          ]
+                      {(project.equipmentRecords && project.equipmentRecords.length > 0
+                        ? project.equipmentRecords.map((item) => ({
+                            id: item.id,
+                            equipmentName: item.equipment_name,
+                            yearAcquired: item.year_acquired,
+                            usefulLifeYears: item.useful_life_years,
+                            cost: item.cost,
+                            bookValue: item.book_value,
+                            condition: item.condition,
+                          }))
+                        : record.equipmentAssets.length > 0
+                          ? record.equipmentAssets.map((item) => ({
+                              id: item.id,
+                              equipmentName: item.equipmentName,
+                              yearAcquired: item.yearAcquired,
+                              usefulLifeYears: item.usefulLifeYears,
+                              cost: item.cost,
+                              bookValue: item.bookValue,
+                              condition: 'Operational',
+                            }))
+                          : []
                       ).map((item, idx) => (
                         <tr key={item.id || idx} className="hover:bg-slate-50/70 transition">
                           <td className="py-3 px-3 font-bold text-slate-900 flex items-center gap-2">
@@ -914,11 +1011,18 @@ export function SetupMonitoringHub({
                           <td className="py-3 px-3 text-right font-mono font-bold text-[#0f53b7]">₱{(item.bookValue || 0).toLocaleString()}</td>
                           <td className="py-3 px-3 text-center">
                             <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
-                              ✓ Operational
+                              ✓ {item.condition || 'Operational'}
                             </span>
                           </td>
                         </tr>
                       ))}
+                      {(!project.equipmentRecords || project.equipmentRecords.length === 0) && record.equipmentAssets.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-6 text-center text-xs text-slate-400">
+                            No equipment records currently registered for this project.
+                          </td>
+                        </tr>
+                      ) : null}
                     </tbody>
                   </table>
                 </div>

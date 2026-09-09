@@ -24,11 +24,11 @@ class StoreInterventionRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name'          => ['required', 'string', 'max:255'],
-            'type'          => ['required', 'string', 'in:CONSULTANCY,TRAINING,TECHNOLOGY,TESTING,OTHERS'],
-            'availed'       => ['required', 'boolean'],
-            'intervention'  => ['required', 'string', 'max:255'],
-            'date'          => ['required', 'date'],
+            'name' => ['required', 'string', 'max:255'],
+            'type' => ['required', 'string', 'in:CONSULTANCY,TRAINING,TECHNOLOGY,TESTING,OTHERS'],
+            'availed' => ['required', 'boolean'],
+            'intervention' => ['required', 'string', 'max:255'],
+            'date' => ['required', 'date_format:Y-m-d'],
         ];
     }
 }

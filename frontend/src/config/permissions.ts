@@ -39,11 +39,11 @@ export const modulePermissions = {
   documents: [ROLES.PROPONENT],
   profile: ALL_ROLES,
   equipmentTracking: [ROLES.PROJECT_STAFF, ROLES.FOCAL],
-  repaymentMonitoring: [ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
+  repaymentMonitoring: [ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR],
   reports: [ROLES.PROJECT_STAFF, ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   applicationReview: [ROLES.FOCAL],
   documentChecklist: [ROLES.SYSTEM_ADMIN, ROLES.PROJECT_STAFF, ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
-  projectMonitoring: [ROLES.FOCAL, ROLES.PROVINCIAL_DIRECTOR],
+  projectMonitoring: [ROLES.FOCAL],
   executiveApproval: [ROLES.PROVINCIAL_DIRECTOR],
   projects: [ROLES.PROVINCIAL_DIRECTOR, ROLES.RPMO],
   regionalMonitoring: [ROLES.RPMO],
@@ -61,7 +61,11 @@ export const modulePermissions = {
 
 export type ModuleId = keyof typeof modulePermissions
 
-export function canAccessModule(role: UserRole, module: ModuleId) {
+export function canAccessModule(role: UserRole, module: ModuleId, program?: 'SETUP' | 'GIA') {
+  if (module === 'repaymentMonitoring' && role === ROLES.FOCAL && program !== 'SETUP') {
+    return false
+  }
+
   return (modulePermissions[module] as readonly UserRole[]).includes(role)
 }
 

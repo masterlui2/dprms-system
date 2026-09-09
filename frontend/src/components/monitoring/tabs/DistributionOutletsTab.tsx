@@ -12,6 +12,7 @@ import type {
   SetupMonitoringQuarterRecord,
   WorkerCount,
 } from '../../../types/setupMonitoring'
+import { quarterStartIsoDate } from '../../../utils/monitoringDate'
 
 interface Props {
   record: SetupMonitoringQuarterRecord
@@ -40,7 +41,7 @@ export function DistributionOutletsTab({
       marketName: 'NEW INTERNATIONAL CLIENT',
       address: 'Country/Port',
       condition: 'NEW',
-      effectivityDate: 'Q3 2024',
+      effectivityDate: quarterStartIsoDate(record.year, record.quarter),
       contactPerson: 'Trade Agent',
       productServiceSold: 'Processed Goods',
       volumeDelivered: '500 kg',
@@ -85,7 +86,7 @@ export function DistributionOutletsTab({
       marketName: 'NEW LOCAL OUTLET',
       address: 'City/Municipality',
       condition: 'NEW',
-      effectivityDate: 'Q3 2024',
+      effectivityDate: quarterStartIsoDate(record.year, record.quarter),
       contactPerson: 'Store Manager',
       productServiceSold: 'Goods',
       volumeDelivered: '200 units',
@@ -285,10 +286,10 @@ export function DistributionOutletsTab({
                   </td>
                   <td className="p-1">
                     <input
-                      type="text"
+                      type="date"
                       value={m.effectivityDate || ''}
                       onChange={(e) => handleUpdateIntl(m.id, 'effectivityDate', e.target.value)}
-                      placeholder="e.g. Q3 2024"
+                      required
                       readOnly={readOnly}
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-700 focus:border-[#285497] focus:outline-none"
                     />
@@ -423,10 +424,10 @@ export function DistributionOutletsTab({
                   </td>
                   <td className="p-1">
                     <input
-                      type="text"
+                      type="date"
                       value={m.effectivityDate || ''}
                       onChange={(e) => handleUpdateLocal(m.id, 'effectivityDate', e.target.value)}
-                      placeholder="e.g. Q3 2024"
+                      required
                       readOnly={readOnly}
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-700 focus:border-[#285497] focus:outline-none"
                     />

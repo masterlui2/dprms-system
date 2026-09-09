@@ -3,6 +3,7 @@
 namespace App\Services\ProjectModule;
 
 use App\Models\Project;
+use App\Models\RepaymentTransaction;
 use App\Models\SetupProgressReport;
 use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,14 +25,12 @@ class SetupMonitoringProjectService
         $statistics = [
             'active_projects' => (clone $baseQuery)->count(),
             'monitored_count' => (clone $baseQuery)
-                ->whereHas('proposal.monitoringRecords', fn (Builder $query) =>
-                    $query->whereNotNull('last_monitored_at')
+                ->whereHas('proposal.monitoringRecords', fn (Builder $query) => $query->whereNotNull('last_monitored_at')
                 )
                 ->count(),
             'pending_reports' => SetupProgressReport::query()
                 ->whereIn('status', self::PENDING_REPORT_STATUSES)
-                ->whereHas('monitoringRecord.proposal.project', fn (Builder $query) =>
-                    $query->where('program_type', 'SETUP')->where('status', 'active')
+                ->whereHas('monitoringRecord.proposal.project', fn (Builder $query) => $query->where('program_type', 'SETUP')->where('status', 'active')
                 )
                 ->count(),
         ];
@@ -42,6 +41,7 @@ class SetupMonitoringProjectService
                 'proposal.assigned_staff:id,name,email',
                 'proposal.assigned_focal:id,name,email',
                 'proposal.setup_proposal',
+                'proposal.projectBudget:id,proposal_id,total_amount,currency',
                 'proposal.monitoringRecords.monitor:id,name,email',
                 'proposal.monitoringRecords.setupProgressReports',
             ]);
@@ -94,8 +94,7 @@ class SetupMonitoringProjectService
                 $proposalQuery
                     ->whereRaw('LOWER(reference_number) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(title) LIKE ?', [$like])
-                    ->orWhereHas('user', fn (Builder $userQuery) =>
-                        $userQuery->whereRaw('LOWER(name) LIKE ?', [$like])
+                    ->orWhereHas('user', fn (Builder $userQuery) => $userQuery->whereRaw('LOWER(name) LIKE ?', [$like])
                     )
                     ->orWhereHas('setup_proposal', function (Builder $setupQuery) use ($like) {
                         $setupQuery
@@ -115,8 +114,7 @@ class SetupMonitoringProjectService
             return;
         }
 
-        $query->whereHas('proposal.setup_proposal', fn (Builder $setupQuery) =>
-            $setupQuery->whereRaw('LOWER(city_municipality) = ?', [mb_strtolower($district)])
+        $query->whereHas('proposal.setup_proposal', fn (Builder $setupQuery) => $setupQuery->whereRaw('LOWER(city_municipality) = ?', [mb_strtolower($district)])
         );
     }
 
@@ -136,6 +134,7 @@ class SetupMonitoringProjectService
     {
         $proposal = $project->proposal;
         $setup = $proposal?->setup_proposal->first();
+        $budget = $proposal?->projectBudget;
         $monitoringRecords = $proposal?->monitoringRecords ?? collect();
         $latestMonitoring = $monitoringRecords
             ->sortByDesc(fn ($record) => $record->last_monitored_at?->getTimestamp() ?? 0)
@@ -174,14 +173,98 @@ class SetupMonitoringProjectService
             }
         }
 
+        $amountRefunded = (float) RepaymentTransaction::query()
+            ->whereHas('projectLedger', fn (Builder $query) => $query
+                ->where('project_id', $project->id)
+                ->where('program_type', 'SETUP')
+                ->where('ledger_type', 'repayment')
+            )
+            ->where('status', 'verified')
+            ->sum('amount_paid');
+
+        $contactNumber = data_get($setup?->form_snapshot, 'contactNumber')
+            ?? data_get($setup?->form_snapshot, 'contact_number')
+            ?? data_get($setup?->form_snapshot, 'phone');
+
+        $proponentName = data_get($setup?->form_snapshot, 'contactPerson')
+            ?? data_get($setup?->form_snapshot, 'proponentName')
+            ?? $proposal?->user?->name
+            ?? 'Proponent';
+
+        $industrySector = $setup?->industry_sector
+            ?? data_get($setup?->form_snapshot, 'industrySector')
+            ?? 'Food Processing';
+
+        $businessStructure = $setup?->business_type
+            ?? data_get($setup?->form_snapshot, 'businessType')
+            ?? 'Sole Proprietorship';
+
+        $enterpriseSize = $setup?->enterprise_size
+            ?? data_get($setup?->form_snapshot, 'enterpriseSize')
+            ?? 'Micro';
+
+        $businessAddress = $setup?->business_address
+            ?? data_get($setup?->form_snapshot, 'businessAddress');
+
+        $equipmentRecords = [];
+        if ($project->proposal_id) {
+            $equipmentList = \App\Models\EquipmentRegistry::query()
+                ->where('proposal_id', $project->proposal_id)
+                ->get();
+
+            if ($equipmentList->isNotEmpty()) {
+                $equipmentRecords = $equipmentList->map(function ($item) {
+                    return [
+                        'id' => (string) $item->id,
+                        'equipment_name' => $item->equipment_name,
+                        'year_acquired' => $item->acquisition_date ? (int) $item->acquisition_date->format('Y') : (int) today()->year,
+                        'useful_life_years' => 5,
+                        'cost' => (float) ($item->acquisition_cost ?? 0),
+                        'book_value' => (float) ($item->acquisition_cost ?? 0),
+                        'condition' => $item->current_condition ?? 'Operational',
+                    ];
+                })->values()->all();
+            } else {
+                $quotations = \App\Models\SetupEquipmentQuotation::query()
+                    ->whereHas('setup_proposal', fn ($q) => $q->where('proposal_id', $project->proposal_id))
+                    ->get();
+
+                if ($quotations->isNotEmpty()) {
+                    $equipmentRecords = $quotations->map(function ($q) {
+                        return [
+                            'id' => (string) $q->id,
+                            'equipment_name' => $q->equipment_description,
+                            'year_acquired' => $q->quotation_date ? (int) $q->quotation_date->format('Y') : (int) today()->year,
+                            'useful_life_years' => 5,
+                            'cost' => (float) ($q->total_price ?? $q->unit_price ?? 0),
+                            'book_value' => (float) ($q->total_price ?? $q->unit_price ?? 0),
+                            'condition' => 'Operational',
+                        ];
+                    })->values()->all();
+                }
+            }
+        }
+
+        $focalOfficer = $proposal?->assigned_focal?->name;
+
         return [
             'id' => $project->id,
             'proposal_id' => $project->proposal_id,
             'reference_number' => $proposal?->reference_number,
             'title' => $proposal?->title,
             'enterprise_name' => $setup?->business_name ?? $proposal?->user?->name ?? 'Approved enterprise',
+            'proponent_name' => $proponentName,
+            'contact_number' => $contactNumber,
+            'industry_sector' => $industrySector,
+            'business_structure' => $businessStructure,
+            'enterprise_size' => $enterpriseSize,
+            'setup_funding' => (float) ($budget?->total_amount ?? 0),
+            'amount_refunded' => round($amountRefunded, 2),
+            'full_release' => data_get($setup?->form_snapshot, 'fullRelease')
+                ?? data_get($setup?->form_snapshot, 'fullReleaseDate'),
             'manager' => $manager,
-            'business_address' => $setup?->business_address,
+            'focal_officer' => $focalOfficer,
+            'business_address' => $businessAddress,
             'district' => $setup?->city_municipality,
             'province' => $setup?->province,
             'status' => $project->status,
@@ -194,6 +277,7 @@ class SetupMonitoringProjectService
             'monitored' => $monitoringRecords->contains(fn ($record) => $record->last_monitored_at !== null),
             'pending_reports' => $reports->whereIn('status', self::PENDING_REPORT_STATUSES)->count(),
             'checklist_stats' => $checklistStats,
+            'equipment_records' => $equipmentRecords,
             'latest_report' => $latestReport ? [
                 'id' => $latestReport->id,
                 'status' => $latestReport->status,

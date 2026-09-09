@@ -92,9 +92,7 @@ export function useAutoSavedQuarterRecord({
     try {
       const result = await syncQuarter(qid, recordRef.current, snapshotRef.current)
       if (unmountedRef.current) return
-      recordRef.current = result.record
       snapshotRef.current = result.snapshot
-      setRecord(result.record)
       setErrors(result.errors)
       setStatus(result.errors.length > 0 ? 'error' : 'saved')
     } finally {

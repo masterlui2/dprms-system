@@ -24,13 +24,13 @@ class StoreMarketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'market_name'    => ['required', 'string', 'max:255'],
-            'address'        => ['required', 'string', 'max:255'],
-            'condition'      => ['required', 'string', 'in:old,new'],
-            'effective_date' => ['required', 'date'],
+            'market_name' => ['required', 'string', 'max:255'],
+            'address' => ['required', 'string', 'max:255'],
+            'condition' => ['required', 'string', 'in:old,new'],
+            'effective_date' => ['required', 'date_format:Y-m-d'],
             'contact_person' => ['required', 'string', 'max:255'],
-            'service'        => ['required', 'string', 'max:255'],
-            'volume'         => ['required', 'string', 'max:255'],
+            'service' => ['required', 'string', 'max:255'],
+            'volume' => ['required', 'string', 'max:255'],
         ];
     }
 }

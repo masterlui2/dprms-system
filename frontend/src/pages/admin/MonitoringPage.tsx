@@ -27,8 +27,12 @@ import {
 } from '../../services/setupMonitoringStore'
 import type { ProjectPagination } from '../../types/monitoring'
 import { cn } from '../../utils/cn'
+import {
+  defaultSetupMonitoringPeriod,
+  parseSetupMonitoringPeriod,
+  setupMonitoringPeriodOptions,
+} from '../../utils/setupMonitoringPeriod'
 
-type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4'
 type Semester = 1 | 2
 
 const EMPTY_SETUP_STATISTICS: SetupMonitoringStatistics = {
@@ -55,27 +59,12 @@ const EMPTY_PAGINATION: ProjectPagination = {
   to: null,
 }
 
-function currentQuarter(): { quarter: Quarter; year: number } {
-  const now = new Date()
-  return {
-    quarter: `Q${Math.ceil((now.getMonth() + 1) / 3)}` as Quarter,
-    year: now.getFullYear(),
-  }
-}
-
 function currentSemester(): { semester: Semester; year: number } {
   const now = new Date()
   return {
     semester: now.getMonth() < 6 ? 1 : 2,
     year: now.getFullYear(),
   }
-}
-
-function parseQuarterPeriod(value: string): { quarter: Quarter; year: number } {
-  const match = /^(Q[1-4])\s+(\d{4})$/.exec(value)
-  if (!match) return currentQuarter()
-
-  return { quarter: match[1] as Quarter, year: Number(match[2]) }
 }
 
 function semesterLabel(semester: Semester, year: number): string {
@@ -87,24 +76,6 @@ function parseSemesterPeriod(value: string): { semester: Semester; year: number 
   if (!match) return currentSemester()
 
   return { semester: match[1] === '1st' ? 1 : 2, year: Number(match[2]) }
-}
-
-function quarterPeriods(): string[] {
-  const current = currentQuarter()
-  const periods: string[] = []
-  let quarter = Number(current.quarter.slice(1))
-  let year = current.year
-
-  for (let index = 0; index < 8; index += 1) {
-    periods.push(`Q${quarter} ${year}`)
-    quarter -= 1
-    if (quarter === 0) {
-      quarter = 4
-      year -= 1
-    }
-  }
-
-  return periods
 }
 
 function semesterPeriods(): string[] {
@@ -150,11 +121,12 @@ export function MonitoringPage() {
   const initialQuarter = (() => {
     const quarter = searchParams.get('quarter')
     const year = Number(searchParams.get('year'))
-    if (/^Q[1-4]$/.test(quarter ?? '') && Number.isInteger(year) && year >= 2000) {
-      return `${quarter} ${year}`
-    }
-    const current = currentQuarter()
-    return `${current.quarter} ${current.year}`
+    const current = defaultSetupMonitoringPeriod()
+    const period = quarter && Number.isInteger(year)
+      ? parseSetupMonitoringPeriod(`${quarter} ${year}`)
+      : current
+
+    return `${period.quarter} ${period.year}`
   })()
   const initialSemester = (() => {
     const semester = Number(searchParams.get('semester'))
@@ -221,14 +193,12 @@ export function MonitoringPage() {
 
     try {
       if (selectedProgram === 'SETUP') {
-        // NOTE: year/quarter are intentionally NOT passed here. The SETUP
-        // project list comes from GET /api/projects?status=SETUP, which has
-        // no concept of a reporting period — quarter/year only apply once a
-        // specific project's quarterly metrics are opened (see openProject
-        // below, which still threads period info into SetupMonitoringHub).
+        const period = parseSetupMonitoringPeriod(globalQuarter)
         const result = await fetchSetupMonitoringProjects({
           search: debouncedSearch,
           district: districtValue,
+          year: period.year,
+          quarter: period.quarter,
           page: projectPage,
         })
 
@@ -268,6 +238,7 @@ export function MonitoringPage() {
     agencyValue,
     debouncedSearch,
     districtValue,
+    globalQuarter,
     globalSemester,
     projectPage,
     selectedProgram,
@@ -292,7 +263,7 @@ export function MonitoringPage() {
     else if (!isLoadingProjects) setSelectedProject(null)
   }, [isLoadingProjects, projectIdParam, projects, selectedProgram])
 
-  const setupPeriod = parseQuarterPeriod(globalQuarter)
+  const setupPeriod = parseSetupMonitoringPeriod(globalQuarter)
   const giaPeriod = parseSemesterPeriod(globalSemester)
   const activePeriod = selectedProgram === 'SETUP' ? globalQuarter : globalSemester
   const programProjects = projects.filter((project) => project.program === selectedProgram)
@@ -335,6 +306,7 @@ export function MonitoringPage() {
     return (
       <div className="space-y-6 font-sans">
         <SetupMonitoringHub
+          key={String(selectedProject.backendId ?? selectedProject.id)}
           project={selectedProject}
           initialQuarter={setupPeriod.quarter}
           initialYear={setupPeriod.year}
@@ -421,7 +393,7 @@ export function MonitoringPage() {
                 setSelectedProject(null)
                 setProjectPage(1)
                 if (selectedProgram === 'SETUP') {
-                  const parsed = parseQuarterPeriod(event.target.value)
+                  const parsed = parseSetupMonitoringPeriod(event.target.value)
                   setGlobalQuarter(event.target.value)
                   updateSearchParams({
                     projectId: null,
@@ -444,9 +416,13 @@ export function MonitoringPage() {
               }}
               className="h-9 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-bold text-slate-700 shadow-sm outline-none focus:border-[#0f53b7]"
             >
-              {(selectedProgram === 'SETUP' ? quarterPeriods() : semesterPeriods()).map((period) => (
-                <option key={period} value={period}>{period}</option>
-              ))}
+              {selectedProgram === 'SETUP'
+                ? setupMonitoringPeriodOptions().map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))
+                : semesterPeriods().map((period) => (
+                    <option key={period} value={period}>{period}</option>
+                  ))}
             </select>
           </div>
 

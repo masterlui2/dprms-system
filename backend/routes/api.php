@@ -16,6 +16,7 @@ use App\Http\Controllers\QuarterlyMetricController;
 use App\Http\Controllers\SetupMonitoringProjectController;
 use App\Http\Controllers\SetupProposalController;
 use App\Http\Controllers\SetupProposalSubmissionController;
+use App\Http\Controllers\SetupRepaymentLedgerController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -119,11 +120,26 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::get('v1/projects', [ProjectController::class, 'index']);
 });
 
-Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO'])
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,SSCP_FOCAL,SETUP_FOCAL,PROVINCIAL_DIRECTOR,PSTO_DIRECTOR,RPMO'])
     ->get('setup/monitoring/projects', [SetupMonitoringProjectController::class, 'index']);
 
 Route::middleware(['auth:sanctum', 'role:FOCAL,PROVINCIAL_DIRECTOR'])
     ->get('gia/monitoring/projects', [GiaMonitoringProjectController::class, 'index']);
+
+Route::middleware(['auth:sanctum', 'role:PROPONENT,MSME_PROPONENT'])
+    ->get('setup/repayment/projects', [SetupRepaymentLedgerController::class, 'mine']);
+
+Route::middleware(['auth:sanctum', 'role:FOCAL,SSCP_FOCAL,SETUP_FOCAL,PROVINCIAL_DIRECTOR,PSTO_DIRECTOR,PROPONENT,MSME_PROPONENT'])
+    ->get('setup/projects/{project}/ledger', [SetupRepaymentLedgerController::class, 'show']);
+
+Route::middleware(['auth:sanctum', 'role:PROPONENT,MSME_PROPONENT'])
+    ->post('setup/projects/{project}/ledger/{ledger}/payments', [SetupRepaymentLedgerController::class, 'storePayment']);
+
+Route::middleware(['auth:sanctum', 'role:FOCAL,SSCP_FOCAL,SETUP_FOCAL,PROVINCIAL_DIRECTOR,PSTO_DIRECTOR,PROPONENT,MSME_PROPONENT'])
+    ->get('setup/projects/{project}/ledger/{ledger}/payments/{transaction}/proof', [SetupRepaymentLedgerController::class, 'showPaymentProof']);
+
+Route::middleware(['auth:sanctum', 'role:FOCAL,SSCP_FOCAL,SETUP_FOCAL'])
+    ->patch('setup/projects/{project}/ledger/{ledger}/payments/{transaction}', [SetupRepaymentLedgerController::class, 'verifyPayment']);
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL'])->prefix('v1/equipment')->group(function () {
     Route::get('/', [EquipmentInspectionController::class, 'index']);

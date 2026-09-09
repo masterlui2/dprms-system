@@ -29,8 +29,10 @@ interface DataTableProps<T> {
   emptyTitle?: string
   fitColumns?: boolean
   getRowKey: (row: T) => string
+  groupedHeader?: ReactNode
   initialRowsPerPage?: number
   isLoading?: boolean
+  mobileRender?: (row: T) => ReactNode
   onRowClick?: (row: T) => void
   searchPlaceholder?: string
   searchText: (row: T) => string
@@ -45,8 +47,10 @@ export function DataTable<T>({
   emptyTitle = 'No records found',
   fitColumns = false,
   getRowKey,
+  groupedHeader,
   initialRowsPerPage = 5,
   isLoading = false,
+  mobileRender,
   onRowClick,
   searchPlaceholder = 'Search records...',
   searchText,
@@ -157,6 +161,7 @@ export function DataTable<T>({
                 : 'bg-slate-50 uppercase tracking-[0.08em]',
             )}
           >
+            {groupedHeader}
             <tr>
               {columns.map((column) => (
                 <th
@@ -263,17 +268,19 @@ export function DataTable<T>({
                 key={getRowKey(row)}
                 onClick={() => onRowClick?.(row)}
               >
-                {columns.map((column) => (
-                  <div
-                    className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 text-sm"
-                    key={column.id}
-                  >
-                    <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-                      {column.header}
-                    </p>
-                    <div className="min-w-0 break-words">{column.render(row)}</div>
-                  </div>
-                ))}
+                {mobileRender
+                  ? mobileRender(row)
+                  : columns.map((column) => (
+                      <div
+                        className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 text-sm"
+                        key={column.id}
+                      >
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                          {column.header}
+                        </p>
+                        <div className="min-w-0 break-words">{column.render(row)}</div>
+                      </div>
+                    ))}
               </article>
             ))}
       </div>

@@ -657,7 +657,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }
 
   async function handleResubmitRevisions() {
-    if (!activeProposalId || !isRevisionMode) return;
+    if (!activeApplication || !activeProposalId || !isRevisionMode) return;
 
     if (revisionDocuments.length > 0) {
       const firstRequirement = requirements.find(

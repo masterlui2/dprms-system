@@ -19,6 +19,7 @@ import type {
 import type { ProjectRecord } from '../data/admin'
 import api from '../lib/axios'
 import type { ProjectPagination } from '../types/monitoring'
+import { normalizeMonitoringDate } from '../utils/monitoringDate'
 
 const STORAGE_PREFIX = 'dprms_setup_monitoring_record_'
 
@@ -524,17 +525,11 @@ export interface SetupMonitoringStatistics {
   pendingReports: number
 }
 
-/**
- * NOTE: `year` / `quarter` intentionally removed from here.
- * The backend `/api/projects` endpoint (ProjectController::index) only
- * accepts `status`. Year/quarter selection belongs to the quarterly-metrics
- * flow (QuarterlyMetricController), not the project list, so it stays out
- * of this filter shape. `search`, `district`, and `page` are applied
- * client-side below since the backend doesn't support them yet either.
- */
 export interface SetupMonitoringProjectFilters {
   search?: string
   district?: string
+  year?: number
+  quarter?: Quarter
   page?: number
 }
 
@@ -545,81 +540,49 @@ export interface SetupMonitoringProjectsResult {
   pagination: ProjectPagination
 }
 
-interface BackendApprovedByUser {
-  id: number
-  name: string
-  email: string
-  email_verified_at: string | null
-  created_at: string
-  updated_at: string
-  is_active: boolean
-  last_login_at: string | null
-}
-
-interface BackendSetupProposal {
+interface BackendSetupMonitoringProject {
   id: number
   proposal_id: number
-  business_name: string
-  business_type: string
-  industry_sector: string
-  enterprise_size: string
-  years_in_operation: number
-  business_address: string
-  region: string
-  province: string
-  city_municipality: string
-  created_at: string
-  updated_at: string
-  form_snapshot: Record<string, unknown> | null
-}
-
-interface BackendProposal {
-  id: number
-  submitted_by: number
-  focal_id: number | null
-  reviewed_by: number | null
-  program_type: 'SETUP' | 'GIA'
   reference_number: string
   title: string
-  status: string
-  submitted_at: string | null
+  enterprise_name: string
+  proponent_name?: string | null
+  contact_number: string | null
+  industry_sector?: string | null
+  business_structure?: string | null
+  enterprise_size?: string | null
+  setup_funding: number
+  amount_refunded?: number
+  full_release: string | null
+  manager: string
+  focal_officer?: string | null
+  business_address: string | null
+  district: string | null
+  province: string | null
+  status: 'active'
   approved_at: string | null
-  disapproved_at: string | null
-  remarks: string | null
-  created_at: string
-  updated_at: string
-  assigned_staff_id: number | null
-  assigned_focal_id: number | null
-  setup_proposal: BackendSetupProposal[]
-}
-
-interface BackendProject {
-  id: number
-  proposal_id: number
-  created_by: number
-  approved_by: BackendApprovedByUser | null
-  program_type: 'SETUP' | 'GIA'
-  status: string
   start_date: string | null
   expected_end_date: string | null
-  actual_end_date: string | null
-  notes: string | null
-  approved_at: string | null
-  created_at: string
-  updated_at: string
-  proposal: BackendProposal
-  user: BackendApprovedByUser
-  monitoring_status?: string
-  overall_compliance?: number
-  last_monitored_at?: string | null
-  monitored?: boolean
-  pending_reports?: number
-  checklist_stats?: {
+  monitoring_status: string
+  overall_compliance: number
+  last_monitored_at: string | null
+  monitored: boolean
+  pending_reports: number
+  checklist_stats: {
     complied: number
     total: number
     percentage: number
   }
-  latest_report?: {
+  equipment_records?: Array<{
+    id: string
+    equipment_name: string
+    year_acquired: number
+    useful_life_years: number
+    cost: number
+    book_value: number
+    condition: string
+  }>
+  latest_report: {
     status: string
     reporting_period: string
     year: number
@@ -628,30 +591,64 @@ interface BackendProject {
   } | null
 }
 
-interface BackendProjectsResponse {
-  message: string
-  data: BackendProject[]
+interface BackendSetupMonitoringResponse {
+  statistics: {
+    active_projects: number
+    monitored_count: number
+    pending_reports: number
+  }
+  filters: {
+    districts: string[]
+  }
+  data: BackendSetupMonitoringProject[]
+  pagination: {
+    current_page: number
+    last_page: number
+    per_page: number
+    total: number
+    from: number | null
+    to: number | null
+  }
 }
 
-function mapSetupMonitoringProject(project: BackendProject): ProjectRecord {
-  const setupProposal = project.proposal.setup_proposal?.[0]
+function formatMonitoringDate(value: string | null): string {
+  if (!value) return 'Not scheduled'
 
-  const location =
-    [setupProposal?.city_municipality, setupProposal?.province, setupProposal?.region]
-      .filter(Boolean)
-      .join(', ') || 'Location not recorded'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleDateString('en-PH', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function mapSetupMonitoringProject(project: BackendSetupMonitoringProject): ProjectRecord {
+  const location = [project.district, project.province]
+    .filter(Boolean)
+    .join(', ') || project.business_address || 'Location not recorded'
 
   return {
     approvedAt: project.approved_at,
+    startDate: project.start_date,
     backendId: project.id,
     proposalId: project.proposal_id ?? project.id,
-    budget: 0,
-    compliance: 'Compliant',
-    district: setupProposal?.province,
-    dueDate: 'Not scheduled',
-    enterprise: setupProposal?.business_name ?? project.proposal.title,
+    budget: project.setup_funding,
+    compliance: project.pending_reports > 0 ? 'Due soon' : 'Compliant',
+    contactNumber: project.contact_number,
+    proponentName: project.proponent_name,
+    industrySector: project.industry_sector,
+    businessStructure: project.business_structure,
+    enterpriseSize: project.enterprise_size,
+    focalOfficer: project.focal_officer,
+    equipmentRecords: project.equipment_records,
+    district: project.district ?? undefined,
+    dueDate: formatMonitoringDate(project.latest_report?.due_date ?? project.expected_end_date),
+    enterprise: project.enterprise_name,
+    fullRelease: project.full_release,
     id: String(project.id),
-    lastMonitoredAt: project.last_monitored_at ?? null,
+    lastMonitoredAt: project.last_monitored_at,
     checklistStats: project.checklist_stats,
     latestReport: project.latest_report
       ? {
@@ -663,67 +660,47 @@ function mapSetupMonitoringProject(project: BackendProject): ProjectRecord {
         }
       : null,
     location,
-    manager: project.user?.name ?? 'Unassigned',
-    monitored: false,
-    monitoringStatus: 'Not started',
-    pendingReports: 0,
-    program: project.program_type,
-    progress: 0,
-    referenceNumber: project.proposal.reference_number,
+    manager: project.manager,
+    monitored: project.monitored,
+    monitoringStatus: project.monitoring_status,
+    pendingReports: project.pending_reports,
+    program: 'SETUP',
+    progress: Math.max(0, Math.min(100, Math.round(project.overall_compliance))),
+    referenceNumber: project.reference_number,
     status: 'Active',
-    title: project.proposal.title,
-    used: 0,
+    title: project.title,
+    used: project.amount_refunded ?? 0,
   }
 }
 
 export async function fetchSetupMonitoringProjects(
   filters: SetupMonitoringProjectFilters,
 ): Promise<SetupMonitoringProjectsResult> {
-  const response = await api.get<BackendProjectsResponse>('/projects', {
-    params: { status: 'SETUP' },
+  const response = await api.get<BackendSetupMonitoringResponse>('/setup/monitoring/projects', {
+    params: {
+      search: filters.search?.trim() || undefined,
+      district: filters.district || undefined,
+      year: filters.year,
+      quarter: filters.quarter ? Number(filters.quarter.slice(1)) : undefined,
+      page: filters.page ?? 1,
+    },
   })
 
-  let projects = response.data.data.map(mapSetupMonitoringProject)
-
-  // The backend does not yet support search/district/pagination query params
-  // on this endpoint, so they're applied client-side for now.
-  const search = filters.search?.trim().toLowerCase()
-  if (search) {
-    projects = projects.filter(
-      (p) =>
-        p.enterprise.toLowerCase().includes(search) ||
-        p.title.toLowerCase().includes(search) ||
-        p.referenceNumber?.toLowerCase().includes(search),
-    )
-  }
-
-  if (filters.district) {
-    projects = projects.filter((p) => p.district === filters.district)
-  }
-
-  const perPage = 6
-  const page = Math.max(1, filters.page ?? 1)
-  const total = projects.length
-  const lastPage = Math.max(1, Math.ceil(total / perPage))
-  const safePage = Math.min(page, lastPage)
-  const paged = projects.slice((safePage - 1) * perPage, safePage * perPage)
-
   return {
-    projects: paged,
+    projects: response.data.data.map(mapSetupMonitoringProject),
     statistics: {
-      activeProjects: total,
-      // Not returned by this endpoint yet — real values need a monitoring/quarterly-metrics join.
-      monitoredCount: 0,
-      pendingReports: 0,
+      activeProjects: response.data.statistics.active_projects,
+      monitoredCount: response.data.statistics.monitored_count,
+      pendingReports: response.data.statistics.pending_reports,
     },
-    districts: [...new Set(projects.map((p) => p.district).filter((d): d is string => Boolean(d)))],
+    districts: response.data.filters.districts,
     pagination: {
-      currentPage: safePage,
-      lastPage,
-      perPage,
-      total,
-      from: total === 0 ? null : (safePage - 1) * perPage + 1,
-      to: total === 0 ? null : Math.min(safePage * perPage, total),
+      currentPage: response.data.pagination.current_page,
+      lastPage: response.data.pagination.last_page,
+      perPage: response.data.pagination.per_page,
+      total: response.data.pagination.total,
+      from: response.data.pagination.from,
+      to: response.data.pagination.to,
     },
   }
 }
@@ -1085,15 +1062,16 @@ export function mapBackendQuarterlyMetric(
   for (const iv of metric.intervention) {
     const type = (iv.type || '').toUpperCase()
     const availed = iv.availed === '1' || iv.availed?.toLowerCase() === 'true'
+    const interventionDate = normalizeMonitoringDate(iv.date, year) ?? ''
 
     if (type.includes('TRAIN')) {
-      trainings.push({ id: `tr_${iv.id}`, category: 'OTHER', trainingName: iv.name, date: iv.date })
+      trainings.push({ id: `tr_${iv.id}`, category: 'OTHER', trainingName: iv.name, date: interventionDate })
     } else if (type.includes('TECH')) {
-      techTransfers.push({ id: `tt_${iv.id}`, type: 'OTHER', details: iv.intervention || iv.name, date: iv.date })
+      techTransfers.push({ id: `tt_${iv.id}`, type: 'OTHER', details: iv.intervention || iv.name, date: interventionDate })
     } else if (type.includes('SUPPORT') || type.includes('TEST') || type.includes('CALIB')) {
-      supportServices.push({ id: `ss_${iv.id}`, type: 'Other', productTestedParameters: iv.intervention || iv.name, date: iv.date })
+      supportServices.push({ id: `ss_${iv.id}`, type: 'Other', productTestedParameters: iv.intervention || iv.name, date: interventionDate })
     } else if (type.includes('OTHER') || type.includes('PROJECT')) {
-      otherProjects.push({ id: `op_${iv.id}`, projectTitle: iv.name, date: iv.date })
+      otherProjects.push({ id: `op_${iv.id}`, projectTitle: iv.name, date: interventionDate })
     } else {
       // "CONSULTANCY" and anything unrecognized
       consultancies.push({
@@ -1101,7 +1079,7 @@ export function mapBackendQuarterlyMetric(
         serviceName: iv.name,
         availed,
         areaOfIntervention: iv.intervention,
-        date: iv.date,
+        date: interventionDate,
       })
     }
   }
@@ -1131,7 +1109,7 @@ export function mapBackendQuarterlyMetric(
     marketName: m.market_name,
     address: m.address,
     condition: (m.condition || '').toUpperCase() === 'NEW' ? 'NEW' : 'OLD',
-    effectivityDate: m.effective_date,
+    effectivityDate: normalizeMonitoringDate(m.effective_date, year) ?? '',
     contactPerson: m.contact_person,
     productServiceSold: m.service,
     volumeDelivered: m.volume,
@@ -1219,6 +1197,12 @@ export async function fetchQuarterlyMetrics(
 ): Promise<SetupMonitoringQuarterRecord> {
   const response = await api.get<BackendQuarterlyMetricsResponse>(
     `/projects/${projectId}/quarterly-metrics`,
+    {
+      params: {
+        quarter: Number(quarter.slice(1)),
+        year,
+      },
+    },
   )
 
   const quarterNumber = Number(quarter.replace('Q', ''))
@@ -1256,6 +1240,12 @@ export async function fetchQuarterlyMetricsWithId(
 ): Promise<QuarterlyMetricsFetchResult> {
   const response = await api.get<BackendQuarterlyMetricsResponse>(
     `/projects/${projectId}/quarterly-metrics`,
+    {
+      params: {
+        quarter: Number(quarter.slice(1)),
+        year,
+      },
+    },
   )
 
   const quarterNumber = Number(quarter.replace('Q', ''))

@@ -20,6 +20,7 @@ interface Props {
 type FormState = {
   acquisitionCost: string
   brand: string
+  categoryId: string
   condition: EquipmentRegistrationPayload['current_condition']
   equipmentName: string
   location: string
@@ -50,10 +51,10 @@ function localDate(): string {
 
 export function EquipmentRegistrationModal({ onClose, onSaved, options, program }: Props) {
   const projects = useMemo(() => options.projects.filter((project) => project.program_type === program), [options.projects, program])
-  const defaultCategoryId = useMemo(() => options.categories.find((category) => category.category_code.toUpperCase() === 'OTHER')?.id, [options.categories])
   const [form, setForm] = useState<FormState>({
     acquisitionCost: '',
     brand: '',
+    categoryId: '',
     condition: 'GOOD',
     equipmentName: '',
     location: '',
@@ -93,7 +94,7 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
         acquisition_cost: Number(form.acquisitionCost),
         acquisition_date: localDate(),
         brand: form.brand.trim(),
-        category_id: Number(defaultCategoryId),
+        category_id: Number(form.categoryId),
         current_condition: form.condition,
         equipment_name: form.equipmentName.trim(),
         location: form.location.trim(),
@@ -127,7 +128,7 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
     }
   }
 
-  const unavailable = projects.length === 0 || !defaultCategoryId
+  const unavailable = projects.length === 0 || options.categories.length === 0
 
   return (
     <ModalShell
@@ -165,19 +166,25 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
         </div>
 
         <section>
-          <h3 className="text-sm font-black text-slate-900">Project</h3>
-          <div className="mt-3">
+          <h3 className="text-sm font-black text-slate-900">Assignment</h3>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <Field label="Active project" required>
               <select className={fieldClass} onChange={(event) => selectProject(event.target.value)} required value={form.projectId}>
                 <option value="">Select a {program} project</option>
                 {projects.map((project) => <option key={project.id} value={project.id}>{project.reference_number} — {project.title}</option>)}
               </select>
             </Field>
+            <Field label="Equipment category" required>
+              <select className={fieldClass} onChange={(event) => update('categoryId', event.target.value)} required value={form.categoryId}>
+                <option value="">Select category</option>
+                {options.categories.map((category) => <option key={category.id} value={category.id}>{category.category_name}</option>)}
+              </select>
+            </Field>
           </div>
           {unavailable ? (
             <p className="mt-3 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
               <AlertTriangle className="size-4 shrink-0" />
-              {projects.length === 0 ? `No active ${program} projects are available for registration.` : 'Equipment registration is not configured yet.'}
+              {projects.length === 0 ? `No active ${program} projects are available for registration.` : 'No equipment categories are available.'}
             </p>
           ) : null}
         </section>

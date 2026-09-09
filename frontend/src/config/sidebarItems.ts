@@ -210,7 +210,7 @@ export function getSidebarItems(role: UserRole, userProgram?: ApplicationProgram
     .filter(
       (sidebarItem) =>
         order.includes(sidebarItem.id) &&
-        canAccessModule(role, sidebarItem.id),
+        canAccessModule(role, sidebarItem.id, userProgram),
     )
     .map((sidebarItem) => {
       if (sidebarItem.id === "documentChecklist") {

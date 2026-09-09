@@ -30,7 +30,7 @@ class BatchInterventionRequest extends FormRequest
             'creates.*.type' => ['required', 'string', 'in:CONSULTANCY,TRAINING,TECHNOLOGY,TESTING,OTHERS'],
             'creates.*.availed' => ['required', 'boolean'],
             'creates.*.intervention' => ['required', 'string', 'max:255'],
-            'creates.*.date' => ['required', 'date'],
+            'creates.*.date' => ['required', 'date_format:Y-m-d'],
 
             'updates' => ['sometimes', 'array'],
             'updates.*.id' => ['required', 'integer', 'exists:interventions,id'],
@@ -38,7 +38,7 @@ class BatchInterventionRequest extends FormRequest
             'updates.*.type' => ['sometimes', 'string', 'in:CONSULTANCY,TRAINING,TECHNOLOGY,TESTING,OTHERS'],
             'updates.*.availed' => ['sometimes', 'boolean'],
             'updates.*.intervention' => ['sometimes', 'string', 'max:255'],
-            'updates.*.date' => ['sometimes', 'date'],
+            'updates.*.date' => ['sometimes', 'date_format:Y-m-d'],
 
             'deletes' => ['sometimes', 'array'],
             'deletes.*' => ['integer', 'exists:interventions,id'],

@@ -45,10 +45,10 @@ const emptyStatistics: EquipmentStatistics = {
 }
 
 function conditionClass(condition: EquipmentRecord['condition']): string {
-  if (condition === 'Good') return 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-  if (condition === 'Fair') return 'bg-sky-50 text-sky-700 ring-sky-200'
-  if (condition === 'Poor') return 'bg-amber-50 text-amber-800 ring-amber-200'
-  return 'bg-rose-50 text-rose-700 ring-rose-200'
+  if (condition === 'Good') return 'text-emerald-700'
+  if (condition === 'Fair') return 'text-sky-700'
+  if (condition === 'Poor') return 'text-amber-700'
+  return 'text-rose-700'
 }
 
 function InventoryActions({ equipment, onInspect }: { equipment: EquipmentRecord; onInspect: (equipment: EquipmentRecord) => void }) {
@@ -157,7 +157,7 @@ export function InventoryPage() {
     { id: 'equipment', header: 'Equipment', className: 'w-[24%]', sortValue: (item) => item.name, render: (item) => <div><p className="font-bold text-slate-900">{item.name}</p><p className="mt-1 font-mono text-[11px] text-[#0f53b7]">{item.propertyNumber || item.id}</p><p className="mt-0.5 text-xs text-slate-500">SN: {item.serialNumber || 'Not recorded'}</p></div> },
     { id: 'project', header: 'Project / Cooperator', className: 'w-[23%]', sortValue: (item) => item.assignedTo, render: (item) => <div><p className="font-semibold text-slate-800">{item.assignedTo}</p><p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.projectTitle}</p><p className="mt-0.5 font-mono text-[10px] text-slate-400">{item.projectId}</p></div> },
     { id: 'location', header: 'Category / Location', className: 'w-[20%]', sortValue: (item) => item.category || '', render: (item) => <div><p className="font-semibold text-slate-700">{item.category || 'Uncategorized'}</p><p className="mt-1 line-clamp-2 text-xs text-slate-500">{item.location}</p></div> },
-    { id: 'condition', header: 'Condition', className: 'w-[11%]', sortValue: (item) => item.condition, render: (item) => <span className={cn('inline-flex rounded-full px-2.5 py-1 text-[11px] font-black ring-1 ring-inset', conditionClass(item.condition))}>{item.condition}</span> },
+    { id: 'condition', header: 'Condition', className: 'w-[11%]', sortValue: (item) => item.condition, render: (item) => <span className={cn('text-sm font-black', conditionClass(item.condition))}>{item.condition}</span> },
     { id: 'inspection', header: 'Last inspected', className: 'w-[12%]', sortValue: (item) => item.lastCheckedAt || '', render: (item) => <span className="text-xs leading-5 text-slate-500">{item.lastScanned}</span> },
     { id: 'actions', header: 'Actions', className: 'w-[10%] text-right', render: (item) => <InventoryActions equipment={item} onInspect={(selected) => void openInspection(selected)} /> },
   ], [])
