@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class NarrativeRepository extends BaseRepository implements NarrativeRepositoryInterface{
-    #[Override]
     public function __construct(Narrative $model)
     {
         parent::__construct($model);

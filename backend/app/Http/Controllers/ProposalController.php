@@ -85,11 +85,21 @@ class ProposalController extends Controller
         ],200);
     }
 
-    public function getSubmitterProposals(int $userId){
-        $proposal = $this->proposalService->getSubmitterProposals($userId);
+    public function getSubmitterProposals(string|int $userId)
+    {
+        $resolvedUserId = ($userId === 'me') ? (int) \Illuminate\Support\Facades\Auth::id() : (int) $userId;
+        $proposal = $this->proposalService->getSubmitterProposals($resolvedUserId);
         return response()->json([
-            'data' => $proposal
-        ],200);
+            'data' => $proposal,
+        ], 200);
+    }
+
+    public function getMyProposals()
+    {
+        $proposal = $this->proposalService->getSubmitterProposals((int) \Illuminate\Support\Facades\Auth::id());
+        return response()->json([
+            'data' => $proposal,
+        ], 200);
     }
 
     public function index(){

@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Collection;
 use Override;
 
 class ProductRepository extends BaseRepository implements ProductRepositoryInterface{
-    #[Override]
     public function __construct(Product $model)
     {
         parent::__construct($model);

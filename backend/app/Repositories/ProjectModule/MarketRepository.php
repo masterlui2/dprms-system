@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class MarketRepository extends BaseRepository implements MarketRepositoryInterface{
-    #[Override]
     public function __construct(Market $model)
     {
         parent::__construct($model);

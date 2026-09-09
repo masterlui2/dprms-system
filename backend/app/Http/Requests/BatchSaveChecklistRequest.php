@@ -18,6 +18,7 @@ class BatchSaveChecklistRequest extends FormRequest
             'items' => ['nullable', 'array'],
             'items.*.id' => ['nullable', 'string'],
             'items.*.template_id' => ['nullable', 'integer'],
+            'items.*.document_id' => ['nullable', 'integer'],
             'items.*.is_present' => ['nullable', 'boolean'],
             'items.*.status' => ['nullable', 'string', 'in:Complied,Missing,Under Review,Needs Revision'],
             'items.*.remarks' => ['nullable', 'string'],

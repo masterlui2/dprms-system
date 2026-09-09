@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class InterventionRepository extends BaseRepository implements InterventionRepositoryInterface{
-    #[Override]
     public function __construct(Intervention $model)
     {
         parent::__construct($model);

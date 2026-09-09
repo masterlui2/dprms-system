@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class ProductionMaterialRepository extends BaseRepository implements ProductionMaterialRepositoryInterface{
-    #[Override]
     public function __construct(ProductionMaterial $model)
     {
         parent::__construct($model);

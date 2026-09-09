@@ -11,7 +11,6 @@ use Override;
 
 class LinkageRepository extends BaseRepository implements LinkageRepositoryInterface{
 
-    #[Override]
     public function __construct(Linkage $model)
     {
         parent::__construct($model);

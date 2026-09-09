@@ -4,6 +4,7 @@ namespace App\Services\ProposalModule;
 
 use App\Models\Document;
 use App\Models\DocumentChecklistTemplate;
+use App\Models\DocumentType;
 use App\Models\Proposal;
 use App\Models\ProposalChecklistHistory;
 use App\Models\ProposalChecklistReview;
@@ -16,14 +17,111 @@ use Override;
 
 class DocumentChecklistService implements DocumentChecklistServiceInterface
 {
+    public const TEMPLATE_CODE_TO_DOC_TYPE_NAME = [
+        // SETUP SET 1
+        'setup-s1-tna-01' => 'Filled-out TNA Form 01',
+        'setup-s1-gad-assessment' => 'GAD Assessment (GWP)',
+        'setup-s1-gad-checklist' => 'GAD Checklist for S&T Interventions in MSMEs',
+        'setup-s1-hazard-hunter' => 'Hazard Hunter',
+        'setup-s1-mayors-permit' => "Recent Mayor's Permit",
+        'setup-s1-dti-registration' => 'DTI Registration Certificate',
+        'setup-s1-bir-registration' => 'BIR Registration',
+        'setup-s1-blank-or' => 'Photocopy of Blank Official Receipt',
+        'setup-s1-equipment-quotations' => 'Three (3) Valid Equipment Quotations',
+        'setup-s1-lease-contract' => 'Lease Contract for Rented Manufacturing Space',
+        'setup-s1-corp-board-res' => 'Notarized Board Resolution',
+        'setup-s1-corp-sec-cda' => 'SEC Registration Certificate',
+        'setup-s1-corp-aoi' => 'Articles of Incorporation / Cooperation',
+        'setup-s1-corp-sec-cert' => "Secretary's Certificate of Incumbent Officers",
+        'setup-s1-fs-financial-position' => 'Statement of Financial Position',
+        'setup-s1-fs-financial-operation' => 'Statement of Financial Operations',
+        'setup-s1-fs-cash-flows' => 'Statement of Cash Flows',
+        'setup-s1-fs-changes-equity' => "Statement of Changes in Owner's Equity",
+        'setup-s1-fs-notes' => 'Notes to Financial Statements',
+        'setup-s1-loi-commitment' => 'Letter of Intent for SETUP Assistance',
+
+        // SETUP SET 2
+        'setup-s2-biodata' => 'Bio-data of the Approved Signatory',
+        'setup-s2-govt-id' => 'Valid Government-issued ID of the Approved Signatory',
+        'setup-s2-brgy-cert' => 'Barangay Certificate of Permanent Residence',
+        'setup-s2-omnibus' => 'Omnibus Affidavit',
+        'setup-s2-tna-form-4' => 'TNA Form 4',
+
+        // SETUP SET 3
+        'setup-s3-request-funds' => 'Request for Release of Funds',
+        'setup-s3-lbp-waiver' => 'Waiver and Authorization to Tag LBP Account',
+        'setup-s3-payee-form' => 'Payee Data Form',
+        'setup-s3-notarized-moa' => 'Notarized and Signed MOA',
+        'setup-s3-pre-project-sheet' => 'Pre-Project Implementation Sheet',
+        'setup-s3-notice-approval' => 'Notice of Approval',
+        'setup-s3-approved-lib' => 'Approved Line-Item Budget',
+        'setup-s3-ard-approval' => 'Recommending Approval of ARD',
+        'setup-s3-psto-endorsement' => 'Endorsement Letter from C/PSTO',
+        'setup-s3-final-proposal' => 'Final Copy of Project Proposal',
+        'setup-s3-rtec-report' => 'RTEC Report',
+        'setup-s3-risk-register' => 'Candidate Risk Register',
+        'setup-s3-seti-scorecard' => 'SETI Scorecard',
+
+        // GIA Stage 01
+        'gia-s1-loi' => 'Letter of Intent or for Collaboration duly signed by the Head of IA',
+        'gia-s1-endorsement' => 'Endorsement Letter from C/PSTO',
+        'gia-s1-eligibility' => 'Project Leader Eligibility Checklist',
+        'gia-s1-dost-form-4' => 'Complete Project Proposal Form',
+        'gia-s1-dost-form-6' => 'Approved Line-Item Budget',
+        'gia-s1-dost-form-5' => 'Workplan and Implementation Schedule',
+        'gia-s1-rtec-report' => 'RTEC Report',
+        'gia-s1-seti-scorecard' => 'SETI Scorecard',
+        'gia-s1-gad-checklist' => 'GAD Checklist for S&T Interventions in MSMEs',
+        'gia-s1-moa-resolution' => 'Notarized and Signed MOA',
+        'gia-s1-cfa' => 'Certificate of Availability of Funds / Counterpart Funding',
+        'gia-s1-ched-accreditation' => 'CHED Accreditation',
+        'gia-s1-good-track-record' => 'Certification of Good Track Record with DOST',
+        'gia-s1-sec-cda-dole' => 'SEC/CDA/DOLE Registration and Articles of Incorporation/Cooperation with By-Laws',
+        'gia-s1-audited-fs' => 'Audited Financial Statements for the past three (3) years',
+        'gia-s1-sworn-affidavit' => 'Sworn Affidavit of no relationship',
+        'gia-s1-secretary-cert' => "Secretary's Certificate of directors and officers",
+        'gia-s1-board-resolution' => 'Board Resolution for the engagement of the NGO/CSO/PO for the project, assignment of the official representative, and authority to sign related documents and transact with DOST Davao Region',
+
+        // GIA Stage 02
+        'gia-s2-request-release' => 'Request for Release of Funds',
+        'gia-s2-payee-data-form' => 'Payee Data Form',
+        'gia-s2-notarized-moa' => 'Notarized and Signed MOA',
+        'gia-s2-rtec-report' => 'RTEC Report',
+        'gia-s2-dost-form-4b' => 'Complete Project Proposal Form',
+        'gia-s2-dost-form-6' => 'Approved Line-Item Budget',
+        'gia-s2-dost-form-5' => 'Workplan and Implementation Schedule',
+        'gia-s2-cfa' => 'Certificate of Availability of Funds / Counterpart Funding',
+        'gia-s2-loi' => 'Letter of Intent or for Collaboration duly signed by the Head of IA',
+        'gia-s2-dost-form-7' => 'Certification of Good Track Record with DOST',
+        'gia-s2-brgy-bond' => 'Bond of Barangay Captain and Barangay Treasurer with an amount that can cover the funds to be granted',
+        'gia-s2-brgy-certification' => 'Certification or other equivalent documents of previously handled projects through downloaded funds from external sources, preferably government agencies, as applicable',
+        'gia-s2-ched-accreditation' => 'CHED Accreditation',
+        'gia-s2-good-track-record' => 'Certification of Good Track Record with DOST',
+    ];
+
+    public const STATUS_COMPLIED = 'Complied';
+    public const STATUS_MISSING = 'Missing';
+    public const STATUS_UNDER_REVIEW = 'Under Review';
+    public const STATUS_NEEDS_REVISION = 'Needs Revision';
+
+    public static function normalizeStatus(?string $status): string
+    {
+        return match (strtolower(trim((string) $status))) {
+            'complied', 'approved' => self::STATUS_COMPLIED,
+            'needs revision', 'needs_revision', 'returned_for_revision', 'returned' => self::STATUS_NEEDS_REVISION,
+            'under review', 'under_review', 'pending' => self::STATUS_UNDER_REVIEW,
+            default => self::STATUS_MISSING,
+        };
+    }
+
     public function __construct(
         protected DocumentChecklistRepositoryInterface $checklistRepository
     ) {}
 
     #[Override]
-    public function getChecklistTemplates(string $programType): Collection
+    public function getChecklistTemplates(string $programType, bool $includeInactive = false): Collection
     {
-        return $this->checklistRepository->getTemplatesByProgram(strtoupper($programType));
+        return $this->checklistRepository->getTemplatesByProgram(strtoupper($programType), $includeInactive);
     }
 
     #[Override]
@@ -37,6 +135,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'setup_proposal',
                 'gia_proposal',
                 'documents.document_type',
+                'documents.archived_versions',
             ])
             ->findOrFail($proposalId);
 
@@ -44,6 +143,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         $templates = $this->checklistRepository->getTemplatesByProgram($program);
         $existingReviews = $this->checklistRepository->getReviewsByProposalId($proposalId)->keyBy('template_item_id');
         $summary = $this->checklistRepository->getSummary($proposalId);
+        $allDocTypes = DocumentType::query()->select(['id', 'name', 'applicable_program'])->get();
 
         $uploadedDocs = $proposal->documents;
 
@@ -99,32 +199,34 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'has_equipment' => $hasEquipment,
             ]);
 
-            $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs);
+            $expectedDocTypeId = $this->resolveDocumentTypeId($template->item_code, $program, $allDocTypes);
+            $isInternal = $this->isInternalDocumentTemplate($template, $expectedDocTypeId, $allDocTypes);
 
             $review = $existingReviews->get($template->id);
 
-            $isPresent = $review ? $review->is_present : false;
-            $status = $review ? $review->status : 'Missing';
+            $matchedDoc = null;
+            if ($review && $review->document_id) {
+                $matchedDoc = $uploadedDocs->firstWhere('id', $review->document_id);
+            }
+            if (! $matchedDoc) {
+                $matchedDoc = $this->findMatchingDocument($template, $uploadedDocs, $program, $expectedDocTypeId, $isInternal);
+            }
 
             if ($matchedDoc) {
-                if ($review) {
-                    $isPresent = $review->is_present;
-                    $status = $review->status;
+                if ($review && $review->status && in_array(self::normalizeStatus($review->status), [self::STATUS_COMPLIED, self::STATUS_NEEDS_REVISION], true)) {
+                    $status = self::normalizeStatus($review->status);
+                    $isPresent = ($status === self::STATUS_COMPLIED);
                 } else {
-                    $isDocApproved = $matchedDoc->status === 'approved';
-                    $isPresent = $isDocApproved;
-                    if ($matchedDoc->status === 'approved') {
-                        $status = 'Complied';
-                    } elseif ($matchedDoc->status === 'returned_for_revision') {
-                        $status = 'Needs Revision';
-                    } else {
-                        $status = 'Under Review';
-                    }
+                    $status = self::normalizeStatus($matchedDoc->status);
+                    $isPresent = ($status === self::STATUS_COMPLIED);
                 }
             } else {
-                if (!$review) {
+                if ($isInternal) {
+                    $status = self::STATUS_MISSING;
                     $isPresent = false;
-                    $status = 'Missing';
+                } else {
+                    $status = $review ? self::normalizeStatus($review->status) : self::STATUS_MISSING;
+                    $isPresent = (bool) ($review?->is_present ?? false);
                 }
             }
 
@@ -135,7 +237,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
 
             if ($isMandatory) {
                 $totalRequired++;
-                if ($isPresent || $status === 'Complied') {
+                if ($isPresent || $status === self::STATUS_COMPLIED) {
                     $compliedCount++;
                 }
             }
@@ -143,6 +245,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             $items[] = [
                 'id' => $template->item_code,
                 'template_id' => $template->id,
+                'document_type_id' => $expectedDocTypeId,
                 'name' => $template->document_name,
                 'group' => $template->group_name,
                 'set_id' => $program === 'SETUP' ? $template->phase_code : null,
@@ -154,6 +257,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'remarks' => $remarks,
                 'uploaded_doc' => $matchedDoc ? [
                     'id' => $matchedDoc->id,
+                    'document_type_id' => $matchedDoc->document_type_id,
                     'file_name' => $matchedDoc->file_name,
                     'file_path' => $matchedDoc->file_path,
                     'file_size' => $matchedDoc->file_size,
@@ -162,6 +266,20 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                     'remarks' => $matchedDoc->remarks,
                     'reviewed_at' => $matchedDoc->reviewed_at?->toIso8601String(),
                     'created_at' => $matchedDoc->created_at?->toIso8601String(),
+                    'document_type' => $matchedDoc->document_type ? [
+                        'id' => $matchedDoc->document_type->id,
+                        'name' => $matchedDoc->document_type->name,
+                        'group' => $matchedDoc->document_type->group,
+                    ] : null,
+                    'archived_versions' => $matchedDoc->archived_versions?->map(fn($v) => [
+                        'id' => $v->id,
+                        'file_name' => $v->file_name,
+                        'file_path' => $v->file_path,
+                        'file_size' => $v->file_size,
+                        'status' => $v->status,
+                        'remarks' => $v->remarks,
+                        'archived_at' => $v->archived_at?->toIso8601String(),
+                    ])->values()->toArray() ?? [],
                 ] : null,
                 'reviewed_at' => $reviewedAt,
             ];
@@ -207,6 +325,23 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'reviewed_at' => now(),
             ]);
 
+            if (!empty($data['document_id'])) {
+                $docStatus = match ($data['status'] ?? '') {
+                    self::STATUS_COMPLIED => 'approved',
+                    self::STATUS_NEEDS_REVISION => 'returned_for_revision',
+                    self::STATUS_UNDER_REVIEW => 'pending',
+                    default => null,
+                };
+                if ($docStatus) {
+                    Document::query()->where('id', (int) $data['document_id'])->update([
+                        'status' => $docStatus,
+                        'reviewed_by' => $userId,
+                        'reviewed_at' => now(),
+                        'remarks' => $data['remarks'] ?? null,
+                    ]);
+                }
+            }
+
             $action = ($data['status'] ?? '') === 'Complied' ? 'REVIEW_APPROVED' : 'REVIEW_RETURNED';
             $this->logActivity(
                 $proposalId,
@@ -224,7 +359,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     #[Override]
     public function batchSaveReviews(int $proposalId, array $payload, int $userId): array
     {
-        return DB::transaction(function () use ($proposalId, $payload, $userId) {
+        DB::transaction(function () use ($proposalId, $payload, $userId) {
             if (isset($payload['overall_remarks'])) {
                 $this->checklistRepository->updateOrCreateSummary($proposalId, [
                     'overall_remarks' => $payload['overall_remarks'],
@@ -242,13 +377,35 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                     }
 
                     if ($templateId) {
-                        $this->checklistRepository->updateOrCreateReview($proposalId, $templateId, [
+                        $docId = $item['document_id'] ?? $item['uploaded_doc']['id'] ?? $item['uploadedDoc']['id'] ?? null;
+                        $reviewData = [
                             'is_present' => $item['is_present'] ?? false,
                             'status' => $item['status'] ?? 'Under Review',
                             'remarks' => $item['remarks'] ?? null,
                             'reviewed_by' => $userId,
                             'reviewed_at' => now(),
-                        ]);
+                        ];
+                        if ($docId) {
+                            $reviewData['document_id'] = $docId;
+                            $docStatus = match ($reviewData['status']) {
+                                self::STATUS_COMPLIED => 'approved',
+                                self::STATUS_NEEDS_REVISION => 'returned_for_revision',
+                                self::STATUS_UNDER_REVIEW => 'pending',
+                                default => null,
+                            };
+                            if ($docStatus) {
+                                Document::query()->where('id', (int) $docId)->update([
+                                    'status' => $docStatus,
+                                    'reviewed_by' => $userId,
+                                    'reviewed_at' => now(),
+                                    'remarks' => $reviewData['remarks'] ?? null,
+                                ]);
+                            }
+                        } elseif (array_key_exists('document_id', $item) && $item['document_id'] === null) {
+                            $reviewData['document_id'] = null;
+                        }
+
+                        $this->checklistRepository->updateOrCreateReview($proposalId, $templateId, $reviewData);
                     }
                 }
             }
@@ -261,9 +418,9 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 null,
                 'Saved checklist review updates and notes.'
             );
-
-            return $this->getProposalChecklist($proposalId);
         });
+
+        return $this->getProposalChecklist($proposalId);
     }
 
     #[Override]
@@ -310,6 +467,30 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         ]);
     }
 
+    #[Override]
+    public function createTemplate(array $data): DocumentChecklistTemplate
+    {
+        return $this->checklistRepository->createTemplate($data);
+    }
+
+    #[Override]
+    public function updateTemplate(int $id, array $data): DocumentChecklistTemplate
+    {
+        return $this->checklistRepository->updateTemplate($id, $data);
+    }
+
+    #[Override]
+    public function restoreTemplate(int $id): DocumentChecklistTemplate
+    {
+        return $this->checklistRepository->updateTemplate($id, ['is_active' => true]);
+    }
+
+    #[Override]
+    public function deleteTemplate(int $id): bool
+    {
+        return $this->checklistRepository->deleteTemplate($id);
+    }
+
     protected function evaluateApplicability(DocumentChecklistTemplate $template, array $context): bool
     {
         $rules = $template->applicability_rules;
@@ -348,53 +529,138 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         return true;
     }
 
-    protected function findMatchingDocument(DocumentChecklistTemplate $template, Collection $uploadedDocs): ?Document
+    public static function normalizeText(?string $value): string
     {
-        $code = strtolower($template->item_code);
-        $tmplName = strtolower(preg_replace('/^\d+\.\s*/', '', $template->document_name));
+        if (!$value) {
+            return '';
+        }
+        $cleaned = preg_replace('/^[a-z0-9]+[\.\)]\s*/i', '', $value);
+        $cleaned = preg_replace('/[^a-z0-9]+/i', ' ', (string) $cleaned);
+        return trim(strtolower((string) $cleaned));
+    }
 
-        return $uploadedDocs->first(function (Document $doc) use ($code, $tmplName) {
-            $typeName = strtolower($doc->document_type?->name ?? '');
-            $fileName = strtolower($doc->file_name ?? '');
+    protected function resolveDocumentTypeId(string $itemCode, string $program, Collection $allDocTypes): ?int
+    {
+        $targetName = self::TEMPLATE_CODE_TO_DOC_TYPE_NAME[$itemCode] ?? null;
+        if (!$targetName) {
+            return null;
+        }
 
-            if ($typeName && (str_contains($tmplName, $typeName) || str_contains($typeName, $tmplName))) {
+        $matched = $allDocTypes->first(function (DocumentType $dt) use ($targetName, $program) {
+            return $dt->name === $targetName && in_array($dt->applicable_program, [$program, 'BOTH'], true);
+        });
+
+        return $matched?->id ?? $allDocTypes->firstWhere('name', $targetName)?->id;
+    }
+
+    public function isInternalDocumentTemplate(
+        DocumentChecklistTemplate $template,
+        ?int $targetDocTypeId,
+        Collection $allDocTypes
+    ): bool {
+        if ($targetDocTypeId) {
+            $docType = $allDocTypes->firstWhere('id', $targetDocTypeId);
+            if ($docType && ! $docType->is_applicant_visible) {
                 return true;
             }
+        }
 
-            if (str_contains($code, 'dti') && (str_contains($typeName, 'dti') || str_contains($fileName, 'dti'))) return true;
-            if (str_contains($code, 'bir') && (str_contains($typeName, 'bir') || str_contains($fileName, 'bir'))) return true;
-            if (str_contains($code, 'mayor') && (str_contains($typeName, 'mayor') || str_contains($fileName, 'mayor'))) return true;
-            if (str_contains($code, 'receipt') && (str_contains($typeName, 'receipt') || str_contains($fileName, 'receipt'))) return true;
-            if (str_contains($code, 'quotation') && (str_contains($typeName, 'quotation') || str_contains($fileName, 'quotation') || str_contains($fileName, 'quote'))) return true;
-            if (str_contains($code, 'lease') && (str_contains($typeName, 'lease') || str_contains($fileName, 'lease') || str_contains($typeName, 'ownership') || str_contains($fileName, 'ownership'))) return true;
-            if (str_contains($code, 'board-res') && (str_contains($typeName, 'board resolution') || str_contains($fileName, 'board_res') || str_contains($fileName, 'board-res'))) return true;
-            if (str_contains($code, 'articles') && (str_contains($typeName, 'articles') || str_contains($fileName, 'articles') || str_contains($typeName, 'by-laws'))) return true;
-            if (str_contains($code, 'sec-cert') && (str_contains($typeName, 'secretary') || str_contains($fileName, 'sec_cert') || str_contains($fileName, 'secretary'))) return true;
-            if (str_contains($code, 'financial') && (str_contains($typeName, 'financial') || str_contains($fileName, 'financial') || str_contains($typeName, 'balance sheet') || str_contains($fileName, 'fs'))) return true;
-            if (str_contains($code, 'letter-of-intent') && (str_contains($typeName, 'intent') || str_contains($fileName, 'intent') || str_contains($fileName, 'loi'))) return true;
-            if (str_contains($code, 'tna-01') && (str_contains($typeName, 'tna form 01') || str_contains($fileName, 'tna_01') || str_contains($fileName, 'tna-01') || str_contains($fileName, 'tna_form_1'))) return true;
-            if (str_contains($code, 'gad-assessment') && (str_contains($typeName, 'gwp') || str_contains($fileName, 'gwp') || str_contains($fileName, 'gad_assessment'))) return true;
-            if (str_contains($code, 'gad-checklist') && (str_contains($typeName, 'gad checklist') || str_contains($fileName, 'gad_checklist') || str_contains($fileName, 'gad-checklist'))) return true;
-            if (str_contains($code, 'hazard-hunter') && (str_contains($typeName, 'hazard') || str_contains($fileName, 'hazard'))) return true;
-            if (str_contains($code, 'biodata') && (str_contains($typeName, 'bio-data') || str_contains($typeName, 'cv') || str_contains($fileName, 'biodata') || str_contains($fileName, 'cv'))) return true;
-            if (str_contains($code, 'govt-id') && (str_contains($typeName, 'government-issued id') || str_contains($typeName, 'valid id') || str_contains($fileName, 'valid_id') || str_contains($fileName, 'govt_id'))) return true;
-            if (str_contains($code, 'brgy-cert') && (str_contains($typeName, 'barangay') || str_contains($fileName, 'barangay') || str_contains($fileName, 'brgy'))) return true;
-            if (str_contains($code, 'omnibus') && (str_contains($typeName, 'omnibus') || str_contains($fileName, 'omnibus'))) return true;
+        $phase = strtoupper((string) ($template->phase_code ?? ''));
+        if (in_array($phase, ['SET3', 'STAGE 02', 'STAGE 03', 'STAGE 04', 'STAGE 05', 'STAGE02', 'STAGE03', 'STAGE04', 'STAGE05'], true)) {
+            return true;
+        }
 
-            if (str_contains($code, 'dost-form-1') && (str_contains($typeName, 'form 1') || str_contains($typeName, 'form 1a') || str_contains($typeName, 'form 1b') || str_contains($typeName, 'proposal form') || str_contains($fileName, 'form_1') || str_contains($fileName, 'form1'))) return true;
-            if (str_contains($code, 'dost-form-2') && (str_contains($typeName, 'form 2') || str_contains($typeName, 'workplan') || str_contains($fileName, 'form_2') || str_contains($fileName, 'workplan'))) return true;
-            if (str_contains($code, 'dost-form-3') && (str_contains($typeName, 'form 3') || str_contains($typeName, 'financial plan') || str_contains($typeName, 'lib') || str_contains($fileName, 'form_3') || str_contains($fileName, 'budget') || str_contains($fileName, 'lib'))) return true;
-            if (str_contains($code, 'dost-form-4') && (str_contains($typeName, 'form 4') || str_contains($typeName, 'gender') || str_contains($fileName, 'form_4') || str_contains($fileName, 'gad'))) return true;
-            if (str_contains($code, 'dost-form-5') && (str_contains($typeName, 'form 5') || str_contains($typeName, 'curriculum vitae') || str_contains($fileName, 'form_5') || str_contains($fileName, 'cv'))) return true;
-            if (str_contains($code, 'dost-form-6') && (str_contains($typeName, 'form 6') || str_contains($typeName, 'endorsement') || str_contains($fileName, 'form_6') || str_contains($fileName, 'endorsement'))) return true;
-            if (str_contains($code, 'cofunding') && (str_contains($typeName, 'co-funding') || str_contains($typeName, 'counterpart') || str_contains($fileName, 'cofunding') || str_contains($fileName, 'counterpart'))) return true;
-            if (str_contains($code, 'sec-cda') && (str_contains($typeName, 'sec') || str_contains($typeName, 'cda') || str_contains($fileName, 'sec') || str_contains($fileName, 'cda'))) return true;
-            if (str_contains($code, 'audited-fs') && (str_contains($typeName, 'audited') || str_contains($fileName, 'audited') || str_contains($fileName, 'fs'))) return true;
+        return in_array($template->item_code, [
+            'setup-s1-tna-01',
+            'setup-s1-gad-assessment',
+            'setup-s1-gad-checklist',
+            'setup-s1-hazard-hunter',
+            'setup-s2-tna-form-4',
+            'setup-s3-pre-project-sheet',
+            'setup-s3-request-funds',
+            'setup-s3-lbp-waiver',
+            'setup-s3-payee-form',
+            'setup-s3-notarized-moa',
+            'setup-s3-notice-approval',
+            'setup-s3-approved-lib',
+            'setup-s3-ard-approval',
+            'setup-s3-psto-endorsement',
+            'setup-s3-final-proposal',
+            'setup-s3-rtec-report',
+            'setup-s3-risk-register',
+            'setup-s3-seti-scorecard',
+            'gia-s1-endorsement',
+            'gia-s1-rtec-report',
+            'gia-s1-seti-scorecard',
+        ], true);
+    }
 
-            $tmplWords = array_filter(explode(' ', preg_replace('/[^a-z0-9 ]/', '', $tmplName)), fn($w) => strlen($w) > 3 && !in_array($w, ['from', 'with', 'that', 'this', 'form', 'copy', 'each', 'past', 'years', 'least', 'indicates', 'indicating']));
-            $typeWords = array_filter(explode(' ', preg_replace('/[^a-z0-9 ]/', '', $typeName)), fn($w) => strlen($w) > 3);
-            if (count(array_intersect($tmplWords, $typeWords)) >= 2) {
-                return true;
+    protected function findMatchingDocument(
+        DocumentChecklistTemplate $template,
+        Collection $uploadedDocs,
+        string $program,
+        ?int $targetDocTypeId = null,
+        bool $isInternal = false
+    ): ?Document {
+        if ($targetDocTypeId) {
+            $direct = $uploadedDocs->firstWhere('document_type_id', $targetDocTypeId);
+            if ($direct) {
+                return $direct;
+            }
+        }
+
+        $canonicalName = self::TEMPLATE_CODE_TO_DOC_TYPE_NAME[$template->item_code] ?? null;
+        if ($canonicalName) {
+            $exactTypeMatch = $uploadedDocs->first(function (Document $doc) use ($canonicalName, $program) {
+                if (! $doc->document_type) {
+                    return false;
+                }
+                if ($doc->document_type->set_number === 'PROPOSAL') {
+                    return false;
+                }
+                if (! in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
+                    return false;
+                }
+                return strcasecmp(trim($doc->document_type->name), trim($canonicalName)) === 0;
+            });
+
+            if ($exactTypeMatch) {
+                return $exactTypeMatch;
+            }
+        }
+
+        if ($isInternal) {
+            return null;
+        }
+
+        $normalizedTarget = self::normalizeText($canonicalName ?: $template->document_name);
+
+        return $uploadedDocs->first(function (Document $doc) use ($normalizedTarget, $program) {
+            if ($doc->document_type && $doc->document_type->set_number === 'PROPOSAL') {
+                return false;
+            }
+            if ($doc->document_type && ! in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
+                return false;
+            }
+
+            $normalizedType = self::normalizeText($doc->document_type?->name);
+            if ($normalizedType) {
+                if ($normalizedType === $normalizedTarget
+                    || (strlen($normalizedType) >= 3 && str_contains($normalizedTarget, $normalizedType))
+                    || (strlen($normalizedTarget) >= 3 && str_contains($normalizedType, $normalizedTarget))
+                ) {
+                    return true;
+                }
+            }
+
+            $normalizedFile = self::normalizeText(pathinfo($doc->file_name ?? '', PATHINFO_FILENAME));
+            if ($normalizedFile && strlen($normalizedFile) >= 3) {
+                if ($normalizedFile === $normalizedTarget
+                    || str_contains($normalizedTarget, $normalizedFile)
+                    || str_contains($normalizedFile, $normalizedTarget)
+                ) {
+                    return true;
+                }
             }
 
             return false;

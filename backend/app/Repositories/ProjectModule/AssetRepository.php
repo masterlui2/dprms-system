@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Override;
 
 class AssetRepository extends BaseRepository implements AssetRepositoryInterface{
-    #[Override]
     public function __construct(Asset $model)
     {
         parent::__construct($model);

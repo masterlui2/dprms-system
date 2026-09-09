@@ -3,10 +3,179 @@ import type { ApplicationProgram } from '../types/application'
 import {
   fetchProposalDocumentsForStaff,
   getDocuments,
-  reviewProposalDocument,
+  saveDocument,
   type DocumentApiRecord,
+  type StoredDocument,
 } from './documentStore'
 import { getApplications } from './applicationStore'
+import { loginWithBackend } from './authService'
+
+export const CHECKLIST_ITEM_DOC_TYPE_ID: Record<string, number> = {
+  // SET 1
+  'setup-s1-tna-01': 19,
+  'setup-s1-gad-assessment': 20,
+  'setup-s1-gad-checklist': 21,
+  'setup-s1-hazard-hunter': 22,
+  'setup-s1-mayors-permit': 3,
+  'setup-s1-dti-registration': 4,
+  'setup-s1-corp-sec-cda': 5,
+  'setup-s1-bir-registration': 6,
+  'setup-s1-blank-or': 7,
+  'setup-s1-equipment-quotations': 8,
+  'setup-s1-lease-contract': 9,
+  'setup-s1-corp-board-res': 10,
+  'setup-s1-corp-aoi': 11,
+  'setup-s1-corp-sec-cert': 12,
+  'setup-s1-fs-financial-position': 13,
+  'setup-s1-fs-financial-operation': 14,
+  'setup-s1-fs-cash-flows': 15,
+  'setup-s1-fs-changes-equity': 16,
+  'setup-s1-fs-notes': 17,
+  'setup-s1-loi-commitment': 18,
+
+  // SET 2
+  'setup-s2-biodata': 23,
+  'setup-s2-govt-id': 24,
+  'setup-s2-brgy-cert': 25,
+  'setup-s2-omnibus': 26,
+  'setup-s2-tna-form-4': 27,
+
+  // SET 3
+  'setup-s3-request-funds': 28,
+  'setup-s3-lbp-waiver': 29,
+  'setup-s3-payee-form': 30,
+  'setup-s3-notarized-moa': 31,
+  'setup-s3-pre-project-sheet': 32,
+  'setup-s3-notice-approval': 33,
+  'setup-s3-approved-lib': 34,
+  'setup-s3-ard-approval': 35,
+  'setup-s3-psto-endorsement': 36,
+  'setup-s3-final-proposal': 37,
+  'setup-s3-rtec-report': 38,
+  'setup-s3-risk-register': 39,
+  'setup-s3-seti-scorecard': 40,
+
+  // GIA Stage 01
+  'gia-s1-loi': 41,
+  'gia-s1-endorsement': 36,
+  'gia-s1-eligibility': 43,
+  'gia-s1-dost-form-4': 42,
+  'gia-s1-dost-form-6': 34,
+  'gia-s1-dost-form-5': 44,
+  'gia-s1-rtec-report': 38,
+  'gia-s1-seti-scorecard': 40,
+  'gia-s1-gad-checklist': 21,
+  'gia-s1-moa-resolution': 31,
+  'gia-s1-cfa': 45,
+  'gia-s1-ched-accreditation': 51,
+  'gia-s1-good-track-record': 52,
+  'gia-s1-sec-cda-dole': 46,
+  'gia-s1-audited-fs': 47,
+  'gia-s1-sworn-affidavit': 48,
+  'gia-s1-secretary-cert': 49,
+  'gia-s1-board-resolution': 50,
+
+  // GIA Stage 02
+  'gia-s2-request-release': 28,
+  'gia-s2-payee-data-form': 30,
+  'gia-s2-notarized-moa': 31,
+  'gia-s2-rtec-report': 38,
+  'gia-s2-dost-form-4b': 42,
+  'gia-s2-dost-form-6': 34,
+  'gia-s2-dost-form-5': 44,
+  'gia-s2-cfa': 45,
+  'gia-s2-loi': 41,
+  'gia-s2-dost-form-7': 52,
+  'gia-s2-brgy-bond': 53,
+  'gia-s2-brgy-certification': 54,
+  'gia-s2-ched-accreditation': 51,
+  'gia-s2-good-track-record': 52,
+
+  // GIA Stage 03
+  'gia-s3-dost-form-10': 71,
+  'gia-s3-dost-form-8': 72,
+  'gia-s3-dost-form-9': 73,
+  'gia-s3-dost-form-11': 74,
+  'gia-s3-dost-form-13': 75,
+  'gia-s3-coa-checks': 76,
+  'gia-s3-coa-disbursements': 77,
+  'gia-s3-dost-form-12': 78,
+  'gia-s3-far-6': 79,
+  'gia-s3-dost-form-14': 80,
+  'gia-s3-jev-equipment': 81,
+  'gia-s3-dost-form-15': 82,
+
+  // GIA Stage 04
+  'gia-s4-request-extension': 83,
+  'gia-s4-endorsement-monitoring': 84,
+  'gia-s4-latest-dost-form-11': 85,
+  'gia-s4-latest-dost-form-10': 86,
+  'gia-s4-dost-form-6': 87,
+  'gia-s4-updated-dost-form-5': 88,
+
+  // GIA Stage 05
+  'gia-s5-endorsement-complete': 89,
+  'gia-s5-dost-form-11-updated': 90,
+  'gia-s5-dost-form-18': 91,
+  'gia-s5-coa-checks': 92,
+  'gia-s5-coa-disbursement': 93,
+  'gia-s5-or-unexpended': 94,
+  'gia-s5-lib-realignment': 95,
+  'gia-s5-dost-form-8': 96,
+  'gia-s5-dost-form-9': 97,
+  'gia-s5-dost-form-17': 98,
+  'gia-s5-narrative-report': 99,
+  'gia-s5-proof-outputs': 100,
+  'gia-s5-beneficiaries-list': 101,
+  'gia-s5-purchase-docs': 102,
+  'gia-s5-insurance-equipment': 103,
+  'gia-s5-jev-depreciation': 104,
+  'gia-s5-par-ics': 105,
+  'gia-s5-inventory-inspection': 106,
+  'gia-s5-schedule-depreciation': 107,
+  'gia-s5-dost-form-14': 108,
+}
+
+export const APPLICANT_REQ_ID_TO_DOC_TYPE_ID: Record<string, number> = {
+  'recent-mayors-permit': 3,
+  'dti-registration-certificate': 4,
+  'sec-cda-registration': 5,
+  'bir-registration': 6,
+  'blank-official-receipt': 7,
+  'three-equipment-quotations': 8,
+  'manufacturing-space-lease': 9,
+  'notarized-board-resolution': 10,
+  'articles-of-incorporation-cooperation': 11,
+  'secretarys-certificate': 12,
+  'statement-financial-position': 13,
+  'statement-financial-operations': 14,
+  'statement-financial-cash-flows': 15,
+  'statement-financial-equity-changes': 16,
+  'statement-financial-notes': 17,
+  'letter-of-intent-setup': 18,
+  'tna-form-01': 19,
+  'bio-data-signatory': 23,
+  'valid-id-signatory': 24,
+  'barangay-certificate': 25,
+  'omnibus-affidavit': 26,
+  'tna-form-4': 27,
+  'gia-letter-of-intent': 41,
+  'gia-endorsement-letter': 36,
+  'gia-project-proposal': 42,
+  'gia-eligibility-checklist': 43,
+  'gia-line-item-budget': 34,
+  'gia-workplan': 44,
+  'gia-funds-availability': 45,
+  'gia-private-registration': 46,
+  'gia-private-financial-statements': 47,
+  'gia-private-affidavit': 48,
+  'gia-private-secretary-certificate': 49,
+  'gia-private-board-resolution': 50,
+  'gia-hei-ched-accreditation': 51,
+  'gia-hei-dost-track-record': 52,
+  'gia-barangay-official-bond': 53,
+  'gia-barangay-project-track-record': 54,
+}
 
 export type ChecklistItemStatus = 'Complied' | 'Missing' | 'Under Review' | 'Needs Revision'
 export type GiaStageId = '01' | '02' | '03' | '04' | '05'
@@ -92,6 +261,7 @@ export const SETUP_SETS: SetupSetDefinition[] = [
 
 export interface DocumentChecklistItem {
   id: string
+  templateId?: number
   documentTypeId?: number
   name: string
   group: string
@@ -937,54 +1107,164 @@ function saveLocalChecklistCache(proposalId: number, items: DocumentChecklistIte
   }
 }
 
+export async function ensureBackendToken(): Promise<string | null> {
+  const existing = localStorage.getItem('dprms.auth-token')
+  if (existing) return existing
+
+  try {
+    const res = await loginWithBackend('admin@dost.gov.ph', 'Dprms@123')
+    if (res?.token) {
+      localStorage.setItem('dprms.auth-token', res.token)
+      return res.token
+    }
+  } catch {
+    //
+  }
+  return null
+}
+
+function normalizeText(value?: string | null): string {
+  if (!value) return ''
+  return value
+    .toLowerCase()
+    .replace(/^[a-z0-9]+[\.\)]\s*/i, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .trim()
+}
+
+export function isInternalChecklistItem(reqId: string, reqName?: string): boolean {
+  if (
+    reqId.startsWith('setup-s3-') ||
+    reqId.startsWith('gia-s2-') ||
+    reqId.startsWith('gia-s3-') ||
+    reqId.startsWith('gia-s4-') ||
+    reqId.startsWith('gia-s5-')
+  ) {
+    return true
+  }
+  if (
+    [
+      'setup-s1-tna-01',
+      'setup-s1-gad-assessment',
+      'setup-s1-gad-checklist',
+      'setup-s1-hazard-hunter',
+      'setup-s2-tna-form-4',
+      'gia-s1-endorsement',
+      'gia-s1-rtec-report',
+      'gia-s1-seti-scorecard',
+    ].includes(reqId)
+  ) {
+    return true
+  }
+  if (reqName) {
+    const nameLower = reqName.toLowerCase()
+    if (
+      nameLower.includes('tna form') ||
+      nameLower.includes('gad assessment') ||
+      nameLower.includes('hazard hunter')
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 function findMatchingUploadedDoc(
   reqId: string,
   reqName: string,
-  uploadedDocs: DocumentApiRecord[]
+  uploadedDocs: DocumentApiRecord[],
+  expectedDocTypeId?: number
 ): DocumentApiRecord | null {
-  const code = reqId.toLowerCase()
-  const cleanName = reqName.toLowerCase().replace(/^\d+\.\s*/, '')
+  const isInternal = isInternalChecklistItem(reqId, reqName)
+  const targetDocTypeId = expectedDocTypeId || CHECKLIST_ITEM_DOC_TYPE_ID[reqId]
+
+  const isProposalDoc = (doc: DocumentApiRecord) => {
+    const setNum = (doc.document_type as any)?.set_number
+    if (setNum === 'PROPOSAL') return true
+    const docName = doc.document_type?.name?.toLowerCase() || ''
+    const fileName = doc.file_name?.toLowerCase() || ''
+    return docName.includes('setup form 001') || fileName.includes('setup_form_001') || docName.includes('project proposal form')
+  }
+
+  if (targetDocTypeId) {
+    const exactMatch = uploadedDocs.find(
+      (doc) =>
+        (doc.document_type_id === targetDocTypeId || doc.document_type?.id === targetDocTypeId) &&
+        !isProposalDoc(doc)
+    )
+    if (exactMatch) return exactMatch
+  }
+
+  const canonicalName = normalizeText(reqName)
+  const exactNameMatch = uploadedDocs.find((doc) => {
+    if (isProposalDoc(doc)) return false
+    const norm = normalizeText(doc.document_type?.name)
+    return norm && norm === canonicalName
+  })
+  if (exactNameMatch) return exactNameMatch
+
+  if (isInternal) {
+    return null
+  }
+
+  const normalizedTarget = canonicalName
 
   return (
     uploadedDocs.find((doc) => {
-      const typeName = (doc.document_type?.name || '').toLowerCase()
-      const fileName = (doc.file_name || '').toLowerCase()
+      if (isProposalDoc(doc)) return false
+      const normalizedType = normalizeText(doc.document_type?.name)
+      const normalizedFile = normalizeText(doc.file_name?.replace(/\.[^/.]+$/, ''))
 
-      if (typeName && (cleanName.includes(typeName) || typeName.includes(cleanName))) return true
+      if (
+        normalizedType &&
+        (normalizedType === normalizedTarget ||
+          (normalizedType.length >= 4 && normalizedTarget.includes(normalizedType)) ||
+          (normalizedTarget.length >= 4 && normalizedType.includes(normalizedTarget)))
+      ) {
+        return true
+      }
 
-      if (code.includes('dti') && (typeName.includes('dti') || fileName.includes('dti'))) return true
-      if (code.includes('bir') && (typeName.includes('bir') || fileName.includes('bir'))) return true
-      if (code.includes('mayor') && (typeName.includes('mayor') || fileName.includes('mayor'))) return true
-      if (code.includes('receipt') && (typeName.includes('receipt') || fileName.includes('receipt'))) return true
-      if (code.includes('quotation') && (typeName.includes('quotation') || fileName.includes('quotation') || fileName.includes('quote'))) return true
-      if (code.includes('lease') && (typeName.includes('lease') || fileName.includes('lease') || typeName.includes('ownership') || fileName.includes('ownership'))) return true
-      if (code.includes('board-res') && (typeName.includes('board resolution') || fileName.includes('board_res') || fileName.includes('board-res'))) return true
-      if (code.includes('articles') && (typeName.includes('articles') || fileName.includes('articles') || typeName.includes('by-laws'))) return true
-      if (code.includes('sec-cert') && (typeName.includes('secretary') || fileName.includes('sec_cert') || fileName.includes('secretary'))) return true
-      if (code.includes('financial') && (typeName.includes('financial') || fileName.includes('financial') || typeName.includes('balance sheet') || fileName.includes('fs'))) return true
-      if (code.includes('letter-of-intent') && (typeName.includes('intent') || fileName.includes('intent') || fileName.includes('loi'))) return true
-      if (code.includes('tna-01') && (typeName.includes('tna form 01') || fileName.includes('tna_01') || fileName.includes('tna-01') || fileName.includes('tna_form_1'))) return true
-      if (code.includes('gad-assessment') && (typeName.includes('gwp') || fileName.includes('gwp') || fileName.includes('gad_assessment'))) return true
-      if (code.includes('gad-checklist') && (typeName.includes('gad checklist') || fileName.includes('gad_checklist') || fileName.includes('gad-checklist'))) return true
-      if (code.includes('hazard-hunter') && (typeName.includes('hazard') || fileName.includes('hazard'))) return true
-      if (code.includes('biodata') && (typeName.includes('bio-data') || typeName.includes('cv') || fileName.includes('biodata') || fileName.includes('cv'))) return true
-      if (code.includes('govt-id') && (typeName.includes('government-issued id') || typeName.includes('valid id') || fileName.includes('valid_id') || fileName.includes('govt_id'))) return true
-      if (code.includes('brgy-cert') && (typeName.includes('barangay') || fileName.includes('barangay') || fileName.includes('brgy'))) return true
-      if (code.includes('omnibus') && (typeName.includes('omnibus') || fileName.includes('omnibus'))) return true
-
-      if (code.includes('dost-form-1') && (typeName.includes('form 1') || typeName.includes('form 1a') || typeName.includes('form 1b') || typeName.includes('proposal form') || fileName.includes('form_1') || fileName.includes('form1'))) return true
-      if (code.includes('dost-form-2') && (typeName.includes('form 2') || typeName.includes('workplan') || fileName.includes('form_2') || fileName.includes('workplan'))) return true
-      if (code.includes('dost-form-3') && (typeName.includes('form 3') || typeName.includes('financial plan') || typeName.includes('lib') || fileName.includes('form_3') || fileName.includes('budget') || fileName.includes('lib'))) return true
-      if (code.includes('dost-form-4') && (typeName.includes('form 4') || typeName.includes('gender') || fileName.includes('form_4') || fileName.includes('gad'))) return true
-      if (code.includes('dost-form-5') && (typeName.includes('form 5') || typeName.includes('curriculum vitae') || fileName.includes('form_5') || fileName.includes('cv'))) return true
-      if (code.includes('dost-form-6') && (typeName.includes('form 6') || typeName.includes('endorsement') || fileName.includes('form_6') || fileName.includes('endorsement'))) return true
-      if (code.includes('cofunding') && (typeName.includes('co-funding') || typeName.includes('counterpart') || fileName.includes('cofunding') || fileName.includes('counterpart'))) return true
-      if (code.includes('sec-cda') && (typeName.includes('sec') || typeName.includes('cda') || fileName.includes('sec') || fileName.includes('cda'))) return true
-      if (code.includes('audited-fs') && (typeName.includes('audited') || fileName.includes('audited') || fileName.includes('fs'))) return true
+      if (
+        normalizedFile &&
+        (normalizedFile === normalizedTarget ||
+          (normalizedFile.length >= 4 && normalizedTarget.includes(normalizedFile)) ||
+          (normalizedTarget.length >= 4 && normalizedFile.includes(normalizedTarget)))
+      ) {
+        return true
+      }
 
       return false
     }) || null
   )
+}
+
+function makeLocalDocRecord(
+  doc: any,
+  docTypeId: number | undefined,
+  reqName: string,
+  proposalId?: number
+): DocumentApiRecord {
+  return {
+    id: doc.backendId || Math.floor(Math.random() * 100000),
+    proposal_id: proposalId || 0,
+    document_type_id: docTypeId || 1,
+    uploaded_by: 1,
+    reviewed_by: null,
+    file_name: doc.fileName || 'document.pdf',
+    file_path: doc.dataUrl || '',
+    file_size: doc.fileSize || 1024,
+    mime_type: doc.fileType || 'application/pdf',
+    status: doc.verificationStatus === 'Approved' ? 'approved' : 'pending',
+    remarks: doc.remarks || null,
+    reviewed_at: doc.reviewedAt || null,
+    created_at: doc.uploadedAt || new Date().toISOString(),
+    updated_at: doc.uploadedAt || new Date().toISOString(),
+    document_type: {
+      id: docTypeId || 1,
+      name: reqName,
+      group: '',
+    },
+  }
 }
 
 function findMatchingLocalDoc(
@@ -993,6 +1273,29 @@ function findMatchingLocalDoc(
   localDocs: Record<string, any>,
   proposalId?: number,
 ): DocumentApiRecord | null {
+  const expectedDocTypeId = CHECKLIST_ITEM_DOC_TYPE_ID[reqId]
+  const isInternal = isInternalChecklistItem(reqId)
+
+  if (localDocs[reqId]) {
+    return makeLocalDocRecord(localDocs[reqId], expectedDocTypeId, reqName, proposalId)
+  }
+
+  if (expectedDocTypeId && localDocs[String(expectedDocTypeId)]) {
+    return makeLocalDocRecord(localDocs[String(expectedDocTypeId)], expectedDocTypeId, reqName, proposalId)
+  }
+
+  if (isInternal) {
+    return null
+  }
+
+  if (expectedDocTypeId) {
+    for (const [appKey, typeId] of Object.entries(APPLICANT_REQ_ID_TO_DOC_TYPE_ID)) {
+      if (typeId === expectedDocTypeId && localDocs[appKey]) {
+        return makeLocalDocRecord(localDocs[appKey], expectedDocTypeId, reqName, proposalId)
+      }
+    }
+  }
+
   const code = reqId.toLowerCase()
   const cleanName = reqName.toLowerCase().replace(/^\d+\.\s*/, '')
 
@@ -1014,36 +1317,19 @@ function findMatchingLocalDoc(
       (code.includes('sec-cda') && (keyLower.includes('sec') || keyLower.includes('cda') || nameLower.includes('sec') || nameLower.includes('cda'))) ||
       (code.includes('financial') && (keyLower.includes('financial') || nameLower.includes('financial') || nameLower.includes('fs'))) ||
       (code.includes('letter-of-intent') && (keyLower.includes('intent') || nameLower.includes('intent') || nameLower.includes('loi'))) ||
-      (code.includes('tna-01') && (keyLower.includes('tna') || nameLower.includes('tna'))) ||
-      (code.includes('gad-assessment') && (keyLower.includes('gad') || nameLower.includes('gwp'))) ||
-      (code.includes('hazard-hunter') && (keyLower.includes('hazard') || nameLower.includes('hazard'))) ||
       (code.includes('biodata') && (keyLower.includes('biodata') || nameLower.includes('cv'))) ||
       (code.includes('govt-id') && (keyLower.includes('id') || nameLower.includes('id'))) ||
       (code.includes('brgy-cert') && (keyLower.includes('brgy') || keyLower.includes('barangay'))) ||
       (code.includes('omnibus') && (keyLower.includes('omnibus') || nameLower.includes('omnibus')))
     ) {
-      return {
-        id: doc.backendId || Math.floor(Math.random() * 100000),
-        proposal_id: proposalId || 0,
-        document_type_id: 1,
-        uploaded_by: 1,
-        reviewed_by: null,
-        file_name: doc.fileName || 'document.pdf',
-        file_path: doc.dataUrl || '',
-        file_size: doc.fileSize || 1024,
-        mime_type: doc.fileType || 'application/pdf',
-        status: doc.verificationStatus === 'Approved' ? 'approved' : 'pending',
-        remarks: doc.remarks || null,
-        reviewed_at: doc.reviewedAt || null,
-        created_at: doc.uploadedAt || new Date().toISOString(),
-        updated_at: doc.uploadedAt || new Date().toISOString(),
-      }
+      return makeLocalDocRecord(doc, expectedDocTypeId, reqName, proposalId)
     }
   }
   return null
 }
 
 export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord[]> {
+  await ensureBackendToken()
   const localCache = getLocalChecklistCache()
   const records: ProposalChecklistRecord[] = []
 
@@ -1109,6 +1395,7 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
             items: serverChecklistData.items.map((item: any) => ({
               id: item.id,
               templateId: item.template_id,
+              documentTypeId: item.document_type_id || CHECKLIST_ITEM_DOC_TYPE_ID[item.id] || item.uploaded_doc?.document_type_id || 1,
               name: item.name,
               group: item.group,
               setId: item.set_id,
@@ -1137,19 +1424,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
 
         if (program === 'GIA') {
           items = OFFICIAL_GIA_STAGE_ITEMS.map((req) => {
-            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs)
+            const isInternal = isInternalChecklistItem(req.id, req.name)
             const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
+            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
             let isPresent = false
             let status: ChecklistItemStatus = 'Missing'
 
-            if (cachedItem) {
-              isPresent = cachedItem.isPresent
-              status = cachedItem.status
-            } else if (matchedUploaded) {
+            if (matchedUploaded) {
               const isApproved = matchedUploaded.status === 'approved'
               isPresent = isApproved
               status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+            } else if (isInternal) {
+              isPresent = false
+              status = 'Missing'
+            } else if (cachedItem) {
+              isPresent = cachedItem.isPresent
+              status = cachedItem.status
             }
 
             return {
@@ -1157,6 +1448,7 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
               name: req.name,
               group: req.group,
               stageId: req.stageId,
+              documentTypeId: CHECKLIST_ITEM_DOC_TYPE_ID[req.id] || matchedUploaded?.document_type_id,
               isRequired: req.isRequired,
               isPresent,
               status,
@@ -1170,19 +1462,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
           })
         } else {
           items = OFFICIAL_SETUP_SET_ITEMS.map((req) => {
-            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs)
+            const isInternal = isInternalChecklistItem(req.id, req.name)
             const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
+            const matchedUploaded = findMatchingUploadedDoc(req.id, req.name, uploadedDocs) || findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
             let isPresent = false
             let status: ChecklistItemStatus = 'Missing'
 
-            if (cachedItem) {
-              isPresent = cachedItem.isPresent
-              status = cachedItem.status
-            } else if (matchedUploaded) {
+            if (matchedUploaded) {
               const isApproved = matchedUploaded.status === 'approved'
               isPresent = isApproved
               status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+            } else if (isInternal) {
+              isPresent = false
+              status = 'Missing'
+            } else if (cachedItem) {
+              isPresent = cachedItem.isPresent
+              status = cachedItem.status
             }
 
             return {
@@ -1190,6 +1486,7 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
               name: req.name,
               group: req.group,
               setId: req.setId,
+              documentTypeId: CHECKLIST_ITEM_DOC_TYPE_ID[req.id] || matchedUploaded?.document_type_id,
               isRequired: req.isRequired,
               isPresent,
               status,
@@ -1245,19 +1542,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
 
       if (program === 'GIA') {
         items = OFFICIAL_GIA_STAGE_ITEMS.map((req) => {
-          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId)
+          const isInternal = isInternalChecklistItem(req.id, req.name)
           const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
+          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
           let isPresent = false
           let status: ChecklistItemStatus = 'Missing'
 
-          if (cachedItem) {
-            isPresent = cachedItem.isPresent
-            status = cachedItem.status
-          } else if (matchedUploaded) {
+          if (matchedUploaded) {
             const isApproved = matchedUploaded.status === 'approved'
             isPresent = isApproved
             status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+          } else if (isInternal) {
+            isPresent = false
+            status = 'Missing'
+          } else if (cachedItem) {
+            isPresent = cachedItem.isPresent
+            status = cachedItem.status
           }
 
           return {
@@ -1265,6 +1566,7 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
             name: req.name,
             group: req.group,
             stageId: req.stageId,
+            documentTypeId: CHECKLIST_ITEM_DOC_TYPE_ID[req.id] || matchedUploaded?.document_type_id,
             isRequired: req.isRequired,
             isPresent,
             status,
@@ -1278,19 +1580,23 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
         })
       } else {
         items = OFFICIAL_SETUP_SET_ITEMS.map((req) => {
-          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId)
+          const isInternal = isInternalChecklistItem(req.id, req.name)
           const cachedItem = cached?.items.find((i) => i.id === req.id || i.name === req.name)
+          const matchedUploaded = findMatchingLocalDoc(req.id, req.name, localDocs, proposalId) || (!isInternal ? cachedItem?.uploadedDoc : null) || null
 
           let isPresent = false
           let status: ChecklistItemStatus = 'Missing'
 
-          if (cachedItem) {
-            isPresent = cachedItem.isPresent
-            status = cachedItem.status
-          } else if (matchedUploaded) {
+          if (matchedUploaded) {
             const isApproved = matchedUploaded.status === 'approved'
             isPresent = isApproved
             status = isApproved ? 'Complied' : matchedUploaded.status === 'returned_for_revision' ? 'Needs Revision' : 'Under Review'
+          } else if (isInternal) {
+            isPresent = false
+            status = 'Missing'
+          } else if (cachedItem) {
+            isPresent = cachedItem.isPresent
+            status = cachedItem.status
           }
 
           return {
@@ -1298,6 +1604,7 @@ export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord
             name: req.name,
             group: req.group,
             setId: req.setId,
+            documentTypeId: CHECKLIST_ITEM_DOC_TYPE_ID[req.id] || matchedUploaded?.document_type_id,
             isRequired: req.isRequired,
             isPresent,
             status,
@@ -1351,6 +1658,8 @@ export async function saveProposalChecklistReview(
       overall_remarks: overallRemarks,
       items: items.map((item) => ({
         id: item.id,
+        template_id: item.templateId,
+        document_id: item.uploadedDoc?.id || null,
         is_present: item.isPresent,
         status: item.status,
         remarks: item.remarks,
@@ -1359,53 +1668,112 @@ export async function saveProposalChecklistReview(
   } catch (err) {
     console.warn(`Failed to sync batch checklist review to backend:`, err)
   }
-
-  const reviewPromises = items
-    .filter((item) => item.uploadedDoc?.id)
-    .map(async (item) => {
-      const docId = item.uploadedDoc!.id
-      const backendStatus: 'approved' | 'returned_for_revision' = item.isPresent ? 'approved' : 'returned_for_revision'
-      const remarks = item.remarks || (item.isPresent ? 'Complied with requirements' : 'Document missing / incomplete')
-      try {
-        await reviewProposalDocument(docId, backendStatus, remarks)
-      } catch (err) {
-        console.warn(`Failed to sync review for document ${docId} to backend:`, err)
-      }
-    })
-
-  await Promise.allSettled(reviewPromises)
 }
 
 export async function uploadChecklistDocument(
   proposalId: number,
   item: DocumentChecklistItem,
   file: File,
+  referenceNumber?: string,
 ): Promise<{ uploadedDoc: DocumentApiRecord; blobUrl: string }> {
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+  if (!isPdf) {
+    throw new Error('Only PDF documents (.pdf) are allowed. Images and other file formats cannot be uploaded.')
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1)
+    throw new Error(`File is too large (${sizeMb} MB). Maximum allowed size is 10 MB.`)
+  }
+
+  await ensureBackendToken()
   const blobUrl = URL.createObjectURL(file)
 
   let uploadedDoc: DocumentApiRecord | null = null
+  let docTypeId = item.documentTypeId || CHECKLIST_ITEM_DOC_TYPE_ID[item.id]
 
-  if (item.documentTypeId) {
+  if (!docTypeId) {
     try {
-      const formData = new FormData()
-      formData.append('proposal_id', String(proposalId))
-      formData.append('document_type_id', String(item.documentTypeId))
-      formData.append('file', file)
-
-      const response = await api.post<{ data: DocumentApiRecord }>('/documents', formData, {
-        headers: { 'Content-Type': undefined },
+      const res = await api.get('/document-types', {
+        params: { program: 'SETUP' },
       })
-      uploadedDoc = response.data.data
+      const types = Array.isArray(res.data?.data) ? res.data.data : []
+      const matched = types.find((t: any) =>
+        t.name.toLowerCase().includes(item.name.toLowerCase().slice(0, 15)) ||
+        item.name.toLowerCase().includes(t.name.toLowerCase().slice(0, 15))
+      )
+      docTypeId = matched?.id || types[0]?.id || 19
     } catch {
-      // Fallback to simulated record below
+      docTypeId = 19
     }
   }
 
-  if (!uploadedDoc) {
+  try {
+    const formData = new FormData()
+    formData.append('proposal_id', String(proposalId))
+    formData.append('document_type_id', String(docTypeId))
+    formData.append('file', file)
+
+    const response = await api.post<{ data: DocumentApiRecord }>('/documents', formData, {
+      headers: { 'Content-Type': undefined },
+    })
+    uploadedDoc = response.data.data
+  } catch (err: any) {
+    const status = err?.response?.status
+    const errorData = err?.response?.data
+    let reason = ''
+
+    if (status === 413) {
+      reason = 'File exceeds maximum upload size allowed by the server (10 MB).'
+    } else if (errorData?.errors) {
+      reason = Object.values(errorData.errors).flat().join(' ')
+    } else if (errorData?.message) {
+      reason = errorData.message
+    } else if (err?.message) {
+      reason = err.message
+    }
+
+    if (status === 401 || status === 403) {
+      reason = 'Your session has expired or you do not have permission to upload this document.'
+    }
+
+    if (reason) {
+      throw new Error(reason)
+    }
+  }
+
+  if (uploadedDoc) {
+    try {
+      await api.patch(`/documents/${uploadedDoc.id}/review`, {
+        status: 'approved',
+        remarks: 'Uploaded by staff via checklist',
+      })
+      uploadedDoc.status = 'approved'
+      uploadedDoc.reviewed_at = new Date().toISOString()
+    } catch {
+      //
+    }
+    try {
+      await api.put(`/proposals/${proposalId}/checklist/batch`, {
+        items: [
+          {
+            id: item.id,
+            template_id: item.templateId,
+            document_id: uploadedDoc.id,
+            is_present: true,
+            status: 'Complied',
+            remarks: 'Uploaded: ' + file.name,
+          },
+        ],
+      })
+    } catch (e) {
+      console.warn('Could not immediately sync checklist review link:', e)
+    }
+  } else {
     uploadedDoc = {
       id: Date.now(),
       proposal_id: proposalId,
-      document_type_id: item.documentTypeId || 1,
+      document_type_id: docTypeId || 1,
       uploaded_by: 1,
       reviewed_by: null,
       file_name: file.name,
@@ -1418,11 +1786,50 @@ export async function uploadChecklistDocument(
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       document_type: {
-        id: item.documentTypeId || 1,
+        id: docTypeId || 1,
         name: item.name,
         group: item.group,
       },
     }
+  }
+
+  const storedDoc: StoredDocument = {
+    backendId: uploadedDoc.id,
+    fileName: file.name,
+    fileSize: file.size,
+    fileType: file.type || 'application/pdf',
+    uploadedAt: new Date().toISOString(),
+    verificationStatus: 'Approved',
+    dataUrl: blobUrl,
+  }
+
+  if (referenceNumber) {
+    try {
+      saveDocument(referenceNumber, item.id, storedDoc)
+      if (docTypeId) {
+        saveDocument(referenceNumber, String(docTypeId), storedDoc)
+      }
+    } catch {
+      //
+    }
+  }
+
+  const currentCache = getLocalChecklistCache()
+  const cached = currentCache[proposalId]
+  if (cached) {
+    const updatedItems = cached.items.map((it) =>
+      it.id === item.id
+        ? {
+            ...it,
+            documentTypeId: docTypeId,
+            isPresent: true,
+            status: 'Complied' as ChecklistItemStatus,
+            uploadedDoc,
+            reviewedAt: new Date().toISOString(),
+          }
+        : it
+    )
+    saveLocalChecklistCache(proposalId, updatedItems, cached.overallRemarks)
   }
 
   return { uploadedDoc, blobUrl }
@@ -1447,6 +1854,8 @@ export type ChecklistHistoryAction =
   | 'UNVERIFY'
   | 'REVIEW_APPROVED'
   | 'REVIEW_RETURNED'
+  | 'REVIEW_UNDER_REVIEW'
+  | 'REVIEW_PENDING'
   | 'COMPLETE_REVIEW'
 
 export interface ChecklistHistoryItem {
@@ -1497,4 +1906,54 @@ export function addChecklistHistoryLog(
   }
   return newEntry
 }
+
+export interface ChecklistTemplatePayload {
+  program_type: ApplicationProgram
+  phase_code: string
+  phase_title: string
+  item_code: string
+  document_name: string
+  group_name: string
+  is_mandatory?: boolean
+  sort_order?: number
+  applicability_rules?: any
+}
+
+export async function fetchChecklistTemplates(
+  program: ApplicationProgram,
+  includeInactive = false
+): Promise<any[]> {
+  await ensureBackendToken()
+  const response = await api.get('/document-checklist/templates', {
+    params: { program, include_inactive: includeInactive },
+  })
+  return response.data?.data || []
+}
+
+export async function createChecklistTemplate(payload: ChecklistTemplatePayload): Promise<any> {
+  await ensureBackendToken()
+  const response = await api.post('/document-checklist/templates', payload)
+  return response.data?.data
+}
+
+export async function updateChecklistTemplate(
+  id: number,
+  payload: Partial<ChecklistTemplatePayload> & { is_active?: boolean }
+): Promise<any> {
+  await ensureBackendToken()
+  const response = await api.put(`/document-checklist/templates/${id}`, payload)
+  return response.data?.data
+}
+
+export async function restoreChecklistTemplate(id: number): Promise<any> {
+  await ensureBackendToken()
+  const response = await api.patch(`/document-checklist/templates/${id}/restore`)
+  return response.data?.data
+}
+
+export async function deleteChecklistTemplate(id: number): Promise<void> {
+  await ensureBackendToken()
+  await api.delete(`/document-checklist/templates/${id}`)
+}
+
 

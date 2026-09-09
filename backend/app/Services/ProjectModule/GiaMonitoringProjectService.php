@@ -6,11 +6,17 @@ use App\Models\GiaDeliverableTracking;
 use App\Models\Project;
 use App\Models\ProjectBudget;
 use App\Models\User;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class GiaMonitoringProjectService
 {
+    public function __construct(
+        private readonly DocumentChecklistServiceInterface $checklistService,
+    ) {
+    }
+
     public function getProjects(User $user, array $filters): array
     {
         $baseQuery = $this->activeGiaProjectsQuery();
@@ -192,6 +198,24 @@ class GiaMonitoringProjectService
             ?? $proposal?->user?->name
             ?? 'Unassigned';
 
+        $checklistStats = [
+            'complied' => 0,
+            'total' => 0,
+            'percentage' => 0,
+        ];
+
+        if ($project->proposal_id) {
+            try {
+                $checklist = $this->checklistService->getProposalChecklist($project->proposal_id);
+                $checklistStats = [
+                    'complied' => (int) ($checklist['complied_count'] ?? 0),
+                    'total' => (int) ($checklist['total_required'] ?? 0),
+                    'percentage' => (int) ($checklist['compliance_percentage'] ?? 0),
+                ];
+            } catch (\Throwable) {
+            }
+        }
+
         return [
             'id' => $project->id,
             'proposal_id' => $project->proposal_id,
@@ -209,6 +233,7 @@ class GiaMonitoringProjectService
             'monitoring_status' => $latestMonitoring?->implementation_status ?? 'NOT_STARTED',
             'last_monitored_at' => $latestMonitoring?->last_monitored_at?->toIso8601String(),
             'milestone_progress' => $progress,
+            'checklist_stats' => $checklistStats,
             'milestones' => $deliverables->map(fn ($deliverable) => [
                 'id' => $deliverable->id,
                 'number' => $deliverable->deliverable_number,

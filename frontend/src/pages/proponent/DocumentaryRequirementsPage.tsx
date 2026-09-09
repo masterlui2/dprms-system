@@ -25,18 +25,14 @@ import { SetupProposalForm } from "../../components/proposal/SetupProposalForm";
 import type { SetupProposalFormHandle } from "../../components/proposal/SetupProposalForm";
 import { GiaProposalForm } from "../../components/proposal/GiaProposalForm";
 import type { GiaProposalFormHandle } from "../../components/proposal/GiaProposalForm";
-import { getMockUser } from "../../lib/mockAuth";
+import { getMockUser, setMockUser } from "../../lib/mockAuth";
 import {
-  deleteDocument,
   deleteDocumentRecord,
   documentRecordToStoredDocument,
   fetchDocumentBlobUrl,
   fetchGiaDocumentaryRequirements,
   fetchProposalDocuments,
   fetchSetupDocumentaryRequirements,
-  fileToStoredDocument,
-  getDocuments,
-  saveDocument,
   uploadDocument,
   type DocumentaryRequirement,
   type RequirementGroup,
@@ -44,18 +40,12 @@ import {
   type VerificationStatus,
 } from "../../services/documentStore";
 import {
-  getApplications,
-  saveApplication,
   syncUserApplicationsFromBackend,
-  updateApplicationStatus,
 } from "../../services/applicationStore";
 import { resubmitProposal } from "../../services/proposalStore";
-import { getSetupProposalId, submitSetupProposal } from "../../services/setupProposalStore";
+import { submitSetupProposal } from "../../services/setupProposalStore";
 import type { ApplicationRecord } from "../../types/application";
 import {
-  getGiaDraft,
-  getGiaProposal,
-  getGiaProposalId,
   submitGiaProposal,
 } from "../../services/giaProposalStore";
 import type { GiaProposalData } from "../../types/giaProposal";
@@ -94,7 +84,7 @@ function extractUploadErrorMessage(error: unknown): string {
   const axiosErr = error as { response?: { status?: number; data?: { message?: string; errors?: Record<string, string[]> } } };
   const response = axiosErr?.response;
   if (response?.status === 413) {
-    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 10MB.";
+    return "The uploaded files exceed the server upload size limit (413 Payload Too Large). Please ensure each PDF file is under 5MB.";
   }
   if (response?.status === 404) {
     return "The submission endpoint was not found (404 Not Found). Please ensure the backend server is running and your session is active.";
@@ -157,7 +147,8 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   const giaFormRef = useRef<GiaProposalFormHandle>(null);
   const [isSubmittingApplication, setIsSubmittingApplication] = useState(false);
   const [isResubmittingRevision, setIsResubmittingRevision] = useState(false);
-  const [allApplicationsList, setAllApplicationsList] = useState<ApplicationRecord[]>(() => getApplications());
+  const [allApplicationsList, setAllApplicationsList] = useState<ApplicationRecord[]>([]);
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -166,7 +157,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       const currentUser = getMockUser();
       if (!currentUser) return;
       const apps = await syncUserApplicationsFromBackend(currentUser);
-      if (!cancelled && apps.length > 0) setAllApplicationsList(apps);
+      if (!cancelled) setAllApplicationsList(apps);
     }
 
     function handleVisibilityChange() {
@@ -242,16 +233,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   });
 
   useEffect(() => {
-    if (!activeApplication) {
+    const isFormOpen = showApplicationForm && !activeApplication;
+    if (!activeApplication && !isFormOpen) {
       setRequirements([]);
       return;
     }
-    if (activeApplication.program === "SETUP") {
-      const key = `SETUP|${activeApplication.referenceNo}|${liveSetupProposal?.organizationType ?? ""}|${liveSetupProposal?.businessSize ?? ""}`;
-      // Same reference + org type + business size as the in-flight/last
-      // request — skip. This is what was firing the request repeatedly
-      // (and hammering /api/document-types) whenever liveSetupProposal
-      // changed identity without its relevant fields actually changing.
+    const program = activeApplication?.program ?? activeProgram;
+    if (program === "SETUP") {
+      const key = `SETUP|${activeApplication?.referenceNo ?? "new"}|${liveSetupProposal?.organizationType ?? ""}|${liveSetupProposal?.businessSize ?? ""}`;
       if (requirementsFetchRef.current.key === key) return;
       requirementsFetchRef.current.key = key;
       const requestId = ++requirementsFetchRef.current.requestId;
@@ -261,16 +250,11 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         liveSetupProposal?.businessSize,
       )
         .then((records) => {
-          // Only apply the response if this is still the latest request —
-          // prevents an older, slower response from clobbering a newer one.
           if (requirementsFetchRef.current.requestId === requestId) {
             setRequirements(records);
           }
         })
         .catch(() => {
-          // Don't blank out a document list the user is already seeing
-          // just because one fetch (possibly stale) failed. Only clear
-          // if we don't have anything on screen yet.
           if (requirementsFetchRef.current.requestId === requestId) {
             setRequirements((current) => (current.length ? current : []));
           }
@@ -278,7 +262,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       return;
     }
 
-    const key = `GIA|${activeApplication.referenceNo}|${liveGiaProposal?.proponentCategory ?? ""}`;
+    const key = `GIA|${activeApplication?.referenceNo ?? "new"}|${liveGiaProposal?.proponentCategory ?? ""}`;
     if (requirementsFetchRef.current.key === key) return;
     requirementsFetchRef.current.key = key;
     const requestId = ++requirementsFetchRef.current.requestId;
@@ -296,6 +280,8 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       });
   }, [
     activeApplication,
+    activeProgram,
+    showApplicationForm,
     liveGiaProposal?.proponentCategory,
     liveSetupProposal?.businessSize,
     liveSetupProposal?.organizationType,
@@ -513,9 +499,6 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
 
     const existing = documents[requirement.id];
     if (!existing?.backendId) {
-      // Nothing on the backend yet — this is (at most) a pending local
-      // file, or a local-only fallback record. Just drop it from wherever
-      // it's held.
       setPendingFiles((current) => {
         if (!(requirement.id in current)) return current;
         const next = { ...current };
@@ -523,11 +506,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         return next;
       });
       if (documents[requirement.id]) {
-        deleteDocument(activeApplication.referenceNo, requirement.id);
-        setDocuments(getDocuments(activeApplication.referenceNo));
-      }
-      if (requirement.required) {
-        updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
+        const next = { ...documents };
+        delete next[requirement.id];
+        setDocuments(next);
       }
       setMessage("File removed.");
       return;
@@ -537,9 +518,6 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       const next = { ...documents };
       delete next[requirement.id];
       setDocuments(next);
-      if (requirement.required) {
-        updateApplicationStatus(activeApplication.referenceNo, "Draft Submitted");
-      }
       setMessage("File deleted. You can upload a replacement at any time.");
     } catch {
       setMessage("Could not delete the file. Please try again.");
@@ -568,7 +546,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   }
 
   function showSubmittedDialog(app: ApplicationRecord) {
-    Swal.fire({
+    void Swal.fire({
       title: "Application Submitted Successfully!",
       html: `
         <div style="font-family: sans-serif; text-align: center;" class="space-y-3">
@@ -593,8 +571,6 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       showConfirmButton: false,
       timer: 1600,
       timerProgressBar: true,
-    }).then(() => {
-      window.location.reload();
     });
   }
 
@@ -629,8 +605,11 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
    * per-document upload control instead.
    */
   async function handleSubmitApplication() {
-    if (!activeApplication) return;
-    const isSetup = activeApplication.program === "SETUP";
+    if (activeApplication && activeApplication.status !== "Draft Submitted" && activeApplication.status !== "Returned for Revision") {
+      setMessage("You already have an active application currently under review. Multiple submissions are not allowed.");
+      return;
+    }
+    const isSetup = activeProgram === "SETUP";
 
     const proposalData = isSetup
       ? setupFormRef.current?.validate()
@@ -652,34 +631,12 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     setIsSubmittingApplication(true);
     setMessage(null);
     try {
-      let proposalId = activeProposalId;
-      let application = activeApplication;
-
-      if (!proposalId) {
-        const result = isSetup
-          ? await submitSetupProposal(proposalData as SetupProposalData, pendingFiles)
-          : await submitGiaProposal(proposalData as GiaProposalData, pendingFiles);
-        application = result.application;
-        proposalId = application.proposalId ?? null;
-        setActiveProposalId(proposalId);
-
-        const nextDocuments: Record<string, StoredDocument> = {};
-        if (result.documents && result.documents.length > 0) {
-          for (const record of result.documents) {
-            const stored = documentRecordToStoredDocument(record);
-            nextDocuments[String(record.document_type_id)] = stored;
-            saveDocument(application.referenceNo, String(record.document_type_id), stored);
-          }
-        } else {
-          for (const [reqId, file] of Object.entries(pendingFiles)) {
-            const stored = await fileToStoredDocument(file);
-            nextDocuments[reqId] = stored;
-            saveDocument(application.referenceNo, reqId, stored);
-          }
-        }
-        setDocuments(nextDocuments);
-        setPendingFiles({});
-      }
+      const result = isSetup
+        ? await submitSetupProposal(proposalData as SetupProposalData, pendingFiles)
+        : await submitGiaProposal(proposalData as GiaProposalData, pendingFiles);
+      const application = result.application;
+      const proposalId = application.proposalId ?? null;
+      setActiveProposalId(proposalId);
 
       if (!proposalId) {
         setMessage(
@@ -688,10 +645,31 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         return;
       }
 
-      const updatedApp: ApplicationRecord = { ...application, status: "Under review" };
-      saveApplication(updatedApp);
-      updateApplicationStatus(application.referenceNo, "Under review");
-      showSubmittedDialog(updatedApp);
+      const nextDocuments: Record<string, StoredDocument> = {};
+      if (result.documents && result.documents.length > 0) {
+        for (const record of result.documents) {
+          const stored = documentRecordToStoredDocument(record);
+          nextDocuments[String(record.document_type_id)] = stored;
+        }
+      }
+      setDocuments(nextDocuments);
+      setPendingFiles({});
+
+      const submittedApp: ApplicationRecord = { ...application, status: "Under review" };
+      const currentUser = getMockUser();
+      if (currentUser) {
+        setMockUser({
+          ...currentUser,
+          id: currentUser.id || application.proposalId,
+          applicationReference: application.referenceNo,
+        });
+      }
+      setAllApplicationsList((prev) => [
+        submittedApp,
+        ...prev.filter((a) => a.referenceNo !== submittedApp.referenceNo),
+      ]);
+      setShowApplicationForm(false);
+      showSubmittedDialog(submittedApp);
     } catch (error) {
       setMessage(extractUploadErrorMessage(error));
     } finally {
@@ -741,26 +719,8 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     }
   }
 
-  const handleStartApplication = (programType: "SETUP" | "GIA") => {
-    const referenceNo = `${programType}-${new Date().getFullYear()}-${Math.floor(
-      1000 + Math.random() * 9000,
-    )}`;
-    const newApp: ApplicationRecord = {
-      applicantName: user?.name || "Proponent User",
-      contactEmail: user?.email || "proponent@dost.gov.ph",
-      createdAt: new Date().toISOString(),
-      id: crypto.randomUUID(),
-      organizationName: "",
-      program: programType,
-      projectTitle:
-        programType === "SETUP"
-          ? "SETUP Technology Transfer & Upgrade Proposal"
-          : "GIA Research & Community Innovation Project",
-      referenceNo,
-      status: "Draft Submitted",
-    };
-    saveApplication(newApp);
-    window.location.reload();
+  const handleStartApplication = () => {
+    setShowApplicationForm(true);
   };
 
   return (
@@ -777,7 +737,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
         </div>
       </header>
 
-      {!activeApplication ? (
+      {!activeApplication && !showApplicationForm ? (
         <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm sm:p-12">
           <FileCheck2 className="mx-auto size-12 text-[#0f53b7]" />
           <h2 className="mt-4 text-xl font-black text-slate-900">
@@ -789,13 +749,173 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
           <div className="mt-6 flex items-center justify-center">
             <button
               className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-xs font-bold text-white shadow-sm transition hover:bg-[#0d479e]"
-              onClick={() => handleStartApplication(activeProgram)}
+              onClick={handleStartApplication}
               type="button"
             >
               {activeProgram === "SETUP" ? "Submit SETUP Application" : "Submit GIA Proposal"}
             </button>
           </div>
         </div>
+      ) : showApplicationForm && !activeApplication ? (
+        <>
+          <section className="space-y-6">
+            {activeProgram === "GIA" ? (
+              <GiaProposalForm ref={giaFormRef} onDraftChange={setLiveGiaProposal} />
+            ) : (
+              <SetupProposalForm ref={setupFormRef} onDraftChange={setLiveSetupProposal} />
+            )}
+          </section>
+
+          {requirements.length > 0 && (
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-slate-200 pt-6">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">Attached Documentary Requirements</h3>
+                  <p className="mt-0.5 text-xs text-slate-500">Upload required supporting documents to accompany your proposal submission.</p>
+                </div>
+              </div>
+
+              {message ? (
+                <div
+                  className="flex items-start justify-between gap-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#073b82]"
+                  role="status"
+                >
+                  <span>{message}</span>
+                  <button
+                    aria-label="Dismiss message"
+                    className="shrink-0 text-lg leading-none"
+                    onClick={() => setMessage(null)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : null}
+
+              <div className="space-y-5">
+                {groupOrder.map((group) => {
+                  const groupRequirements = requirements.filter((r) => r.group === group);
+                  if (!groupRequirements.length) return null;
+                  const groupUploaded = groupRequirements.filter((r) => pendingFiles[r.id]).length;
+                  return (
+                    <section
+                      className="overflow-hidden rounded-3xl bg-white shadow-sm ring-1 ring-slate-200/70"
+                      key={group}
+                    >
+                      <div className="flex flex-col gap-3 bg-[#f8fbff] px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                        <div className="flex items-center gap-3">
+                          <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#0f53b7]">
+                            <GroupIcon group={group} />
+                          </span>
+                          <div>
+                            <h2 className="font-black text-slate-900">{group}</h2>
+                            <p className="mt-0.5 text-xs text-slate-500">{groupUploaded} of {groupRequirements.length} uploaded</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="divide-y divide-slate-100">
+                        {groupRequirements.map((requirement) => {
+                          const pendingFile = pendingFiles[requirement.id];
+                          const isUploading = uploadingRequirement === requirement.id;
+                          const isDragging = draggingRequirement === requirement.id;
+                          const hasFile = Boolean(pendingFile);
+                          const isMissingRequired = !pendingFile && requirement.required;
+                          return (
+                            <article
+                              className={cn(
+                                "grid gap-4 px-5 py-5 transition sm:px-6 lg:grid-cols-[minmax(0,1.7fr)_minmax(310px,1fr)] lg:items-center lg:gap-5",
+                                isDragging && "bg-blue-50 ring-2 ring-inset ring-[#0f53b7]",
+                                isMissingRequired && "bg-red-50/40 border-l-4 border-l-red-500",
+                              )}
+                              id={`requirement-${requirement.id}`}
+                              key={requirement.id}
+                              onDragEnter={(e) => { e.preventDefault(); setDraggingRequirement(requirement.id); }}
+                              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDraggingRequirement(null); }}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => { e.preventDefault(); void handleFile(requirement, e.dataTransfer.files[0]); }}
+                            >
+                              <div className="flex min-w-0 items-start gap-3">
+                                <span className={cn(
+                                  "mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border-2",
+                                  hasFile ? "border-emerald-500 bg-emerald-500 text-white" : isMissingRequired ? "border-red-400 bg-red-50 text-red-500" : "border-slate-200 text-slate-300",
+                                )}>
+                                  {hasFile ? <Check className="size-4" strokeWidth={3} /> : <FileText className="size-3.5" />}
+                                </span>
+                                <div className="min-w-0">
+                                  <h3 className="font-bold leading-6 text-slate-900">
+                                    {requirement.title}
+                                    {requirement.required ? <span className="ml-1 font-extrabold text-red-600" aria-label="required">*</span> : <span className="ml-2 text-xs font-semibold text-slate-400">Optional</span>}
+                                  </h3>
+                                  {requirement.instructions ? (
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">{requirement.instructions}</p>
+                                  ) : requirement.description ? (
+                                    <p className="mt-1 text-xs leading-5 text-slate-500">{requirement.description}</p>
+                                  ) : null}
+                                  {pendingFile ? (
+                                    <p className="mt-2 truncate text-xs font-semibold text-slate-600" title={pendingFile.name}>
+                                      {pendingFile.name} · {formatSize(pendingFile.size)}
+                                    </p>
+                                  ) : null}
+                                </div>
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                <label className={cn(
+                                  "inline-flex h-10 cursor-pointer items-center gap-2 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white transition hover:bg-[#0b3f8b]",
+                                  isUploading && "pointer-events-none opacity-70",
+                                )}>
+                                  {isUploading ? <LoaderCircle className="size-3.5 animate-spin" /> : hasFile ? <RefreshCw className="size-3.5" /> : <FileUp className="size-3.5" />}
+                                  {isUploading ? "Processing" : hasFile ? "Replace File" : "Upload"}
+                                  <input
+                                    accept=".pdf"
+                                    className="sr-only"
+                                    disabled={isUploading}
+                                    onChange={(e) => { void handleFile(requirement, e.target.files?.[0]); e.target.value = ""; }}
+                                    type="file"
+                                  />
+                                </label>
+                                {pendingFile ? (
+                                  <>
+                                    <button
+                                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-50"
+                                      onClick={() => viewPendingFile(pendingFile)}
+                                      type="button"
+                                    >
+                                      <Eye className="size-3.5" /> View File
+                                    </button>
+                                    <button
+                                      className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-100 px-3 text-xs font-bold text-red-600 transition hover:bg-red-50"
+                                      onClick={() => setPendingFiles((c) => { const n = { ...c }; delete n[requirement.id]; return n; })}
+                                      type="button"
+                                    >
+                                      <Trash2 className="size-3.5" /> Delete File
+                                    </button>
+                                  </>
+                                ) : null}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-4 pb-8">
+            <button
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#0d479e] hover:shadow-lg disabled:pointer-events-none disabled:opacity-70"
+              disabled={isSubmittingApplication}
+              onClick={() => void handleSubmitApplication()}
+              type="button"
+            >
+              {isSubmittingApplication ? <LoaderCircle className="size-4 animate-spin" /> : null}
+              {isSubmittingApplication ? "Submitting" : activeProgram === "GIA" ? "Submit GIA Proposal" : "Submit SETUP Application"}
+              {isSubmittingApplication ? null : <ArrowRight className="size-4" />}
+            </button>
+          </div>
+        </>
       ) : (
         <>
           <section className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70 sm:p-7">
@@ -858,7 +978,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
             <>
               {isDraftMode ? (
                 <section className="space-y-6">
-                  {activeApplication.program === "GIA" ? (
+                  {activeApplication!.program === "GIA" ? (
                     <GiaProposalForm ref={giaFormRef} onDraftChange={setLiveGiaProposal} />
                   ) : (
                     <SetupProposalForm ref={setupFormRef} onDraftChange={setLiveSetupProposal} />
@@ -965,7 +1085,9 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                   <p className="mt-0.5 text-xs text-slate-500">
                     {isRevisionMode
                       ? "Only documents marked Needs Revision can be replaced. Other submitted files are locked."
-                      : "Upload required supporting documents to accompany your proposal submission."}
+                      : isDraftMode
+                        ? "Upload required supporting documents to accompany your proposal submission."
+                        : "Submitted documentary requirements are currently under review by DOST evaluators."}
                   </p>
                 </div>
                 <label className="relative block w-full sm:w-72">
@@ -1069,7 +1191,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                             !storedDocument && !pendingFile && requirement.required;
                           const hasFile = Boolean(storedDocument || pendingFile);
                           const needsRevision = status === "Needs Revision";
-                          const canReplace = !isRevisionMode || needsRevision;
+                          const canReplace = isDraftMode || needsRevision;
 
                           return (
                             <article
@@ -1248,14 +1370,16 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                         <Eye className="size-3.5" />
                                         View File
                                       </button>
-                                      {!isRevisionMode ? <button
-                                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-100 px-3 text-xs font-bold text-red-600 transition hover:bg-red-50"
-                                        onClick={() => void remove(requirement)}
-                                        type="button"
-                                      >
-                                        <Trash2 className="size-3.5" />
-                                        Delete File
-                                      </button> : null}
+                                      {isDraftMode ? (
+                                        <button
+                                          className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-100 px-3 text-xs font-bold text-red-600 transition hover:bg-red-50"
+                                          onClick={() => void remove(requirement)}
+                                          type="button"
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                          Delete File
+                                        </button>
+                                      ) : null}
                                     </>
                                   ) : null}
                                 </div>
@@ -1285,40 +1409,42 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                 ) : null}
               </div>
 
-              <div className="flex justify-end pt-4 pb-8">
-                <button
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#0d479e] hover:shadow-lg disabled:pointer-events-none disabled:opacity-70"
-                  disabled={
-                    isRevisionMode
-                      ? isResubmittingRevision || revisionDocuments.length > 0
+              {(isDraftMode || isRevisionMode) && (
+                <div className="flex justify-end pt-4 pb-8">
+                  <button
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0f53b7] px-8 text-sm font-bold text-white shadow-md transition hover:bg-[#0d479e] hover:shadow-lg disabled:pointer-events-none disabled:opacity-70"
+                    disabled={
+                      isRevisionMode
+                        ? isResubmittingRevision || revisionDocuments.length > 0
+                        : isSubmittingApplication
+                    }
+                    onClick={() => {
+                      if (!activeApplication) return;
+                      if (isRevisionMode) void handleResubmitRevisions();
+                      else void handleSubmitApplication();
+                    }}
+                    type="button"
+                  >
+                    {isSubmittingApplication || isResubmittingRevision ? (
+                      <LoaderCircle className="size-4 animate-spin" />
+                    ) : null}
+                    {isRevisionMode
+                      ? isResubmittingRevision
+                        ? "Resubmitting"
+                        : revisionDocuments.length
+                          ? `${revisionDocuments.length} Revision${revisionDocuments.length === 1 ? "" : "s"} Remaining`
+                          : "Resubmit Revised Documents"
                       : isSubmittingApplication
-                  }
-                  onClick={() => {
-                    if (!activeApplication) return;
-                    if (isRevisionMode) void handleResubmitRevisions();
-                    else void handleSubmitApplication();
-                  }}
-                  type="button"
-                >
-                  {isSubmittingApplication || isResubmittingRevision ? (
-                    <LoaderCircle className="size-4 animate-spin" />
-                  ) : null}
-                  {isRevisionMode
-                    ? isResubmittingRevision
-                      ? "Resubmitting"
-                      : revisionDocuments.length
-                        ? `${revisionDocuments.length} Revision${revisionDocuments.length === 1 ? "" : "s"} Remaining`
-                        : "Resubmit Revised Documents"
-                    : isSubmittingApplication
-                      ? "Submitting"
-                      : activeApplication.program === "GIA"
-                        ? "Submit GIA Proposal"
-                        : "Submit SETUP Application"}
-                  {isSubmittingApplication || isResubmittingRevision ? null : (
-                    <ArrowRight className="size-4" />
-                  )}
-                </button>
-              </div>
+                        ? "Submitting"
+                        : activeApplication.program === "GIA"
+                          ? "Submit GIA Proposal"
+                          : "Submit SETUP Application"}
+                    {isSubmittingApplication || isResubmittingRevision ? null : (
+                      <ArrowRight className="size-4" />
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           ) : null}
         </>
