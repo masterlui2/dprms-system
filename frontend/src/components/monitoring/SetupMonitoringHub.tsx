@@ -442,9 +442,6 @@ export function SetupMonitoringHub({
 
   const activeTabTitle = tabs.find((t) => t.id === activeTab)?.label || 'Quarterly Monitoring'
   const canSyncToBackend = quarterMetricId != null
-  const selectedPeriodContext = quarterOptions.find(
-    (option) => option.quarter === selectedQuarter && option.year === selectedYear,
-  )?.context ?? 'current'
 
   if (isLoading && !record) {
     return (
@@ -551,21 +548,12 @@ export function SetupMonitoringHub({
               disabled={isCreatingQuarter}
               value={`${selectedQuarter} ${selectedYear}`}
               onChange={(event) => handlePeriodChange(event.target.value)}
-              className="h-full min-w-44 cursor-pointer bg-transparent pl-3 pr-2 text-xs font-bold text-slate-700 outline-none disabled:cursor-wait disabled:opacity-60"
+              className="h-full cursor-pointer bg-transparent px-3 text-xs font-bold text-slate-700 outline-none disabled:cursor-wait disabled:opacity-60"
             >
               {quarterOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <span
-              className={`mr-2 rounded-md px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
-                selectedPeriodContext === 'current'
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-amber-100 text-amber-700'
-              }`}
-            >
-              {selectedPeriodContext === 'current' ? 'Current' : 'Backfill'}
-            </span>
           </div>
 
           {/* Summary Metrics Sidebar Toggle Button */}
