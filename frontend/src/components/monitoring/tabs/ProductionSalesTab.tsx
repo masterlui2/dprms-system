@@ -311,8 +311,8 @@ export function ProductionSalesTab({
                 <th className="py-3 px-3 w-1/4">Product Name</th>
                 <th className="py-3 px-2 w-36">Specifications</th>
                 <th className="py-3 px-2 w-28">Unit</th>
-                <th className="py-3 px-2 text-center w-36">Selling Price / Unit</th>
-                <th className="py-3 px-2 text-center w-28">Quantity</th>
+                <th className="py-3 px-2 text-right w-36">Selling Price / Unit</th>
+                <th className="py-3 px-2 text-right w-28">Quantity</th>
                 <th className="py-3 px-3 text-right w-36">Total Sales</th>
                 {!readOnly && <th className="py-3 px-2 w-14"></th>}
               </tr>
@@ -441,9 +441,9 @@ export function ProductionSalesTab({
             <thead className="bg-white border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
               <tr>
                 <th className="py-3 px-3 w-1/3">Particulars</th>
-                <th className="py-3 px-2 text-center w-28">Month 1</th>
-                <th className="py-3 px-2 text-center w-28">Month 2</th>
-                <th className="py-3 px-2 text-center w-28">Month 3</th>
+                <th className="py-3 px-2 text-right w-28">Month 1</th>
+                <th className="py-3 px-2 text-right w-28">Month 2</th>
+                <th className="py-3 px-2 text-right w-28">Month 3</th>
                 <th className="py-3 px-3 text-right w-36">TOTAL</th>
                 {!readOnly && <th className="py-3 px-2 w-14"></th>}
               </tr>
@@ -561,9 +561,9 @@ export function ProductionSalesTab({
             <thead className="bg-white border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
               <tr>
                 <th className="py-3 px-3 w-1/3">Particulars</th>
-                <th className="py-3 px-2 text-center w-28">Month 1</th>
-                <th className="py-3 px-2 text-center w-28">Month 2</th>
-                <th className="py-3 px-2 text-center w-28">Month 3</th>
+                <th className="py-3 px-2 text-right w-28">Month 1</th>
+                <th className="py-3 px-2 text-right w-28">Month 2</th>
+                <th className="py-3 px-2 text-right w-28">Month 3</th>
                 <th className="py-3 px-3 text-right w-36">TOTAL</th>
                 {!readOnly && <th className="py-3 px-2 w-14"></th>}
               </tr>
@@ -682,8 +682,8 @@ export function ProductionSalesTab({
               <tr>
                 <th className="py-3 px-3 w-1/3">Raw Materials**</th>
                 <th className="py-3 px-2 w-28">Unit</th>
-                <th className="py-3 px-2 text-center w-28">Quantity</th>
-                <th className="py-3 px-2 text-center w-36">Cost per Unit</th>
+                <th className="py-3 px-2 text-right w-28">Quantity</th>
+                <th className="py-3 px-2 text-right w-36">Cost per Unit</th>
                 <th className="py-3 px-3 text-right w-36">Total Cost</th>
                 {!readOnly && <th className="py-3 px-2 w-14"></th>}
               </tr>
@@ -801,9 +801,9 @@ export function ProductionSalesTab({
             <thead className="bg-white border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
               <tr>
                 <th className="py-3 px-3 w-1/3">Particulars</th>
-                <th className="py-3 px-2 text-center w-28">Month 1</th>
-                <th className="py-3 px-2 text-center w-28">Month 2</th>
-                <th className="py-3 px-2 text-center w-28">Month 3</th>
+                <th className="py-3 px-2 text-right w-28">Month 1</th>
+                <th className="py-3 px-2 text-right w-28">Month 2</th>
+                <th className="py-3 px-2 text-right w-28">Month 3</th>
                 <th className="py-3 px-3 text-right w-36">TOTAL</th>
                 {!readOnly && <th className="py-3 px-2 w-14"></th>}
               </tr>

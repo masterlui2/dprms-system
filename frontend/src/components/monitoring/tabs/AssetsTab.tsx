@@ -211,8 +211,8 @@ export function AssetsTab({ record, onChange, readOnly = false }: Props) {
               <tr>
                 <th className="py-3 px-3 w-1/4">Building</th>
                 <th className="py-3 px-2 w-36">Type of Building*</th>
-                <th className="py-3 px-2 text-center w-24">Est. Useful Life (A)</th>
-                <th className="py-3 px-2 text-center w-24">Year Acquired (B)</th>
+                <th className="py-3 px-2 text-right w-24">Est. Useful Life (A)</th>
+                <th className="py-3 px-2 text-right w-24">Year Acquired (B)</th>
                 <th className="py-3 px-3 text-right w-32">Cost [C]</th>
                 <th className="py-3 px-3 text-right w-32">Depreciation D = [C/A]</th>
                 <th className="py-3 px-3 text-right w-36">Book Value</th>
@@ -349,8 +349,8 @@ export function AssetsTab({ record, onChange, readOnly = false }: Props) {
               <tr>
                 <th className="py-3 px-3 w-1/4">Equipment</th>
                 <th className="py-3 px-2 w-36">Type of Equipment*</th>
-                <th className="py-3 px-2 text-center w-24">Est. Useful Life (A)</th>
-                <th className="py-3 px-2 text-center w-24">Year Acquired (B)</th>
+                <th className="py-3 px-2 text-right w-24">Est. Useful Life (A)</th>
+                <th className="py-3 px-2 text-right w-24">Year Acquired (B)</th>
                 <th className="py-3 px-3 text-right w-32">Cost [C]</th>
                 <th className="py-3 px-3 text-right w-32">Depreciation D = [C/A]</th>
                 <th className="py-3 px-3 text-right w-36">Book Value</th>

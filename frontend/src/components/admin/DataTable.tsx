@@ -15,11 +15,32 @@ import {
 import { cn } from '../../utils/cn'
 
 export interface DataColumn<T> {
+  align?: 'left' | 'center' | 'right'
   className?: string
   header: string
   id: string
+  numeric?: boolean
   render: (row: T) => ReactNode
   sortValue?: (row: T) => number | string
+}
+
+const NUMERIC_COLUMN_PATTERN = /(?:amount|balance|budget|cost|count|duration|funding|percentage|percent|progress|quantity|qty|rate|score|term|total|utilized)/i
+
+function columnAlignment<T>(column: DataColumn<T>): 'left' | 'center' | 'right' {
+  if (column.align) return column.align
+  if (column.numeric === false) return 'left'
+  if (column.numeric === true) return 'right'
+  if (column.id.toLowerCase() === 'action') return 'right'
+
+  const looksNumeric = NUMERIC_COLUMN_PATTERN.test(`${column.id} ${column.header}`)
+
+  return looksNumeric ? 'right' : 'left'
+}
+
+function alignmentClass(alignment: 'left' | 'center' | 'right'): string {
+  if (alignment === 'right') return 'text-right tabular-nums'
+  if (alignment === 'center') return 'text-center'
+  return 'text-left'
 }
 
 interface DataTableProps<T> {
@@ -166,16 +187,21 @@ export function DataTable<T>({
               {columns.map((column) => (
                 <th
                   className={cn(
-                    'font-black',
+                    'font-semibold',
                     fitColumns ? 'px-3' : 'px-5',
                     variant === 'clean' ? 'py-4 text-sm' : 'py-3',
+                    alignmentClass(columnAlignment(column)),
                     column.className,
                   )}
                   key={column.id}
                 >
                   {column.sortValue ? (
                     <button
-                      className="inline-flex items-center gap-1.5 transition hover:text-[#073b82]"
+                      className={cn(
+                        'inline-flex w-full items-center gap-1.5 transition hover:text-[#073b82]',
+                        columnAlignment(column) === 'right' && 'justify-end',
+                        columnAlignment(column) === 'center' && 'justify-center',
+                      )}
                       onClick={() => toggleSort(column)}
                       type="button"
                     >
@@ -203,7 +229,12 @@ export function DataTable<T>({
                   <tr key={`loading-${index}`}>
                     {columns.map((column) => (
                       <td
-                        className={cn('py-4', fitColumns ? 'px-3' : 'px-5')}
+                        className={cn(
+                          'py-4',
+                          fitColumns ? 'px-3' : 'px-5',
+                          alignmentClass(columnAlignment(column)),
+                          column.className,
+                        )}
                         key={column.id}
                       >
                         <div className="h-4 animate-pulse rounded bg-slate-100" />
@@ -235,11 +266,17 @@ export function DataTable<T>({
                         className={cn(
                           fitColumns ? 'px-3' : 'px-5',
                           variant === 'clean' ? 'py-5' : 'py-4',
+                          alignmentClass(columnAlignment(column)),
                           column.className,
                         )}
                         key={column.id}
                       >
-                        <div className="min-w-0 break-words">
+                        <div
+                          className={cn(
+                            'min-w-0 break-words',
+                            columnAlignment(column) === 'right' && '[&>*]:ml-auto',
+                          )}
+                        >
                           {column.render(row)}
                         </div>
                       </td>
@@ -275,10 +312,23 @@ export function DataTable<T>({
                         className="grid grid-cols-[110px_minmax(0,1fr)] gap-3 text-sm"
                         key={column.id}
                       >
-                        <p className="text-xs font-black uppercase tracking-wide text-slate-400">
+                        <p
+                          className={cn(
+                            'text-xs font-semibold uppercase tracking-wide text-slate-400',
+                            alignmentClass(columnAlignment(column)),
+                          )}
+                        >
                           {column.header}
                         </p>
-                        <div className="min-w-0 break-words">{column.render(row)}</div>
+                        <div
+                          className={cn(
+                            'min-w-0 break-words',
+                            alignmentClass(columnAlignment(column)),
+                            columnAlignment(column) === 'right' && '[&>*]:ml-auto',
+                          )}
+                        >
+                          {column.render(row)}
+                        </div>
                       </div>
                     ))}
               </article>

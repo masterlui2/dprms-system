@@ -166,7 +166,7 @@ export function ExportMonitoringSheetModal({ record: initialRecord, onClose }: P
               </h3>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 text-[11px]">
+            <div className="numeric-summary-grid grid grid-cols-4 gap-2 text-[11px]">
               <div className="border border-slate-200 p-2.5 rounded-lg bg-slate-50">
                 <p className="text-slate-500 font-semibold">Gross Sales (Quarter)</p>
                 <p className="font-bold text-xs text-slate-900 mt-0.5">
@@ -202,7 +202,7 @@ export function ExportMonitoringSheetModal({ record: initialRecord, onClose }: P
                       <th className="p-2">Specifications</th>
                       <th className="p-2 text-center">Unit</th>
                       <th className="p-2 text-right">Selling Price / Unit</th>
-                      <th className="p-2 text-center">Quantity</th>
+                      <th className="p-2 text-right">Quantity</th>
                       <th className="p-2 text-right bg-[#B5BFCD]/30">Total Sales</th>
                     </tr>
                   </thead>
@@ -213,7 +213,7 @@ export function ExportMonitoringSheetModal({ record: initialRecord, onClose }: P
                         <td className="p-2 text-slate-500">{p.specifications || '-'}</td>
                         <td className="p-2 text-center">{p.unit || 'pcs'}</td>
                         <td className="p-2 text-right">₱{p.sellingPrice.toLocaleString()}</td>
-                        <td className="p-2 text-center">{p.quantity.toLocaleString()}</td>
+                        <td className="p-2 text-right tabular-nums">{p.quantity.toLocaleString()}</td>
                         <td className="p-2 text-right font-bold text-[#285497] bg-[#B5BFCD]/15">
                           ₱{(p.totalSales || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
@@ -234,7 +234,7 @@ export function ExportMonitoringSheetModal({ record: initialRecord, onClose }: P
               </h3>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 text-[11px]">
+            <div className="numeric-summary-grid grid grid-cols-4 gap-2 text-[11px]">
               <div className="border border-slate-200 p-2.5 rounded-lg bg-slate-50">
                 <p className="text-slate-500">Overhead & Operating</p>
                 <p className="font-bold text-xs text-slate-900 mt-0.5">
@@ -320,7 +320,7 @@ export function ExportMonitoringSheetModal({ record: initialRecord, onClose }: P
               </h3>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-[11px]">
+            <div className="numeric-summary-grid grid grid-cols-3 gap-2 text-[11px]">
               <div className="border border-slate-200 p-2.5 rounded-lg bg-slate-50">
                 <p className="text-slate-500">Building Book Value</p>
                 <p className="font-bold text-xs text-slate-900 mt-0.5">
@@ -392,7 +392,7 @@ export function ExportMonitoringSheetModal({ record: initialRecord, onClose }: P
               </h3>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-[11px]">
+            <div className="numeric-summary-grid grid grid-cols-3 gap-2 text-[11px]">
               <div className="border border-slate-200 p-2.5 rounded-lg bg-slate-50">
                 <p className="text-slate-500 font-semibold">Consultancy Services</p>
                 <p className="font-bold text-slate-900 mt-0.5">

@@ -517,8 +517,8 @@ export function DistributionOutletsTab({
                 <thead className="bg-white border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
                   <tr>
                     <th className="py-3 px-3">Name of Distributor</th>
-                    <th className="py-3 px-2 text-center w-20">Male</th>
-                    <th className="py-3 px-2 text-center w-20">Female</th>
+                    <th className="py-3 px-2 text-right w-20">Male</th>
+                    <th className="py-3 px-2 text-right w-20">Female</th>
                     <th className="py-3 px-3 text-right w-24">Total</th>
                     {!readOnly && <th className="py-3 px-2 w-14"></th>}
                   </tr>
@@ -622,8 +622,8 @@ export function DistributionOutletsTab({
                 <thead className="bg-white border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
                   <tr>
                     <th className="py-3 px-3">Name of Supplier</th>
-                    <th className="py-3 px-2 text-center w-20">Male</th>
-                    <th className="py-3 px-2 text-center w-20">Female</th>
+                    <th className="py-3 px-2 text-right w-20">Male</th>
+                    <th className="py-3 px-2 text-right w-20">Female</th>
                     <th className="py-3 px-3 text-right w-24">Total</th>
                     {!readOnly && <th className="py-3 px-2 w-14"></th>}
                   </tr>
