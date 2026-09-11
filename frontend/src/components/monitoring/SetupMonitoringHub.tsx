@@ -972,8 +972,8 @@ export function SetupMonitoringHub({
                     <thead className="bg-slate-50 text-[10px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
                       <tr>
                         <th className="py-2.5 px-3">Equipment Description</th>
-                        <th className="py-2.5 px-3 text-center">Acquisition</th>
-                        <th className="py-2.5 px-3 text-center">Useful Life</th>
+                        <th className="py-2.5 px-3 text-right">Acquisition</th>
+                        <th className="py-2.5 px-3 text-right">Useful Life</th>
                         <th className="py-2.5 px-3 text-right">Acquisition Cost</th>
                         <th className="py-2.5 px-3 text-right">Book Value</th>
                         <th className="py-2.5 px-3 text-center">Condition / Status</th>
@@ -1026,8 +1026,8 @@ export function SetupMonitoringHub({
                               </div>
                             )}
                           </td>
-                          <td className="py-3 px-3 text-center text-slate-600 font-mono">{item.yearAcquired || 2024}</td>
-                          <td className="py-3 px-3 text-center font-bold text-slate-800">{item.usefulLifeYears || 5} yrs</td>
+                          <td className="py-3 px-3 text-right text-slate-600 font-mono">{item.yearAcquired || 2024}</td>
+                          <td className="py-3 px-3 text-right font-medium text-slate-800">{item.usefulLifeYears || 5} yrs</td>
                           <td className="py-3 px-3 text-right font-mono text-slate-700">₱{(item.cost || 0).toLocaleString()}</td>
                           <td className="py-3 px-3 text-right font-mono font-bold text-[#0f53b7]">₱{(item.bookValue || 0).toLocaleString()}</td>
                           <td className="py-3 px-3 text-center">

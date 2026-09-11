@@ -510,21 +510,23 @@ export function ReportsPage() {
               className="rounded-lg bg-white px-5 py-5 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.65)]"
               key={card.label}
             >
-              <div className="flex justify-center">
+              <div className="flex items-start justify-between gap-4">
                 <span
                   className={`grid size-9 place-items-center rounded-full ${card.iconTone}`}
                 >
                   <card.icon className="size-4" />
                 </span>
+                <div className="min-w-0 flex-1">
+                  <p className="numeric-value text-2xl font-semibold tracking-tight text-slate-800">
+                    {card.value}
+                  </p>
+                  <p className="numeric-label mt-1 text-xs font-medium text-slate-500">
+                    {card.label}
+                  </p>
+                </div>
               </div>
-              <p className="mt-4 text-center text-3xl font-black tracking-tight text-slate-800">
-                {card.value}
-              </p>
-              <p className="mt-1 text-center text-xs font-semibold text-slate-500">
-                {card.label}
-              </p>
               <p
-                className={`mt-3 flex items-center justify-center gap-1 text-xs font-black ${card.trendTone}`}
+                className={`mt-3 flex items-center justify-end gap-1 text-xs font-medium tabular-nums ${card.trendTone}`}
               >
                 {card.trend.startsWith("+") ? (
                   <TrendingUp className="size-3" />

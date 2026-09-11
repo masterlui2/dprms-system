@@ -160,12 +160,12 @@ export function EmploymentTab({ record, onChange, readOnly = false }: Props) {
             <thead className="bg-white border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
               <tr>
                 <th className="py-3 px-3 w-1/5">Name of Employee (Please write name in full)</th>
-                <th className="py-3 px-1 text-center w-14">Age</th>
+                <th className="py-3 px-1 text-right w-14">Age</th>
                 <th className="py-3 px-2 w-32">Employment Status</th>
                 <th className="py-3 px-2 text-center w-24">Sex (Male/Female)</th>
                 <th className="py-3 px-2 text-center w-28">Sectoral Group (SC/Youth/PWD)</th>
-                <th className="py-3 px-2 text-center w-24">No. of Workdays</th>
-                <th className="py-3 px-2 text-center w-28">Salary Rate (D/M)</th>
+                <th className="py-3 px-2 text-right w-24">No. of Workdays</th>
+                <th className="py-3 px-2 text-right w-28">Salary Rate (D/M)</th>
                 <th className="py-3 px-3 text-right w-36">Total Salary for Quarter</th>
                 {!readOnly && <th className="py-3 px-2 w-14"></th>}
               </tr>
@@ -331,12 +331,12 @@ export function EmploymentTab({ record, onChange, readOnly = false }: Props) {
             <thead className="bg-white border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
               <tr>
                 <th className="py-3 px-3 w-1/5">Name of Employee (Please write name in full)</th>
-                <th className="py-3 px-1 text-center w-14">Age</th>
+                <th className="py-3 px-1 text-right w-14">Age</th>
                 <th className="py-3 px-2 w-32">Employment Status</th>
                 <th className="py-3 px-2 text-center w-24">Sex (Male/Female)</th>
                 <th className="py-3 px-2 text-center w-28">Sectoral Group (SC/Youth/PWD)</th>
-                <th className="py-3 px-2 text-center w-24">No. of Workdays</th>
-                <th className="py-3 px-2 text-center w-28">Salary Rate (D/M)</th>
+                <th className="py-3 px-2 text-right w-24">No. of Workdays</th>
+                <th className="py-3 px-2 text-right w-28">Salary Rate (D/M)</th>
                 <th className="py-3 px-3 text-right w-36">Total Salary for Quarter</th>
                 {!readOnly && <th className="py-3 px-2 w-14"></th>}
               </tr>
