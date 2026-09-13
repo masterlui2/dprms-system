@@ -322,9 +322,9 @@ export function RepaymentScheduleBuilder({ ledger, onCancel, onSaved }: Props) {
           )}
 
           <div className="grid gap-3 border-t border-slate-200 bg-[#f8fbff] px-4 py-4 text-sm sm:grid-cols-3">
-            <div><p className="numeric-label text-xs font-medium text-slate-400">Project cost</p><p className="numeric-value mt-1 font-semibold text-[#073b82]">{formatCurrencyFromCents(fundingCents)}</p></div>
-            <div><p className="numeric-label text-xs font-medium text-slate-400">Scheduled total</p><p className="numeric-value mt-1 font-semibold text-slate-900">{formatCurrencyFromCents(scheduledCents)}</p></div>
-            <div><p className="numeric-label text-xs font-medium text-slate-400">Variance</p><p className={cn('numeric-value mt-1 font-semibold', varianceCents === 0 ? 'text-emerald-700' : 'text-rose-700')}>{formatCurrencyFromCents(Math.abs(varianceCents))}{varianceCents === 0 ? ' · Balanced' : varianceCents > 0 ? ' under' : ' over'}</p></div>
+            <div><p className="text-xs font-medium text-slate-400">Project cost</p><p className="numeric-value mt-1 font-semibold text-[#073b82]">{formatCurrencyFromCents(fundingCents)}</p></div>
+            <div><p className="text-xs font-medium text-slate-400">Scheduled total</p><p className="numeric-value mt-1 font-semibold text-slate-900">{formatCurrencyFromCents(scheduledCents)}</p></div>
+            <div><p className="text-xs font-medium text-slate-400">Variance</p><p className={cn('numeric-value mt-1 font-semibold', varianceCents === 0 ? 'text-emerald-700' : 'text-rose-700')}>{formatCurrencyFromCents(Math.abs(varianceCents))}{varianceCents === 0 ? ' · Balanced' : varianceCents > 0 ? ' under' : ' over'}</p></div>
           </div>
         </section>
 

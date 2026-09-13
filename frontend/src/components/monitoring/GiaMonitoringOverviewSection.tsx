@@ -9,6 +9,7 @@ import {
 
 import { formatCurrency, type ProjectRecord } from '../../data/admin'
 import type { GiaMonitoringStatistics } from '../../services/giaMonitoringStore'
+import { MetricCard } from '../admin/MetricCard'
 
 interface Props {
   projects: ProjectRecord[]
@@ -27,58 +28,56 @@ export function GiaMonitoringOverviewSection({
     ? Math.round((statistics.monitoredProjects / statistics.activeGrants) * 100)
     : 0
 
-  const cards = [
+  const cards: Array<{
+    detail: string
+    icon: typeof FolderKanban
+    label: string
+    tone: 'blue' | 'indigo' | 'green' | 'gold'
+    value: string
+  }> = [
     {
       label: 'Active GIA grants',
       value: statistics.activeGrants.toLocaleString(),
       detail: 'Active Grants-in-Aid projects',
       icon: FolderKanban,
-      iconClass: 'bg-blue-50 text-[#0f53b7]',
+      tone: 'blue',
     },
     {
       label: 'Grant allocation',
       value: formatCurrency(statistics.totalGrantAmount),
       detail: 'Active GIA portfolio funding',
       icon: Landmark,
-      iconClass: 'bg-indigo-50 text-indigo-700',
+      tone: 'indigo',
     },
     {
       label: 'Milestone progress',
       value: `${statistics.averageMilestoneProgress}%`,
       detail: 'Average completion across recorded deliverables',
       icon: FileCheck2,
-      iconClass: 'bg-emerald-50 text-emerald-700',
+      tone: 'green',
     },
     {
       label: 'Pending milestones',
       value: statistics.pendingMilestones.toLocaleString(),
       detail: `${statistics.delayedMilestones} currently delayed`,
       icon: CircleAlert,
-      iconClass: 'bg-amber-50 text-amber-700',
+      tone: 'gold',
     },
   ]
 
   return (
     <div className="space-y-5 font-sans">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => {
-          const Icon = card.icon
-
-          return (
-            <article key={card.label} className="rounded-2xl border border-[#B5BFCD]/70 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="numeric-label text-xs font-medium uppercase tracking-[0.1em] text-slate-500">{card.label}</p>
-                  <p className="numeric-value mt-2 truncate text-2xl font-semibold tracking-tight text-slate-950">{card.value}</p>
-                </div>
-                <span className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${card.iconClass}`}>
-                  <Icon className="size-5" />
-                </span>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">{card.detail}</p>
-            </article>
-          )
-        })}
+        {cards.map((card) => (
+          <MetricCard
+            detail={card.detail}
+            icon={card.icon}
+            key={card.label}
+            label={card.label}
+            tone={card.tone}
+            value={card.value}
+          />
+        ))}
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.55fr)]">

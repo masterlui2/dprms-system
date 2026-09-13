@@ -108,7 +108,7 @@ export function AdminDashboard() {
               <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
                 {label}
               </p>
-              <p className="mt-1 text-xl font-black text-[#073b82]">
+              <p className="numeric-value mt-1 text-xl font-black text-[#073b82] text-right tabular-nums">
                 {value}
               </p>
               <p className="mt-0.5 truncate text-[11px] text-slate-500">

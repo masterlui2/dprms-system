@@ -507,34 +507,35 @@ export function ReportsPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {analytics.cards.map((card) => (
             <article
-              className="rounded-lg bg-white px-5 py-5 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.65)]"
+              className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.1)]"
               key={card.label}
             >
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-3.5">
                 <span
-                  className={`grid size-9 place-items-center rounded-full ${card.iconTone}`}
+                  className={`flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105 ${card.iconTone}`}
                 >
-                  <card.icon className="size-4" />
+                  <card.icon className="size-5" />
                 </span>
-                <div className="min-w-0 flex-1">
-                  <p className="numeric-value text-2xl font-semibold tracking-tight text-slate-800">
-                    {card.value}
-                  </p>
-                  <p className="numeric-label mt-1 text-xs font-medium text-slate-500">
-                    {card.label}
-                  </p>
-                </div>
+                <p className="truncate text-sm font-semibold text-slate-700">
+                  {card.label}
+                </p>
               </div>
-              <p
-                className={`mt-3 flex items-center justify-end gap-1 text-xs font-medium tabular-nums ${card.trendTone}`}
-              >
-                {card.trend.startsWith("+") ? (
-                  <TrendingUp className="size-3" />
-                ) : (
-                  <TrendingDown className="size-3" />
-                )}
-                {card.trend}
-              </p>
+
+              <div className="shrink-0 text-right pl-2">
+                <p className="numeric-value text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 tabular-nums text-right">
+                  {card.value}
+                </p>
+                <p
+                  className={`mt-0.5 flex items-center justify-end gap-1 text-xs font-medium tabular-nums ${card.trendTone}`}
+                >
+                  {card.trend.startsWith("+") ? (
+                    <TrendingUp className="size-3" />
+                  ) : (
+                    <TrendingDown className="size-3" />
+                  )}
+                  <span>{card.trend}</span>
+                </p>
+              </div>
             </article>
           ))}
         </div>

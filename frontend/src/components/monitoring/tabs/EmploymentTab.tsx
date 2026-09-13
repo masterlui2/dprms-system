@@ -182,13 +182,13 @@ export function EmploymentTab({ record, onChange, readOnly = false }: Props) {
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={e.age}
                       onChange={(ev) => handleUpdateDirect(e.id, 'age', Number(ev.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-12 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
                   <td className="p-1">
@@ -228,23 +228,23 @@ export function EmploymentTab({ record, onChange, readOnly = false }: Props) {
                       <option value="PWD">PWD</option>
                     </select>
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={e.workdaysQuarter}
                       onChange={(ev) => handleUpdateDirect(e.id, 'workdaysQuarter', Number(ev.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-16 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-16 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
-                    <div className="flex items-center gap-1">
+                  <td className="p-1 text-right">
+                    <div className="flex items-center justify-end gap-1">
                       <input
                         type="number"
                         value={e.salaryRate}
                         onChange={(ev) => handleUpdateDirect(e.id, 'salaryRate', Number(ev.target.value))}
                         readOnly={readOnly}
-                        className="h-8 w-16 rounded-lg border border-[#B5BFCD] bg-white px-1 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                        className="h-8 w-16 rounded-lg border border-[#B5BFCD] bg-white px-1 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                       />
                       <select
                         value={e.salaryType}
@@ -353,13 +353,13 @@ export function EmploymentTab({ record, onChange, readOnly = false }: Props) {
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={e.age}
                       onChange={(ev) => handleUpdateIndirect(e.id, 'age', Number(ev.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-12 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
                   <td className="p-1">
@@ -399,23 +399,23 @@ export function EmploymentTab({ record, onChange, readOnly = false }: Props) {
                       <option value="PWD">PWD</option>
                     </select>
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={e.workdaysQuarter}
                       onChange={(ev) => handleUpdateIndirect(e.id, 'workdaysQuarter', Number(ev.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-16 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-16 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
-                    <div className="flex items-center gap-1">
+                  <td className="p-1 text-right">
+                    <div className="flex items-center justify-end gap-1">
                       <input
                         type="number"
                         value={e.salaryRate}
                         onChange={(ev) => handleUpdateIndirect(e.id, 'salaryRate', Number(ev.target.value))}
                         readOnly={readOnly}
-                        className="h-8 w-16 rounded-lg border border-[#B5BFCD] bg-white px-1 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                        className="h-8 w-16 rounded-lg border border-[#B5BFCD] bg-white px-1 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                       />
                       <select
                         value={e.salaryType}

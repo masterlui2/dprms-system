@@ -2,15 +2,16 @@ import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '../../utils/cn'
 
-type MetricTone = 'blue' | 'gold' | 'orange' | 'sky' | 'green' | 'red'
+type MetricTone = 'blue' | 'gold' | 'orange' | 'sky' | 'green' | 'red' | 'indigo'
 
 const toneClasses: Record<MetricTone, string> = {
-  blue: 'bg-[#0f53b7] text-white',
-  gold: 'bg-[#f5c84c] text-[#17345f]',
-  orange: 'bg-[#ff8a1f] text-white',
-  sky: 'bg-[#e4f1ff] text-[#0a3f8d]',
-  green: 'bg-emerald-100 text-emerald-700',
-  red: 'bg-red-100 text-red-700',
+  blue: 'bg-blue-50 text-[#0f53b7]',
+  gold: 'bg-amber-50 text-amber-600',
+  orange: 'bg-orange-50 text-orange-600',
+  sky: 'bg-sky-50 text-sky-600',
+  green: 'bg-emerald-50 text-emerald-600',
+  red: 'bg-rose-50 text-rose-600',
+  indigo: 'bg-indigo-50 text-indigo-600',
 }
 
 interface MetricCardProps {
@@ -18,7 +19,7 @@ interface MetricCardProps {
   icon: LucideIcon
   label: string
   tone?: MetricTone
-  value: string
+  value: string | number
   valueType?: 'numeric' | 'text'
 }
 
@@ -34,40 +35,45 @@ export function MetricCard({
   value,
   valueType,
 }: MetricCardProps) {
+  const strValue = String(value)
   const isNumeric = valueType === 'numeric'
-    || (valueType !== 'text' && looksNumeric(value))
+    || (valueType !== 'text' && looksNumeric(strValue))
 
   return (
-    <article className="rounded-2xl border border-[#d8e1ee] bg-white p-5 shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <p
-            className={cn(
-              'text-xs font-medium uppercase tracking-[0.1em] text-slate-500',
-              isNumeric && 'numeric-label',
-            )}
-          >
-            {label}
-          </p>
-          <p
-            className={cn(
-              'mt-2 text-2xl font-semibold tracking-tight text-[#073b82]',
-              isNumeric && 'numeric-value',
-            )}
-            data-value-type={isNumeric ? 'numeric' : 'text'}
-          >
-            {value}
-          </p>
-          <p className="mt-1 text-sm text-slate-500">{detail}</p>
-        </div>
+    <article className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.1)]">
+      <div className="flex min-w-0 flex-1 items-center gap-3.5">
         <span
           className={cn(
-            'grid size-12 shrink-0 place-items-center rounded-2xl',
+            'flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105',
             toneClasses[tone],
           )}
         >
           <Icon className="size-5" />
         </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-slate-700">
+            {label}
+          </p>
+          {detail ? (
+            <p className="truncate text-xs text-slate-400 mt-0.5">
+              {detail}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="shrink-0 text-right pl-2">
+        <p
+          className={cn(
+            'font-bold tracking-tight text-slate-900',
+            isNumeric
+              ? 'numeric-value text-2xl lg:text-3xl tabular-nums'
+              : 'text-base sm:text-lg',
+          )}
+          data-value-type={isNumeric ? 'numeric' : 'text'}
+        >
+          {strValue}
+        </p>
       </div>
     </article>
   )

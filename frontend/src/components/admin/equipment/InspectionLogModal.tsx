@@ -151,7 +151,7 @@ export function InspectionLogModal({ asset, onClose, onSaved }: Props) {
           </div>
           <div className="mt-3 rounded-xl border border-slate-200 p-4 lg:hidden">
             <div className="flex items-start justify-between gap-3"><div><p className="font-bold text-slate-900">{asset.name}</p><p className="mt-1 text-xs text-slate-500">SN: {asset.serialNumber || 'Not recorded'}</p></div><span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0f53b7]">{selectedCondition}</span></div>
-            <dl className="mt-3 grid grid-cols-2 gap-3 text-xs"><div><dt className="numeric-label text-slate-400">Quantity</dt><dd className="numeric-value font-medium">1 {asset.unit || 'unit'}</dd></div><div><dt className="numeric-label text-slate-400">Amount</dt><dd className="numeric-value font-medium">{formatMoney(asset.acquisitionCost)}</dd></div><div className="col-span-2"><dt className="text-slate-400">Property number</dt><dd className="font-mono font-medium">{asset.propertyNumber || asset.id}</dd></div></dl>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-xs"><div><dt className="text-slate-400">Quantity</dt><dd className="numeric-value font-medium">1 {asset.unit || 'unit'}</dd></div><div><dt className="text-slate-400">Amount</dt><dd className="numeric-value font-medium">{formatMoney(asset.acquisitionCost)}</dd></div><div className="col-span-2"><dt className="text-slate-400">Property number</dt><dd className="font-mono font-medium">{asset.propertyNumber || asset.id}</dd></div></dl>
           </div>
 
           <fieldset className="mt-4">

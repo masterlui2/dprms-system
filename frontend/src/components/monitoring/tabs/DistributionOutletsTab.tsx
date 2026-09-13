@@ -535,22 +535,22 @@ export function DistributionOutletsTab({
                           className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
                         />
                       </td>
-                      <td className="p-1 text-center">
+                      <td className="p-1 text-right">
                         <input
                           type="number"
                           value={d.male}
                           onChange={(e) => handleUpdateDistributor(d.id, 'male', Number(e.target.value))}
                           readOnly={readOnly}
-                          className="h-8 w-16 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
+                          className="h-8 w-16 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
                         />
                       </td>
-                      <td className="p-1 text-center">
+                      <td className="p-1 text-right">
                         <input
                           type="number"
                           value={d.female}
                           onChange={(e) => handleUpdateDistributor(d.id, 'female', Number(e.target.value))}
                           readOnly={readOnly}
-                          className="h-8 w-16 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
+                          className="h-8 w-16 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
                         />
                       </td>
                       <td className="p-2 text-right font-black text-[#285497] text-xs">
@@ -640,22 +640,22 @@ export function DistributionOutletsTab({
                           className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
                         />
                       </td>
-                      <td className="p-1 text-center">
+                      <td className="p-1 text-right">
                         <input
                           type="number"
                           value={s.male}
                           onChange={(e) => handleUpdateSupplier(s.id, 'male', Number(e.target.value))}
                           readOnly={readOnly}
-                          className="h-8 w-16 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
+                          className="h-8 w-16 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
                         />
                       </td>
-                      <td className="p-1 text-center">
+                      <td className="p-1 text-right">
                         <input
                           type="number"
                           value={s.female}
                           onChange={(e) => handleUpdateSupplier(s.id, 'female', Number(e.target.value))}
                           readOnly={readOnly}
-                          className="h-8 w-16 mx-auto rounded-lg border border-[#B5BFCD] bg-white text-center font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
+                          className="h-8 w-16 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-right font-normal text-slate-800 text-xs focus:border-[#285497] focus:outline-none"
                         />
                       </td>
                       <td className="p-2 text-right font-black text-[#285497] text-xs">

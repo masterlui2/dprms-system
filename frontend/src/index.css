@@ -125,12 +125,11 @@ td > input[inputmode="numeric"] {
   font-variant-numeric: tabular-nums;
 }
 
-.numeric-label,
-[data-label-align="right"] {
-  text-align: right;
+.numeric-label {
+  text-align: left;
 }
 
-.numeric-summary-grid > * {
+.numeric-summary-grid p:last-child {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

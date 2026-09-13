@@ -500,7 +500,7 @@ export function GiaMonitoringForm({
               <div className="p-4 flex items-center justify-between gap-3">
                 <span className="font-bold text-slate-700 text-xs">(4) Project Duration (Months):</span>
                 <input
-                  className="h-8 w-20 rounded-lg border border-[#B5BFCD] bg-white px-2 text-center font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
+                  className="h-8 w-20 rounded-lg border border-[#B5BFCD] bg-white px-2 text-right font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
                   onChange={(e) => setDurationMonths(Number(e.target.value) || 0)}
                   type="number"
                   value={durationMonths}
@@ -622,9 +622,9 @@ export function GiaMonitoringForm({
                             value={row.targetAccomplishment}
                           />
                         </td>
-                        <td className="p-2 text-center">
+                        <td className="p-2 text-right">
                           <input
-                            className="h-8 w-12 rounded-lg border border-[#B5BFCD] bg-white p-1 text-center font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
+                            className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
                             onChange={(e) => {
                               const val = Number(e.target.value) || 0
                               setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, targetWeightY1: val } : a))
@@ -644,9 +644,9 @@ export function GiaMonitoringForm({
                             value={row.actualAccomplishment}
                           />
                         </td>
-                        <td className="p-2 text-center">
+                        <td className="p-2 text-right">
                           <input
-                            className="h-8 w-12 rounded-lg border border-[#B5BFCD] bg-white p-1 text-center font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
+                            className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
                             onChange={(e) => {
                               const val = Number(e.target.value) || 0
                               setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, actualY1Percent: val } : a))
@@ -762,9 +762,9 @@ export function GiaMonitoringForm({
                           value={out.category}
                         />
                       </td>
-                      <td className="p-2 text-center">
+                      <td className="p-2 text-right">
                         <input
-                          className="h-8 w-14 rounded-lg border border-[#B5BFCD] bg-white p-1 text-center font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
+                          className="h-8 w-14 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
                           onChange={(e) => {
                             const val = Number(e.target.value) || 0
                             setOutputs(outputs.map((o) => o.id === out.id ? { ...o, targetY1: val } : o))
@@ -773,9 +773,9 @@ export function GiaMonitoringForm({
                           value={out.targetY1}
                         />
                       </td>
-                      <td className="p-2 text-center">
+                      <td className="p-2 text-right">
                         <input
-                          className="h-8 w-14 rounded-lg border border-[#B5BFCD] bg-white p-1 text-center font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
+                          className="h-8 w-14 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
                           onChange={(e) => {
                             const val = Number(e.target.value) || 0
                             setOutputs(outputs.map((o) => o.id === out.id ? { ...o, actualFigureY1: val } : o))

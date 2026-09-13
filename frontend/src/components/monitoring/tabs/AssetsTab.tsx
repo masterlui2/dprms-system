@@ -240,25 +240,25 @@ export function AssetsTab({ record, onChange, readOnly = false }: Props) {
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={b.usefulLifeYears}
                       onChange={(e) => handleUpdateBuilding(b.id, 'usefulLifeYears', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-20 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-20 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={b.yearAcquired}
                       onChange={(e) => handleUpdateBuilding(b.id, 'yearAcquired', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-20 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-20 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={b.cost}
@@ -378,25 +378,25 @@ export function AssetsTab({ record, onChange, readOnly = false }: Props) {
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={eq.usefulLifeYears}
                       onChange={(e) => handleUpdateEquipment(eq.id, 'usefulLifeYears', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-20 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-20 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={eq.yearAcquired}
                       onChange={(e) => handleUpdateEquipment(eq.id, 'yearAcquired', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-20 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-20 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={eq.cost}

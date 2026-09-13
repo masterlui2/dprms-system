@@ -1,4 +1,5 @@
 import {
+  Activity,
   ArrowRight,
   CheckCircle2,
   ClipboardClock,
@@ -9,6 +10,7 @@ import {
 
 import type { ProjectRecord } from '../../data/admin'
 import type { SetupMonitoringStatistics } from '../../services/setupMonitoringStore'
+import { MetricCard } from '../admin/MetricCard'
 
 interface Props {
   projects: ProjectRecord[]
@@ -43,20 +45,33 @@ export function MonitoringOverviewSection({
     .filter((project) => !project.monitored || (project.pendingReports ?? 0) > 0)
     .slice(0, 5)
 
-  const cards = [
+  const cards: Array<{
+    detail: string
+    icon: typeof FolderKanban
+    label: string
+    tone: 'blue' | 'green' | 'sky' | 'orange'
+    value: string | number
+  }> = [
     {
       label: 'Active SETUP projects',
       value: statistics.activeProjects,
       detail: 'Approved projects currently under implementation',
       icon: FolderKanban,
-      iconClass: 'bg-blue-50 text-[#0f53b7]',
+      tone: 'blue',
     },
     {
       label: 'Monitored count',
       value: statistics.monitoredCount,
-      detail: `${coverage}% of active projects have monitoring activity`,
+      detail: 'Verified monitoring activities conducted',
       icon: CheckCircle2,
-      iconClass: 'bg-emerald-50 text-emerald-700',
+      tone: 'green',
+    },
+    {
+      label: 'Monitoring coverage',
+      value: `${coverage}%`,
+      detail: `${statistics.monitoredCount} of ${statistics.activeProjects} active projects`,
+      icon: Activity,
+      tone: 'sky',
     },
     {
       label: 'Pending reports',
@@ -65,38 +80,23 @@ export function MonitoringOverviewSection({
         ? 'No draft or returned reports require action'
         : 'Draft or returned reports requiring action',
       icon: ClipboardClock,
-      iconClass: 'bg-amber-50 text-amber-700',
+      tone: 'orange',
     },
   ]
 
   return (
     <div className="space-y-5 font-sans">
-      <div className="grid gap-4 md:grid-cols-3">
-        {cards.map((card) => {
-          const Icon = card.icon
-
-          return (
-            <article
-              key={card.label}
-              className="rounded-2xl border border-[#B5BFCD]/70 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="numeric-label text-xs font-medium uppercase tracking-[0.1em] text-slate-500">
-                    {card.label}
-                  </p>
-                  <p className="numeric-value mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                    {card.value}
-                  </p>
-                </div>
-                <span className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${card.iconClass}`}>
-                  <Icon className="size-5" />
-                </span>
-              </div>
-              <p className="mt-3 text-xs leading-5 text-slate-500">{card.detail}</p>
-            </article>
-          )
-        })}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <MetricCard
+            detail={card.detail}
+            icon={card.icon}
+            key={card.label}
+            label={card.label}
+            tone={card.tone}
+            value={card.value}
+          />
+        ))}
       </div>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(280px,0.55fr)]">

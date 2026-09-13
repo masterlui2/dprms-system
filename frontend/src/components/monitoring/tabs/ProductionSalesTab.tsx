@@ -349,22 +349,22 @@ export function ProductionSalesTab({
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-700 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={p.sellingPrice}
                       onChange={(e) => handleUpdateProduct(p.id, 'sellingPrice', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-full mx-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={p.quantity}
                       onChange={(e) => handleUpdateProduct(p.id, 'quantity', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-full mx-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
                   <td className="p-2 text-right font-black text-[#285497] text-xs">
@@ -460,31 +460,31 @@ export function ProductionSalesTab({
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month1}
                       onChange={(e) => handleUpdateOperating(item.id, 'month1', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month2}
                       onChange={(e) => handleUpdateOperating(item.id, 'month2', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month3}
                       onChange={(e) => handleUpdateOperating(item.id, 'month3', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
                   <td className="p-2 text-right font-black text-[#285497] text-xs">
@@ -580,31 +580,31 @@ export function ProductionSalesTab({
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month1}
                       onChange={(e) => handleUpdateLabor(item.id, 'month1', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month2}
                       onChange={(e) => handleUpdateLabor(item.id, 'month2', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month3}
                       onChange={(e) => handleUpdateLabor(item.id, 'month3', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
                   <td className="p-2 text-right font-black text-[#285497] text-xs">
@@ -709,22 +709,22 @@ export function ProductionSalesTab({
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-700 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.quantity}
                       onChange={(e) => handleUpdateRawMaterial(item.id, 'quantity', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-full mx-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.costPerUnit}
                       onChange={(e) => handleUpdateRawMaterial(item.id, 'costPerUnit', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-full mx-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
                   <td className="p-2 text-right font-black text-[#285497] text-xs">
@@ -820,31 +820,31 @@ export function ProductionSalesTab({
                       className="h-8 w-full rounded-lg border border-[#B5BFCD] bg-white px-2 text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month1}
                       onChange={(e) => handleUpdateMisc(item.id, 'month1', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month2}
                       onChange={(e) => handleUpdateMisc(item.id, 'month2', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
-                  <td className="p-1 text-center">
+                  <td className="p-1 text-right">
                     <input
                       type="number"
                       value={item.month3}
                       onChange={(e) => handleUpdateMisc(item.id, 'month3', Number(e.target.value))}
                       readOnly={readOnly}
-                      className="h-8 w-24 mx-auto rounded-lg border border-[#B5BFCD] bg-white px-1 text-center text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
+                      className="h-8 w-24 ml-auto rounded-lg border border-[#B5BFCD] bg-white px-2 text-right text-xs font-normal text-slate-800 focus:border-[#285497] focus:outline-none"
                     />
                   </td>
                   <td className="p-2 text-right font-black text-[#285497] text-xs">

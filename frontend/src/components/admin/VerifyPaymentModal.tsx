@@ -179,7 +179,7 @@ export function VerifyPaymentModal({
         <section className="space-y-4">
           <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4">
             <div className="min-w-0 flex-1">
-              <p className="numeric-label text-xs font-medium uppercase tracking-wide text-slate-500">Amount submitted</p>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Amount submitted</p>
               <p className="numeric-value mt-1 text-2xl font-semibold text-[#073b82]">{formatCurrency(transaction.amountPaid)}</p>
             </div>
             <span className={cn(
