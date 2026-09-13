@@ -26,7 +26,7 @@ export function AdminPanel({
     >
       <div className="flex flex-col gap-3 border-b border-[#d8e1ee] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-black text-[#073b82]">{title}</h2>
+          <h2 className="text-lg font-semibold text-[#073b82]">{title}</h2>
           {description ? (
             <p className="mt-1 text-sm text-slate-500">{description}</p>
           ) : null}

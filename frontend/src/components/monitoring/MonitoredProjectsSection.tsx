@@ -213,22 +213,24 @@ export function MonitoredProjectsSection({
   const statuses = propStatuses ?? Array.from(new Set(fallbackScoped.map((p) => p.status))).sort()
   const districts = propDistricts ?? []
 
+  const internallyFilteredProjects = useMemo(() => {
+    const term = internalSearch.trim().toLowerCase()
+    const filtered = fallbackScoped.filter((p) => {
+      if (term) {
+        const haystack = `${p.enterprise} ${p.referenceNumber} ${p.location}`.toLowerCase()
+        if (!haystack.includes(term)) return false
+      }
+      if (internalAgency && p.agency !== internalAgency) return false
+      if (internalStatus && p.status !== internalStatus) return false
+      return true
+    })
+    const pageStart = (internalPage - 1) * PER_PAGE
+    return filtered.slice(pageStart, pageStart + PER_PAGE)
+  }, [fallbackScoped, internalSearch, internalAgency, internalStatus, internalPage])
+
   const projects: ProjectRecord[] = isControlled
     ? (Array.isArray(passedProjects) ? passedProjects : [])
-    : useMemo(() => {
-        const term = internalSearch.trim().toLowerCase()
-        const filtered = fallbackScoped.filter((p) => {
-          if (term) {
-            const haystack = `${p.enterprise} ${p.referenceNumber} ${p.location}`.toLowerCase()
-            if (!haystack.includes(term)) return false
-          }
-          if (internalAgency && p.agency !== internalAgency) return false
-          if (internalStatus && p.status !== internalStatus) return false
-          return true
-        })
-        const pageStart = (internalPage - 1) * PER_PAGE
-        return filtered.slice(pageStart, pageStart + PER_PAGE)
-      }, [fallbackScoped, internalSearch, internalAgency, internalStatus, internalPage])
+    : internallyFilteredProjects
 
   const pagination = isControlled && propPagination ? propPagination : {
     currentPage: internalPage,
@@ -752,16 +754,16 @@ export function MonitoredProjectsSection({
                     <p className="text-[11px] text-slate-400 mt-0.5 truncate">Monitor / Lead: <strong className="text-slate-700">{project.manager}</strong></p>
                   </div>
 
-                  <div className="text-xs">
-                    <span className="text-[10px] text-slate-400 font-bold block uppercase">
+                  <div className="text-right text-xs tabular-nums">
+                    <span className="block text-[10px] font-medium uppercase text-slate-400">
                       {isGiaProject ? 'Grant Outlay' : 'Repayment Status'}
                     </span>
                     {isGiaProject ? (
-                      <p className="font-extrabold text-purple-900 text-sm">
+                      <p className="text-sm font-semibold text-purple-900">
                         {totalFunding > 0 ? `₱${totalFunding.toLocaleString()}` : 'Pending'}
                       </p>
                     ) : totalFunding > 0 ? (
-                      <p className="font-extrabold text-slate-900 text-sm">
+                      <p className="text-sm font-semibold text-slate-900">
                         ₱{totalRefunded.toLocaleString()}
                         <span className="text-xs font-normal text-slate-500"> / ₱{totalFunding.toLocaleString()}</span>
                       </p>

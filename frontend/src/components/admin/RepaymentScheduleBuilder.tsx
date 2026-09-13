@@ -302,12 +302,12 @@ export function RepaymentScheduleBuilder({ ledger, onCancel, onSaved }: Props) {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="border-b border-slate-200 bg-white text-[11px] font-black uppercase tracking-wide text-slate-500">
-                  <tr><th className="w-16 px-4 py-3 text-center">No.</th><th className="px-3 py-3">Period label</th><th className="w-52 px-3 py-3">Due date</th><th className="w-56 px-3 py-3 text-right">Amount</th><th className="w-16 px-4 py-3" /></tr>
+                  <tr><th className="w-16 px-4 py-3 text-right">No.</th><th className="px-3 py-3">Period label</th><th className="w-52 px-3 py-3">Due date</th><th className="w-56 px-3 py-3 text-right">Amount</th><th className="w-16 px-4 py-3" /></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {rows.map((row, index) => (
                     <tr className="hover:bg-blue-50/30" key={row.key}>
-                      <td className="px-4 py-3 text-center text-xs font-black text-slate-400">{index + 1}</td>
+                      <td className="px-4 py-3 text-right text-xs font-medium tabular-nums text-slate-400">{index + 1}</td>
                       <td className="px-3 py-2"><input aria-label={`Installment ${index + 1} period label`} className="h-10 w-full rounded-lg border border-slate-300 px-3 font-semibold text-slate-800 outline-none focus:border-[#0f53b7]" maxLength={100} onChange={(event) => updateInstallment(row.key, { periodLabel: event.target.value })} required type="text" value={row.periodLabel} /></td>
                       <td className="px-3 py-2"><input aria-label={`Installment ${index + 1} due date`} className="h-10 w-full rounded-lg border border-slate-300 px-3 font-semibold text-slate-800 outline-none focus:border-[#0f53b7]" min={amortizationStartDate || undefined} onChange={(event) => updateInstallment(row.key, { dueDate: event.target.value })} required type="date" value={row.dueDate} /></td>
                       <td className="px-3 py-2"><input aria-label={`Installment ${index + 1} amount`} className="h-10 w-full rounded-lg border border-slate-300 px-3 text-right font-black text-slate-900 outline-none focus:border-[#0f53b7]" min="0.01" onChange={(event) => updateInstallment(row.key, { amount: event.target.value })} required step="0.01" type="number" value={row.amount} /></td>
@@ -322,9 +322,9 @@ export function RepaymentScheduleBuilder({ ledger, onCancel, onSaved }: Props) {
           )}
 
           <div className="grid gap-3 border-t border-slate-200 bg-[#f8fbff] px-4 py-4 text-sm sm:grid-cols-3">
-            <div><p className="text-xs font-bold text-slate-400">Project cost</p><p className="mt-1 font-black text-[#073b82]">{formatCurrencyFromCents(fundingCents)}</p></div>
-            <div><p className="text-xs font-bold text-slate-400">Scheduled total</p><p className="mt-1 font-black text-slate-900">{formatCurrencyFromCents(scheduledCents)}</p></div>
-            <div><p className="text-xs font-bold text-slate-400">Variance</p><p className={cn('mt-1 font-black', varianceCents === 0 ? 'text-emerald-700' : 'text-rose-700')}>{formatCurrencyFromCents(Math.abs(varianceCents))}{varianceCents === 0 ? ' · Balanced' : varianceCents > 0 ? ' under' : ' over'}</p></div>
+            <div><p className="numeric-label text-xs font-medium text-slate-400">Project cost</p><p className="numeric-value mt-1 font-semibold text-[#073b82]">{formatCurrencyFromCents(fundingCents)}</p></div>
+            <div><p className="numeric-label text-xs font-medium text-slate-400">Scheduled total</p><p className="numeric-value mt-1 font-semibold text-slate-900">{formatCurrencyFromCents(scheduledCents)}</p></div>
+            <div><p className="numeric-label text-xs font-medium text-slate-400">Variance</p><p className={cn('numeric-value mt-1 font-semibold', varianceCents === 0 ? 'text-emerald-700' : 'text-rose-700')}>{formatCurrencyFromCents(Math.abs(varianceCents))}{varianceCents === 0 ? ' · Balanced' : varianceCents > 0 ? ' under' : ' over'}</p></div>
           </div>
         </section>
 

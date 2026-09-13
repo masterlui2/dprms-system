@@ -67,9 +67,9 @@ export function GiaMonitoringOverviewSection({
           return (
             <article key={card.label} className="rounded-2xl border border-[#B5BFCD]/70 bg-white p-5 shadow-sm">
               <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-xs font-bold uppercase tracking-[0.1em] text-slate-500">{card.label}</p>
-                  <p className="mt-2 truncate text-2xl font-black tracking-tight text-slate-950">{card.value}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="numeric-label text-xs font-medium uppercase tracking-[0.1em] text-slate-500">{card.label}</p>
+                  <p className="numeric-value mt-2 truncate text-2xl font-semibold tracking-tight text-slate-950">{card.value}</p>
                 </div>
                 <span className={`flex size-11 shrink-0 items-center justify-center rounded-2xl ${card.iconClass}`}>
                   <Icon className="size-5" />

@@ -576,11 +576,11 @@ export function GiaMonitoringForm({
                     <th className="py-3 px-3 w-[18%]">Objectives (8)</th>
                     <th className="py-3 px-3 w-[18%]">Activities</th>
                     <th className="py-3 px-3 w-[18%]">Target Accomplishments (9)</th>
-                    <th className="py-3 px-2 text-center w-14">Weight % (10)</th>
+                    <th className="py-3 px-2 text-right w-14">Weight % (10)</th>
                     <th className="py-3 px-3 w-[18%]">Actual Accomplishments (11)</th>
-                    <th className="py-3 px-2 text-center w-14">Actual % (12)</th>
-                    <th className="py-3 px-2 text-center w-16">Weighted % (13)</th>
-                    <th className="py-3 px-2 text-center w-16">Cumulative %</th>
+                    <th className="py-3 px-2 text-right w-14">Actual % (12)</th>
+                    <th className="py-3 px-2 text-right w-16">Weighted % (13)</th>
+                    <th className="py-3 px-2 text-right w-16">Cumulative %</th>
                     <th className="py-3 px-2 w-10 text-center"></th>
                   </tr>
                 </thead>
@@ -655,10 +655,10 @@ export function GiaMonitoringForm({
                             value={row.actualY1Percent}
                           />
                         </td>
-                        <td className="p-2 text-center font-mono font-bold text-[#285497]">
+                        <td className="p-2 text-right font-mono font-semibold text-[#285497]">
                           {weightedY1.toFixed(1)}%
                         </td>
-                        <td className="p-2 text-center font-mono font-black text-slate-900">
+                        <td className="p-2 text-right font-mono font-semibold text-slate-900">
                           {weightedY1.toFixed(1)}%
                         </td>
                         <td className="p-2 text-center">
@@ -680,14 +680,14 @@ export function GiaMonitoringForm({
                     <td className="py-3 px-3 text-right" colSpan={3}>
                       (14) Yearly Target / (15) Actual Accomplishment Totals:
                     </td>
-                    <td className="py-3 px-2 text-center font-mono text-xs font-black text-[#285497]">
+                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
                       {computedTargetTotal}%
                     </td>
                     <td className="py-3 px-3" />
-                    <td className="py-3 px-2 text-center font-mono text-xs font-black text-[#285497]">
+                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
                       {computedWeightedTotal.toFixed(1)}%
                     </td>
-                    <td className="py-3 px-2 text-center font-mono text-xs font-black text-slate-900" colSpan={2}>
+                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-slate-900" colSpan={2}>
                       {computedWeightedTotal.toFixed(1)}%
                     </td>
                     <td />
@@ -742,8 +742,8 @@ export function GiaMonitoringForm({
                 <thead className="bg-[#E6EEF4]/60 border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
                   <tr>
                     <th className="py-3 px-3 w-[26%]">Expected Outputs / Category (18)</th>
-                    <th className="py-3 px-2 text-center w-20">Target (19)</th>
-                    <th className="py-3 px-2 text-center w-20">Actual (20)</th>
+                    <th className="py-3 px-2 text-right w-20">Target (19)</th>
+                    <th className="py-3 px-2 text-right w-20">Actual (20)</th>
                     <th className="py-3 px-3 w-[45%]">Accomplishment Description (22)</th>
                     <th className="py-3 px-2 w-10 text-center"></th>
                   </tr>
@@ -813,10 +813,10 @@ export function GiaMonitoringForm({
                     <td className="py-3 px-3 text-right">
                       (21) Overall 6Ps Deliverables Progress:
                     </td>
-                    <td className="py-3 px-2 text-center font-mono text-xs font-black text-slate-900">
+                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-slate-900">
                       {total6pTargetY1}
                     </td>
-                    <td className="py-3 px-2 text-center font-mono text-xs font-black text-[#285497]">
+                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
                       {total6pActualY1}
                     </td>
                     <td className="py-3 px-3 font-semibold text-slate-700" colSpan={2}>
