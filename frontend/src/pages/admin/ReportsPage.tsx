@@ -507,26 +507,28 @@ export function ReportsPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {analytics.cards.map((card) => (
             <article
-              className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.1)]"
+              className="group flex min-h-36 min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.1)]"
               key={card.label}
             >
-              <div className="flex min-w-0 flex-1 items-center gap-3.5">
+              <div className="flex min-w-0 items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold leading-snug text-slate-700">
+                    {card.label}
+                  </p>
+                  <p className="mt-1 text-xs leading-snug text-slate-400">
+                    {card.detail}
+                  </p>
+                </div>
                 <span
-                  className={`flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105 ${card.iconTone}`}
+                  className={`flex size-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${card.iconTone}`}
                 >
                   <card.icon className="size-5" />
                 </span>
-                <p className="truncate text-sm font-semibold text-slate-700">
-                  {card.label}
-                </p>
               </div>
 
-              <div className="shrink-0 text-right pl-2">
-                <p className="numeric-value text-2xl lg:text-3xl font-bold tracking-tight text-slate-900 tabular-nums text-right">
-                  {card.value}
-                </p>
+              <div className="mt-auto flex min-w-0 items-end justify-between gap-3 pt-4">
                 <p
-                  className={`mt-0.5 flex items-center justify-end gap-1 text-xs font-medium tabular-nums ${card.trendTone}`}
+                  className={`flex items-center gap-1 pb-0.5 text-xs font-medium tabular-nums ${card.trendTone}`}
                 >
                   {card.trend.startsWith("+") ? (
                     <TrendingUp className="size-3" />
@@ -534,6 +536,9 @@ export function ReportsPage() {
                     <TrendingDown className="size-3" />
                   )}
                   <span>{card.trend}</span>
+                </p>
+                <p className="numeric-value whitespace-nowrap text-right text-xl font-bold leading-none tracking-tight text-slate-900 tabular-nums sm:text-2xl 2xl:text-3xl">
+                  {card.value}
                 </p>
               </div>
             </article>

@@ -30,6 +30,28 @@ class DocumentChecklistController extends Controller
         ]);
     }
 
+    public function projects(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'program' => ['nullable', 'string', 'in:SETUP,GIA'],
+            'search' => ['nullable', 'string', 'max:120'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $result = $this->checklistService->getProjectSummaries(
+            $validated['program'] ?? null,
+            $validated['search'] ?? null,
+            (int) ($validated['per_page'] ?? 20),
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $result['data'],
+            'meta' => $result['meta'],
+        ]);
+    }
+
     public function show(int $proposalId): JsonResponse
     {
         $data = $this->checklistService->getProposalChecklist($proposalId);

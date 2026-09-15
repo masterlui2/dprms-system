@@ -40,34 +40,34 @@ export function MetricCard({
     || (valueType !== 'text' && looksNumeric(strValue))
 
   return (
-    <article className="group flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.1)]">
-      <div className="flex min-w-0 flex-1 items-center gap-3.5">
+    <article className="group flex min-h-36 min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.1)]">
+      <div className="flex min-w-0 items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold leading-snug text-slate-700">
+            {label}
+          </p>
+          {detail ? (
+            <p className="mt-1 text-xs leading-snug text-slate-400">
+              {detail}
+            </p>
+          ) : null}
+        </div>
         <span
           className={cn(
-            'flex size-12 shrink-0 items-center justify-center rounded-full transition-transform duration-200 group-hover:scale-105',
+            'flex size-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105',
             toneClasses[tone],
           )}
         >
           <Icon className="size-5" />
         </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-slate-700">
-            {label}
-          </p>
-          {detail ? (
-            <p className="truncate text-xs text-slate-400 mt-0.5">
-              {detail}
-            </p>
-          ) : null}
-        </div>
       </div>
 
-      <div className="shrink-0 text-right pl-2">
+      <div className="mt-auto min-w-0 pt-4 text-right">
         <p
           className={cn(
-            'font-bold tracking-tight text-slate-900',
+            'font-bold leading-none tracking-tight text-slate-900',
             isNumeric
-              ? 'numeric-value text-2xl lg:text-3xl tabular-nums'
+              ? 'numeric-value whitespace-nowrap text-xl tabular-nums sm:text-2xl 2xl:text-3xl'
               : 'text-base sm:text-lg',
           )}
           data-value-type={isNumeric ? 'numeric' : 'text'}

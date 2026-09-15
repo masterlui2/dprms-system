@@ -1,12 +1,13 @@
 import {
+  ArrowLeft,
   FileText,
-  FolderOpen,
   LoaderCircle,
   XCircle,
 } from 'lucide-react';
 import { DocumentPreviewModal } from '../../components/common/DocumentPreviewModal';
 import {
   DocumentChecklistHeader,
+  DocumentChecklistProjectTable,
   DocumentChecklistSidebar,
   DocumentChecklistFilterBar,
   DocumentChecklistGridView,
@@ -15,7 +16,6 @@ import {
   DocumentChecklistConfigureView,
   DocumentUploadModal,
   DocumentReviewModal,
-  ProjectSelectorModal,
   DocumentVersionHistoryModal,
   DocumentTemplateModal,
   ArchiveUndoToast,
@@ -32,19 +32,22 @@ export function DocumentChecklistPage() {
     selectedCategory: data.selectedCategory,
     editingItems: data.editingItems,
     setEditingItems: data.setEditingItems,
-    loadData: data.loadData,
+    loadData: data.reloadActiveProposal,
   });
   const modals = useChecklistModals({
     activeProposal: data.activeProposal,
     isReadOnly: data.isReadOnly,
     currentUser: data.currentUser,
-    editingItems: data.editingItems,
     setEditingItems: data.setEditingItems,
     setProposals: data.setProposals,
     editingOverallRemarks: data.editingOverallRemarks,
-    viewMode: data.viewMode,
     setHistoryList: data.setHistoryList,
   });
+  const handleBackToProjects = () => {
+    templateConfig.setIsTemplateEditMode(false);
+    templateConfig.setTemplateSubTab('active');
+    data.handleBackToProjects();
+  };
 
   return (
     <div className="space-y-5 font-sans">
@@ -59,45 +62,80 @@ export function DocumentChecklistPage() {
         setIsTemplateEditMode={templateConfig.setIsTemplateEditMode}
         setTemplateSubTab={templateConfig.setTemplateSubTab}
         exportSummaryCsv={data.exportSummaryCsv}
-        loadData={data.loadData}
-        isLoading={data.isLoading}
+        loadData={data.selectedProposalId ? data.reloadActiveProposal : data.loadData}
+        isLoading={data.isLoading || data.isDetailLoading}
+        isReviewMode={Boolean(data.selectedProposalId)}
+        onBackToProjects={handleBackToProjects}
       />
 
       {data.isLoading ? (
         <div className="flex min-h-80 flex-col items-center justify-center rounded-3xl border border-[#B5BFCD]/60 bg-white p-8 text-center">
           <LoaderCircle className="size-8 animate-spin text-[#0f53b7]" />
-          <p className="mt-3 text-sm font-semibold text-slate-700">Loading {data.activeProgram} documents…</p>
+          <p className="mt-3 text-sm font-medium text-slate-700">Loading projects…</p>
         </div>
       ) : data.loadError ? (
         <div className="flex min-h-80 flex-col items-center justify-center rounded-3xl border border-[#B5BFCD]/60 bg-white p-8 text-center text-red-500">
           <XCircle className="size-9 text-rose-500" />
-          <p className="mt-2 text-sm font-bold">{data.loadError}</p>
+          <p className="mt-2 text-sm font-semibold">{data.loadError}</p>
           <button
             type="button"
             onClick={data.loadData}
-            className="mt-4 rounded-xl bg-[#0f53b7] px-4 py-2 text-xs font-bold text-white transition hover:bg-[#0b3f8b]"
+            className="mt-4 rounded-xl bg-[#0f53b7] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0b3f8b]"
           >
             Try again
           </button>
         </div>
-      ) : !data.activeProposal ? (
+      ) : data.selectedProposalId && !data.activeProposal ? (
         <div className="flex min-h-80 flex-col items-center justify-center rounded-3xl border border-[#B5BFCD]/60 bg-white p-8 text-center">
-          <span className="flex size-12 items-center justify-center rounded-2xl bg-[#E6EEF4] text-[#285497]">
-            <FolderOpen className="size-6" />
-          </span>
-          <h3 className="mt-3 text-base font-bold text-slate-900">
-            No Approved {data.activeProgram} Applications Found
-          </h3>
-          <p className="mt-1 max-w-md text-xs text-slate-500">
-            There are currently no approved applications under the {data.activeProgram} program to inspect in the document checklist.
-          </p>
+          {data.detailLoadError ? (
+            <>
+              <XCircle className="size-9 text-rose-500" />
+              <p className="mt-3 text-sm font-semibold text-slate-800">
+                Documents could not be loaded
+              </p>
+              <p className="mt-1 max-w-md text-xs text-slate-500">
+                {data.detailLoadError}
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleBackToProjects}
+                  className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  <ArrowLeft className="size-3.5" />
+                  Back to projects
+                </button>
+                <button
+                  type="button"
+                  onClick={data.reloadActiveProposal}
+                  className="h-9 rounded-xl bg-[#0f53b7] px-4 text-xs font-semibold text-white transition hover:bg-[#0b3f8b]"
+                >
+                  Try again
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <LoaderCircle className="size-8 animate-spin text-[#0f53b7]" />
+              <p className="mt-3 text-sm font-medium text-slate-700">
+                Loading project documents…
+              </p>
+            </>
+          )}
         </div>
+      ) : !data.activeProposal ? (
+        <DocumentChecklistProjectTable
+          canReview={data.canReview}
+          isLoading={data.isLoading}
+          onSelectProject={data.handleSelectProposal}
+          proposals={data.programProposals}
+        />
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-[305px_1fr] gap-6 items-start">
+        <div className="grid min-w-0 max-w-full grid-cols-1 items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
           <DocumentChecklistSidebar
             activeProposal={data.activeProposal}
             stats={data.stats}
-            setIsProjectSelectorOpen={data.setIsProjectSelectorOpen}
+            onBackToProjects={handleBackToProjects}
             selectedCategory={data.selectedCategory}
             setSelectedCategory={data.setSelectedCategory}
             editingItems={data.editingItems}
@@ -147,8 +185,8 @@ export function DocumentChecklistPage() {
                 {data.filteredItems.length === 0 ? (
                   <div className="flex min-h-64 flex-col items-center justify-center rounded-3xl border border-[#B5BFCD]/60 bg-white p-8 text-center">
                     <FileText className="size-8 text-slate-300" />
-                    <p className="mt-3 text-sm font-bold text-slate-800">No documents found</p>
-                    <p className="text-xs text-slate-500">Try changing your search query or filter tab.</p>
+                    <p className="mt-3 text-sm font-semibold text-slate-800">No documents found</p>
+                    <p className="text-xs text-slate-500">Change the search or status filter.</p>
                   </div>
                 ) : data.viewMode === 'grid' ? (
                   <DocumentChecklistGridView
@@ -156,7 +194,6 @@ export function DocumentChecklistPage() {
                     blobMap={modals.blobMap}
                     canReview={data.canReview}
                     canUpload={data.canUpload}
-                    activeProposal={data.activeProposal}
                     handleOpenReviewModal={modals.handleOpenReviewModal}
                     handlePreviewDocument={modals.handlePreviewDocument}
                     handleOpenUploadModal={modals.handleOpenUploadModal}
@@ -236,19 +273,6 @@ export function DocumentChecklistPage() {
         reviewRemarks={modals.reviewRemarks}
         setReviewRemarks={modals.setReviewRemarks}
         handleConfirmReview={modals.handleConfirmReview}
-      />
-
-      <ProjectSelectorModal
-        isProjectSelectorOpen={data.isProjectSelectorOpen}
-        setIsProjectSelectorOpen={data.setIsProjectSelectorOpen}
-        activeProgram={data.activeProgram}
-        modalSearchQuery={data.modalSearchQuery}
-        setModalSearchQuery={data.setModalSearchQuery}
-        modalFilter={data.modalFilter}
-        setModalFilter={data.setModalFilter}
-        filteredModalProposals={data.filteredModalProposals}
-        activeProposal={data.activeProposal}
-        handleSelectProposal={data.handleSelectProposal}
       />
 
       <DocumentVersionHistoryModal

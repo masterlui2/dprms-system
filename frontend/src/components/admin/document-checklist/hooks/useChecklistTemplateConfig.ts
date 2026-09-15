@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import {
   createChecklistTemplate,
@@ -48,7 +48,7 @@ export function useChecklistTemplateConfig({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  const fetchArchivedTemplates = async () => {
+  const fetchArchivedTemplates = useCallback(async () => {
     try {
       const allTemplates = await fetchChecklistTemplates(activeProgram, true);
       const inactives = allTemplates.filter((t: any) => t.is_active === false);
@@ -56,11 +56,13 @@ export function useChecklistTemplateConfig({
     } catch {
       setArchivedTemplates([]);
     }
-  };
+  }, [activeProgram]);
 
   useEffect(() => {
-    fetchArchivedTemplates();
-  }, [activeProgram]);
+    if (isTemplateEditMode) {
+      void fetchArchivedTemplates();
+    }
+  }, [fetchArchivedTemplates, isTemplateEditMode]);
 
   const handleOpenAddTemplateModal = () => {
     setEditingTemplateItem(null);

@@ -8,7 +8,6 @@ import {
   type StoredDocument,
 } from './documentStore'
 import { getApplications } from './applicationStore'
-import { loginWithBackend } from './authService'
 
 export const CHECKLIST_ITEM_DOC_TYPE_ID: Record<string, number> = {
   // SET 1
@@ -292,6 +291,8 @@ export interface ProposalChecklistRecord {
   items: DocumentChecklistItem[]
   overallRemarks: string
   lastUpdated: string
+  detailsLoaded?: boolean
+  reviewStatus?: 'Completed' | 'Needs Revision' | 'In Review' | 'In Progress' | 'Not Started'
 }
 
 export const OFFICIAL_SETUP_SET_ITEMS: Array<{
@@ -1108,26 +1109,14 @@ function saveLocalChecklistCache(proposalId: number, items: DocumentChecklistIte
 }
 
 export async function ensureBackendToken(): Promise<string | null> {
-  const existing = localStorage.getItem('dprms.auth-token')
-  if (existing) return existing
-
-  try {
-    const res = await loginWithBackend('admin@dost.gov.ph', 'Dprms@123')
-    if (res?.token) {
-      localStorage.setItem('dprms.auth-token', res.token)
-      return res.token
-    }
-  } catch {
-    //
-  }
-  return null
+  return localStorage.getItem('dprms.auth-token')
 }
 
 function normalizeText(value?: string | null): string {
   if (!value) return ''
   return value
     .toLowerCase()
-    .replace(/^[a-z0-9]+[\.\)]\s*/i, '')
+    .replace(/^[a-z0-9]+[.)]\s*/i, '')
     .replace(/[^a-z0-9]+/gi, ' ')
     .trim()
 }
@@ -1326,6 +1315,257 @@ function findMatchingLocalDoc(
     }
   }
   return null
+}
+
+type ChecklistRequirement = {
+  id: string
+  name: string
+  group: string
+  isRequired: boolean
+  stageId?: GiaStageId
+  setId?: SetupSetId
+}
+
+const checklistSummaryRequests = new Map<ApplicationProgram, Promise<ProposalChecklistRecord[]>>()
+const proposalChecklistRequests = new Map<number, Promise<ProposalChecklistRecord>>()
+
+function normalizeReviewStatus(value: unknown): ProposalChecklistRecord['reviewStatus'] {
+  return value === 'Completed' ||
+    value === 'Needs Revision' ||
+    value === 'In Review' ||
+    value === 'In Progress'
+    ? value
+    : 'Not Started'
+}
+
+function mapProjectSummary(data: any): ProposalChecklistRecord {
+  const program: ApplicationProgram = data.program === 'GIA' ? 'GIA' : 'SETUP'
+  const fallbackRequirements = program === 'GIA'
+    ? OFFICIAL_GIA_STAGE_ITEMS
+    : OFFICIAL_SETUP_SET_ITEMS
+  const reportedTotalRequired = Number(data.total_required || 0)
+  const fallbackTotalRequired =
+    fallbackRequirements.filter((item) => item.isRequired).length || fallbackRequirements.length
+
+  return {
+    proposalId: Number(data.proposal_id),
+    referenceNumber: data.reference_number || `PROP-${data.proposal_id}`,
+    enterpriseName: data.enterprise_name || 'Unnamed Enterprise',
+    proponentName: data.proponent_name || 'Proponent',
+    proponentEmail: data.proponent_email || '',
+    program,
+    status: data.status || 'APPROVED',
+    submittedDate: data.submitted_date || new Date().toISOString(),
+    district: data.district || '',
+    focalName: data.focal_name || '',
+    totalRequired: reportedTotalRequired || fallbackTotalRequired,
+    compliedCount: Number(data.complied_count || 0),
+    compliancePercentage: Number(data.compliance_percentage || 0),
+    items: [],
+    overallRemarks: '',
+    lastUpdated: data.last_updated || data.submitted_date || new Date().toISOString(),
+    detailsLoaded: false,
+    reviewStatus: normalizeReviewStatus(data.review_status),
+  }
+}
+
+function mapProposalChecklist(data: any): ProposalChecklistRecord {
+  const summary = mapProjectSummary(data)
+  const items = Array.isArray(data.items)
+    ? data.items.map((item: any): DocumentChecklistItem => ({
+        id: item.id,
+        templateId: item.template_id,
+        documentTypeId:
+          item.document_type_id ||
+          CHECKLIST_ITEM_DOC_TYPE_ID[item.id] ||
+          item.uploaded_doc?.document_type_id ||
+          1,
+        name: item.name,
+        group: item.group,
+        setId: item.set_id,
+        stageId: item.stage_id,
+        isRequired: item.is_required,
+        isPresent: item.is_present,
+        status: item.status,
+        remarks: item.remarks || '',
+        uploadedDoc: item.uploaded_doc,
+        reviewedAt: item.reviewed_at,
+      }))
+    : []
+
+  return {
+    ...summary,
+    items,
+    overallRemarks: data.overall_remarks || '',
+    detailsLoaded: true,
+    reviewStatus: data.is_completed
+      ? 'Completed'
+      : summary.reviewStatus,
+  }
+}
+
+async function buildFallbackChecklist(
+  summary: ProposalChecklistRecord,
+): Promise<ProposalChecklistRecord> {
+  const localCache = getLocalChecklistCache()
+  const cached = localCache[summary.proposalId]
+  const localDocs = getDocuments(summary.referenceNumber)
+  let uploadedDocs: DocumentApiRecord[] = []
+
+  try {
+    uploadedDocs = await fetchProposalDocumentsForStaff(summary.proposalId)
+  } catch {
+    uploadedDocs = []
+  }
+
+  const requirements: ChecklistRequirement[] =
+    summary.program === 'GIA' ? OFFICIAL_GIA_STAGE_ITEMS : OFFICIAL_SETUP_SET_ITEMS
+
+  const items = requirements.map((requirement): DocumentChecklistItem => {
+    const isInternal = isInternalChecklistItem(requirement.id, requirement.name)
+    const cachedItem = cached?.items.find(
+      (item) => item.id === requirement.id || item.name === requirement.name,
+    )
+    const matchedUploaded =
+      findMatchingUploadedDoc(requirement.id, requirement.name, uploadedDocs) ||
+      findMatchingLocalDoc(
+        requirement.id,
+        requirement.name,
+        localDocs,
+        summary.proposalId,
+      ) ||
+      (!isInternal ? cachedItem?.uploadedDoc : null) ||
+      null
+
+    let isPresent = false
+    let status: ChecklistItemStatus = 'Missing'
+
+    if (matchedUploaded) {
+      const isApproved = matchedUploaded.status === 'approved'
+      isPresent = isApproved
+      status = isApproved
+        ? 'Complied'
+        : matchedUploaded.status === 'returned_for_revision'
+          ? 'Needs Revision'
+          : 'Under Review'
+    } else if (!isInternal && cachedItem) {
+      isPresent = cachedItem.isPresent
+      status = cachedItem.status
+    }
+
+    return {
+      id: requirement.id,
+      name: requirement.name,
+      group: requirement.group,
+      stageId: requirement.stageId,
+      setId: requirement.setId,
+      documentTypeId:
+        CHECKLIST_ITEM_DOC_TYPE_ID[requirement.id] || matchedUploaded?.document_type_id,
+      isRequired: requirement.isRequired,
+      isPresent,
+      status,
+      remarks: cachedItem?.remarks ?? matchedUploaded?.remarks ?? '',
+      uploadedDoc: matchedUploaded ? { ...matchedUploaded } : null,
+      reviewedAt: matchedUploaded?.reviewed_at || cachedItem?.reviewedAt || null,
+    }
+  })
+
+  const totalRequired = items.filter((item) => item.isRequired).length || items.length
+  const compliedCount = items.filter((item) => item.isRequired && item.isPresent).length
+  const compliancePercentage =
+    totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
+
+  return {
+    ...summary,
+    totalRequired,
+    compliedCount,
+    compliancePercentage,
+    items,
+    overallRemarks: cached?.overallRemarks || summary.overallRemarks,
+    lastUpdated: cached?.lastUpdated || summary.lastUpdated,
+    detailsLoaded: true,
+  }
+}
+
+export async function fetchChecklistProjectSummaries(
+  program: ApplicationProgram,
+): Promise<ProposalChecklistRecord[]> {
+  const pending = checklistSummaryRequests.get(program)
+  if (pending) return pending
+
+  const request = (async () => {
+    await ensureBackendToken()
+    const params = { program, per_page: 100 }
+    const firstResponse = await api.get('/document-checklist/projects', {
+      params,
+    })
+    const firstPage = Array.isArray(firstResponse.data?.data) ? firstResponse.data.data : []
+    const lastPage = Math.max(1, Number(firstResponse.data?.meta?.last_page || 1))
+    const remainingPages = lastPage > 1
+      ? await Promise.all(
+          Array.from({ length: lastPage - 1 }, (_, index) =>
+            api.get('/document-checklist/projects', {
+              params: { ...params, page: index + 2 },
+            }),
+          ),
+        )
+      : []
+    const summaries = [
+      ...firstPage,
+      ...remainingPages.flatMap((response) =>
+        Array.isArray(response.data?.data) ? response.data.data : [],
+      ),
+    ]
+    return summaries.map(mapProjectSummary)
+  })()
+
+  checklistSummaryRequests.set(program, request)
+  try {
+    return await request
+  } finally {
+    checklistSummaryRequests.delete(program)
+  }
+}
+
+export async function fetchProposalChecklist(
+  proposalId: number,
+  projectSummary?: ProposalChecklistRecord,
+): Promise<ProposalChecklistRecord> {
+  const pending = proposalChecklistRequests.get(proposalId)
+  if (pending) return pending
+
+  const request = (async () => {
+    await ensureBackendToken()
+    let serverData: any = null
+
+    try {
+      const response = await api.get(`/proposals/${proposalId}/checklist`)
+      serverData = response.data?.data
+    } catch (error) {
+      if (!projectSummary) throw error
+    }
+
+    if (serverData && Array.isArray(serverData.items) && serverData.items.length > 0) {
+      return mapProposalChecklist(serverData)
+    }
+
+    const summary = serverData
+      ? mapProjectSummary(serverData)
+      : projectSummary
+
+    if (!summary) {
+      throw new Error('The selected project checklist could not be loaded.')
+    }
+
+    return buildFallbackChecklist(summary)
+  })()
+
+  proposalChecklistRequests.set(proposalId, request)
+  try {
+    return await request
+  } finally {
+    proposalChecklistRequests.delete(proposalId)
+  }
 }
 
 export async function fetchChecklistProposals(): Promise<ProposalChecklistRecord[]> {
