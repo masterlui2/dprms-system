@@ -131,7 +131,7 @@ export function DataTable<T>({
   }
 
   return (
-    <div>
+    <div className="min-w-0 max-w-full">
       <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
         <label
           className={cn(
@@ -163,16 +163,10 @@ export function DataTable<T>({
       </div>
 
       <div
-        className={cn(
-          'hidden xl:block',
-          fitColumns ? 'overflow-hidden' : 'overflow-x-auto',
-        )}
+        className="hidden max-w-full overflow-hidden xl:block"
       >
         <table
-          className={cn(
-            'w-full text-left text-sm',
-            fitColumns ? 'table-fixed' : 'min-w-[1000px]',
-          )}
+          className="w-full table-fixed text-left text-sm"
         >
           <thead
             className={cn(
@@ -304,6 +298,16 @@ export function DataTable<T>({
                 )}
                 key={getRowKey(row)}
                 onClick={() => onRowClick?.(row)}
+                onKeyDown={(event) => {
+                  if (
+                    onRowClick &&
+                    (event.key === 'Enter' || event.key === ' ')
+                  ) {
+                    event.preventDefault()
+                    onRowClick(row)
+                  }
+                }}
+                tabIndex={onRowClick ? 0 : undefined}
               >
                 {mobileRender
                   ? mobileRender(row)

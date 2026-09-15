@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import { FileText, Loader2 } from 'lucide-react'
 import { cn } from '../../utils/cn'
@@ -10,6 +10,28 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
 ).toString()
 
 const dataUrlCache = new Map<string, string>()
+const documentBlobUrlCache = new Map<number, string>()
+const documentBlobRequests = new Map<number, Promise<string>>()
+
+async function getDocumentBlobUrl(documentId: number): Promise<string> {
+  const cached = documentBlobUrlCache.get(documentId)
+  if (cached) return cached
+
+  const pending = documentBlobRequests.get(documentId)
+  if (pending) return pending
+
+  const request = viewDocumentBlobForStaff(documentId)
+    .then((blobUrl) => {
+      documentBlobUrlCache.set(documentId, blobUrl)
+      return blobUrl
+    })
+    .finally(() => {
+      documentBlobRequests.delete(documentId)
+    })
+
+  documentBlobRequests.set(documentId, request)
+  return request
+}
 
 interface PdfThumbnailProps {
   url?: string | null
@@ -26,12 +48,46 @@ export function PdfThumbnail({
   alt = 'PDF Preview',
   title,
 }: PdfThumbnailProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const cacheKey = documentId ? `doc_${documentId}` : url || null
   const [cachedDataUrl, setCachedDataUrl] = useState<string | null>(() =>
     cacheKey ? dataUrlCache.get(cacheKey) || null : null
   )
-  const [loading, setLoading] = useState<boolean>(() => !cachedDataUrl && Boolean(url || documentId))
+  const [isVisible, setIsVisible] = useState(Boolean(cachedDataUrl))
+  const [loading, setLoading] = useState(false)
   const [, setHasError] = useState<boolean>(false)
+
+  useEffect(() => {
+    const cached = cacheKey ? dataUrlCache.get(cacheKey) : null
+    setCachedDataUrl(cached || null)
+    setLoading(false)
+    setHasError(false)
+
+    if (cached || (!url && !documentId)) {
+      setIsVisible(Boolean(cached))
+      return
+    }
+
+    const element = containerRef.current
+    if (!element || typeof IntersectionObserver === 'undefined') {
+      setIsVisible(true)
+      return
+    }
+
+    setIsVisible(false)
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setIsVisible(true)
+          observer.disconnect()
+        }
+      },
+      { rootMargin: '240px 0px' },
+    )
+    observer.observe(element)
+
+    return () => observer.disconnect()
+  }, [cacheKey, documentId, url])
 
   useEffect(() => {
     if (cacheKey && dataUrlCache.has(cacheKey)) {
@@ -46,6 +102,8 @@ export function PdfThumbnail({
       return
     }
 
+    if (!isVisible) return
+
     let isCancelled = false
     setLoading(true)
     setHasError(false)
@@ -56,7 +114,7 @@ export function PdfThumbnail({
 
       try {
         if (!activeUrl && documentId) {
-          createdBlobUrl = await viewDocumentBlobForStaff(documentId)
+          createdBlobUrl = await getDocumentBlobUrl(documentId)
           activeUrl = createdBlobUrl
         }
 
@@ -69,7 +127,7 @@ export function PdfThumbnail({
           pdf = await loadingTask.promise
         } catch {
           if (documentId && activeUrl !== createdBlobUrl) {
-            createdBlobUrl = await viewDocumentBlobForStaff(documentId)
+            createdBlobUrl = await getDocumentBlobUrl(documentId)
             activeUrl = createdBlobUrl
             const retryTask = pdfjsLib.getDocument({ url: activeUrl })
             pdf = await retryTask.promise
@@ -122,11 +180,11 @@ export function PdfThumbnail({
     return () => {
       isCancelled = true
     }
-  }, [url, documentId, cacheKey])
+  }, [url, documentId, cacheKey, isVisible])
 
   if (cachedDataUrl) {
     return (
-      <div className="relative h-full w-full overflow-hidden bg-white flex items-start justify-center">
+      <div ref={containerRef} className="relative h-full w-full overflow-hidden bg-white flex items-start justify-center">
         <img
           src={cachedDataUrl}
           alt={alt}
@@ -138,7 +196,7 @@ export function PdfThumbnail({
 
   if (loading) {
     return (
-      <div className={cn('flex h-full w-full flex-col items-center justify-center bg-white p-2 text-slate-400 select-none', className)}>
+      <div ref={containerRef} className={cn('flex h-full w-full flex-col items-center justify-center bg-white p-2 text-slate-400 select-none', className)}>
         <Loader2 className="size-4 animate-spin text-[#0f53b7]" />
         <span className="mt-1 text-[10px] font-medium text-slate-500">Loading preview...</span>
       </div>
@@ -146,7 +204,7 @@ export function PdfThumbnail({
   }
 
   return (
-    <div className={cn('relative flex h-full w-full flex-col justify-between overflow-hidden bg-white p-2.5 shadow-2xs select-none', className)}>
+    <div ref={containerRef} className={cn('relative flex h-full w-full flex-col justify-between overflow-hidden bg-white p-2.5 shadow-2xs select-none', className)}>
       <div className="flex items-center justify-between gap-1 border-b border-slate-100 pb-1.5">
         <span className="inline-flex items-center gap-0.5 rounded bg-blue-50 px-1 py-0.2 text-[8px] font-black uppercase text-[#0f53b7]">
           <FileText className="size-2.5" />

@@ -71,6 +71,7 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
 });
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,RPMO,SYSTEM_ADMIN'])->group(function () {
+    Route::get('document-checklist/projects', [DocumentChecklistController::class, 'projects']);
     Route::get('document-checklist/templates', [DocumentChecklistController::class, 'getTemplates']);
     Route::post('document-checklist/templates', [DocumentChecklistController::class, 'storeTemplate'])
         ->middleware('role:PROJECT_STAFF,FOCAL,SYSTEM_ADMIN');

@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { ROLES } from '../../../../config/permissions';
 import { getMockUser } from '../../../../lib/mockAuth';
 import {
   addChecklistHistoryLog,
-  fetchChecklistProposals,
+  fetchChecklistProjectSummaries,
+  fetchProposalChecklist,
   getChecklistHistory,
   saveProposalChecklistReview,
   GIA_STAGES,
@@ -49,15 +50,13 @@ export function useDocumentChecklistData() {
   const [proposals, setProposals] = useState<ProposalChecklistRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [detailLoadError, setDetailLoadError] = useState<string | null>(null);
 
   const [selectedProposalId, setSelectedProposalId] = useState<number | null>(() => {
     const fromUrl = searchParams.get('proposalId') || searchParams.get('proposal');
     return fromUrl ? parseInt(fromUrl, 10) || null : null;
   });
-  const [isProjectSelectorOpen, setIsProjectSelectorOpen] = useState(false);
-  const [modalSearchQuery, setModalSearchQuery] = useState('');
-  const [modalFilter, setModalFilter] = useState<'ALL' | 'COMPLETE' | 'INCOMPLETE'>('ALL');
-
   const [selectedCategory, setSelectedCategory] = useState<string>(() => {
     const fromUrl = searchParams.get('stage') || searchParams.get('set') || searchParams.get('category');
     if (fromUrl) return fromUrl;
@@ -90,26 +89,36 @@ export function useDocumentChecklistData() {
   const [lastSavedTime, setLastSavedTime] = useState<string | null>(null);
   const [isCompletingReview, setIsCompletingReview] = useState(false);
   const lastSavedPayloadRef = useRef<string>('');
+  const hydratedProposalIdRef = useRef<number | null>(null);
+  const detailRequestIdRef = useRef(0);
 
   const [historyList, setHistoryList] = useState<ChecklistHistoryItem[]>([]);
   const [isHistoryExpanded, setIsHistoryExpanded] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const data = await fetchChecklistProposals();
-      setProposals(data);
+      const data = await fetchChecklistProjectSummaries(activeProgram);
+      setProposals((current) =>
+        data.map((summary) => {
+          const loaded = current.find(
+            (proposal) =>
+              proposal.proposalId === summary.proposalId && proposal.detailsLoaded,
+          );
+          return loaded ? { ...summary, ...loaded } : summary;
+        }),
+      );
     } catch (err) {
       setLoadError((err as Error)?.message || 'Failed to load document checklists');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeProgram]);
 
   useEffect(() => {
-    loadData();
-  }, [activeProgram]);
+    void loadData();
+  }, [loadData]);
 
   const programProposals = useMemo(() => {
     return proposals.filter(
@@ -119,13 +128,64 @@ export function useDocumentChecklistData() {
     );
   }, [proposals, activeProgram]);
 
-  const activeProposal = useMemo(() => {
-    if (selectedProposalId) {
-      const match = programProposals.find((p) => p.proposalId === selectedProposalId);
-      if (match) return match;
-    }
-    return programProposals[0] || null;
+  const selectedProposalSummary = useMemo(() => {
+    if (!selectedProposalId) return null;
+    return programProposals.find((p) => p.proposalId === selectedProposalId) || null;
   }, [programProposals, selectedProposalId]);
+
+  const activeProposal = selectedProposalSummary?.detailsLoaded
+    ? selectedProposalSummary
+    : null;
+
+  const loadProposalDetails = useCallback(
+    async (proposalId: number, summary?: ProposalChecklistRecord | null) => {
+      const requestId = ++detailRequestIdRef.current;
+      setIsDetailLoading(true);
+      setDetailLoadError(null);
+      try {
+        const loaded = await fetchProposalChecklist(proposalId, summary || undefined);
+        if (requestId !== detailRequestIdRef.current) return;
+        if (loaded.program !== activeProgram) {
+          throw new Error('This project is not available in the selected program.');
+        }
+        setProposals((current) => {
+          const exists = current.some((proposal) => proposal.proposalId === proposalId);
+          if (!exists) return [...current, loaded];
+          return current.map((proposal) =>
+            proposal.proposalId === proposalId ? loaded : proposal,
+          );
+        });
+      } catch (err) {
+        if (requestId !== detailRequestIdRef.current) return;
+        setDetailLoadError(
+          (err as Error)?.message || 'Failed to load the selected project documents.',
+        );
+      } finally {
+        if (requestId === detailRequestIdRef.current) {
+          setIsDetailLoading(false);
+        }
+      }
+    },
+    [activeProgram],
+  );
+
+  useEffect(() => {
+    if (!selectedProposalId || isLoading || selectedProposalSummary?.detailsLoaded) return;
+    void loadProposalDetails(selectedProposalId, selectedProposalSummary);
+  }, [
+    isLoading,
+    loadProposalDetails,
+    selectedProposalId,
+    selectedProposalSummary,
+  ]);
+
+  const reloadActiveProposal = useCallback(async () => {
+    if (!selectedProposalId) {
+      await loadData();
+      return;
+    }
+    await loadProposalDetails(selectedProposalId, selectedProposalSummary);
+  }, [loadData, loadProposalDetails, selectedProposalId, selectedProposalSummary]);
 
   useEffect(() => {
     const urlProposalId = searchParams.get('proposalId') || searchParams.get('proposal');
@@ -142,7 +202,12 @@ export function useDocumentChecklistData() {
   }, [searchParams, selectedProposalId, selectedCategory]);
 
   useEffect(() => {
+    if (isLoading || isDetailLoading) return;
+
     if (activeProposal) {
+      if (hydratedProposalIdRef.current === activeProposal.proposalId) return;
+
+      hydratedProposalIdRef.current = activeProposal.proposalId;
       setSelectedProposalId(activeProposal.proposalId);
       const itemsCopy = JSON.parse(JSON.stringify(activeProposal.items));
       const remarksCopy = activeProposal.overallRemarks || '';
@@ -155,7 +220,8 @@ export function useDocumentChecklistData() {
       });
       setAutoSaveStatus('idle');
       setHistoryList(getChecklistHistory(activeProposal.proposalId));
-    } else {
+    } else if (!selectedProposalId) {
+      hydratedProposalIdRef.current = null;
       setSelectedProposalId(null);
       setEditingItems([]);
       setEditingOverallRemarks('');
@@ -163,13 +229,15 @@ export function useDocumentChecklistData() {
       lastSavedPayloadRef.current = '';
       setAutoSaveStatus('idle');
     }
-  }, [activeProposal?.proposalId, activeProgram]);
+  }, [activeProposal, isDetailLoading, isLoading, selectedProposalId]);
+
+  const activeProposalId = activeProposal?.proposalId ?? null;
 
   useEffect(() => {
-    if (!activeProposal || isReadOnly || editingItems.length === 0) return;
+    if (!activeProposalId || isReadOnly || editingItems.length === 0) return;
 
     const currentPayload = JSON.stringify({
-      proposalId: activeProposal.proposalId,
+      proposalId: activeProposalId,
       items: editingItems,
       remarks: editingOverallRemarks,
     });
@@ -182,7 +250,7 @@ export function useDocumentChecklistData() {
     const timer = setTimeout(async () => {
       try {
         await saveProposalChecklistReview(
-          activeProposal.proposalId,
+          activeProposalId,
           editingItems,
           editingOverallRemarks
         );
@@ -194,7 +262,7 @@ export function useDocumentChecklistData() {
 
         setProposals((prev) =>
           prev.map((p) => {
-            if (p.proposalId !== activeProposal.proposalId) return p;
+            if (p.proposalId !== activeProposalId) return p;
             return {
               ...p,
               items: editingItems,
@@ -217,7 +285,7 @@ export function useDocumentChecklistData() {
     }, 600);
 
     return () => clearTimeout(timer);
-  }, [editingItems, editingOverallRemarks, activeProposal?.proposalId, isReadOnly]);
+  }, [editingItems, editingOverallRemarks, activeProposalId, isReadOnly]);
 
   const categories: ChecklistCategoryItem[] = useMemo(() => {
     if (activeProgram === 'GIA') {
@@ -286,38 +354,45 @@ export function useDocumentChecklistData() {
     };
   }, [editingItems]);
 
-  const filteredModalProposals = useMemo(() => {
-    return programProposals.filter((p) => {
-      if (modalFilter === 'COMPLETE' && p.compliancePercentage < 100) return false;
-      if (modalFilter === 'INCOMPLETE' && p.compliancePercentage >= 100) return false;
-
-      if (modalSearchQuery.trim()) {
-        const query = modalSearchQuery.toLowerCase();
-        const matchTitle = p.enterpriseName.toLowerCase().includes(query);
-        const matchRef = p.referenceNumber.toLowerCase().includes(query);
-        const matchProponent = p.proponentName.toLowerCase().includes(query);
-        const matchDistrict = (p.district || '').toLowerCase().includes(query);
-        if (!matchTitle && !matchRef && !matchProponent && !matchDistrict) return false;
-      }
-
-      return true;
-    });
-  }, [programProposals, modalFilter, modalSearchQuery]);
-
   const handleSelectProposal = (proposal: ProposalChecklistRecord) => {
+    detailRequestIdRef.current += 1;
+    hydratedProposalIdRef.current = null;
     setSelectedProposalId(proposal.proposalId);
-    const itemsCopy = JSON.parse(JSON.stringify(proposal.items));
-    const remarksCopy = proposal.overallRemarks || '';
-    setEditingItems(itemsCopy);
-    setEditingOverallRemarks(remarksCopy);
-    lastSavedPayloadRef.current = JSON.stringify({
-      proposalId: proposal.proposalId,
-      items: itemsCopy,
-      remarks: remarksCopy,
-    });
+    setEditingItems([]);
+    setEditingOverallRemarks('');
+    setDetailLoadError(null);
+    lastSavedPayloadRef.current = '';
     setAutoSaveStatus('idle');
-    setIsProjectSelectorOpen(false);
-    setModalSearchQuery('');
+
+    const next = new URLSearchParams(searchParams);
+    next.set('program', proposal.program);
+    next.set('proposalId', String(proposal.proposalId));
+    next.delete('proposal');
+    next.delete('stage');
+    next.delete('set');
+    next.delete('category');
+    setSearchParams(next);
+  };
+
+  const handleBackToProjects = () => {
+    detailRequestIdRef.current += 1;
+    hydratedProposalIdRef.current = null;
+    setSelectedProposalId(null);
+    setEditingItems([]);
+    setEditingOverallRemarks('');
+    setHistoryList([]);
+    setDetailLoadError(null);
+    setIsDetailLoading(false);
+    setAutoSaveStatus('idle');
+    lastSavedPayloadRef.current = '';
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('proposalId');
+    next.delete('proposal');
+    next.delete('stage');
+    next.delete('set');
+    next.delete('category');
+    setSearchParams(next);
   };
 
   const handleToggleItemVerify = async (itemId: string) => {
@@ -595,19 +670,18 @@ export function useDocumentChecklistData() {
     canViewHistory,
     activeProgram,
     proposals,
+    programProposals,
     setProposals,
     isLoading,
     loadError,
     loadData,
+    reloadActiveProposal,
     activeProposal,
-    isProjectSelectorOpen,
-    setIsProjectSelectorOpen,
-    modalSearchQuery,
-    setModalSearchQuery,
-    modalFilter,
-    setModalFilter,
-    filteredModalProposals,
+    selectedProposalId,
+    isDetailLoading,
+    detailLoadError,
     handleSelectProposal,
+    handleBackToProjects,
     selectedCategory,
     setSelectedCategory,
     statusTab,

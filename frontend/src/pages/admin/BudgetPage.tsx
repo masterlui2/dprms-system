@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Check,
   Clock,
-  FileCheck2,
 } from 'lucide-react'
 import { useNavigate, useParams } from 'react-router-dom'
 
@@ -125,7 +124,7 @@ export function BudgetPage() {
 
   const columns: DataColumn<ProjectRecord>[] = [
     {
-      className: 'w-[11%] min-w-[120px]',
+      className: 'w-[12%]',
       header: 'Reference',
       id: 'reference',
       render: (project) => (
@@ -136,7 +135,7 @@ export function BudgetPage() {
       sortValue: (project) => project.referenceNumber ?? project.id,
     },
     {
-      className: 'w-[20%] min-w-[180px]',
+      className: 'w-[20%]',
       header: 'Project Title',
       id: 'title',
       render: (project) => (
@@ -147,7 +146,7 @@ export function BudgetPage() {
       sortValue: (project) => project.title,
     },
     {
-      className: 'w-[16%] min-w-[150px]',
+      className: 'w-[22%]',
       header: 'Project Beneficiary',
       id: 'enterprise',
       render: (project) => (
@@ -156,23 +155,18 @@ export function BudgetPage() {
           <p className="text-[11px] font-medium text-slate-500">
             {project.proponentName || project.manager || 'Cooperator'}
           </p>
+          {project.contactNumber ? (
+            <p className="text-[11px] font-normal text-slate-400">
+              {project.contactNumber}
+            </p>
+          ) : null}
         </div>
       ),
       sortValue: (project) => project.enterprise,
     },
     {
-      className: 'w-[11%] min-w-[110px]',
-      header: 'Contact No.',
-      id: 'contactNumber',
-      render: (project) => (
-        <span className="text-xs font-medium text-slate-700">
-          {project.contactNumber || <span className="text-slate-400 font-normal">Not recorded</span>}
-        </span>
-      ),
-      sortValue: (project) => project.contactNumber || '',
-    },
-    {
-      className: 'w-[13%] min-w-[120px]',
+      align: 'right',
+      className: 'w-[13%]',
       header: 'SETUP Funding',
       id: 'funding',
       render: (project) => {
@@ -190,7 +184,7 @@ export function BudgetPage() {
       sortValue: (project) => project.budget,
     },
     {
-      className: 'w-[11%] min-w-[110px]',
+      className: 'w-[11%]',
       header: 'Full Release',
       id: 'fullRelease',
       render: (project) => (
@@ -201,7 +195,7 @@ export function BudgetPage() {
       sortValue: (project) => project.fullRelease || '',
     },
     {
-      className: 'w-[8%] min-w-[90px]',
+      className: 'w-[10%]',
       header: 'Status',
       id: 'status',
       render: (project) => {
@@ -221,29 +215,16 @@ export function BudgetPage() {
       sortValue: (project) => (project.budget <= 0 || !project.fullRelease ? 'Needs Schedule' : 'Active'),
     },
     {
-      className: 'w-[10%] min-w-[100px] text-right',
+      className: 'w-[12%] text-right',
       header: 'ACTION',
       id: 'action',
       render: (project) => {
         const id = project.backendId ?? project.id
         const needsInit = project.budget <= 0 || !project.fullRelease
         return (
-          <div className="flex items-center justify-end gap-1.5">
-            {project.proposalId ? (
-              <button
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition shrink-0"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  navigate(`/dashboard/document-checklist?proposalId=${project.proposalId}&program=SETUP`)
-                }}
-                title="Open Document Checklist"
-                type="button"
-              >
-                <FileCheck2 className="size-4" />
-              </button>
-            ) : null}
+          <div className="flex items-center justify-end">
             <button
-              className={`inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-bold text-white shadow-xs transition ${
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white shadow-xs transition ${
                 needsInit && !isDirector
                   ? 'bg-amber-600 hover:bg-amber-700'
                   : 'bg-emerald-700 hover:bg-emerald-800'
@@ -312,6 +293,7 @@ export function BudgetPage() {
             emptyDescription="There are no active SETUP projects matching your filter criteria."
             emptyTitle="No repayment projects found"
             getRowKey={(project) => String(project.backendId ?? project.id)}
+            fitColumns
             initialRowsPerPage={10}
             isLoading={isLoading}
             mobileRender={(project) => {
