@@ -1,6 +1,7 @@
 export * from './types';
 export * from './utils';
 export * from './views/DocumentChecklistHeader';
+export * from './views/DocumentChecklistProjectTable';
 export * from './views/DocumentChecklistSidebar';
 export * from './views/DocumentChecklistFilterBar';
 export * from './views/DocumentChecklistGridView';

@@ -21,11 +21,9 @@ interface UseChecklistModalsProps {
   activeProposal: ProposalChecklistRecord | null;
   isReadOnly: boolean;
   currentUser: ReturnType<typeof getMockUser>;
-  editingItems: DocumentChecklistItem[];
   setEditingItems: React.Dispatch<React.SetStateAction<DocumentChecklistItem[]>>;
   setProposals: React.Dispatch<React.SetStateAction<ProposalChecklistRecord[]>>;
   editingOverallRemarks: string;
-  viewMode: 'grid' | 'list';
   setHistoryList: React.Dispatch<React.SetStateAction<ChecklistHistoryItem[]>>;
 }
 
@@ -33,11 +31,9 @@ export function useChecklistModals({
   activeProposal,
   isReadOnly,
   currentUser,
-  editingItems,
   setEditingItems,
   setProposals,
   editingOverallRemarks,
-  viewMode,
   setHistoryList,
 }: UseChecklistModalsProps) {
   const [blobMap, setBlobMap] = useState<Record<string, string>>({});
@@ -76,23 +72,10 @@ export function useChecklistModals({
   });
 
   useEffect(() => {
-    if (viewMode !== 'grid') return;
-
-    const unmappedItems = editingItems.filter(
-      (item) => item.uploadedDoc?.id && !blobMap[item.id]
-    );
-
-    if (unmappedItems.length === 0) return;
-
-    unmappedItems.forEach(async (item) => {
-      if (!item.uploadedDoc?.id) return;
-      try {
-        const url = await viewDocumentBlobForStaff(item.uploadedDoc.id);
-        setBlobMap((prev) => ({ ...prev, [item.id]: url }));
-      } catch {
-      }
-    });
-  }, [viewMode, editingItems, blobMap]);
+    setBlobMap({});
+    setReviewModalItem(null);
+    setVersionModalDoc(null);
+  }, [activeProposal?.proposalId]);
 
   const handleOpenUploadModal = (item: DocumentChecklistItem) => {
     setUploadModalItem(item);

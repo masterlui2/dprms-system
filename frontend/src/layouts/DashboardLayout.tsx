@@ -168,7 +168,7 @@ export function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 bg-[#eef5fb]">
+        <main className="min-w-0 max-w-full flex-1 overflow-y-auto bg-[#eef5fb] px-4 py-6 sm:px-6">
           <Outlet />
         </main>
       </div>

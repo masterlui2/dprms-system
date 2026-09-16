@@ -1,9 +1,9 @@
 import React from 'react';
 import {
+  ArrowLeft,
   ChevronDown,
   History,
   Inbox,
-  Search,
   User,
 } from 'lucide-react';
 import { ROLE_LABEL, type UserRole } from '../../../../config/permissions';
@@ -24,7 +24,7 @@ interface DocumentChecklistSidebarProps {
     required: number;
     uploaded: number;
   };
-  setIsProjectSelectorOpen: (open: boolean) => void;
+  onBackToProjects: () => void;
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
   editingItems: DocumentChecklistItem[];
@@ -38,7 +38,7 @@ interface DocumentChecklistSidebarProps {
 export function DocumentChecklistSidebar({
   activeProposal,
   stats,
-  setIsProjectSelectorOpen,
+  onBackToProjects,
   selectedCategory,
   setSelectedCategory,
   editingItems,
@@ -96,11 +96,11 @@ export function DocumentChecklistSidebar({
 
         <button
           type="button"
-          onClick={() => setIsProjectSelectorOpen(true)}
+          onClick={onBackToProjects}
           className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white py-2 px-3 text-xs font-bold text-slate-700 hover:bg-[#E6EEF4]/60 hover:text-[#0f53b7] hover:border-[#0f53b7]/30 transition shadow-2xs cursor-pointer"
         >
-          <Search className="size-3.5 text-slate-400 shrink-0" />
-          <span>Switch Project</span>
+          <ArrowLeft className="size-3.5 shrink-0 text-slate-400" />
+          <span>All Projects</span>
         </button>
       </div>
 

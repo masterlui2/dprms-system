@@ -9,13 +9,9 @@ import {
   Trash2,
   Upload,
   UploadCloud,
-  User,
 } from 'lucide-react';
 import { PdfThumbnail } from '../../../common/PdfThumbnail';
-import type {
-  DocumentChecklistItem,
-  ProposalChecklistRecord,
-} from '../../../../services/documentChecklistStore';
+import type { DocumentChecklistItem } from '../../../../services/documentChecklistStore';
 import { viewDocumentBlobForStaff } from '../../../../services/documentStore';
 import { cn } from '../../../../utils/cn';
 import { getItemComplianceState } from '../utils';
@@ -25,7 +21,6 @@ interface DocumentChecklistGridViewProps {
   blobMap: Record<string, string>;
   canReview: boolean;
   canUpload: boolean;
-  activeProposal: ProposalChecklistRecord;
   handleOpenReviewModal: (item: DocumentChecklistItem) => void;
   handlePreviewDocument: (item: DocumentChecklistItem) => void;
   handleOpenUploadModal: (item: DocumentChecklistItem) => void;
@@ -39,7 +34,6 @@ export function DocumentChecklistGridView({
   blobMap,
   canReview,
   canUpload,
-  activeProposal,
   handleOpenReviewModal,
   handlePreviewDocument,
   handleOpenUploadModal,
@@ -48,7 +42,7 @@ export function DocumentChecklistGridView({
   handleToggleItemVerify,
 }: DocumentChecklistGridViewProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
+    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {filteredItems.map((item, idx) => {
         const hasFile = Boolean(item.uploadedDoc);
         const blobUrl =
@@ -168,21 +162,8 @@ export function DocumentChecklistGridView({
                   </p>
                 )}
 
-                <div className="flex items-center justify-between gap-1 text-[11px] text-slate-500">
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                    <span className="flex size-4.5 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-600 text-[9px] font-bold">
-                      <User className="size-2.5" />
-                    </span>
-                    <span className="truncate text-slate-700 font-medium text-[10px]">
-                      {activeProposal.proponentName.split(' ')[0] || 'Proponent'}
-                    </span>
-                    <span>•</span>
-                    <span className="text-slate-400 shrink-0 text-[10px]">
-                      {state.label}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center justify-end gap-1 text-[11px] text-slate-500">
+                  <div className="flex shrink-0 items-center gap-1">
                     {hasFile && (
                       <button
                         type="button"

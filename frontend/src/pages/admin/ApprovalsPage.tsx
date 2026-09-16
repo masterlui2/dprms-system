@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Eye,
   Check,
@@ -24,6 +24,7 @@ import type { ApplicationRecord } from "../../types/application";
 
 export function ApprovalsPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = getMockUser();
   const canOpenProjectMonitoring = currentUser?.role === ROLES.FOCAL;
   const lockedProgram =
@@ -41,14 +42,11 @@ export function ApprovalsPage() {
           ? "SETUP"
           : null;
 
-  const getDefaultLifecycleTab = (): "all" | "review" | "in_process" | "for_approval" | "approved" | "disapproved" => {
-    if (currentUser?.role === "project_staff") return "review";
-    if (currentUser?.role === "focal") return "in_process";
-    if (currentUser?.role === "provincial_director") return "for_approval";
-    return "all";
-  };
-
-  const [lifecycleTab, setLifecycleTab] = useState<"all" | "review" | "in_process" | "for_approval" | "approved" | "disapproved">(getDefaultLifecycleTab);
+  const [lifecycleTab, setLifecycleTab] = useState<"all" | "review" | "in_process" | "for_approval" | "approved" | "disapproved">(() => {
+    if (location.pathname.endsWith('/application-review')) return 'review';
+    if (location.pathname.endsWith('/executive-approval')) return 'for_approval';
+    return 'all';
+  });
   const [review, setReview] = useState<{
     proposal: ProposalRecord;
     section: ReviewSection;
@@ -185,16 +183,14 @@ export function ApprovalsPage() {
   }
 
   useEffect(() => {
-    if (currentUser?.role === ROLES.PROJECT_STAFF) {
-      setLifecycleTab("review");
-    } else if (currentUser?.role === ROLES.FOCAL) {
-      setLifecycleTab("in_process");
-    } else if (currentUser?.role === ROLES.PROVINCIAL_DIRECTOR) {
-      setLifecycleTab("for_approval");
+    if (location.pathname.endsWith('/application-review')) {
+      setLifecycleTab('review');
+    } else if (location.pathname.endsWith('/executive-approval')) {
+      setLifecycleTab('for_approval');
     } else {
-      setLifecycleTab("all");
+      setLifecycleTab('all');
     }
-  }, [currentUser?.role]);
+  }, [location.pathname]);
 
   useEffect(() => {
     let cancelled = false;
@@ -432,17 +428,10 @@ export function ApprovalsPage() {
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
-            <div className="flex flex-col gap-0.5 min-w-0">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap shadow-2xs">
-                <Check className="size-3" />
-                Approved
-              </span>
-              {canOpenProjectMonitoring ? (
-                <span className="text-[10px] font-medium leading-tight text-slate-500">
-                  Ready for monitoring
-                </span>
-              ) : null}
-            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap shadow-2xs">
+              <Check className="size-3" />
+              Approved
+            </span>
           );
         }
 
@@ -475,7 +464,7 @@ export function ApprovalsPage() {
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
-            <div className="flex items-center justify-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
               {proposal.proposalId ? (
                 <button
                   className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition shrink-0"
@@ -532,7 +521,7 @@ export function ApprovalsPage() {
 
         if (canDecide) {
           return (
-            <div className="flex items-center justify-end gap-1.5">
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
               {proposal.proposalId ? (
                 <button
                   className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
@@ -586,7 +575,7 @@ export function ApprovalsPage() {
         }
 
         return (
-          <div className="flex items-center justify-end gap-1.5">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             {proposal.proposalId ? (
               <button
                 className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"

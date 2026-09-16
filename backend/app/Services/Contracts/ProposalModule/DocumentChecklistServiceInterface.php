@@ -12,6 +12,8 @@ interface DocumentChecklistServiceInterface
 {
     public function getChecklistTemplates(string $programType, bool $includeInactive = false): Collection;
 
+    public function getProjectSummaries(?string $programType = null, ?string $search = null, int $perPage = 20): array;
+
     public function getProposalChecklist(int $proposalId): array;
 
     public function updateItemReview(int $proposalId, int $templateItemId, array $data, int $userId): ProposalChecklistReview;

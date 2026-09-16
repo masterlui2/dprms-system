@@ -125,6 +125,153 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     }
 
     #[Override]
+    public function getProjectSummaries(?string $programType = null, ?string $search = null, int $perPage = 20): array
+    {
+        $program = $programType ? strtoupper($programType) : null;
+        $needle = $search ? '%' . strtolower(trim($search)) . '%' : null;
+
+        $query = Proposal::query()
+            ->whereRaw('UPPER(status) = ?', ['APPROVED'])
+            ->when($program, fn ($builder) => $builder->where('program_type', $program))
+            ->when($needle, function ($builder) use ($needle) {
+                $builder->where(function ($searchQuery) use ($needle) {
+                    $searchQuery
+                        ->whereRaw('LOWER(reference_number) LIKE ?', [$needle])
+                        ->orWhereRaw('LOWER(title) LIKE ?', [$needle])
+                        ->orWhereHas('user', fn ($userQuery) => $userQuery->whereRaw('LOWER(name) LIKE ?', [$needle]))
+                        ->orWhereHas('setup_proposal', fn ($setupQuery) => $setupQuery->whereRaw('LOWER(business_name) LIKE ?', [$needle]))
+                        ->orWhereHas('gia_proposal', fn ($giaQuery) => $giaQuery->whereRaw('LOWER(organization_name) LIKE ?', [$needle]));
+                });
+            })
+            ->with([
+                'user:id,name,email',
+                'focal:id,name,email',
+                'assigned_focal:id,name,email',
+                'setup_proposal',
+                'gia_proposal',
+                'documents.document_type',
+                'checklist_reviews',
+                'checklist_summary',
+            ])
+            ->orderByDesc('approved_at')
+            ->orderByDesc('id');
+
+        $paginator = $query->paginate($perPage);
+        $proposals = collect($paginator->items());
+        $programs = $proposals
+            ->map(fn (Proposal $proposal) => strtoupper($proposal->program_type === 'GIA' ? 'GIA' : 'SETUP'))
+            ->unique();
+
+        $templatesByProgram = [];
+        foreach ($programs as $proposalProgram) {
+            $templatesByProgram[$proposalProgram] = $this->checklistRepository->getTemplatesByProgram($proposalProgram);
+        }
+
+        $allDocTypes = DocumentType::query()
+            ->select(['id', 'name', 'applicable_program', 'set_number', 'is_applicant_visible'])
+            ->get();
+
+        $data = $proposals->map(function (Proposal $proposal) use ($templatesByProgram, $allDocTypes) {
+            $program = strtoupper($proposal->program_type === 'GIA' ? 'GIA' : 'SETUP');
+            $templates = $templatesByProgram[$program] ?? collect();
+            $reviews = $proposal->checklist_reviews->keyBy('template_item_id');
+            $documents = $proposal->documents;
+            $setupData = $proposal->setup_proposal->first();
+            $giaData = $proposal->gia_proposal->first();
+            $context = $this->buildApplicabilityContext($setupData, $giaData);
+
+            $totalRequired = 0;
+            $compliedCount = 0;
+            $hasProgress = $documents->isNotEmpty() || $reviews->isNotEmpty();
+            $hasUnderReview = $documents->contains(
+                fn (Document $document) => self::normalizeStatus($document->status) === self::STATUS_UNDER_REVIEW,
+            );
+            $hasRevision = $documents->contains(
+                fn (Document $document) => self::normalizeStatus($document->status) === self::STATUS_NEEDS_REVISION,
+            );
+
+            foreach ($templates as $template) {
+                $isApplicable = $this->evaluateApplicability($template, $context);
+                $isMandatory = $template->is_mandatory && $isApplicable;
+
+                if (! $isMandatory) {
+                    continue;
+                }
+
+                $totalRequired++;
+                $expectedDocTypeId = $this->resolveDocumentTypeId($template->item_code, $program, $allDocTypes);
+                $isInternal = $this->isInternalDocumentTemplate($template, $expectedDocTypeId, $allDocTypes);
+                $review = $reviews->get($template->id);
+                $matchedDoc = null;
+
+                if ($review?->document_id) {
+                    $matchedDoc = $documents->firstWhere('id', $review->document_id);
+                }
+                if (! $matchedDoc) {
+                    $matchedDoc = $this->findMatchingDocument($template, $documents, $program, $expectedDocTypeId, $isInternal);
+                }
+
+                if ($matchedDoc) {
+                    $status = $review?->status
+                        ? self::normalizeStatus($review->status)
+                        : self::normalizeStatus($matchedDoc->status);
+                } else {
+                    $status = $review ? self::normalizeStatus($review->status) : self::STATUS_MISSING;
+                }
+
+                $hasProgress = $hasProgress || (bool) $matchedDoc || (bool) $review;
+                $hasUnderReview = $hasUnderReview || $status === self::STATUS_UNDER_REVIEW;
+                $hasRevision = $hasRevision || $status === self::STATUS_NEEDS_REVISION;
+
+                if (($review?->is_present ?? false) || $status === self::STATUS_COMPLIED) {
+                    $compliedCount++;
+                }
+            }
+
+            $compliancePercentage = $totalRequired > 0
+                ? (int) round(($compliedCount / $totalRequired) * 100)
+                : 0;
+            $summary = $proposal->checklist_summary;
+            $reviewStatus = match (true) {
+                (bool) ($summary?->is_completed ?? false), $compliancePercentage >= 100 && $totalRequired > 0 => 'Completed',
+                $hasRevision => 'Needs Revision',
+                $hasUnderReview => 'In Review',
+                $hasProgress => 'In Progress',
+                default => 'Not Started',
+            };
+
+            return [
+                'proposal_id' => $proposal->id,
+                'reference_number' => $proposal->reference_number ?? "PROP-{$proposal->id}",
+                'enterprise_name' => $setupData?->business_name ?? $giaData?->organization_name ?? $proposal->title ?? 'Enterprise',
+                'proponent_name' => $proposal->user?->name ?? 'Proponent',
+                'proponent_email' => $proposal->user?->email ?? '',
+                'program' => $program,
+                'status' => $proposal->status ?? 'APPROVED',
+                'submitted_date' => $proposal->submitted_at?->toIso8601String() ?? $proposal->created_at?->toIso8601String(),
+                'district' => $giaData?->city_municipality ?? $giaData?->province ?? $setupData?->city_municipality ?? $setupData?->province ?? '',
+                'focal_name' => $proposal->assigned_focal?->name ?? $proposal->focal?->name ?? ($program === 'GIA' ? 'GIA Focal' : 'SETUP Focal'),
+                'total_required' => $totalRequired,
+                'complied_count' => $compliedCount,
+                'compliance_percentage' => $compliancePercentage,
+                'review_status' => $reviewStatus,
+                'is_completed' => (bool) ($summary?->is_completed ?? false),
+                'last_updated' => $summary?->updated_at?->toIso8601String() ?? $proposal->updated_at?->toIso8601String(),
+            ];
+        })->values()->all();
+
+        return [
+            'data' => $data,
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'last_page' => $paginator->lastPage(),
+                'per_page' => $paginator->perPage(),
+                'total' => $paginator->total(),
+            ],
+        ];
+    }
+
+    #[Override]
     public function getProposalChecklist(int $proposalId): array
     {
         $proposal = Proposal::query()
@@ -149,55 +296,14 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
 
         $setupData = $proposal->setup_proposal->first();
         $giaData = $proposal->gia_proposal->first();
-
-        $rawBizType = $setupData?->business_type 
-            ?? $setupData?->form_snapshot['organizationType']
-            ?? $setupData?->form_snapshot['business_type']
-            ?? 'Sole Proprietorship';
-
-        $businessType = match (strtoupper(str_replace(['-', '_'], ' ', (string)$rawBizType))) {
-            'SOLE PROPRIETORSHIP' => 'Sole Proprietorship',
-            'CORPORATION' => 'Corporation',
-            'COOPERATIVE' => 'Cooperative',
-            'PARTNERSHIP' => 'Partnership',
-            default => $rawBizType,
-        };
-
-        $spaceOwnership = $setupData?->space_ownership 
-            ?? $setupData?->form_snapshot['space_ownership'] 
-            ?? 'Owned';
-
-        $rawOrgType = $giaData?->proponent_category 
-            ?? $giaData?->agency_type 
-            ?? $giaData?->organization_type 
-            ?? $giaData?->form_snapshot['organizationType']
-            ?? 'Higher Education Institution';
-
-        $orgType = match ($rawOrgType) {
-            'Higher Education Institution', 'HEI', 'SUC' => 'HEI',
-            'Private Sector', 'Private', 'NGO', 'CSO', 'PO' => 'NGO',
-            'Barangay LGU', 'LGU' => 'Barangay LGU',
-            default => $rawOrgType,
-        };
-
-        $hasEquipment = true;
-        if (isset($setupData?->form_snapshot['has_equipment'])) {
-            $hasEquipment = (bool) $setupData->form_snapshot['has_equipment'];
-        } elseif (isset($giaData?->form_snapshot['has_equipment'])) {
-            $hasEquipment = (bool) $giaData->form_snapshot['has_equipment'];
-        }
+        $applicabilityContext = $this->buildApplicabilityContext($setupData, $giaData);
 
         $items = [];
         $totalRequired = 0;
         $compliedCount = 0;
 
         foreach ($templates as $template) {
-            $isApplicable = $this->evaluateApplicability($template, [
-                'business_type' => $businessType,
-                'space_ownership' => $spaceOwnership,
-                'org_type' => $orgType,
-                'has_equipment' => $hasEquipment,
-            ]);
+            $isApplicable = $this->evaluateApplicability($template, $applicabilityContext);
 
             $expectedDocTypeId = $this->resolveDocumentTypeId($template->item_code, $program, $allDocTypes);
             $isInternal = $this->isInternalDocumentTemplate($template, $expectedDocTypeId, $allDocTypes);
@@ -489,6 +595,51 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     public function deleteTemplate(int $id): bool
     {
         return $this->checklistRepository->deleteTemplate($id);
+    }
+
+    protected function buildApplicabilityContext($setupData, $giaData): array
+    {
+        $rawBusinessType = $setupData?->business_type
+            ?? $setupData?->form_snapshot['organizationType']
+            ?? $setupData?->form_snapshot['business_type']
+            ?? 'Sole Proprietorship';
+
+        $businessType = match (strtoupper(str_replace(['-', '_'], ' ', (string) $rawBusinessType))) {
+            'SOLE PROPRIETORSHIP' => 'Sole Proprietorship',
+            'CORPORATION' => 'Corporation',
+            'COOPERATIVE' => 'Cooperative',
+            'PARTNERSHIP' => 'Partnership',
+            default => $rawBusinessType,
+        };
+
+        $rawOrganizationType = $giaData?->proponent_category
+            ?? $giaData?->agency_type
+            ?? $giaData?->organization_type
+            ?? $giaData?->form_snapshot['organizationType']
+            ?? 'Higher Education Institution';
+
+        $organizationType = match ($rawOrganizationType) {
+            'Higher Education Institution', 'HEI', 'SUC' => 'HEI',
+            'Private Sector', 'Private', 'NGO', 'CSO', 'PO' => 'NGO',
+            'Barangay LGU', 'LGU' => 'Barangay LGU',
+            default => $rawOrganizationType,
+        };
+
+        $hasEquipment = true;
+        if (isset($setupData?->form_snapshot['has_equipment'])) {
+            $hasEquipment = (bool) $setupData->form_snapshot['has_equipment'];
+        } elseif (isset($giaData?->form_snapshot['has_equipment'])) {
+            $hasEquipment = (bool) $giaData->form_snapshot['has_equipment'];
+        }
+
+        return [
+            'business_type' => $businessType,
+            'space_ownership' => $setupData?->space_ownership
+                ?? $setupData?->form_snapshot['space_ownership']
+                ?? 'Owned',
+            'org_type' => $organizationType,
+            'has_equipment' => $hasEquipment,
+        ];
     }
 
     protected function evaluateApplicability(DocumentChecklistTemplate $template, array $context): bool

@@ -36,6 +36,71 @@ class DocumentChecklistTest extends TestCase
         $this->assertNotEmpty($response->json('data'));
     }
 
+    public function test_can_fetch_lightweight_approved_project_summaries_by_program(): void
+    {
+        $user = User::factory()->create();
+        $role = Role::where('code', 'FOCAL')->first();
+        UserRole::create(['user_id' => $user->id, 'role_id' => $role->id]);
+
+        $approved = Proposal::create([
+            'submitted_by' => $user->id,
+            'title' => 'Approved SETUP Project',
+            'program_type' => 'SETUP',
+            'status' => 'APPROVED',
+            'reference_number' => 'SETUP-2026-SUMMARY',
+            'approved_at' => now(),
+        ]);
+        SetupProposal::create([
+            'proposal_id' => $approved->id,
+            'business_name' => 'Summary Enterprise',
+            'business_type' => 'Sole Proprietorship',
+            'industry_sector' => 'Manufacturing',
+            'enterprise_size' => 'Micro',
+            'years_in_operation' => 2,
+            'business_address' => 'Mati City',
+            'region' => 'Region XI',
+            'province' => 'Davao Oriental',
+            'city_municipality' => 'Mati City',
+            'space_ownership' => 'Owned',
+        ]);
+
+        Proposal::create([
+            'submitted_by' => $user->id,
+            'title' => 'Unapproved SETUP Project',
+            'program_type' => 'SETUP',
+            'status' => 'Submitted',
+            'reference_number' => 'SETUP-2026-HIDDEN',
+        ]);
+
+        $response = $this->actingAs($user)->getJson(
+            '/api/document-checklist/projects?program=SETUP&search=Summary&per_page=10',
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('status', 'success')
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.proposal_id', $approved->id)
+            ->assertJsonPath('data.0.enterprise_name', 'Summary Enterprise')
+            ->assertJsonPath('data.0.program', 'SETUP')
+            ->assertJsonStructure([
+                'status',
+                'data' => [[
+                    'proposal_id',
+                    'reference_number',
+                    'enterprise_name',
+                    'proponent_name',
+                    'program',
+                    'total_required',
+                    'complied_count',
+                    'compliance_percentage',
+                    'review_status',
+                ]],
+                'meta' => ['current_page', 'last_page', 'per_page', 'total'],
+            ]);
+
+        $this->assertArrayNotHasKey('items', $response->json('data.0'));
+    }
+
     public function test_can_fetch_proposal_checklist(): void
     {
         $user = User::factory()->create();
