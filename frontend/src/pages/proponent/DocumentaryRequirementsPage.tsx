@@ -271,7 +271,11 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
       })
       .catch(() => {
         if (requirementsFetchRef.current.requestId === requestId) {
-          setRequirements((current) => (current.length ? current : []));
+          requirementsFetchRef.current.key = ""; // allow a retry on next render
+          setRequirements([]);
+          setMessage(
+            "Could not load the required documents from the server. Please refresh the page.",
+          );
         }
       });
   }, [
@@ -589,10 +593,17 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
     }
     const isSetup = activeProgram === "SETUP";
 
-    const proposalData = isSetup
-      ? setupFormRef.current?.validate()
-      : giaFormRef.current?.validate();
-    if (!proposalData) return;
+    const formHandle = isSetup ? setupFormRef.current : giaFormRef.current;
+    if (!formHandle) {
+      setMessage("The proposal form isn't ready yet. Please reload the page and try again.");
+      return;
+    }
+
+    const proposalData = formHandle.validate();
+    if (!proposalData) {
+      setMessage("Fix the highlighted fields in the proposal form before submitting.");
+      return;
+    }
 
     const missingRequiredDocs = requiredRequirements.filter(
       (req) => !documents[req.id] && !pendingFiles[req.id],

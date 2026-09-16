@@ -1,6 +1,6 @@
 import type { ApplicationProgram, ApplicationRecord } from '../types/application'
 import { normalizeUserRole, ROLES, type UserRole } from '../config/permissions'
-
+import api, { ensureCsrfCookie } from './axios'
 export type { UserRole } from '../config/permissions'
 export { ROLE_LABEL } from '../config/permissions'
 
@@ -74,6 +74,19 @@ const GIA_FOCAL_USER: MockUser = {
   program: 'GIA',
   role: ROLES.FOCAL,
 };
+
+interface BackendAuthUser {
+  id: number
+  email: string
+  name: string
+  role: string // e.g. 'proponent' — Role.code, lowercase
+  program: 'SETUP' | 'GIA' | null
+}
+
+interface BackendAuthResult {
+  user: BackendAuthUser
+  token: string
+}
 
 const DIRECTOR_USER: MockUser = {
   email: 'director@dost.gov.ph', initials: 'PD', name: 'Pat Director Approver', role: ROLES.PROVINCIAL_DIRECTOR,
@@ -335,4 +348,65 @@ export function clearMockUser() {
   window.localStorage.removeItem(TOKEN_STORAGE_KEY);
   window.localStorage.removeItem("dprms.applications");
   window.localStorage.removeItem("dprms.mock-applications");
+}
+
+function mapBackendUserToMockUser(rawUser: BackendAuthUser): MockUser {
+  return {
+    id: rawUser.id,
+    email: rawUser.email,
+    initials: getInitials(rawUser.name || rawUser.email),
+    name: rawUser.name || rawUser.email,
+    program: rawUser.program ?? undefined,
+    role: normalizeUserRole(rawUser.role),
+  }
+}
+
+export async function loginWithBackend(
+  email: string,
+  password: string,
+): Promise<MockUser> {
+  await ensureCsrfCookie()
+
+  const response = await api.post<{ message: string; data: BackendAuthResult }>(
+    '/login',
+    { email, password },
+  )
+  const { user: rawUser, token } = response.data.data
+
+  setAuthToken(token)
+  const user = mapBackendUserToMockUser(rawUser)
+  setMockUser(user)
+  return user
+}
+
+export async function registerWithBackend(payload: {
+  name: string
+  email: string
+  password: string
+  password_confirmation: string
+  role: string
+}): Promise<MockUser> {
+  await ensureCsrfCookie()
+
+  const response = await api.post<{ message: string; data: BackendAuthResult }>(
+    '/register',
+    payload,
+  )
+  const { user: rawUser, token } = response.data.data
+
+  setAuthToken(token)
+  const user = mapBackendUserToMockUser(rawUser)
+  setMockUser(user)
+  return user
+}
+
+export async function logoutFromBackend(): Promise<void> {
+  try {
+    await api.post('/logout')
+  } catch {
+    // token may already be invalid/expired server-side — proceed to clear
+    // local state regardless
+  } finally {
+    clearMockUser()
+  }
 }
