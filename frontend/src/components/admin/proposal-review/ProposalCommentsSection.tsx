@@ -195,19 +195,19 @@ function getAllowedDecisions(role?: string): DecisionType[] {
 
 const TONE_CLASSES: Record<Tone, { badge: string; iconWrap: string }> = {
   success: {
-    badge: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    badge: "text-emerald-700",
     iconWrap: "bg-emerald-600 text-white",
   },
   warning: {
-    badge: "bg-amber-50 text-amber-800 border-amber-200",
+    badge: "text-amber-700",
     iconWrap: "bg-amber-600 text-white",
   },
   danger: {
-    badge: "bg-rose-50 text-rose-800 border-rose-200",
+    badge: "text-rose-700",
     iconWrap: "bg-rose-600 text-white",
   },
   neutral: {
-    badge: "bg-slate-100 text-slate-700 border-slate-200",
+    badge: "text-slate-600",
     iconWrap: "bg-slate-500 text-white",
   },
 };
@@ -400,7 +400,7 @@ export function ProposalCommentsSection({
                   <div className="mt-2 pl-8 space-y-1.5">
                     <div
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold border",
+                        "inline-flex items-center gap-1 text-[10px] font-semibold",
                         toneClasses.badge,
                       )}
                     >

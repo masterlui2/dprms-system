@@ -183,10 +183,10 @@ export function VerifyPaymentModal({
               <p className="numeric-value mt-1 text-2xl font-semibold text-[#073b82]">{formatCurrency(transaction.amountPaid)}</p>
             </div>
             <span className={cn(
-              'rounded-full px-2.5 py-1 text-[11px] font-black',
-              transaction.status === 'pending' && 'bg-amber-50 text-amber-800',
-              transaction.status === 'verified' && 'bg-emerald-50 text-emerald-700',
-              transaction.status === 'rejected' && 'bg-rose-50 text-rose-700',
+              'text-[11px] font-semibold',
+              transaction.status === 'pending' && 'text-amber-700',
+              transaction.status === 'verified' && 'text-emerald-700',
+              transaction.status === 'rejected' && 'text-rose-700',
             )}>{reviewLabel(transaction.status)}</span>
           </div>
 

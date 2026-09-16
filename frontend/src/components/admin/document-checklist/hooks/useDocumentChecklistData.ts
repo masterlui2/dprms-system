@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Swal from 'sweetalert2';
+import { downloadBlob } from '../../../../services/downloadManager';
 import { ROLES } from '../../../../config/permissions';
 import { getMockUser } from '../../../../lib/mockAuth';
 import {
   addChecklistHistoryLog,
+  calculateChecklistDocumentCounts,
   fetchChecklistProjectSummaries,
   fetchProposalChecklist,
   getChecklistHistory,
@@ -106,7 +108,15 @@ export function useDocumentChecklistData() {
             (proposal) =>
               proposal.proposalId === summary.proposalId && proposal.detailsLoaded,
           );
-          return loaded ? { ...summary, ...loaded } : summary;
+          return loaded
+            ? {
+                ...loaded,
+                ...summary,
+                items: loaded.items,
+                overallRemarks: loaded.overallRemarks,
+                detailsLoaded: true,
+              }
+            : summary;
         }),
       );
     } catch (err) {
@@ -255,8 +265,8 @@ export function useDocumentChecklistData() {
           editingOverallRemarks
         );
 
-        const totalRequired = editingItems.filter((i) => i.isRequired).length || editingItems.length;
-        const compliedCount = editingItems.filter((i) => (i.isRequired ? i.isPresent : false)).length;
+        const counts = calculateChecklistDocumentCounts(editingItems);
+        const { totalRequired, uploadedCount, remainingCount, compliedCount } = counts;
         const compliancePercentage =
           totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0;
 
@@ -269,6 +279,8 @@ export function useDocumentChecklistData() {
               overallRemarks: editingOverallRemarks,
               compliedCount,
               totalRequired,
+              uploadedCount,
+              remainingCount,
               compliancePercentage,
               lastUpdated: new Date().toISOString(),
             };
@@ -479,13 +491,15 @@ export function useDocumentChecklistData() {
                 }
               : it
           );
-          const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length;
-          const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length;
+          const counts = calculateChecklistDocumentCounts(updatedItems);
+          const { totalRequired, uploadedCount, remainingCount, compliedCount } = counts;
           const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0;
           return {
             ...p,
             items: updatedItems,
             totalRequired,
+            uploadedCount,
+            remainingCount,
             compliedCount,
             compliancePercentage,
           };
@@ -561,8 +575,8 @@ export function useDocumentChecklistData() {
         editingOverallRemarks
       );
 
-      const totalRequired = editingItems.filter((i) => i.isRequired).length || editingItems.length;
-      const compliedCount = editingItems.filter((i) => (i.isRequired ? i.isPresent : false)).length;
+      const counts = calculateChecklistDocumentCounts(editingItems);
+      const { totalRequired, uploadedCount, remainingCount, compliedCount } = counts;
       const compliancePercentage =
         totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0;
 
@@ -575,6 +589,8 @@ export function useDocumentChecklistData() {
             overallRemarks: editingOverallRemarks,
             compliedCount,
             totalRequired,
+            uploadedCount,
+            remainingCount,
             compliancePercentage,
             lastUpdated: new Date().toISOString(),
           };
@@ -616,8 +632,8 @@ export function useDocumentChecklistData() {
     }
   };
 
-  const exportSummaryCsv = () => {
-    if (programProposals.length === 0) return;
+  const exportSummaryCsv = async () => {
+    if (programProposals.length === 0 || !currentUser) return;
     const headers = [
       'Reference Number',
       'Enterprise / Project Title',
@@ -641,19 +657,25 @@ export function useDocumentChecklistData() {
       `"${(p.overallRemarks || '').replace(/"/g, '""')}"`,
     ]);
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute(
-      'download',
-      `${activeProgram.toLowerCase()}_document_checklist_${new Date().toISOString().split('T')[0]}.csv`
-    );
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const csvContent = [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    try {
+      await downloadBlob({
+        blob: new Blob([csvContent], { type: 'text/csv;charset=utf-8' }),
+        fileName: `${activeProgram.toLowerCase()}_document_checklist_${new Date().toISOString().split('T')[0]}.csv`,
+        program: activeProgram,
+        user: currentUser,
+      });
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        console.error('Failed to export document checklist:', error);
+        void Swal.fire({
+          icon: 'error',
+          title: 'Export Failed',
+          text: 'The checklist CSV could not be saved. Please try again.',
+          confirmButtonColor: '#0f53b7',
+        });
+      }
+    }
   };
 
   return {

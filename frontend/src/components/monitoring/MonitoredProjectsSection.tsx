@@ -65,12 +65,12 @@ function ProjectStatus({ project }: { project: ProjectRecord }) {
 
   const pending = project.pendingReports ?? 0
   if (pending > 0) {
-    return <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">{pending} pending</span>
+    return <span className="text-[11px] font-semibold text-amber-700">{pending} pending</span>
   }
   if (project.monitored) {
-    return <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">Monitored</span>
+    return <span className="text-[11px] font-semibold text-emerald-700">Monitored</span>
   }
-  return <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200">Newly Active</span>
+  return <span className="text-[11px] font-semibold text-emerald-700">Newly Active</span>
 }
 
 function ProjectCardSkeleton() {

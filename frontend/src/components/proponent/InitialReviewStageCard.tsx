@@ -17,10 +17,10 @@ export function InitialReviewStageCard({ application }: InitialReviewStageCardPr
   const status = application.status
 
   let badgeText = "DOST Initial Review Active"
-  let badgeClass = "bg-blue-50 text-[#0f53b7] border-blue-200"
+  let badgeClass = "text-[#0f53b7]"
   let title = "Application Submitted Successfully!"
   let stageLabel = "Stage 1: Document Checklist Review"
-  let statusBadgeColor = "bg-blue-600 text-white"
+  let statusBadgeColor = "text-[#0f53b7]"
   let description = isSetup
     ? "Your SETUP Application has been received and is currently undergoing initial documentary verification by the DOST SSCP Evaluator."
     : "Your GIA Application has been received and is currently undergoing initial documentary verification by the DOST CEST Evaluator."
@@ -29,10 +29,10 @@ export function InitialReviewStageCard({ application }: InitialReviewStageCardPr
 
   if (status === "Approved") {
     badgeText = "Application Formally Approved"
-    badgeClass = "bg-emerald-50 text-emerald-800 border-emerald-200"
+    badgeClass = "text-emerald-700"
     title = "Application Approved!"
     stageLabel = "Stage 4: Executive Approval & Handover"
-    statusBadgeColor = "bg-emerald-600 text-white"
+    statusBadgeColor = "text-emerald-700"
     description = isSetup
       ? "Congratulations! Your SETUP project proposal has been formally approved by the Provincial Director. The DOST PSTO office will coordinate with you regarding the MOA signing and project setup."
       : "Congratulations! Your GIA project proposal has been formally approved by the Provincial Director. The DOST PSTO office will coordinate with you regarding the MOA signing and grant fund disbursement."
@@ -40,10 +40,10 @@ export function InitialReviewStageCard({ application }: InitialReviewStageCardPr
     iconBg = "bg-emerald-100 text-emerald-600"
   } else if (status === "Executive Approval") {
     badgeText = "Executive Approval In Progress"
-    badgeClass = "bg-purple-50 text-purple-700 border-purple-200"
+    badgeClass = "text-purple-700"
     title = "Endorsed to Provincial Director"
     stageLabel = "Stage 3: Provincial Director Approval"
-    statusBadgeColor = "bg-purple-600 text-white"
+    statusBadgeColor = "text-purple-700"
     description = isSetup
       ? "Your SETUP proposal has successfully passed technical evaluation and TNA. It has been endorsed to the Provincial Director for final executive approval."
       : "Your GIA proposal has passed technical evaluation and has been endorsed to the Provincial Director for final executive approval."
@@ -51,10 +51,10 @@ export function InitialReviewStageCard({ application }: InitialReviewStageCardPr
     iconBg = "bg-purple-100 text-purple-600"
   } else if (status === "In Process" || status === "Technical evaluation") {
     badgeText = "Assessment & Validation Active"
-    badgeClass = "bg-blue-50 text-[#0f53b7] border-blue-200"
+    badgeClass = "text-[#0f53b7]"
     title = "Application In Process"
     stageLabel = "Stage 2: Technical Assessment & TNA"
-    statusBadgeColor = "bg-blue-600 text-white"
+    statusBadgeColor = "text-[#0f53b7]"
     description = isSetup
       ? "Your documentary checklist has been validated. The DOST PSTO team is currently conducting the Technology Needs Assessment (TNA), site inspection, and technical evaluation."
       : "Your documentary checklist has been validated. The DOST CEST team is currently conducting technical evaluation, field validation, and proposal appraisal."
@@ -62,10 +62,10 @@ export function InitialReviewStageCard({ application }: InitialReviewStageCardPr
     iconBg = "bg-blue-100 text-[#0f53b7]"
   } else if (status === "Disapproved") {
     badgeText = "Application Disapproved"
-    badgeClass = "bg-rose-50 text-rose-700 border-rose-200"
+    badgeClass = "text-rose-700"
     title = "Application Not Approved"
     stageLabel = "Review Concluded"
-    statusBadgeColor = "bg-rose-600 text-white"
+    statusBadgeColor = "text-rose-700"
     description = application.remarks || (isSetup
       ? "Your SETUP application was not approved during evaluation. Please contact the PSTO office for more details."
       : "Your GIA proposal was not approved during evaluation. Please contact the DOST office for more details.")
@@ -83,7 +83,7 @@ export function InitialReviewStageCard({ application }: InitialReviewStageCardPr
 
         {/* Heading & Metadata */}
         <div className="space-y-1">
-          <span className={cn("inline-block rounded-full px-3.5 py-1 text-xs font-extrabold border", badgeClass)}>
+          <span className={cn("inline-block text-xs font-semibold", badgeClass)}>
             {badgeText}
           </span>
           <h3 className="text-2xl font-black tracking-tight text-slate-900 pt-2">
@@ -100,7 +100,7 @@ export function InitialReviewStageCard({ application }: InitialReviewStageCardPr
             <span className="text-xs font-black uppercase tracking-wider text-[#073b82]">
               {stageLabel}
             </span>
-            <span className={cn("inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold", statusBadgeColor)}>
+            <span className={cn("inline-flex text-[11px] font-semibold", statusBadgeColor)}>
               {application.status}
             </span>
           </div>

@@ -12,7 +12,6 @@ import {
 } from 'lucide-react';
 import { PdfThumbnail } from '../../../common/PdfThumbnail';
 import type { DocumentChecklistItem } from '../../../../services/documentChecklistStore';
-import { viewDocumentBlobForStaff } from '../../../../services/documentStore';
 import { cn } from '../../../../utils/cn';
 import { getItemComplianceState } from '../utils';
 
@@ -23,6 +22,7 @@ interface DocumentChecklistGridViewProps {
   canUpload: boolean;
   handleOpenReviewModal: (item: DocumentChecklistItem) => void;
   handlePreviewDocument: (item: DocumentChecklistItem) => void;
+  handleDownloadItem: (item: DocumentChecklistItem) => void;
   handleOpenUploadModal: (item: DocumentChecklistItem) => void;
   setVersionModalDoc: (item: DocumentChecklistItem) => void;
   handleRemoveFile: (item: DocumentChecklistItem) => void;
@@ -36,6 +36,7 @@ export function DocumentChecklistGridView({
   canUpload,
   handleOpenReviewModal,
   handlePreviewDocument,
+  handleDownloadItem,
   handleOpenUploadModal,
   setVersionModalDoc,
   handleRemoveFile,
@@ -111,17 +112,6 @@ export function DocumentChecklistGridView({
                   </div>
                 )}
 
-                {state.type !== 'PENDING' && (
-                  <div
-                    className={cn(
-                      'absolute top-2 left-2 z-10 rounded-md px-2 py-0.5 text-[9px] font-bold shadow-xs',
-                      state.badgeClass
-                    )}
-                  >
-                    {state.label}
-                  </div>
-                )}
-
                 {item.uploadedDoc?.archived_versions && item.uploadedDoc.archived_versions.length > 0 && (
                   <button
                     type="button"
@@ -146,6 +136,16 @@ export function DocumentChecklistGridView({
                   >
                     {idx + 1}. {item.name}
                   </h4>
+                  {state.label ? (
+                    <span
+                      className={cn(
+                        'shrink-0 whitespace-nowrap text-xs font-bold leading-none',
+                        state.type === 'SATISFIED' ? 'text-emerald-700' : state.badgeClass,
+                      )}
+                    >
+                      {state.label}
+                    </span>
+                  ) : null}
                 </div>
 
                 {hasFile ? (
@@ -186,25 +186,7 @@ export function DocumentChecklistGridView({
                       <>
                         <button
                           type="button"
-                          onClick={async () => {
-                            if (!item.uploadedDoc) return;
-                            if (item.uploadedDoc.file_path?.startsWith('blob:')) {
-                              const link = document.createElement('a');
-                              link.href = item.uploadedDoc.file_path;
-                              link.download = item.uploadedDoc.file_name;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            } else {
-                              const blob = await viewDocumentBlobForStaff(item.uploadedDoc.id);
-                              const link = document.createElement('a');
-                              link.href = blob;
-                              link.download = item.uploadedDoc.file_name;
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
-                            }
-                          }}
+                          onClick={() => void handleDownloadItem(item)}
                           className="inline-flex size-6 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 transition cursor-pointer"
                           title="Download"
                         >

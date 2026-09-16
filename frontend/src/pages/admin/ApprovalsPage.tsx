@@ -428,7 +428,7 @@ export function ApprovalsPage() {
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap shadow-2xs">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 whitespace-nowrap">
               <Check className="size-3" />
               Approved
             </span>

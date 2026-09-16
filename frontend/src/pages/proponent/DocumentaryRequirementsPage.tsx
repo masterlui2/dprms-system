@@ -60,6 +60,7 @@ import {
 import type { GiaProposalData } from "../../types/giaProposal";
 import type { SetupProposalData } from "../../types/setupProposal";
 import { cn } from "../../utils/cn";
+import { downloadFromUrl } from "../../services/downloadManager";
 
 const BACKEND_MAX_FILE_SIZE = 10 * 1024 * 1024;
 const BACKEND_ACCEPTED_EXTENSIONS = ["pdf"];
@@ -72,12 +73,12 @@ const groupOrder: RequirementGroup[] = [
 ];
 
 const statusClasses: Record<VerificationStatus, string> = {
-  "Not Uploaded": "bg-slate-100 text-slate-600",
-  "Pending Upload": "bg-blue-50 text-[#0f53b7]",
-  Uploaded: "bg-blue-50 text-[#0f53b7]",
-  "Under Review": "bg-amber-50 text-amber-700",
-  Approved: "bg-emerald-50 text-emerald-700",
-  "Needs Revision": "bg-red-50 text-red-700",
+  "Not Uploaded": "text-slate-600",
+  "Pending Upload": "text-[#0f53b7]",
+  Uploaded: "text-[#0f53b7]",
+  "Under Review": "text-amber-700",
+  Approved: "text-emerald-700",
+  "Needs Revision": "text-red-700",
 };
 
 function formatSize(bytes: number) {
@@ -145,6 +146,25 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
   const [isResubmittingRevision, setIsResubmittingRevision] = useState(false);
   const [allApplicationsList, setAllApplicationsList] = useState<ApplicationRecord[]>([]);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+
+  async function handleTemplateDownload(requirement: DocumentaryRequirement) {
+    if (!user || !requirement.templateUrl) return;
+    const urlName = requirement.templateUrl.split('/').pop()?.split('?')[0];
+    try {
+      const result = await downloadFromUrl({
+        fileName: urlName || `${requirement.title}.pdf`,
+        program: activeProgram,
+        url: requirement.templateUrl,
+        user,
+      });
+      setMessage(`Template saved to ${result.destination}.`);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === 'AbortError')) {
+        console.error('Failed to download document template:', error);
+        setMessage('The template could not be downloaded. Please try again.');
+      }
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -1282,7 +1302,7 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                     {status !== "Not Uploaded" && status !== "Uploaded" && status !== "Pending Upload" ? (
                                       <span
                                         className={cn(
-                                          "inline-flex rounded-full px-2.5 py-1 text-[11px] font-bold",
+                                          "inline-flex text-[11px] font-semibold",
                                           statusClasses[status],
                                         )}
                                       >
@@ -1291,16 +1311,14 @@ export function DocumentaryRequirementsPage({ program }: { program?: 'SETUP' | '
                                     ) : null}
                                     <div className="flex flex-wrap gap-2">
                                       {requirement.templateUrl ? (
-                                        <a
+                                        <button
                                           className="inline-flex h-10 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 text-xs font-bold text-[#0f53b7] transition hover:bg-blue-100"
-                                          download
-                                          href={requirement.templateUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
+                                          onClick={() => void handleTemplateDownload(requirement)}
+                                          type="button"
                                         >
                                           <Download className="size-3.5" />
                                           Download Template
-                                        </a>
+                                        </button>
                                       ) : null}
                                       {canReplace ? <label
                                         className={cn(

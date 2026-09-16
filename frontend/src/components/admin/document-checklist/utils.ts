@@ -34,7 +34,7 @@ export function getItemComplianceState(item: DocumentChecklistItem) {
     return {
       type: 'RETURNED' as const,
       label: 'Revision',
-      badgeClass: 'bg-rose-50 text-rose-700 border border-rose-200/80',
+      badgeClass: 'text-rose-700',
       iconClass: 'bg-rose-500 text-white',
     };
   }
@@ -43,7 +43,7 @@ export function getItemComplianceState(item: DocumentChecklistItem) {
     return {
       type: 'SATISFIED' as const,
       label: 'Verified',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
+      badgeClass: 'text-emerald-700',
       iconClass: 'bg-emerald-500 text-white',
     };
   }
@@ -52,7 +52,7 @@ export function getItemComplianceState(item: DocumentChecklistItem) {
     return {
       type: 'UNDER_REVIEW' as const,
       label: 'In Review',
-      badgeClass: 'bg-blue-50 text-[#0f53b7] border border-blue-200/80',
+      badgeClass: 'text-[#0f53b7]',
       iconClass: 'bg-[#0f53b7] text-white',
     };
   }

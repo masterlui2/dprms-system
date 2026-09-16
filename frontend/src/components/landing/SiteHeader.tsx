@@ -266,7 +266,9 @@ export function SiteHeader() {
         location.pathname.startsWith("/programs/setup")
       ? "SETUP"
       : user?.program ?? "SETUP";
-  const navigationItems = getNavigationItems(location.pathname, user);
+  const navigationItems = getNavigationItems(location.pathname, user).filter(
+    (item) => !user || item.label !== "Programs",
+  );
   const programsActive =
     location.pathname.startsWith("/programs/gia") ||
     location.pathname.startsWith("/programs/setup");

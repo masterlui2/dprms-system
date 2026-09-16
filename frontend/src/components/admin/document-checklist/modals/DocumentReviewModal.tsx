@@ -32,6 +32,7 @@ interface DocumentReviewModalProps {
   isLoadingPreviewBlob: boolean;
   handleOpenReviewModal: (item: DocumentChecklistItem) => void;
   handleCloseReviewModal: () => void;
+  handleDownloadPreviewFile: () => void;
   isSubmittingReview: boolean;
   setVersionModalDoc: (item: DocumentChecklistItem) => void;
   historyList: ChecklistHistoryItem[];
@@ -51,6 +52,7 @@ export function DocumentReviewModal({
   isLoadingPreviewBlob,
   handleOpenReviewModal,
   handleCloseReviewModal,
+  handleDownloadPreviewFile,
   isSubmittingReview,
   setVersionModalDoc,
   historyList,
@@ -87,7 +89,7 @@ export function DocumentReviewModal({
                 </h3>
                 <span
                   className={cn(
-                    'shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider',
+                    'shrink-0 text-[10px] font-semibold uppercase tracking-wider',
                     itemState.badgeClass
                   )}
                 >
@@ -104,14 +106,14 @@ export function DocumentReviewModal({
 
           <div className="flex items-center gap-1.5 shrink-0">
             {reviewModalItem.uploadedDoc && blobMap[reviewModalItem.id] && (
-              <a
-                href={blobMap[reviewModalItem.id]}
-                download={reviewModalItem.uploadedDoc.file_name}
+              <button
+                onClick={handleDownloadPreviewFile}
+                type="button"
                 className="inline-flex size-9 items-center justify-center rounded-xl border border-[#B5BFCD] bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-950 transition shadow-2xs"
                 title="Download file"
               >
                 <Download className="size-4" />
-              </a>
+              </button>
             )}
 
             {reviewModalItem.uploadedDoc && blobMap[reviewModalItem.id] && (

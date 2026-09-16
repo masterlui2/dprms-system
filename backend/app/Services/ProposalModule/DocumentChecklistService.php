@@ -182,6 +182,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
 
             $totalRequired = 0;
             $compliedCount = 0;
+            $uploadedCount = 0;
             $hasProgress = $documents->isNotEmpty() || $reviews->isNotEmpty();
             $hasUnderReview = $documents->contains(
                 fn (Document $document) => self::normalizeStatus($document->status) === self::STATUS_UNDER_REVIEW,
@@ -212,6 +213,10 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 }
 
                 if ($matchedDoc) {
+                    $uploadedCount++;
+                }
+
+                if ($matchedDoc) {
                     $status = $review?->status
                         ? self::normalizeStatus($review->status)
                         : self::normalizeStatus($matchedDoc->status);
@@ -231,6 +236,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             $compliancePercentage = $totalRequired > 0
                 ? (int) round(($compliedCount / $totalRequired) * 100)
                 : 0;
+            $remainingCount = max(0, $totalRequired - $uploadedCount);
             $summary = $proposal->checklist_summary;
             $reviewStatus = match (true) {
                 (bool) ($summary?->is_completed ?? false), $compliancePercentage >= 100 && $totalRequired > 0 => 'Completed',
@@ -252,6 +258,8 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'district' => $giaData?->city_municipality ?? $giaData?->province ?? $setupData?->city_municipality ?? $setupData?->province ?? '',
                 'focal_name' => $proposal->assigned_focal?->name ?? $proposal->focal?->name ?? ($program === 'GIA' ? 'GIA Focal' : 'SETUP Focal'),
                 'total_required' => $totalRequired,
+                'uploaded_count' => $uploadedCount,
+                'remaining_count' => $remainingCount,
                 'complied_count' => $compliedCount,
                 'compliance_percentage' => $compliancePercentage,
                 'review_status' => $reviewStatus,
@@ -301,6 +309,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         $items = [];
         $totalRequired = 0;
         $compliedCount = 0;
+        $uploadedCount = 0;
 
         foreach ($templates as $template) {
             $isApplicable = $this->evaluateApplicability($template, $applicabilityContext);
@@ -343,6 +352,9 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
 
             if ($isMandatory) {
                 $totalRequired++;
+                if ($matchedDoc) {
+                    $uploadedCount++;
+                }
                 if ($isPresent || $status === self::STATUS_COMPLIED) {
                     $compliedCount++;
                 }
@@ -392,6 +404,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         }
 
         $compliancePercentage = $totalRequired > 0 ? (int) round(($compliedCount / $totalRequired) * 100) : 0;
+        $remainingCount = max(0, $totalRequired - $uploadedCount);
 
         return [
             'proposal_id' => $proposal->id,
@@ -405,6 +418,8 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             'district' => $giaData?->city_municipality ?? $giaData?->province ?? $setupData?->city_municipality ?? $setupData?->province ?? '',
             'focal_name' => $proposal->assigned_focal?->name ?? $proposal->focal?->name ?? ($program === 'GIA' ? 'GIA Focal' : 'SETUP Focal'),
             'total_required' => $totalRequired,
+            'uploaded_count' => $uploadedCount,
+            'remaining_count' => $remainingCount,
             'complied_count' => $compliedCount,
             'compliance_percentage' => $compliancePercentage,
             'overall_remarks' => $summary?->overall_remarks ?? '',

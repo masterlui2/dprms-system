@@ -21,6 +21,9 @@ import {
   reportCatalog,
   type PredictionRecord,
 } from "../../data/admin";
+import { getMockUser } from "../../lib/mockAuth";
+import { downloadBlob, getAuthorizedDownloadPrograms } from "../../services/downloadManager";
+import type { ApplicationProgram } from "../../types/application";
 
 type AnalyticsScope = "all" | "equipment" | "finance" | "gia";
 
@@ -67,6 +70,35 @@ const analyticsScopes: Array<{ label: string; value: AnalyticsScope }> = [
 ];
 
 const dateRanges = ["Last 7 days", "Last 30 days", "This quarter", "This year"];
+
+function escapePdfText(value: string): string {
+  return value.replace(/([\\()])/g, "\\$1").replace(/[^\x20-\x7e]/g, "?");
+}
+
+function createSimplePdf(lines: string[]): Blob {
+  const textCommands = lines
+    .slice(0, 20)
+    .map((line, index) => `BT /F1 ${index === 0 ? 16 : 11} Tf 54 ${750 - index * 28} Td (${escapePdfText(line)}) Tj ET`)
+    .join("\n");
+  const objects = [
+    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj",
+    `4 0 obj << /Length ${textCommands.length} >> stream\n${textCommands}\nendstream endobj`,
+    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(pdf.length);
+    pdf += `${object}\n`;
+  }
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
 
 const defaultCards: AnalyticsCard[] = [
   {
@@ -364,9 +396,11 @@ const predictionColumns: DataColumn<PredictionRecord>[] = [
 ];
 
 export function ReportsPage() {
+  const currentUser = getMockUser();
   const [analyticsScope, setAnalyticsScope] = useState<AnalyticsScope>("all");
   const [dateRange, setDateRange] = useState("Last 30 days");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const analytics = analyticsSummaries[analyticsScope];
   const activeFilterCount =
     (analyticsScope === "all" ? 0 : 1) + (dateRange === "Last 30 days" ? 0 : 1);
@@ -377,6 +411,50 @@ export function ReportsPage() {
   function printAnalytics() {
     setFiltersOpen(false);
     window.requestAnimationFrame(() => window.print());
+  }
+
+  async function downloadGeneratedReport(report: (typeof generatedReports)[number]) {
+    if (!currentUser) return;
+    const programs = getAuthorizedDownloadPrograms(currentUser);
+    const inferredProgram: ApplicationProgram = report.title.toUpperCase().includes("GIA")
+      ? "GIA"
+      : report.title.toUpperCase().includes("SETUP")
+        ? "SETUP"
+        : programs[0];
+    const program = programs.includes(inferredProgram) ? inferredProgram : programs[0];
+    const baseName = report.title.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
+    const reportLines = [
+      report.title,
+      `Report ID: ${report.id}`,
+      `Program: ${program}`,
+      `Generated: ${report.generated}`,
+      `Owner: ${report.owner}`,
+      `Scope: ${selectedScopeLabel}`,
+      `Date range: ${dateRange}`,
+    ];
+    const isPdf = report.format === "PDF";
+    const blob = isPdf
+      ? createSimplePdf(reportLines)
+      : new Blob(
+          [`Field,Value\n${reportLines.map((line) => {
+            const [field, ...value] = line.split(": ");
+            return `"${field.replace(/"/g, '""')}","${value.join(": ").replace(/"/g, '""')}"`;
+          }).join("\n")}`],
+          { type: "text/csv;charset=utf-8" },
+        );
+    try {
+      const result = await downloadBlob({
+        blob,
+        fileName: `${baseName}.${isPdf ? "pdf" : "csv"}`,
+        program,
+        user: currentUser,
+      });
+      setDownloadNotice(`Saved to ${result.destination}`);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setDownloadNotice("The report could not be downloaded. Please try again.");
+      }
+    }
   }
 
   return (
@@ -662,6 +740,11 @@ export function ReportsPage() {
       </AdminPanel>
 
       <AdminPanel title="Recent reports">
+        {downloadNotice ? (
+          <div className="mx-5 mt-4 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-[#073b82]" role="status">
+            {downloadNotice}
+          </div>
+        ) : null}
         <div className="divide-y divide-slate-100">
           {generatedReports.map((report) => (
             <article
@@ -682,6 +765,7 @@ export function ReportsPage() {
                 <button
                   aria-label={`Download ${report.title}`}
                   className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-200 text-[#0f53b7] transition hover:border-blue-300 hover:bg-blue-50"
+                  onClick={() => void downloadGeneratedReport(report)}
                   type="button"
                 >
                   <Download className="size-4" />

@@ -835,7 +835,7 @@ export function SetupMonitoringHub({
                         <p className="text-xs text-slate-500">Business registration and proponent background</p>
                       </div>
                     </div>
-                    <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200">
+                    <span className="text-[11px] font-semibold text-emerald-700">
                       ✓ Auto-Inherited
                     </span>
                   </div>
@@ -893,7 +893,7 @@ export function SetupMonitoringHub({
                         <p className="text-xs text-slate-500">DOST execution terms and monitoring supervision</p>
                       </div>
                     </div>
-                    <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[11px] font-bold text-[#0f53b7] border border-blue-200">
+                    <span className="text-[11px] font-semibold text-[#0f53b7]">
                       Active Execution
                     </span>
                   </div>
@@ -937,7 +937,7 @@ export function SetupMonitoringHub({
                           {project.checklistStats ? `${project.checklistStats.complied}/${project.checklistStats.total} Document Sets Complied` : 'Pre-implementation Requirements Complied'}
                         </p>
                       </div>
-                      <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                      <span className="text-[10px] font-semibold text-emerald-700">
                         {project.compliance}
                       </span>
                     </div>
@@ -1031,7 +1031,7 @@ export function SetupMonitoringHub({
                           <td className="py-3 px-3 text-right font-mono text-slate-700">₱{(item.cost || 0).toLocaleString()}</td>
                           <td className="py-3 px-3 text-right font-mono font-bold text-[#0f53b7]">₱{(item.bookValue || 0).toLocaleString()}</td>
                           <td className="py-3 px-3 text-center">
-                            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700 border border-emerald-200">
+                            <span className="text-[10px] font-semibold text-emerald-700">
                               ✓ {item.condition || 'Operational'}
                             </span>
                           </td>
