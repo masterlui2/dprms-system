@@ -207,7 +207,7 @@ export function ProponentDashboard() {
           {activeTab === 'overview' && (
             <div className="space-y-5">
               {/* Metric cards */}
-              <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <MetricCard
                   detail={`Reference: ${application.referenceNo}`}
                   icon={FolderKanban}
