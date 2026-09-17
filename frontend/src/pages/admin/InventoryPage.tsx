@@ -182,7 +182,7 @@ export function InventoryPage() {
       ) : null}
 
       {activeProgram ? <>
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard detail={`Registered ${activeProgram} QR-tagged assets`} icon={Boxes} label="Total Equipment" value={String(statistics.total_equipment)} />
           <MetricCard detail="Assigned or issued to cooperators" icon={PackageCheck} label="Currently Issued" tone="sky" value={String(statistics.currently_issued)} />
           <MetricCard detail="Latest inspection verified as good" icon={CircleCheck} label="Good Condition" tone="green" value={String(statistics.good_condition)} />

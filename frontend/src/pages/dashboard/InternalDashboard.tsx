@@ -22,7 +22,8 @@ type DashboardItem = {
   detail: string
   icon: typeof Activity
   label: string
-  tone?: 'blue' | 'gold' | 'orange' | 'sky' | 'green' | 'red'
+  tone?: 'blue' | 'gold' | 'orange' | 'sky' | 'green' | 'red' | 'purple'
+  trend?: string
   value: string
 }
 
@@ -145,7 +146,7 @@ export function InternalDashboard({ role }: { role: UserRole }) {
   return (
     <div className="space-y-7">
       <AdminPageHeader description={content.description} eyebrow={content.eyebrow} title={content.title} />
-      <section className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {content.cards.map((card) => <MetricCard key={card.label} {...card} />)}
       </section>
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">

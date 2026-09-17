@@ -424,7 +424,7 @@ export function RepaymentLedgerView({
       </div>
 
       {ledger.schedule.initialized ? (
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard detail="Approved amount" icon={Wallet} label="Total Project Cost" value={formatCurrency(ledger.summary.totalProjectCost)} />
         <MetricCard detail="Verified payments" icon={CheckCircle2} label="Amount Refunded" tone="green" value={formatCurrency(ledger.summary.amountPaid)} />
         <MetricCard
