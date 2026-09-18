@@ -607,9 +607,10 @@ export function useChecklistModals({
       : reviewModalItem?.uploadedDoc?.file_name || `${reviewModalItem?.name || 'document'}.pdf`;
     if (!sourceUrl || !currentUser || !activeProposal) return;
     try {
-      await prepareDownloadDirectory(currentUser);
+      const directory = await prepareDownloadDirectory(currentUser);
       const response = await fetch(sourceUrl);
       await downloadBlob({
+        directory,
         blob: await response.blob(),
         fileName,
         program: activeProposal.program,
@@ -629,12 +630,13 @@ export function useChecklistModals({
   const handleDownloadItem = async (item: DocumentChecklistItem) => {
     if (!item.uploadedDoc || !currentUser || !activeProposal) return;
     try {
-      await prepareDownloadDirectory(currentUser);
+      const directory = await prepareDownloadDirectory(currentUser);
       const localUrl = blobMap[item.id] || (item.uploadedDoc.file_path?.startsWith('blob:') ? item.uploadedDoc.file_path : undefined);
       const blob = localUrl
         ? await (await fetch(localUrl)).blob()
         : await fetchDocumentBlobForStaff(item.uploadedDoc.id);
       await downloadBlob({
+        directory,
         blob,
         fileName: item.uploadedDoc.file_name,
         program: activeProposal.program,

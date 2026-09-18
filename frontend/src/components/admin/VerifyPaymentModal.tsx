@@ -3,6 +3,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
+  FileDown,
   FileText,
   LoaderCircle,
   XCircle,
@@ -18,6 +19,8 @@ import {
   type SetupRepaymentLedger,
 } from '../../services/repaymentLedgerStore'
 import { cn } from '../../utils/cn'
+import { getMockUser } from '../../lib/mockAuth'
+import { downloadBlob } from '../../services/downloadManager'
 import { ModalShell } from './ModalShell'
 
 function formatCurrency(value: number): string {
@@ -65,12 +68,18 @@ export function VerifyPaymentModal({
   const [error, setError] = useState<string | null>(null)
   const [proofError, setProofError] = useState<string | null>(null)
   const [proofUrl, setProofUrl] = useState<string | null>(null)
+  const [proofBlob, setProofBlob] = useState<Blob | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [downloadNotice, setDownloadNotice] = useState<string | null>(null)
+  const [downloadError, setDownloadError] = useState<string | null>(null)
   const [isProofLoading, setIsProofLoading] = useState(transaction.hasProof)
   const [pendingDecision, setPendingDecision] = useState<'verified' | 'rejected' | null>(null)
   const canDecide = canVerify && transaction.status === 'pending'
   const isPdf = transaction.proofMimeType === 'application/pdf'
 
   useEffect(() => {
+    setProofBlob(null); setProofUrl(null); setProofError(null)
+    setDownloadNotice(null); setDownloadError(null); setIsProofLoading(transaction.hasProof)
     if (!transaction.hasProof) return
 
     let active = true
@@ -80,6 +89,7 @@ export function VerifyPaymentModal({
       .then((proof) => {
         if (!active) return
         objectUrl = URL.createObjectURL(proof)
+        setProofBlob(proof)
         setProofUrl(objectUrl)
       })
       .catch((proofLoadError) => {
@@ -94,6 +104,19 @@ export function VerifyPaymentModal({
       if (objectUrl) URL.revokeObjectURL(objectUrl)
     }
   }, [installment.id, projectId, transaction.hasProof, transaction.id])
+
+  async function handleDownloadReceipt() {
+    const user = getMockUser()
+    if (!user || !proofBlob || isDownloading) return
+    setIsDownloading(true); setDownloadNotice(null); setDownloadError(null)
+    try {
+      const extension = ({ 'application/pdf': 'pdf', 'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp' } as Record<string, string>)[transaction.proofMimeType ?? proofBlob.type] ?? 'bin'
+      const result = await downloadBlob({ blob: proofBlob, fileName: transaction.proofName || `SETUP_receipt_${projectId}_${transaction.id}.${extension}`, program: 'SETUP', user })
+      setDownloadNotice(result.usedBrowserFallback ? 'Receipt sent to browser downloads.' : `Receipt saved to ${result.destination}`)
+    } catch (error) {
+      setDownloadError(error instanceof Error ? error.message : 'The receipt could not be downloaded.')
+    } finally { setIsDownloading(false) }
+  }
 
   async function handleDecision(decision: 'verified' | 'rejected') {
     if (decision === 'rejected' && !remarks.trim()) {
@@ -155,11 +178,18 @@ export function VerifyPaymentModal({
           <div className="mb-3 flex items-center justify-between gap-3">
             <h3 className="font-black text-slate-900">Official receipt</h3>
             {proofUrl ? (
-              <a className="inline-flex items-center gap-1 text-xs font-bold text-[#0f53b7] hover:underline" href={proofUrl} rel="noreferrer" target="_blank">
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <button className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-blue-50 px-3 text-xs font-bold text-[#0f53b7] hover:bg-blue-100 disabled:opacity-50" disabled={isDownloading || !proofBlob} onClick={() => void handleDownloadReceipt()} type="button">
+                  {isDownloading ? <LoaderCircle className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />} {isDownloading ? 'Downloading…' : 'Download Receipt'}
+                </button>
+                <a className="inline-flex items-center gap-1 text-xs font-bold text-[#0f53b7] hover:underline" href={proofUrl} rel="noreferrer" target="_blank">
                 Open <ExternalLink className="size-3.5" />
-              </a>
+                </a>
+              </div>
             ) : null}
           </div>
+          {downloadNotice ? <p className="mb-3 rounded-lg bg-emerald-50 p-3 text-xs text-emerald-800" role="status">{downloadNotice}</p> : null}
+          {downloadError ? <p className="mb-3 rounded-lg bg-rose-50 p-3 text-xs text-rose-800" role="alert">{downloadError}</p> : null}
           <div className="grid min-h-72 place-items-center overflow-hidden rounded-xl bg-slate-100">
             {isProofLoading ? (
               <LoaderCircle className="size-7 animate-spin text-[#0f53b7]" />

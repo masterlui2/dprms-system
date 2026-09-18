@@ -7,7 +7,6 @@ import {
   ClipboardCheck,
   DatabaseBackup,
   FilePenLine,
-  FolderCog,
   FolderKanban,
   LayoutDashboard,
   MapPinned,
@@ -121,7 +120,6 @@ export const sidebarItems: SidebarItem[] = [
     "/dashboard/regional-monitoring",
   ),
   item("reports", "Reports", BarChart3, "/dashboard/reports"),
-  item("fileSettings", "File Settings", FolderCog, "/dashboard/file-settings"),
 
   item("userManagement", "User Management", Users, "/dashboard/users"),
   item("roleManagement", "Role Management", ShieldCheck, "/dashboard/roles"),
@@ -171,7 +169,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "notificationManagement",
     "auditLogs",
     "backup",
-    "fileSettings",
     "systemSettings",
   ],
   project_staff: [
@@ -180,7 +177,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "documentChecklist",
     "equipmentTracking",
     "reports",
-    "fileSettings",
   ],
   focal: [
     "dashboard",
@@ -189,7 +185,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "projectMonitoring",
     "repaymentMonitoring",
     "reports",
-    "fileSettings",
   ],
   provincial_director: [
     "dashboard",
@@ -198,7 +193,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "repaymentMonitoring",
     "projects",
     "reports",
-    "fileSettings",
   ],
   rpmo: [
     "dashboard",
@@ -206,7 +200,6 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "documentChecklist",
     "regionalMonitoring",
     "reports",
-    "fileSettings",
   ],
   proponent: [],
 };

@@ -337,9 +337,10 @@ export function InternalDocumentsSection({
     setPreviewError(null);
 
     try {
-      await prepareDownloadDirectory(currentUser);
+      const directory = await prepareDownloadDirectory(currentUser);
       const blob = await fetchDocumentBlobForStaff(document.backendId);
       await downloadBlob({
+        directory,
         blob,
         fileName: document.fileName || `${document.label}.pdf`,
         program,

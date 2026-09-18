@@ -171,9 +171,9 @@ export function ProposalDocumentsSection({
     setActionError(null);
     setPendingAction({ id: document.id, type: "download" });
     try {
-      await prepareDownloadDirectory(currentUser);
+      const directory = await prepareDownloadDirectory(currentUser);
       const blob = await fetchDocumentBlobForStaff(document.id);
-      await downloadBlob({ blob, fileName: document.file_name, program, user: currentUser });
+      await downloadBlob({ blob, directory, fileName: document.file_name, program, user: currentUser });
     } catch (err) {
       console.error("Failed to download document:", err);
       setActionError("Could not download this document. It may have been removed from storage.");

@@ -413,17 +413,17 @@ export function MonitoredProjectsSection({
                   <article
                     key={project.backendId || project.id}
                     onClick={() => onSelectProject(project)}
-                    className="group relative flex min-w-0 flex-col justify-between rounded-2xl border border-purple-200/80 bg-linear-to-b from-white to-purple-50/20 p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-purple-500 hover:shadow-md cursor-pointer space-y-4"
+                    className="group relative flex min-w-0 flex-col justify-between rounded-2xl border border-blue-200/80 bg-linear-to-b from-white to-blue-50/20 p-5 shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-[#0f53b7] hover:shadow-md cursor-pointer space-y-4"
                   >
                     <div>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700 group-hover:bg-purple-600 group-hover:text-white transition shadow-2xs">
+                          <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-[#0f53b7] group-hover:bg-[#0f53b7] group-hover:text-white transition shadow-2xs">
                             <Building2 className="size-5.5" />
                           </span>
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
-                              <span className="rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-purple-800">
+                              <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-[#073b82]">
                                 GIA Grant
                               </span>
                               {project.proposalId ? (
@@ -432,7 +432,7 @@ export function MonitoredProjectsSection({
                                 </span>
                               ) : null}
                             </div>
-                            <h3 className="mt-1 text-base font-black tracking-tight text-slate-900 truncate group-hover:text-purple-700 transition" title={project.title}>
+                            <h3 className="mt-1 text-base font-black tracking-tight text-slate-900 truncate group-hover:text-[#0f53b7] transition" title={project.title}>
                               {project.title}
                             </h3>
                             <div className="mt-0.5 font-mono text-xs font-bold text-slate-500">
@@ -457,26 +457,26 @@ export function MonitoredProjectsSection({
                         </div>
                       </div>
 
-                      <div className="mt-3.5 space-y-1 rounded-xl bg-purple-50/50 p-2.5 border border-purple-100/60">
+                      <div className="mt-3.5 space-y-1 rounded-xl bg-blue-50/50 p-2.5 border border-blue-100/60">
                         <p className="text-xs font-semibold text-slate-800 truncate" title={agency}>
-                          <span className="text-purple-700 font-bold">Agency:</span> {agency}
+                          <span className="text-[#0f53b7] font-bold">Agency:</span> {agency}
                         </p>
                         <p className="flex items-center gap-1.5 text-xs text-slate-600">
-                          <MapPin className="size-3.5 shrink-0 text-purple-400" />
+                          <MapPin className="size-3.5 shrink-0 text-blue-500" />
                           <span className="truncate">{project.location || 'Location not recorded'}</span>
                         </p>
                       </div>
 
-                      <div className="mt-4 rounded-xl border border-purple-100 bg-white p-3 space-y-2 shadow-2xs">
+                      <div className="mt-4 rounded-xl border border-blue-100 bg-white p-3 space-y-2 shadow-2xs">
                         <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-purple-900">Milestone Progress</span>
-                          <span className="font-extrabold text-purple-700 font-mono">
+                          <span className="font-bold text-[#073b82]">Milestone Progress</span>
+                          <span className="font-extrabold text-[#0f53b7] font-mono">
                             {milestoneProgress}% Completed
                           </span>
                         </div>
-                        <div className="h-2 w-full rounded-full bg-purple-100 overflow-hidden">
+                        <div className="h-2 w-full rounded-full bg-blue-100 overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-purple-600 transition-all duration-500"
+                            className="h-full rounded-full bg-[#0f53b7] transition-all duration-500"
                             style={{ width: `${Math.max(4, milestoneProgress)}%` }}
                           />
                         </div>
@@ -490,7 +490,7 @@ export function MonitoredProjectsSection({
 
                       <div className="mt-3.5 flex items-center justify-between gap-2 text-xs text-slate-600">
                         <div className="flex items-center gap-2 min-w-0" title={`Project Leader: ${leader}`}>
-                          <div className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-purple-600 text-[10px] font-black text-white">
+                          <div className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-[#0f53b7] text-[10px] font-black text-white">
                             {getInitials(leader)}
                           </div>
                           <span className="font-bold text-slate-800 truncate text-xs">
@@ -511,10 +511,10 @@ export function MonitoredProjectsSection({
                                   navigate(`/dashboard/document-checklist?proposalId=${project.proposalId || project.backendId}&program=GIA`)
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 shrink-0 font-semibold text-slate-600 text-xs hover:text-purple-700 transition cursor-pointer"
+                              className="inline-flex items-center gap-1.5 shrink-0 font-semibold text-slate-600 text-xs hover:text-[#0f53b7] transition cursor-pointer"
                               title={`Document Checklist: ${compliedDocs} of ${totalDocs} required documents complied`}
                             >
-                              <CheckSquare className="size-3.5 text-purple-400" />
+                              <CheckSquare className="size-3.5 text-blue-500" />
                               <span>{compliedDocs}/{totalDocs} docs</span>
                             </button>
                           )
@@ -522,7 +522,7 @@ export function MonitoredProjectsSection({
                       </div>
                     </div>
 
-                    <div className="pt-3 border-t border-purple-100 flex items-center gap-2">
+                    <div className="pt-3 border-t border-blue-100 flex items-center gap-2">
                       {project.proposalId || project.backendId ? (
                         <button
                           type="button"
@@ -530,10 +530,10 @@ export function MonitoredProjectsSection({
                             e.stopPropagation()
                             navigate(`/dashboard/document-checklist?proposalId=${project.proposalId || project.backendId}&program=GIA`)
                           }}
-                          className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl border border-purple-200 bg-white px-3 text-xs font-bold text-purple-800 shadow-2xs hover:bg-purple-50 transition shrink-0"
+                          className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl border border-blue-200 bg-white px-3 text-xs font-bold text-[#073b82] shadow-2xs hover:bg-blue-50 transition shrink-0"
                           title="Open Document Checklist"
                         >
-                          <FileCheck2 className="size-3.5 text-purple-700" />
+                          <FileCheck2 className="size-3.5 text-[#0f53b7]" />
                           <span>Checklist</span>
                         </button>
                       ) : null}
@@ -544,7 +544,7 @@ export function MonitoredProjectsSection({
                           e.stopPropagation()
                           onSelectProject(project)
                         }}
-                        className="inline-flex h-8.5 flex-1 items-center justify-center gap-1.5 rounded-xl bg-purple-700 px-3 text-xs font-bold text-white shadow-xs transition hover:bg-purple-800 active:scale-[0.98]"
+                        className="inline-flex h-8.5 flex-1 items-center justify-center gap-1.5 rounded-xl bg-[#0f53b7] px-3 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b] active:scale-[0.98]"
                       >
                         <span>Open Workspace</span>
                         <ArrowRight className="size-3.5" />
@@ -720,14 +720,14 @@ export function MonitoredProjectsSection({
                   onClick={() => onSelectProject(project)}
                   className={cn(
                     "grid gap-4 px-6 py-4.5 transition cursor-pointer md:grid-cols-[minmax(240px,1.5fr)_minmax(180px,1fr)_minmax(150px,0.9fr)_minmax(130px,0.8fr)_auto] md:items-center",
-                    isGiaProject ? "hover:bg-purple-50/40" : "hover:bg-[#E6EEF4]/40"
+                    isGiaProject ? "hover:bg-blue-50/40" : "hover:bg-[#E6EEF4]/40"
                   )}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         "rounded px-1.5 py-0.5 text-[10px] font-extrabold uppercase",
-                        isGiaProject ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                        isGiaProject ? "bg-blue-100 text-[#0f53b7]" : "bg-blue-100 text-blue-700"
                       )}>
                         {project.program || (isGia ? 'GIA' : 'SETUP')}
                       </span>
@@ -759,7 +759,7 @@ export function MonitoredProjectsSection({
                       {isGiaProject ? 'Grant Outlay' : 'Repayment Status'}
                     </span>
                     {isGiaProject ? (
-                      <p className="text-sm font-semibold text-purple-900">
+                      <p className="text-sm font-semibold text-[#073b82]">
                         {totalFunding > 0 ? `₱${totalFunding.toLocaleString()}` : 'Pending'}
                       </p>
                     ) : totalFunding > 0 ? (
@@ -794,10 +794,7 @@ export function MonitoredProjectsSection({
                         e.stopPropagation()
                         onSelectProject(project)
                       }}
-                      className={cn(
-                        "inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl px-3.5 text-xs font-bold text-white shadow-2xs transition",
-                        isGiaProject ? "bg-purple-700 hover:bg-purple-800" : "bg-[#0f53b7] hover:bg-[#0b3f8b]"
-                      )}
+                      className="inline-flex h-8.5 items-center justify-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#0b3f8b]"
                     >
                       <span>Workspace</span>
                       <ArrowRight className="size-3.5" />

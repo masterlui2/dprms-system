@@ -14,6 +14,8 @@ class StoreEquipmentInspectionRequest extends FormRequest
 
     public function rules(): array
     {
+        $todayInPhilippines = now('Asia/Manila')->toDateString();
+
         return [
             'condition' => ['required', 'string', Rule::in(['good', 'fair', 'poor', 'non-functional', 'non_functional'])],
             'remarks' => [
@@ -23,7 +25,7 @@ class StoreEquipmentInspectionRequest extends FormRequest
                 'max:3000',
             ],
             'recommendations' => ['nullable', 'string', 'max:3000'],
-            'inspection_date' => ['nullable', 'date', 'before_or_equal:today'],
+            'inspection_date' => ['nullable', 'date', "before_or_equal:{$todayInPhilippines}"],
             'photos' => ['nullable', 'array', 'max:5'],
             'photos.*' => ['file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'qr_reference' => ['required', 'string', 'max:255'],
