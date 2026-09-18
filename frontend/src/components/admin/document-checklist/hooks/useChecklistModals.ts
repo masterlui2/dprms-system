@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import Swal from 'sweetalert2';
 import { ROLES } from '../../../../config/permissions';
 import { getMockUser } from '../../../../lib/mockAuth';
-import { reviewProposalDocument, viewDocumentBlobForStaff } from '../../../../services/documentStore';
+import { fetchDocumentBlobForStaff, reviewProposalDocument, viewDocumentBlobForStaff } from '../../../../services/documentStore';
+import { downloadBlob, prepareDownloadDirectory } from '../../../../services/downloadManager';
 import {
   addChecklistHistoryLog,
+  calculateChecklistDocumentCounts,
   removeChecklistDocument,
   saveProposalChecklistReview,
   uploadChecklistDocument,
@@ -183,13 +185,15 @@ export function useChecklistModals({
                   }
                 : it
             );
-            const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length;
-            const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length;
+            const counts = calculateChecklistDocumentCounts(updatedItems);
+            const { totalRequired, uploadedCount, remainingCount, compliedCount } = counts;
             const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0;
             return {
               ...p,
               items: updatedItems,
               totalRequired,
+              uploadedCount,
+              remainingCount,
               compliedCount,
               compliancePercentage,
             };
@@ -286,13 +290,15 @@ export function useChecklistModals({
                 }
               : it
           );
-          const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length;
-          const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length;
+          const counts = calculateChecklistDocumentCounts(updatedItems);
+          const { totalRequired, uploadedCount, remainingCount, compliedCount } = counts;
           const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0;
           return {
             ...p,
             items: updatedItems,
             totalRequired,
+            uploadedCount,
+            remainingCount,
             compliedCount,
             compliancePercentage,
           };
@@ -425,13 +431,15 @@ export function useChecklistModals({
                   }
                 : it
             );
-            const totalRequired = updatedItems.filter((i) => i.isRequired).length || updatedItems.length;
-            const compliedCount = updatedItems.filter((i) => (i.isRequired ? i.isPresent : false)).length;
+            const counts = calculateChecklistDocumentCounts(updatedItems);
+            const { totalRequired, uploadedCount, remainingCount, compliedCount } = counts;
             const compliancePercentage = totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0;
             return {
               ...p,
               items: updatedItems,
               totalRequired,
+              uploadedCount,
+              remainingCount,
               compliedCount,
               compliancePercentage,
             };
@@ -591,14 +599,58 @@ export function useChecklistModals({
     }
   };
 
-  const handleDownloadPreviewFile = () => {
-    if (!previewDoc.blobUrl) return;
-    const link = document.createElement('a');
-    link.href = previewDoc.blobUrl;
-    link.download = previewDoc.fileName || `${previewDoc.title}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadPreviewFile = async () => {
+    const reviewBlobUrl = reviewModalItem ? blobMap[reviewModalItem.id] : undefined;
+    const sourceUrl = previewDoc.blobUrl || reviewBlobUrl;
+    const fileName = previewDoc.blobUrl
+      ? previewDoc.fileName || `${previewDoc.title}.pdf`
+      : reviewModalItem?.uploadedDoc?.file_name || `${reviewModalItem?.name || 'document'}.pdf`;
+    if (!sourceUrl || !currentUser || !activeProposal) return;
+    try {
+      const directory = await prepareDownloadDirectory(currentUser);
+      const response = await fetch(sourceUrl);
+      await downloadBlob({
+        directory,
+        blob: await response.blob(),
+        fileName,
+        program: activeProposal.program,
+        user: currentUser,
+      });
+    } catch (error) {
+      console.error('Failed to download checklist document:', error);
+      void Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: 'The document could not be saved. Please try again.',
+        confirmButtonColor: '#0f53b7',
+      });
+    }
+  };
+
+  const handleDownloadItem = async (item: DocumentChecklistItem) => {
+    if (!item.uploadedDoc || !currentUser || !activeProposal) return;
+    try {
+      const directory = await prepareDownloadDirectory(currentUser);
+      const localUrl = blobMap[item.id] || (item.uploadedDoc.file_path?.startsWith('blob:') ? item.uploadedDoc.file_path : undefined);
+      const blob = localUrl
+        ? await (await fetch(localUrl)).blob()
+        : await fetchDocumentBlobForStaff(item.uploadedDoc.id);
+      await downloadBlob({
+        directory,
+        blob,
+        fileName: item.uploadedDoc.file_name,
+        program: activeProposal.program,
+        user: currentUser,
+      });
+    } catch (error) {
+      console.error('Failed to download checklist document:', error);
+      void Swal.fire({
+        icon: 'error',
+        title: 'Download Failed',
+        text: 'The document could not be saved. Please try again.',
+        confirmButtonColor: '#0f53b7',
+      });
+    }
   };
 
   const handleOpenPreviewNewTab = () => {
@@ -640,6 +692,7 @@ export function useChecklistModals({
     setPreviewDoc,
     handlePreviewDocument,
     handleDownloadPreviewFile,
+    handleDownloadItem,
     handleOpenPreviewNewTab,
   };
 }

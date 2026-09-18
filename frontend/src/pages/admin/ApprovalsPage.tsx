@@ -358,23 +358,17 @@ export function ApprovalsPage() {
               {proposal.organizationType.toLowerCase().replaceAll("_", " ")}
             </p>
           ) : null}
-          <p
-            className="truncate text-[11px] font-medium text-slate-500"
-            title={proposal.location || "Location not recorded"}
-          >
-            {proposal.location || "Location not recorded"}
-          </p>
         </div>
       ),
     },
     {
       id: "classification",
-      header: "Sector / Scale",
+      header: "Classification",
       className: "w-[13%] min-w-[130px]",
       sortValue: (proposal) =>
         proposal.program === "SETUP"
           ? proposal.industrySector ?? ""
-          : proposal.proponentCategory ?? "",
+          : proposal.researchCategory ?? "",
       render: (proposal) => (
         <div className="space-y-0.5">
           {proposal.program === "SETUP" ? (
@@ -393,18 +387,13 @@ export function ApprovalsPage() {
               ) : null}
             </>
           ) : (
-            <>
-              {proposal.proponentCategory ? (
-                <p className="text-xs font-semibold text-slate-800 leading-snug">
-                  {proposal.proponentCategory}
-                </p>
-              ) : null}
-              {proposal.researchCategory ? (
-                <p className="text-[11px] font-medium text-slate-500">
-                  {proposal.researchCategory}
-                </p>
-              ) : null}
-            </>
+            proposal.researchCategory ? (
+              <p className="text-xs font-semibold text-slate-800 leading-snug">
+                {proposal.researchCategory}
+              </p>
+            ) : (
+              <span className="text-xs text-slate-400 font-medium">—</span>
+            )
           )}
         </div>
       ),
@@ -428,7 +417,7 @@ export function ApprovalsPage() {
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap shadow-2xs">
+            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 whitespace-nowrap">
               <Check className="size-3" />
               Approved
             </span>

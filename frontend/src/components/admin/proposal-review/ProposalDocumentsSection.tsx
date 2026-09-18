@@ -14,14 +14,18 @@ import { ROLES } from "../../../config/permissions";
 import { getMockUser } from "../../../lib/mockAuth";
 import { cn } from "../../../utils/cn";
 import {
+  fetchDocumentBlobForStaff,
   fetchProposalDocumentsForStaff,
   reviewProposalDocument,
   viewDocumentBlobForStaff,
   type DocumentApiRecord,
 } from "../../../services/documentStore";
+import { downloadBlob, prepareDownloadDirectory } from "../../../services/downloadManager";
+import type { ApplicationProgram } from "../../../types/application";
 
 interface ProposalDocumentsSectionProps {
   onVerificationCompleteChange?: (complete: boolean) => void;
+  program: ApplicationProgram;
   proposalId: number;
 }
 
@@ -42,6 +46,7 @@ function formatUpdated(isoDate: string): string {
 
 export function ProposalDocumentsSection({
   onVerificationCompleteChange,
+  program,
   proposalId,
 }: ProposalDocumentsSectionProps) {
   const currentUser = getMockUser();
@@ -162,17 +167,13 @@ export function ProposalDocumentsSection({
   }
 
   async function handleDownload(document: DocumentApiRecord) {
+    if (!currentUser) return;
     setActionError(null);
     setPendingAction({ id: document.id, type: "download" });
     try {
-      const blobUrl = await viewDocumentBlobForStaff(document.id);
-      const link = window.document.createElement("a");
-      link.href = blobUrl;
-      link.download = document.file_name;
-      window.document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(blobUrl);
+      const directory = await prepareDownloadDirectory(currentUser);
+      const blob = await fetchDocumentBlobForStaff(document.id);
+      await downloadBlob({ blob, directory, fileName: document.file_name, program, user: currentUser });
     } catch (err) {
       console.error("Failed to download document:", err);
       setActionError("Could not download this document. It may have been removed from storage.");
@@ -291,10 +292,10 @@ export function ProposalDocumentsSection({
             </div>
             <span
               className={cn(
-                "whitespace-nowrap shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold",
+                "shrink-0 whitespace-nowrap text-[10px] font-semibold",
                 percentComplete === 100
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-blue-50 text-[#0f53b7]",
+                  ? "text-emerald-700"
+                  : "text-[#0f53b7]",
               )}
             >
               {percentComplete === 100 ? "Complete" : "In Review"}
@@ -408,12 +409,12 @@ export function ProposalDocumentsSection({
                   </span>
                   <span
                     className={cn(
-                      "rounded px-1.5 py-0.2 text-[10px] font-bold",
+                      "text-[10px] font-semibold",
                       selectedDocStatus === "approved"
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? "text-emerald-700"
                         : selectedDocStatus === "returned_for_revision"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-amber-100 text-amber-800",
+                          ? "text-rose-700"
+                          : "text-amber-700",
                     )}
                   >
                     {selectedDocStatus === "approved"

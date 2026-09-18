@@ -14,6 +14,10 @@ class StoreEquipmentRequest extends FormRequest
 
     public function rules(): array
     {
+        // DPRMS operates in the Philippines. Near midnight, the browser can
+        // already be on the next calendar day while the server is still UTC.
+        $todayInPhilippines = now('Asia/Manila')->toDateString();
+
         return [
             'program_type' => ['required', 'string', Rule::in(['SETUP', 'GIA'])],
             'project_id' => ['required', 'integer', 'exists:projects,id'],
@@ -25,8 +29,8 @@ class StoreEquipmentRequest extends FormRequest
             'property_number' => ['nullable', 'string', 'max:100', Rule::unique('equipment_registries', 'property_number')],
             'unit' => ['required', 'string', 'max:50'],
             'acquisition_cost' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
-            'acquisition_date' => ['required', 'date', 'before_or_equal:today'],
-            'installed_at' => ['nullable', 'date', 'after_or_equal:acquisition_date', 'before_or_equal:today'],
+            'acquisition_date' => ['required', 'date', "before_or_equal:{$todayInPhilippines}"],
+            'installed_at' => ['nullable', 'date', 'after_or_equal:acquisition_date', "before_or_equal:{$todayInPhilippines}"],
             'supplier_name' => ['required', 'string', 'max:255'],
             'location' => ['required', 'string', 'max:500'],
             'current_condition' => ['required', 'string', Rule::in(['GOOD', 'FAIR', 'POOR', 'NON_FUNCTIONAL'])],

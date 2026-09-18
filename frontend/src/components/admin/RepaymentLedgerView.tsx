@@ -405,7 +405,7 @@ export function RepaymentLedgerView({
               </span>
             ) : null}
             {ledger.schedule.locked ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 text-xs font-bold text-amber-800 border border-amber-200 shadow-2xs">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700">
                 <LockKeyhole className="size-3" /> Schedule locked
               </span>
             ) : null}
@@ -424,7 +424,7 @@ export function RepaymentLedgerView({
       </div>
 
       {ledger.schedule.initialized ? (
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard detail="Approved amount" icon={Wallet} label="Total Project Cost" value={formatCurrency(ledger.summary.totalProjectCost)} />
         <MetricCard detail="Verified payments" icon={CheckCircle2} label="Amount Refunded" tone="green" value={formatCurrency(ledger.summary.amountPaid)} />
         <MetricCard

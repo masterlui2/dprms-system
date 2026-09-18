@@ -12,12 +12,15 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import {
+  fetchDocumentBlobForStaff,
   fetchInternalDocumentTypes,
   fetchProposalDocumentsForStaff,
   reviewProposalDocument,
   uploadInternalDocument,
   viewDocumentBlobForStaff,
 } from "../../../services/documentStore";
+import { downloadBlob, prepareDownloadDirectory } from "../../../services/downloadManager";
+import { getMockUser } from "../../../lib/mockAuth";
 import type { ApplicationProgram } from "../../../types/application";
 import { cn } from "../../../utils/cn";
 import {
@@ -328,18 +331,21 @@ export function InternalDocumentsSection({
 
   async function handleDownload(document: InternalDocument) {
     if (!document.backendId) return;
+    const currentUser = getMockUser();
+    if (!currentUser) return;
     setDownloading(true);
     setPreviewError(null);
 
     try {
-      const url = await viewDocumentBlobForStaff(document.backendId);
-      const link = window.document.createElement("a");
-      link.href = url;
-      link.download = document.fileName || `${document.label}.pdf`;
-      window.document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1_000);
+      const directory = await prepareDownloadDirectory(currentUser);
+      const blob = await fetchDocumentBlobForStaff(document.backendId);
+      await downloadBlob({
+        directory,
+        blob,
+        fileName: document.fileName || `${document.label}.pdf`,
+        program,
+        user: currentUser,
+      });
     } catch (error) {
       console.error("Failed to download internal document:", error);
       setPreviewError("The PDF could not be downloaded from the server.");
@@ -377,10 +383,10 @@ export function InternalDocumentsSection({
             </div>
             <span
               className={cn(
-                "whitespace-nowrap shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold",
+                "shrink-0 whitespace-nowrap text-[10px] font-semibold",
                 percentComplete === 100
-                  ? "bg-emerald-100 text-emerald-800"
-                  : "bg-blue-50 text-[#0f53b7]",
+                  ? "text-emerald-700"
+                  : "text-[#0f53b7]",
               )}
             >
               {percentComplete === 100 ? "Complete" : "In Review"}

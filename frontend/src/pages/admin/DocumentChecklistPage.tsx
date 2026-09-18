@@ -195,7 +195,8 @@ export function DocumentChecklistPage() {
                     canReview={data.canReview}
                     canUpload={data.canUpload}
                     handleOpenReviewModal={modals.handleOpenReviewModal}
-                    handlePreviewDocument={modals.handlePreviewDocument}
+            handlePreviewDocument={modals.handlePreviewDocument}
+            handleDownloadItem={modals.handleDownloadItem}
                     handleOpenUploadModal={modals.handleOpenUploadModal}
                     setVersionModalDoc={modals.setVersionModalDoc}
                     handleRemoveFile={modals.handleRemoveFile}
@@ -264,6 +265,7 @@ export function DocumentChecklistPage() {
         isLoadingPreviewBlob={modals.isLoadingPreviewBlob}
         handleOpenReviewModal={modals.handleOpenReviewModal}
         handleCloseReviewModal={modals.handleCloseReviewModal}
+        handleDownloadPreviewFile={modals.handleDownloadPreviewFile}
         isSubmittingReview={modals.isSubmittingReview}
         setVersionModalDoc={modals.setVersionModalDoc}
         historyList={data.historyList}

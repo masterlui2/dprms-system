@@ -1,4 +1,4 @@
-import { ArrowRight, Eye, FileCheck2 } from 'lucide-react';
+import { Eye, FileCheck2 } from 'lucide-react';
 
 import { DataTable, type DataColumn } from '../../DataTable';
 import type { ProposalChecklistRecord } from '../../../../services/documentChecklistStore';
@@ -19,11 +19,11 @@ type ReviewState = {
 function getReviewState(proposal: ProposalChecklistRecord): ReviewState {
   if (!proposal.detailsLoaded && proposal.reviewStatus) {
     const tones: Record<NonNullable<ProposalChecklistRecord['reviewStatus']>, string> = {
-      Completed: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-      'Needs Revision': 'border-rose-200 bg-rose-50 text-rose-700',
-      'In Review': 'border-blue-200 bg-blue-50 text-[#0f53b7]',
-      'In Progress': 'border-amber-200 bg-amber-50 text-amber-700',
-      'Not Started': 'border-slate-200 bg-slate-50 text-slate-600',
+      Completed: 'text-emerald-700',
+      'Needs Revision': 'text-rose-700',
+      'In Review': 'text-[#0f53b7]',
+      'In Progress': 'text-amber-700',
+      'Not Started': 'text-slate-600',
     };
     return { label: proposal.reviewStatus, tone: tones[proposal.reviewStatus] };
   }
@@ -31,34 +31,62 @@ function getReviewState(proposal: ProposalChecklistRecord): ReviewState {
   if (proposal.compliancePercentage >= 100) {
     return {
       label: 'Completed',
-      tone: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      tone: 'text-emerald-700',
     };
   }
 
   if (proposal.items.some((item) => item.status === 'Needs Revision')) {
     return {
       label: 'Needs Revision',
-      tone: 'border-rose-200 bg-rose-50 text-rose-700',
+      tone: 'text-rose-700',
     };
   }
 
   if (proposal.items.some((item) => item.status === 'Under Review')) {
     return {
       label: 'In Review',
-      tone: 'border-blue-200 bg-blue-50 text-[#0f53b7]',
+      tone: 'text-[#0f53b7]',
     };
   }
 
   if (proposal.items.some((item) => item.uploadedDoc || item.isPresent)) {
     return {
       label: 'In Progress',
-      tone: 'border-amber-200 bg-amber-50 text-amber-700',
+      tone: 'text-amber-700',
     };
   }
 
   return {
     label: 'Not Started',
-    tone: 'border-slate-200 bg-slate-50 text-slate-600',
+    tone: 'text-slate-600',
+  };
+}
+
+function getDocumentCounts(proposal: ProposalChecklistRecord) {
+  if (typeof proposal.uploadedCount === 'number' && typeof proposal.remainingCount === 'number') {
+    const total = proposal.uploadedCount + proposal.remainingCount;
+    return {
+      uploaded: proposal.uploadedCount,
+      remaining: proposal.remainingCount,
+      total,
+      percentage: total > 0 ? Math.round((proposal.uploadedCount / total) * 100) : 0,
+    };
+  }
+
+  const requiredItems = proposal.items.filter((item) => item.isRequired);
+  const countableItems = requiredItems.length > 0 ? requiredItems : proposal.items;
+  const uploaded = countableItems.length > 0
+    ? countableItems.filter((item) => Boolean(item.uploadedDoc)).length
+    : proposal.compliedCount;
+
+  return {
+    uploaded,
+    remaining: Math.max(0, proposal.totalRequired - uploaded),
+    total: proposal.totalRequired,
+    percentage:
+      proposal.totalRequired > 0
+        ? Math.round((uploaded / proposal.totalRequired) * 100)
+        : 0,
   };
 }
 
@@ -68,13 +96,13 @@ export function DocumentChecklistProjectTable({
   onSelectProject,
   proposals,
 }: DocumentChecklistProjectTableProps) {
-  const actionLabel = canReview ? 'Review Documents' : 'View Documents';
+  const actionLabel = canReview ? 'Review' : 'View';
 
   const columns: DataColumn<ProposalChecklistRecord>[] = [
     {
       id: 'project',
       header: 'Project',
-      className: 'w-[30%]',
+      className: 'w-[29%]',
       sortValue: (proposal) => proposal.enterpriseName,
       render: (proposal) => (
         <div className="min-w-0">
@@ -88,61 +116,53 @@ export function DocumentChecklistProjectTable({
       ),
     },
     {
-      id: 'program',
-      header: 'Program',
-      className: 'w-[10%]',
-      sortValue: (proposal) => proposal.program,
-      render: (proposal) => (
-        <span className="inline-flex rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-xs font-semibold text-[#0f53b7]">
-          {proposal.program}
-        </span>
-      ),
-    },
-    {
       id: 'proponent',
       header: 'Proponent',
-      className: 'w-[18%]',
+      className: 'w-[21%]',
       sortValue: (proposal) => proposal.proponentName,
       render: (proposal) => (
-        <p className="line-clamp-2 leading-snug text-slate-700">
+        <p className="truncate font-medium text-slate-800" title={proposal.proponentName}>
           {proposal.proponentName}
         </p>
       ),
     },
     {
-      id: 'progress',
-      header: 'Document Progress',
+      id: 'documents',
+      header: 'Documents',
       align: 'right',
-      className: 'w-[18%]',
-      sortValue: (proposal) => proposal.compliancePercentage,
-      render: (proposal) => (
-        <div className="ml-auto w-full max-w-40">
-          <p className="text-right text-xs font-medium text-slate-700">
-            {proposal.compliedCount} of {proposal.totalRequired} · {proposal.compliancePercentage}%
-          </p>
-          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className={cn(
-                'h-full rounded-full',
-                proposal.compliancePercentage >= 100 ? 'bg-emerald-600' : 'bg-[#0f53b7]',
-              )}
-              style={{ width: `${Math.min(100, proposal.compliancePercentage)}%` }}
-            />
+      className: 'w-[25%]',
+      sortValue: (proposal) => getDocumentCounts(proposal).percentage,
+      render: (proposal) => {
+        const counts = getDocumentCounts(proposal);
+        return (
+          <div className="ml-auto w-full max-w-48">
+            <div className="flex items-center justify-between gap-3 text-xs tabular-nums">
+              <span className="font-semibold text-[#0f53b7]">
+                {counts.uploaded}/{counts.total} uploaded
+              </span>
+              <span className="text-slate-500">{counts.remaining} left</span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-[#0f53b7] transition-[width] duration-300"
+                style={{ width: `${counts.percentage}%` }}
+              />
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       id: 'reviewStatus',
-      header: 'Review Status',
-      className: 'w-[12%]',
+      header: 'Status',
+      className: 'w-[13%]',
       sortValue: (proposal) => getReviewState(proposal).label,
       render: (proposal) => {
         const state = getReviewState(proposal);
         return (
           <span
             className={cn(
-              'inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold',
+              'inline-flex text-xs font-semibold leading-snug',
               state.tone,
             )}
           >
@@ -165,11 +185,10 @@ export function DocumentChecklistProjectTable({
             event.stopPropagation();
             onSelectProject(proposal);
           }}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-[#0f53b7] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0b438f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+          className="inline-flex h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-[#0f53b7] px-3 text-xs font-semibold text-white shadow-sm transition hover:bg-[#0b438f] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
         >
           {canReview ? <FileCheck2 className="size-3.5" /> : <Eye className="size-3.5" />}
-          <span className="hidden 2xl:inline">{actionLabel}</span>
-          <ArrowRight className="size-3.5 2xl:hidden" />
+          <span>{actionLabel}</span>
         </button>
       ),
     },
@@ -188,9 +207,10 @@ export function DocumentChecklistProjectTable({
         isLoading={isLoading}
         mobileRender={(proposal) => {
           const state = getReviewState(proposal);
+          const counts = getDocumentCounts(proposal);
           return (
             <div className="space-y-3">
-              <div className="flex items-start justify-between gap-3">
+              <div>
                 <div className="min-w-0">
                   <p className="font-semibold leading-snug text-slate-900">
                     {proposal.enterpriseName}
@@ -199,32 +219,30 @@ export function DocumentChecklistProjectTable({
                     {proposal.referenceNumber}
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-[#0f53b7]">
-                  {proposal.program}
-                </span>
               </div>
 
-              <p className="text-sm text-slate-600">{proposal.proponentName}</p>
+              <div className="min-w-0 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Proponent</p>
+                <p className="mt-1 truncate font-semibold text-slate-800">{proposal.proponentName}</p>
+              </div>
 
-              <div className="flex items-end justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-3 text-xs text-slate-600">
-                    <span>Documents</span>
-                    <span className="tabular-nums">
-                      {proposal.compliedCount}/{proposal.totalRequired} · {proposal.compliancePercentage}%
-                    </span>
-                  </div>
-                  <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={cn(
-                        'h-full rounded-full',
-                        proposal.compliancePercentage >= 100 ? 'bg-emerald-600' : 'bg-[#0f53b7]',
-                      )}
-                      style={{ width: `${Math.min(100, proposal.compliancePercentage)}%` }}
-                    />
-                  </div>
+              <div className="rounded-xl bg-slate-50 p-3 text-xs">
+                <div className="flex items-center justify-between gap-3 tabular-nums">
+                  <span className="font-semibold text-[#0f53b7]">
+                    {counts.uploaded}/{counts.total} uploaded
+                  </span>
+                  <span className="text-slate-500">{counts.remaining} left</span>
                 </div>
-                <span className={cn('shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold', state.tone)}>
+                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                  <div
+                    className="h-full rounded-full bg-[#0f53b7] transition-[width] duration-300"
+                    style={{ width: `${counts.percentage}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <span className={cn('text-xs font-semibold leading-snug', state.tone)}>
                   {state.label}
                 </span>
               </div>
@@ -246,7 +264,7 @@ export function DocumentChecklistProjectTable({
         onRowClick={onSelectProject}
         searchPlaceholder="Search projects..."
         searchText={(proposal) =>
-          `${proposal.enterpriseName} ${proposal.referenceNumber} ${proposal.proponentName} ${proposal.program} ${proposal.district || ''} ${getReviewState(proposal).label}`
+          `${proposal.enterpriseName} ${proposal.referenceNumber} ${proposal.proponentName} ${proposal.proponentEmail} ${proposal.district || ''} ${proposal.focalName || ''} ${proposal.submittedDate} ${getReviewState(proposal).label}`
         }
         variant="clean"
       />

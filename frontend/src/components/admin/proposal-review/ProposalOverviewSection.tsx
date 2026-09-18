@@ -23,6 +23,8 @@ import {
 import { useEffect, useState } from "react";
 
 import type { ProposalRecord } from "../../../data/admin";
+import { getMockUser } from "../../../lib/mockAuth";
+import { downloadBlob } from "../../../services/downloadManager";
 import {
   fetchProposalOverview,
   type ProposalOverviewData,
@@ -192,7 +194,7 @@ export function ProposalOverviewSection({
     { day: "numeric", month: "short", year: "numeric" },
   );
 
-  function handleDownloadProposalForm() {
+  async function handleDownloadProposalForm() {
     const html = `
       <!DOCTYPE html>
       <html>
@@ -282,29 +284,19 @@ export function ProposalOverviewSection({
       </html>
     `;
 
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
-    iframe.style.border = "0";
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(html);
-      doc.close();
-      iframe.contentWindow?.focus();
-      setTimeout(() => {
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          if (document.body.contains(iframe)) {
-            document.body.removeChild(iframe);
-          }
-        }, 1000);
-      }, 250);
+    const currentUser = getMockUser();
+    if (!currentUser) return;
+    try {
+      await downloadBlob({
+        blob: new Blob([html], { type: "text/html;charset=utf-8" }),
+        fileName: `${loadedOverview.program}_${loadedOverview.referenceNo}_application_details.html`,
+        program: loadedOverview.program,
+        user: currentUser,
+      });
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        console.error("Failed to download application details:", error);
+      }
     }
   }
 
@@ -362,7 +354,7 @@ export function ProposalOverviewSection({
         {/* Top Download Button */}
         <button
           className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1 text-xs sm:text-sm font-bold text-slate-800 shadow-2xs hover:bg-slate-50 hover:text-[#0f53b7] transition cursor-pointer"
-          onClick={handleDownloadProposalForm}
+          onClick={() => void handleDownloadProposalForm()}
           title="Download / Print full Application Details for reference"
           type="button"
         >

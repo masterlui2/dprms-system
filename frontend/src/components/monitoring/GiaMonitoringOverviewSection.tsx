@@ -67,7 +67,7 @@ export function GiaMonitoringOverviewSection({
 
   return (
     <div className="space-y-5 font-sans">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((card) => (
           <MetricCard
             detail={card.detail}

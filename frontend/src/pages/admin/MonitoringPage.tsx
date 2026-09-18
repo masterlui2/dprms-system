@@ -17,6 +17,8 @@ import { SetupMonitoringHub } from '../../components/monitoring/SetupMonitoringH
 import { ROLES } from '../../config/permissions'
 import type { Program, ProjectRecord } from '../../data/admin'
 import { getMockUser } from '../../lib/mockAuth'
+import { downloadBlob, prepareDownloadDirectory } from '../../services/downloadManager'
+import { createCsvBlob } from '../../utils/csv'
 import {
   fetchGiaMonitoringProjects,
   type GiaMonitoringStatistics,
@@ -161,6 +163,9 @@ export function MonitoringPage() {
   const [globalSemester, setGlobalSemester] = useState(initialSemester)
   const [globalViewMode, setGlobalViewMode] = useState<'box' | 'list'>('box')
   const loadRequestRef = useRef(0)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportNotice, setExportNotice] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   const updateSearchParams = useCallback((updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams)
@@ -268,6 +273,61 @@ export function MonitoringPage() {
   const activePeriod = selectedProgram === 'SETUP' ? globalQuarter : globalSemester
   const programProjects = projects.filter((project) => project.program === selectedProgram)
   const isOverview = currentView === 'overview'
+
+  async function handleExport() {
+    if (!currentUser || isExporting) return
+    setIsExporting(true); setExportNotice(null); setExportError(null)
+    try {
+      const directory = await prepareDownloadDirectory(currentUser)
+      const fetchPage = (page: number) => selectedProgram === 'SETUP'
+        ? fetchSetupMonitoringProjects({ search: searchValue.trim(), district: districtValue, ...setupPeriod, page })
+        : fetchGiaMonitoringProjects({ search: searchValue.trim(), agency: agencyValue, status: statusValue, ...giaPeriod, page })
+      const first = await fetchPage(1)
+      const allProjects = [...first.projects]
+      for (let page = 2; page <= first.pagination.lastPage; page += 1) {
+        const next = await fetchPage(page)
+        if (next.pagination.currentPage !== page || next.pagination.total !== first.pagination.total) throw new Error('The project list changed. Please try exporting again.')
+        allProjects.push(...next.projects)
+      }
+      if (allProjects.length !== first.pagination.total || new Set(allProjects.map((project) => project.id)).size !== allProjects.length) {
+        throw new Error('The project list changed. Please try exporting again.')
+      }
+      const rows: Array<Array<string | number | null | undefined>> = []
+      if (isOverview) {
+        rows.push(['Field', 'Value'], ['Program', selectedProgram], ['Period', activePeriod],
+          ['Search', searchValue.trim()], ['District', selectedProgram === 'SETUP' ? districtValue : ''],
+          ['Agency', selectedProgram === 'GIA' ? agencyValue : ''], ['Status', selectedProgram === 'GIA' ? statusValue : ''],
+          ['Matching projects', first.pagination.total])
+        const milestones = allProjects.flatMap((project) => project.gia?.milestones ?? [])
+        const statistics = selectedProgram === 'SETUP' ? {
+          activeProjects: allProjects.length,
+          monitoredCount: allProjects.filter((project) => project.monitored).length,
+          pendingReports: allProjects.reduce((sum, project) => sum + (project.pendingReports ?? 0), 0),
+        } : {
+          activeGrants: allProjects.length,
+          monitoredProjects: allProjects.filter((project) => project.monitored).length,
+          totalGrantAmount: allProjects.reduce((sum, project) => sum + project.budget, 0),
+          averageMilestoneProgress: milestones.length ? Math.round(milestones.reduce((sum, milestone) => sum + milestone.completionPercentage, 0) / milestones.length * 10) / 10 : 0,
+          pendingMilestones: milestones.filter((milestone) => ['PENDING', 'IN_PROGRESS', 'DELAYED'].includes(milestone.status)).length,
+          delayedMilestones: milestones.filter((milestone) => milestone.status === 'DELAYED').length,
+        }
+        for (const [key, value] of Object.entries(statistics)) {
+          rows.push([key.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase()), value])
+        }
+      } else {
+        rows.push(['Program', 'Period', 'Reference', 'Project title', 'Enterprise / agency', 'Manager', 'District', 'Status', 'Budget (PHP)', 'Progress (%)', 'Monitoring status', 'Last monitored', 'Pending reports'])
+        for (const project of allProjects) {
+          rows.push([selectedProgram, activePeriod, project.referenceNumber ?? project.id, project.title,
+            project.enterprise, project.manager, project.district, project.status, project.budget, project.progress,
+            project.monitoringStatus, project.lastMonitoredAt, project.pendingReports])
+        }
+      }
+      const result = await downloadBlob({ blob: createCsvBlob(rows), directory, fileName: `${selectedProgram}_monitoring_${isOverview ? 'report' : 'list'}_${activePeriod.replace(/\s+/g, '_')}.csv`, program: selectedProgram, user: currentUser })
+      setExportNotice(result.usedBrowserFallback ? 'CSV sent to browser downloads.' : `CSV saved to ${result.destination}`)
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'The CSV could not be exported. Please try again.')
+    } finally { setIsExporting(false) }
+  }
 
   const resetFilters = () => {
     setSearchValue('')
@@ -428,14 +488,18 @@ export function MonitoringPage() {
 
           <button
             type="button"
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4]"
+            disabled={isExporting || isLoadingProjects || Boolean(projectsError)}
+            onClick={() => void handleExport()}
+            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <FileDown className="size-3.5" />
-            {isOverview ? 'Export report' : 'Export list'}
+            {isExporting ? <LoaderCircle className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />}
+            {isExporting ? 'Exporting…' : isOverview ? 'Export report' : 'Export list'}
           </button>
         </div>
       </div>
 
+      {exportNotice ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{exportNotice}</p> : null}
+      {exportError ? <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{exportError}</p> : null}
       {!hasLoadedInitial && isLoadingProjects ? (
         <div className="flex min-h-52 items-center justify-center rounded-2xl border border-[#B5BFCD]/80 bg-white text-sm font-semibold text-slate-500 shadow-sm">
           <LoaderCircle className="mr-2 size-5 animate-spin text-[#285497]" />

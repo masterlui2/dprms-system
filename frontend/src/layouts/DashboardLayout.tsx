@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, ChevronDown, PanelLeft, Search, UserCircle2 } from 'lucide-react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 
@@ -7,6 +7,8 @@ import { NotificationPanel } from '../components/admin/NotificationPanel'
 import { SiteHeader } from '../components/landing/SiteHeader'
 import { ROLE_LABEL, ROLES } from '../config/permissions'
 import { clearMockUser, getMockUser } from '../lib/mockAuth'
+import { initializeDownloadDirectories } from '../services/downloadManager'
+import { AccountExportDirectory } from '../components/common/ExportDirectorySettings'
 import { cn } from '../utils/cn'
 
 export function DashboardLayout() {
@@ -16,6 +18,14 @@ export function DashboardLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const activeUser = getMockUser()
+    if (!activeUser) return
+    void initializeDownloadDirectories(activeUser).catch((error) => {
+      console.warn('Download folders could not be initialized on cold start.', error)
+    })
+  }, [])
 
   if (!user) {
     return <Navigate replace to="/login" />
@@ -147,6 +157,7 @@ export function DashboardLayout() {
                     </div>
                   </div>
                   <div className="space-y-2 px-4 py-4">
+                    <AccountExportDirectory user={user} />
                     <div className="rounded-xl bg-[#f7fbff] px-3 py-3 text-xs text-slate-500">
                       Signed in as <span className="font-bold text-slate-700">{user.email}</span>
                     </div>

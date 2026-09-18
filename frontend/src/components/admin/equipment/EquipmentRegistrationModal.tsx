@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import { AlertTriangle, CheckCircle2, LoaderCircle, PackagePlus, Plus } from 'lucide-react'
+import { AlertTriangle, LoaderCircle, PackagePlus, Plus } from 'lucide-react'
 
 import type { EquipmentRecord, Program } from '../../../data/admin'
 import {
@@ -9,6 +9,7 @@ import {
   type EquipmentRegistrationPayload,
 } from '../../../services/equipmentStore'
 import { ModalShell } from '../ModalShell'
+import { ProjectCombobox } from './ProjectCombobox'
 
 interface Props {
   onClose: () => void
@@ -66,7 +67,6 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
   })
   const [error, setError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [savedCount, setSavedCount] = useState(0)
   const equipmentNameRef = useRef<HTMLInputElement>(null)
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -75,6 +75,7 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
 
   function selectProject(value: string) {
     const project = projects.find((item) => String(item.id) === value)
+    setError(null)
     setForm((current) => ({
       ...current,
       projectId: value,
@@ -84,6 +85,26 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const requiredFields = [
+      [form.projectId, 'active project'],
+      [form.categoryId, 'equipment category'],
+      [form.equipmentName.trim(), 'equipment name'],
+      [form.serialNumber.trim(), 'serial number'],
+      [form.brand.trim(), 'brand'],
+      [form.model.trim(), 'model'],
+      [form.acquisitionCost, 'procurement cost'],
+      [form.supplierName.trim(), 'supplier'],
+      [form.location.trim(), 'current location'],
+    ] as const
+    const missing = requiredFields.filter(([value]) => !value).map(([, label]) => label)
+    if (missing.length > 0) {
+      setError(`Complete the required fields: ${missing.join(', ')}.`)
+      return
+    }
+    if (!Number.isFinite(Number(form.acquisitionCost)) || Number(form.acquisitionCost) < 0) {
+      setError('Enter a valid procurement cost of 0 or greater.')
+      return
+    }
     const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null
     const keepOpen = submitter?.value === 'add-another'
     setError(null)
@@ -109,7 +130,6 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
       onSaved(saved, keepOpen)
 
       if (keepOpen) {
-        setSavedCount((count) => count + 1)
         setForm((current) => ({
           ...current,
           acquisitionCost: '',
@@ -135,7 +155,14 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
       description={`Add equipment to the ${program} inventory and generate its QR code.`}
       footer={
         <div className="flex flex-col gap-3">
-          <p className="text-xs text-slate-500">Registration date and asset number are generated automatically.</p>
+          {error ? (
+            <p className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800" role="alert">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              {error}
+            </p>
+          ) : (
+            <p className="text-xs text-slate-500">Registration date and asset number are generated automatically.</p>
+          )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
             <button className="h-10 rounded-xl px-4 text-sm font-bold text-slate-600 hover:bg-slate-100" disabled={isSubmitting} onClick={onClose} type="button">
               Cancel
@@ -155,24 +182,17 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
       title="Register Equipment"
       width="lg"
     >
-      <form className="space-y-6" id="equipment-registration-form" onSubmit={(event) => void handleSubmit(event)}>
-        <div className="flex items-start gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-          <span className="rounded-lg bg-[#0f53b7] px-2.5 py-1 text-xs font-black tracking-wide text-white">{program}</span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-slate-800">Registering under the {program} inventory</p>
-            <p className="mt-0.5 text-xs leading-5 text-slate-500">Choose the project once, then use “Save &amp; add another” to register its equipment one after another.</p>
-          </div>
-          {savedCount > 0 ? <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700"><CheckCircle2 className="size-3.5" />{savedCount} saved</span> : null}
-        </div>
-
+      <form className="space-y-6" id="equipment-registration-form" noValidate onSubmit={(event) => void handleSubmit(event)}>
         <section>
           <h3 className="text-sm font-black text-slate-900">Assignment</h3>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <Field label="Active project" required>
-              <select className={fieldClass} onChange={(event) => selectProject(event.target.value)} required value={form.projectId}>
-                <option value="">Select a {program} project</option>
-                {projects.map((project) => <option key={project.id} value={project.id}>{project.reference_number} — {project.title}</option>)}
-              </select>
+              <ProjectCombobox
+                onChange={selectProject}
+                placeholder={`Search and select a ${program} project`}
+                projects={projects}
+                value={form.projectId}
+              />
             </Field>
             <Field label="Equipment category" required>
               <select className={fieldClass} onChange={(event) => update('categoryId', event.target.value)} required value={form.categoryId}>
@@ -220,7 +240,6 @@ export function EquipmentRegistrationModal({ onClose, onSaved, options, program 
           <Field label="Technical specifications (optional)"><textarea className={textareaClass} maxLength={3000} onChange={(event) => update('specifications', event.target.value)} placeholder="Capacity, dimensions, power requirements, or other useful specifications" value={form.specifications} /></Field>
         </section>
 
-        {error ? <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-800" role="alert"><AlertTriangle className="mt-0.5 size-4 shrink-0" />{error}</div> : null}
       </form>
     </ModalShell>
   )

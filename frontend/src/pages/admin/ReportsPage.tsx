@@ -21,6 +21,9 @@ import {
   reportCatalog,
   type PredictionRecord,
 } from "../../data/admin";
+import { getMockUser } from "../../lib/mockAuth";
+import { downloadBlob, getAuthorizedDownloadPrograms } from "../../services/downloadManager";
+import type { ApplicationProgram } from "../../types/application";
 
 type AnalyticsScope = "all" | "equipment" | "finance" | "gia";
 
@@ -67,6 +70,35 @@ const analyticsScopes: Array<{ label: string; value: AnalyticsScope }> = [
 ];
 
 const dateRanges = ["Last 7 days", "Last 30 days", "This quarter", "This year"];
+
+function escapePdfText(value: string): string {
+  return value.replace(/([\\()])/g, "\\$1").replace(/[^\x20-\x7e]/g, "?");
+}
+
+function createSimplePdf(lines: string[]): Blob {
+  const textCommands = lines
+    .slice(0, 20)
+    .map((line, index) => `BT /F1 ${index === 0 ? 16 : 11} Tf 54 ${750 - index * 28} Td (${escapePdfText(line)}) Tj ET`)
+    .join("\n");
+  const objects = [
+    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
+    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj",
+    `4 0 obj << /Length ${textCommands.length} >> stream\n${textCommands}\nendstream endobj`,
+    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
+  ];
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  for (const object of objects) {
+    offsets.push(pdf.length);
+    pdf += `${object}\n`;
+  }
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
+  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([pdf], { type: "application/pdf" });
+}
 
 const defaultCards: AnalyticsCard[] = [
   {
@@ -364,9 +396,11 @@ const predictionColumns: DataColumn<PredictionRecord>[] = [
 ];
 
 export function ReportsPage() {
+  const currentUser = getMockUser();
   const [analyticsScope, setAnalyticsScope] = useState<AnalyticsScope>("all");
   const [dateRange, setDateRange] = useState("Last 30 days");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const analytics = analyticsSummaries[analyticsScope];
   const activeFilterCount =
     (analyticsScope === "all" ? 0 : 1) + (dateRange === "Last 30 days" ? 0 : 1);
@@ -377,6 +411,50 @@ export function ReportsPage() {
   function printAnalytics() {
     setFiltersOpen(false);
     window.requestAnimationFrame(() => window.print());
+  }
+
+  async function downloadGeneratedReport(report: (typeof generatedReports)[number]) {
+    if (!currentUser) return;
+    const programs = getAuthorizedDownloadPrograms(currentUser);
+    const inferredProgram: ApplicationProgram = report.title.toUpperCase().includes("GIA")
+      ? "GIA"
+      : report.title.toUpperCase().includes("SETUP")
+        ? "SETUP"
+        : programs[0];
+    const program = programs.includes(inferredProgram) ? inferredProgram : programs[0];
+    const baseName = report.title.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
+    const reportLines = [
+      report.title,
+      `Report ID: ${report.id}`,
+      `Program: ${program}`,
+      `Generated: ${report.generated}`,
+      `Owner: ${report.owner}`,
+      `Scope: ${selectedScopeLabel}`,
+      `Date range: ${dateRange}`,
+    ];
+    const isPdf = report.format === "PDF";
+    const blob = isPdf
+      ? createSimplePdf(reportLines)
+      : new Blob(
+          [`Field,Value\n${reportLines.map((line) => {
+            const [field, ...value] = line.split(": ");
+            return `"${field.replace(/"/g, '""')}","${value.join(": ").replace(/"/g, '""')}"`;
+          }).join("\n")}`],
+          { type: "text/csv;charset=utf-8" },
+        );
+    try {
+      const result = await downloadBlob({
+        blob,
+        fileName: `${baseName}.${isPdf ? "pdf" : "csv"}`,
+        program,
+        user: currentUser,
+      });
+      setDownloadNotice(`Saved to ${result.destination}`);
+    } catch (error) {
+      if (!(error instanceof DOMException && error.name === "AbortError")) {
+        setDownloadNotice("The report could not be downloaded. Please try again.");
+      }
+    }
   }
 
   return (
@@ -504,42 +582,47 @@ export function ReportsPage() {
           </div>
         </div>
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {analytics.cards.map((card) => (
             <article
-              className="group flex min-h-36 min-w-0 flex-col rounded-2xl border border-slate-100 bg-white p-5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] transition-all duration-200 hover:border-slate-200 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.1)]"
+              className="group flex min-w-0 items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.08)]"
               key={card.label}
             >
-              <div className="flex min-w-0 items-start justify-between gap-4">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold leading-snug text-slate-700">
-                    {card.label}
-                  </p>
-                  <p className="mt-1 text-xs leading-snug text-slate-400">
-                    {card.detail}
-                  </p>
-                </div>
+              <div className="flex min-w-0 items-center gap-3.5">
                 <span
-                  className={`flex size-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${card.iconTone}`}
+                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${card.iconTone}`}
                 >
                   <card.icon className="size-5" />
                 </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold leading-snug text-slate-800 line-clamp-2" title={card.label}>
+                    {card.label}
+                  </p>
+                  {card.detail ? (
+                    <p className="mt-0.5 text-xs font-medium leading-tight text-slate-400 line-clamp-1" title={card.detail}>
+                      {card.detail}
+                    </p>
+                  ) : null}
+                </div>
               </div>
 
-              <div className="mt-auto flex min-w-0 items-end justify-between gap-3 pt-4">
-                <p
-                  className={`flex items-center gap-1 pb-0.5 text-xs font-medium tabular-nums ${card.trendTone}`}
-                >
-                  {card.trend.startsWith("+") ? (
-                    <TrendingUp className="size-3" />
-                  ) : (
-                    <TrendingDown className="size-3" />
-                  )}
-                  <span>{card.trend}</span>
-                </p>
-                <p className="numeric-value whitespace-nowrap text-right text-xl font-bold leading-none tracking-tight text-slate-900 tabular-nums sm:text-2xl 2xl:text-3xl">
+              <div className="shrink-0 text-right">
+                <p className="numeric-value whitespace-nowrap text-2xl sm:text-3xl font-black leading-none tracking-tight text-slate-900 tabular-nums">
                   {card.value}
                 </p>
+
+                {card.trend ? (
+                  <p
+                    className={`mt-1 inline-flex items-center gap-1 text-xs font-bold tabular-nums ${card.trendTone}`}
+                  >
+                    {card.trend.startsWith("+") ? (
+                      <TrendingUp className="size-3" />
+                    ) : (
+                      <TrendingDown className="size-3" />
+                    )}
+                    <span>{card.trend}</span>
+                  </p>
+                ) : null}
               </div>
             </article>
           ))}
@@ -662,6 +745,11 @@ export function ReportsPage() {
       </AdminPanel>
 
       <AdminPanel title="Recent reports">
+        {downloadNotice ? (
+          <div className="mx-5 mt-4 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-[#073b82]" role="status">
+            {downloadNotice}
+          </div>
+        ) : null}
         <div className="divide-y divide-slate-100">
           {generatedReports.map((report) => (
             <article
@@ -682,6 +770,7 @@ export function ReportsPage() {
                 <button
                   aria-label={`Download ${report.title}`}
                   className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-200 text-[#0f53b7] transition hover:border-blue-300 hover:bg-blue-50"
+                  onClick={() => void downloadGeneratedReport(report)}
                   type="button"
                 >
                   <Download className="size-4" />

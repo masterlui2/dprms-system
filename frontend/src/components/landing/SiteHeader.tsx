@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { NotificationPanel } from "../admin/NotificationPanel";
+import { AccountExportDirectory } from "../common/ExportDirectorySettings";
 import logoImage from "../../assets/logo2.png";
 import { type MockUser, clearMockUser, getMockUser } from "../../lib/mockAuth";
 import {
@@ -226,6 +227,7 @@ function AccountDropdown({
       )}
 
       <div className="grid gap-1 border-t border-slate-100 px-2 py-2">
+        <AccountExportDirectory user={user} />
         <Link
           className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82]"
           onClick={onNavigate}
@@ -266,7 +268,9 @@ export function SiteHeader() {
         location.pathname.startsWith("/programs/setup")
       ? "SETUP"
       : user?.program ?? "SETUP";
-  const navigationItems = getNavigationItems(location.pathname, user);
+  const navigationItems = getNavigationItems(location.pathname, user).filter(
+    (item) => !user || item.label !== "Programs",
+  );
   const programsActive =
     location.pathname.startsWith("/programs/gia") ||
     location.pathname.startsWith("/programs/setup");

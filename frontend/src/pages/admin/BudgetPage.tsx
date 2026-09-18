@@ -172,7 +172,7 @@ export function BudgetPage() {
       render: (project) => {
         const needsInit = project.budget <= 0 || !project.fullRelease
         return needsInit ? (
-          <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700">
             Needs Terms
           </span>
         ) : (
@@ -201,12 +201,12 @@ export function BudgetPage() {
       render: (project) => {
         const needsInit = project.budget <= 0 || !project.fullRelease
         return needsInit ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-800 border border-amber-200 w-fit whitespace-nowrap shadow-2xs">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 whitespace-nowrap">
             <Clock className="size-3" />
             Needs Schedule
           </span>
         ) : (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700 border border-emerald-200 w-fit whitespace-nowrap shadow-2xs">
+          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 whitespace-nowrap">
             <Check className="size-3" />
             Active
           </span>
@@ -224,11 +224,7 @@ export function BudgetPage() {
         return (
           <div className="flex items-center justify-end">
             <button
-              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-white shadow-xs transition ${
-                needsInit && !isDirector
-                  ? 'bg-amber-600 hover:bg-amber-700'
-                  : 'bg-emerald-700 hover:bg-emerald-800'
-              }`}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-[#0f53b7] px-3 text-xs font-semibold text-white shadow-xs transition hover:bg-[#0b3f8b]"
               onClick={(e) => {
                 e.stopPropagation()
                 navigate(`/dashboard/repayment-monitoring/${id}`)
@@ -306,11 +302,11 @@ export function BudgetPage() {
                       {project.referenceNumber ?? project.id}
                     </span>
                     {needsInit ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-800 border border-amber-200 shadow-2xs">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700">
                         <Clock className="size-3" /> Needs Schedule
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 border border-emerald-200 shadow-2xs">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700">
                         <Check className="size-3" /> Active
                       </span>
                     )}
@@ -337,9 +333,7 @@ export function BudgetPage() {
                     </div>
                   </dl>
                   <button
-                    className={`inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-bold text-white transition ${
-                      needsInit && !isDirector ? 'bg-amber-600 hover:bg-amber-700' : 'bg-emerald-700 hover:bg-emerald-800'
-                    }`}
+                    className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-[#0f53b7] text-xs font-semibold text-white transition hover:bg-[#0b3f8b]"
                     onClick={() => navigate(`/dashboard/repayment-monitoring/${id}`)}
                     type="button"
                   >

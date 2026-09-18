@@ -130,7 +130,12 @@ export function DocumentChecklistListView({
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-xs font-bold text-slate-950 sm:text-sm">{item.name}</p>
                     {state.label && (
-                      <span className={cn('rounded-full px-2.5 py-0.5 text-[10px] font-bold', state.badgeClass)}>
+                      <span
+                        className={cn(
+                          'whitespace-nowrap text-xs font-bold',
+                          state.type === 'SATISFIED' ? 'text-emerald-700' : state.badgeClass,
+                        )}
+                      >
                         {state.label}
                       </span>
                     )}

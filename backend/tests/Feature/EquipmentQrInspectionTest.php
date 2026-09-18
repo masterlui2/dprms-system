@@ -13,6 +13,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -117,6 +118,30 @@ class EquipmentQrInspectionTest extends TestCase
         ]);
     }
 
+    public function test_inspection_accepts_the_philippine_date_when_the_utc_server_is_still_on_the_previous_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-17 16:30:00 UTC'));
+
+        try {
+            $equipment = $this->createEquipment('GIA', 'GIA-INSPECTION-TIMEZONE-001');
+            Sanctum::actingAs($this->giaStaff);
+
+            $this->postJson("/api/v1/equipment/{$equipment->id}/inspections", [
+                'condition' => 'good',
+                'inspection_date' => '2026-09-18',
+                'qr_reference' => 'GIA-INSPECTION-TIMEZONE-001',
+            ])->assertOk()
+                ->assertJsonPath('data.condition', 'good');
+
+            $this->assertDatabaseHas('equipment_condition_logs', [
+                'equipment_id' => $equipment->id,
+                'new_condition' => 'GOOD',
+            ]);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
     public function test_staff_cannot_access_assets_from_another_program(): void
     {
         $giaEquipment = $this->createEquipment('GIA', 'GIA-QR-004');
@@ -205,6 +230,37 @@ class EquipmentQrInspectionTest extends TestCase
             'equipment_id' => $equipmentId,
             'is_active' => true,
         ]);
+    }
+
+    public function test_registration_accepts_the_philippine_date_when_the_utc_server_is_still_on_the_previous_day(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-09-17 16:30:00 UTC'));
+
+        try {
+            $existing = $this->createEquipment('GIA', 'GIA-TIMEZONE-001');
+            $project = $existing->proposal->project;
+            Sanctum::actingAs($this->giaStaff);
+
+            $this->postJson('/api/v1/equipment', [
+                'program_type' => 'GIA',
+                'project_id' => $project->id,
+                'category_id' => $this->category->id,
+                'equipment_name' => 'Moisture Analyzer',
+                'brand' => 'DOST LabWorks',
+                'model' => 'MA-10',
+                'serial_number' => 'GIA-TIMEZONE-SERIAL-001',
+                'unit' => 'unit',
+                'acquisition_cost' => 125000,
+                'acquisition_date' => '2026-09-18',
+                'supplier_name' => 'Science Equipment Supply',
+                'location' => 'Mati City Laboratory',
+                'current_condition' => 'GOOD',
+            ])->assertCreated()
+                ->assertJsonPath('data.acquisition_date', '2026-09-18')
+                ->assertJsonPath('data.program_type', 'GIA');
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_inventory_filters_and_statistics_are_program_specific(): void

@@ -463,11 +463,15 @@ export async function deleteDocumentRecord(documentId: number): Promise<void> {
  * cookies — see loginWithBackend() in the auth service), and a bare
  * browser navigation wouldn't carry that header.
  */
-export async function fetchDocumentBlobUrl(documentId: number): Promise<string> {
+export async function fetchDocumentBlob(documentId: number): Promise<Blob> {
   const response = await api.get(`/documents/${documentId}/download`, {
     responseType: 'blob',
   })
-  return URL.createObjectURL(response.data as Blob)
+  return response.data as Blob
+}
+
+export async function fetchDocumentBlobUrl(documentId: number): Promise<string> {
+  return URL.createObjectURL(await fetchDocumentBlob(documentId))
 }
 
 export const giaDocumentaryRequirements: DocumentaryRequirement[] = [
@@ -742,11 +746,15 @@ export async function fetchProposalDocumentsForStaff(proposalId: number): Promis
  * Caller is responsible for revoking the returned URL when done, unless
  * intentionally leaving it open in a new tab (see call sites).
  */
-export async function viewDocumentBlobForStaff(documentId: number): Promise<string> {
+export async function fetchDocumentBlobForStaff(documentId: number): Promise<Blob> {
   const response = await api.get(`/documents/${documentId}/view-staff`, {
     responseType: 'blob',
   })
-  return URL.createObjectURL(response.data as Blob)
+  return response.data as Blob
+}
+
+export async function viewDocumentBlobForStaff(documentId: number): Promise<string> {
+  return URL.createObjectURL(await fetchDocumentBlobForStaff(documentId))
 }
 
 /** Uploads or replaces a staff-only internal proposal document. */

@@ -286,6 +286,8 @@ export interface ProposalChecklistRecord {
   district?: string
   focalName?: string
   totalRequired: number
+  uploadedCount?: number
+  remainingCount?: number
   compliedCount: number
   compliancePercentage: number
   items: DocumentChecklistItem[]
@@ -293,6 +295,21 @@ export interface ProposalChecklistRecord {
   lastUpdated: string
   detailsLoaded?: boolean
   reviewStatus?: 'Completed' | 'Needs Revision' | 'In Review' | 'In Progress' | 'Not Started'
+}
+
+export function calculateChecklistDocumentCounts(items: DocumentChecklistItem[]) {
+  const explicitlyRequired = items.filter((item) => item.isRequired)
+  const requiredItems = explicitlyRequired.length > 0 ? explicitlyRequired : items
+  const totalRequired = requiredItems.length
+  const uploadedCount = requiredItems.filter((item) => Boolean(item.uploadedDoc)).length
+  const compliedCount = requiredItems.filter((item) => item.isPresent).length
+
+  return {
+    totalRequired,
+    uploadedCount,
+    remainingCount: Math.max(0, totalRequired - uploadedCount),
+    compliedCount,
+  }
 }
 
 export const OFFICIAL_SETUP_SET_ITEMS: Array<{
@@ -1346,6 +1363,15 @@ function mapProjectSummary(data: any): ProposalChecklistRecord {
   const reportedTotalRequired = Number(data.total_required || 0)
   const fallbackTotalRequired =
     fallbackRequirements.filter((item) => item.isRequired).length || fallbackRequirements.length
+  const totalRequired = reportedTotalRequired || fallbackTotalRequired
+  const uploadedCount = Math.min(
+    totalRequired,
+    Math.max(0, Number(data.uploaded_count ?? data.complied_count ?? 0)),
+  )
+  const remainingCount = Math.min(
+    totalRequired,
+    Math.max(0, Number(data.remaining_count ?? totalRequired - uploadedCount)),
+  )
 
   return {
     proposalId: Number(data.proposal_id),
@@ -1358,7 +1384,9 @@ function mapProjectSummary(data: any): ProposalChecklistRecord {
     submittedDate: data.submitted_date || new Date().toISOString(),
     district: data.district || '',
     focalName: data.focal_name || '',
-    totalRequired: reportedTotalRequired || fallbackTotalRequired,
+    totalRequired,
+    uploadedCount,
+    remainingCount,
     compliedCount: Number(data.complied_count || 0),
     compliancePercentage: Number(data.compliance_percentage || 0),
     items: [],
@@ -1393,8 +1421,13 @@ function mapProposalChecklist(data: any): ProposalChecklistRecord {
       }))
     : []
 
+  const counts = calculateChecklistDocumentCounts(items)
+
   return {
     ...summary,
+    totalRequired: counts.totalRequired,
+    uploadedCount: counts.uploadedCount,
+    remainingCount: counts.remainingCount,
     items,
     overallRemarks: data.overall_remarks || '',
     detailsLoaded: true,
@@ -1470,14 +1503,17 @@ async function buildFallbackChecklist(
     }
   })
 
-  const totalRequired = items.filter((item) => item.isRequired).length || items.length
-  const compliedCount = items.filter((item) => item.isRequired && item.isPresent).length
+  const counts = calculateChecklistDocumentCounts(items)
+  const totalRequired = counts.totalRequired
+  const compliedCount = counts.compliedCount
   const compliancePercentage =
     totalRequired > 0 ? Math.round((compliedCount / totalRequired) * 100) : 0
 
   return {
     ...summary,
     totalRequired,
+    uploadedCount: counts.uploadedCount,
+    remainingCount: counts.remainingCount,
     compliedCount,
     compliancePercentage,
     items,

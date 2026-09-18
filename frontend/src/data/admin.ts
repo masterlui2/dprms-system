@@ -747,7 +747,7 @@ export const generatedReports = [
     id: 'RPT-116',
     title: '2026 MSME Performance Summary',
     generated: 'May 31, 2026',
-    format: 'XLSX',
+    format: 'CSV',
     owner: 'Maria Santos',
   },
 ]

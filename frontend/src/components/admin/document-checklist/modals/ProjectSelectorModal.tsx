@@ -114,7 +114,7 @@ export function ProjectSelectorModal({
                       <h4 className="truncate text-xs sm:text-sm font-bold text-slate-950" title={proposal.enterpriseName}>
                         {proposal.enterpriseName}
                       </h4>
-                      <span className="rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.2 text-[10px] font-bold">
+                      <span className="text-[10px] font-semibold text-emerald-700">
                         Approved
                       </span>
                       {isSelected && (

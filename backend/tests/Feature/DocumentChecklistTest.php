@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Document;
 use App\Models\DocumentChecklistTemplate;
+use App\Models\DocumentType;
 use App\Models\Proposal;
 use App\Models\Role;
 use App\Models\SetupProposal;
@@ -64,6 +66,25 @@ class DocumentChecklistTest extends TestCase
             'space_ownership' => 'Owned',
         ]);
 
+        $documentType = DocumentType::create([
+            'name' => "Recent Mayor's Permit",
+            'group' => 'Business Documents',
+            'set_number' => 'SET1',
+            'applicable_program' => 'SETUP',
+            'is_required' => true,
+            'is_applicant_visible' => true,
+        ]);
+        Document::create([
+            'proposal_id' => $approved->id,
+            'document_type_id' => $documentType->id,
+            'uploaded_by' => $user->id,
+            'file_name' => 'mayors-permit.pdf',
+            'file_path' => 'documents/mayors-permit.pdf',
+            'file_size' => 1024,
+            'mime_type' => 'application/pdf',
+            'status' => 'pending',
+        ]);
+
         Proposal::create([
             'submitted_by' => $user->id,
             'title' => 'Unapproved SETUP Project',
@@ -91,12 +112,20 @@ class DocumentChecklistTest extends TestCase
                     'proponent_name',
                     'program',
                     'total_required',
+                    'uploaded_count',
+                    'remaining_count',
                     'complied_count',
                     'compliance_percentage',
                     'review_status',
                 ]],
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
             ]);
+
+        $this->assertSame(1, $response->json('data.0.uploaded_count'));
+        $this->assertSame(
+            $response->json('data.0.total_required') - 1,
+            $response->json('data.0.remaining_count'),
+        );
 
         $this->assertArrayNotHasKey('items', $response->json('data.0'));
     }
