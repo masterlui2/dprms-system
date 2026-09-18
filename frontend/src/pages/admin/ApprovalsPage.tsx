@@ -313,7 +313,7 @@ export function ApprovalsPage() {
     {
       id: "id",
       header: "Reference",
-      className: "w-[13%] min-w-[140px]",
+      className: "w-[11%] min-w-[125px]",
       sortValue: (proposal) => proposal.id,
       render: (proposal) => (
         <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100/90 border border-slate-200/80 font-mono text-xs font-bold text-slate-700 whitespace-nowrap shadow-2xs">
@@ -324,7 +324,7 @@ export function ApprovalsPage() {
     {
       id: "title",
       header: "Project Title",
-      className: "w-[24%] min-w-[220px]",
+      className: "w-[22%] min-w-[190px]",
       sortValue: (proposal) => proposal.title,
       render: (proposal) => (
         <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2 hover:text-[#0f53b7] transition-colors">
@@ -335,7 +335,7 @@ export function ApprovalsPage() {
     {
       id: "proponent",
       header: "Proponent",
-      className: "w-[13%] min-w-[130px]",
+      className: "w-[12%] min-w-[120px]",
       sortValue: (proposal) => proposal.proponentName ?? "",
       render: (proposal) => (
         <p className="font-bold text-sm text-slate-900 leading-snug">
@@ -346,7 +346,7 @@ export function ApprovalsPage() {
     {
       id: "organization",
       header: "Organization",
-      className: "w-[16%] min-w-[160px]",
+      className: "w-[14%] min-w-[130px]",
       sortValue: (proposal) => proposal.organization,
       render: (proposal) => (
         <div className="space-y-0.5">
@@ -364,7 +364,7 @@ export function ApprovalsPage() {
     {
       id: "classification",
       header: "Classification",
-      className: "w-[13%] min-w-[130px]",
+      className: "w-[12%] min-w-[120px]",
       sortValue: (proposal) =>
         proposal.program === "SETUP"
           ? proposal.industrySector ?? ""
@@ -401,7 +401,7 @@ export function ApprovalsPage() {
     {
       id: "submitted",
       header: "Submission Date",
-      className: "w-[10%] min-w-[110px]",
+      className: "w-[9%] min-w-[100px]",
       sortValue: (proposal) => proposal.submitted,
       render: (proposal) => (
         <span className="text-xs font-medium text-slate-600 whitespace-nowrap block">
@@ -412,7 +412,7 @@ export function ApprovalsPage() {
     {
       id: "status",
       header: "Status",
-      className: "w-[11%] min-w-[110px]",
+      className: "w-[8%] min-w-[85px]",
       sortValue: (proposal) => proposal.status,
       render: (proposal) => {
         if (proposal.status === "Approved") {
@@ -449,14 +449,14 @@ export function ApprovalsPage() {
     {
       id: "action",
       header: "Action",
-      className: "w-[10%] min-w-[100px] text-right",
+      className: "w-[15%] min-w-[185px] text-right",
       render: (proposal) => {
         if (proposal.status === "Approved") {
           return (
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
               {proposal.proposalId ? (
                 <button
-                  className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition shrink-0"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
                   onClick={(event) => {
                     event.stopPropagation();
                     navigate(`/dashboard/document-checklist?proposalId=${proposal.proposalId}&program=${proposal.program}`);
@@ -483,7 +483,7 @@ export function ApprovalsPage() {
                 </button>
               ) : null}
               <button
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition shrink-0"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition"
                 onClick={(event) => {
                   event.stopPropagation();
                   openReview(proposal, "overview");
@@ -510,10 +510,10 @@ export function ApprovalsPage() {
 
         if (canDecide) {
           return (
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
               {proposal.proposalId ? (
                 <button
-                  className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
+                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
                   onClick={(event) => {
                     event.stopPropagation();
                     navigate(`/dashboard/document-checklist?proposalId=${proposal.proposalId}&program=${proposal.program}`);
@@ -525,7 +525,7 @@ export function ApprovalsPage() {
                 </button>
               ) : null}
               <button
-                className="inline-flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs hover:bg-emerald-700 transition"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs hover:bg-emerald-700 transition"
                 onClick={(event) => {
                   event.stopPropagation();
                   void handleApproveConfirmation(proposal);
@@ -536,7 +536,7 @@ export function ApprovalsPage() {
                 <Check className="size-4" />
               </button>
               <button
-                className="inline-flex size-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs hover:bg-rose-700 transition"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs hover:bg-rose-700 transition"
                 onClick={(event) => {
                   event.stopPropagation();
                   setDirectRemarks("");
@@ -549,7 +549,7 @@ export function ApprovalsPage() {
                 <X className="size-4" />
               </button>
               <button
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition"
                 onClick={(event) => {
                   event.stopPropagation();
                   openReview(proposal, "overview");
@@ -564,10 +564,10 @@ export function ApprovalsPage() {
         }
 
         return (
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
+          <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
             {proposal.proposalId ? (
               <button
-                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
+                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
                 onClick={(event) => {
                   event.stopPropagation();
                   navigate(`/dashboard/document-checklist?proposalId=${proposal.proposalId}&program=${proposal.program}`);
@@ -579,7 +579,7 @@ export function ApprovalsPage() {
               </button>
             ) : null}
             <button
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0b3f8b] transition hover:shadow-md"
+              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-xs hover:bg-[#0b3f8b] transition hover:shadow-md"
               onClick={(event) => {
                 event.stopPropagation();
                 openReview(proposal, "overview");
@@ -647,6 +647,7 @@ export function ApprovalsPage() {
           data={filteredProposals}
           emptyDescription="No applications match the selected filter."
           emptyTitle="No applications found"
+          fitColumns
           getRowKey={(proposal) => proposal.id}
           onRowClick={(proposal) => openReview(proposal, "overview")}
           searchPlaceholder="Search applications..."

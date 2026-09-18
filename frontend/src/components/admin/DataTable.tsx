@@ -163,7 +163,7 @@ export function DataTable<T>({
       </div>
 
       <div
-        className="hidden max-w-full overflow-hidden xl:block"
+        className="hidden max-w-full overflow-x-auto xl:block"
       >
         <table
           className="w-full table-fixed text-left text-sm"

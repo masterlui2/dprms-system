@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, ChevronDown, PanelLeft, Search, UserCircle2 } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, PanelLeft, Search } from 'lucide-react'
 import { Navigate, Outlet, useNavigate } from 'react-router-dom'
 
 import { AdminSidebar } from '../components/dashboard/AdminSidebar'
@@ -127,42 +127,48 @@ export function DashboardLayout() {
             <div className="relative border-l border-[#e2e8f0] pl-4">
               <button
                 aria-expanded={accountMenuOpen}
-                aria-label="Account"
-                className="inline-flex h-11 items-center gap-2 rounded-xl border border-transparent px-2 text-[#1d3352] transition hover:bg-[#f3f8fe] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+                aria-label="Account menu"
+                className="inline-flex h-11 items-center gap-2 rounded-xl border border-slate-200/80 bg-white px-2.5 text-[#1d3352] shadow-2xs transition hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
                 onClick={() => {
                   setAccountMenuOpen((open) => !open)
                   setNotificationsOpen(false)
                 }}
                 type="button"
               >
-                <UserCircle2 className="h-7 w-7" />
-                <ChevronDown className="hidden h-4 w-4 sm:block" />
+                <div className="grid size-8 place-items-center rounded-full bg-[#0f53b7] text-xs font-bold text-white shadow-xs shrink-0">
+                  {user.initials}
+                </div>
+                <span className="hidden text-sm font-bold text-slate-800 sm:inline max-w-[130px] truncate">
+                  {user.name.split(' ')[0]}
+                </span>
+                <ChevronDown className="size-4 text-slate-400" />
               </button>
 
               {accountMenuOpen ? (
-                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-64 overflow-hidden rounded-2xl border border-[#d8e1ee] bg-white shadow-2xl">
-                  <div className="border-b border-slate-200 px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-11 w-11 place-items-center rounded-full bg-[#0f53b7] text-sm font-black text-white">
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-72 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl">
+                  <div className="border-b border-slate-100 bg-slate-50/70 px-4 py-3.5">
+                    <div className="flex items-start gap-3">
+                      <div className="grid size-10 place-items-center rounded-full bg-[#0f53b7] text-sm font-bold text-white shadow-xs shrink-0">
                         {user.initials}
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-[15px] font-bold text-slate-900">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-slate-900 leading-snug">
                           {user.name}
                         </p>
-                        <p className="truncate text-sm text-slate-500">
-                          {ROLE_LABEL[user.role]}
+                        <p className="truncate text-xs text-slate-500 mt-0.5">
+                          {user.email}
                         </p>
+                        <div className="mt-1.5 inline-flex items-center rounded-md bg-blue-50 border border-blue-100/80 px-2 py-0.5 text-[11px] font-semibold text-[#0f53b7]">
+                          {ROLE_LABEL[user.role]}
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-2 px-4 py-4">
+                  <div className="p-1.5 space-y-0.5">
                     <AccountExportDirectory user={user} />
-                    <div className="rounded-xl bg-[#f7fbff] px-3 py-3 text-xs text-slate-500">
-                      Signed in as <span className="font-bold text-slate-700">{user.email}</span>
-                    </div>
+                    <div className="my-1 border-t border-slate-100" />
                     <button
-                      className="inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-200 text-sm font-bold text-[#073b82] transition hover:border-blue-300 hover:bg-blue-50"
+                      className="group flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-rose-50 hover:text-rose-600"
                       onClick={() => {
                         clearMockUser()
                         setAccountMenuOpen(false)
@@ -170,7 +176,8 @@ export function DashboardLayout() {
                       }}
                       type="button"
                     >
-                      Sign out
+                      <LogOut className="size-4 text-slate-400 group-hover:text-rose-600 transition" />
+                      <span>Sign out</span>
                     </button>
                   </div>
                 </div>

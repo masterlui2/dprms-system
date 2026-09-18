@@ -21,9 +21,13 @@ function isSubRouteActive(pathname: string, search: string, route: string): bool
 
   const currentParams = new URLSearchParams(search)
   const expectedParams = new URLSearchParams(routeQuery)
-  return Array.from(expectedParams.entries()).every(
-    ([key, value]) => currentParams.get(key) === value,
-  )
+  let matches = true
+  expectedParams.forEach((value, key) => {
+    if (currentParams.get(key) !== value) {
+      matches = false
+    }
+  })
+  return matches
 }
 
 function SidebarItem({
@@ -124,7 +128,11 @@ export function AdminSidebar({
       <div className="flex h-full flex-col">
         <div className="flex items-center gap-2 border-b border-[#d8e1ee] px-6 py-4">
           <NavLink
-            className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', collapsed && 'justify-center px-0')}
+            className={cn(
+              'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1',
+              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100',
+              collapsed && 'justify-center px-0',
+            )}
             onClick={onClose}
             title="DOST DPRMS"
             to="/dashboard"
@@ -135,17 +143,23 @@ export function AdminSidebar({
             {!collapsed ? (
               <span className="min-w-0 leading-tight">
                 <span className="block text-lg font-extrabold text-[#073b82]">DOST</span>
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">DPRMS</span>
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  DPRMS
+                </span>
               </span>
             ) : null}
           </NavLink>
-          <button aria-label="Close navigation" className="inline-flex size-9 items-center justify-center rounded-lg text-slate-600 hover:bg-white lg:hidden" onClick={onClose} type="button">
+          <button
+            aria-label="Close navigation"
+            className="inline-flex size-9 items-center justify-center rounded-lg text-slate-600 hover:bg-white lg:hidden"
+            onClick={onClose}
+            type="button"
+          >
             <X className="size-5" />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-4">
-          {!collapsed ? <p className="px-2 pb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Modules</p> : null}
           <nav className="space-y-1">
             {visible.map((item) => {
               return (
@@ -170,7 +184,12 @@ export function AdminSidebar({
             </div>
           ) : null}
           <button
-            className={cn('flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', collapsed && 'justify-center px-0')}
+            className={cn(
+              'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-700',
+              'transition hover:bg-[#f3f8fe] hover:text-[#073b82]',
+              'focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100',
+              collapsed && 'justify-center px-0',
+            )}
             onClick={handleSignOut}
             title="Sign out"
             type="button"
