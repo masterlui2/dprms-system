@@ -278,24 +278,18 @@ export async function fetchSetupDocumentaryRequirements(
   organizationType?: OrganizationType,
   businessSize?: BusinessSize,
 ): Promise<DocumentaryRequirement[]> {
-  try {
-    const records = await getDocumentTypes({
-      program: 'SETUP',
-      businessType: organizationType
-        ? ORGANIZATION_TYPE_TO_BUSINESS_TYPE[organizationType as Exclude<OrganizationType, ''>]
-        : undefined,
-      businessSize: businessSize
-        ? BUSINESS_SIZE_TO_ENTERPRISE_SIZE[businessSize as Exclude<BusinessSize, ''>]
-        : undefined,
-    })
-    if (records && records.length > 0) {
-      return records.map(mapDocumentTypeToRequirement)
-    }
-  } catch (error) {
-    console.error('Failed to fetch setup document types from backend:', error)
-  }
-  return filterSetupDocumentaryRequirements(organizationType, businessSize)
+  const records = await getDocumentTypes({
+    program: 'SETUP',
+    businessType: organizationType
+      ? ORGANIZATION_TYPE_TO_BUSINESS_TYPE[organizationType as Exclude<OrganizationType, ''>]
+      : undefined,
+    businessSize: businessSize
+      ? BUSINESS_SIZE_TO_ENTERPRISE_SIZE[businessSize as Exclude<BusinessSize, ''>]
+      : undefined,
+  })
+  return records.map(mapDocumentTypeToRequirement)
 }
+
 
 // ---------------------------------------------------------------------------
 // Server-backed proposal documents (Document model). Both SETUP and GIA
@@ -630,21 +624,14 @@ export function getDocumentaryRequirements(
 export async function fetchGiaDocumentaryRequirements(
   giaCategory?: GiaProponentCategory,
 ): Promise<DocumentaryRequirement[]> {
-  try {
-    const records = await getDocumentTypes({
-      program: 'GIA',
-      setNumber: 'GIA1',
-      giaCategory: giaCategory
-        ? GIA_CATEGORY_TO_API_CATEGORY[giaCategory as Exclude<GiaProponentCategory, ''>]
-        : undefined,
-    })
-    if (records && records.length > 0) {
-      return records.map(mapDocumentTypeToRequirement)
-    }
-  } catch (error) {
-    console.error('Failed to fetch GIA document types from backend:', error)
-  }
-  return getDocumentaryRequirements('GIA', undefined, giaCategory)
+  const records = await getDocumentTypes({
+    program: 'GIA',
+    setNumber: 'GIA1',
+    giaCategory: giaCategory
+      ? GIA_CATEGORY_TO_API_CATEGORY[giaCategory as Exclude<GiaProponentCategory, ''>]
+      : undefined,
+  })
+  return records.map(mapDocumentTypeToRequirement)
 }
 
 const STORAGE_KEY = 'dprms.documentary-requirements'

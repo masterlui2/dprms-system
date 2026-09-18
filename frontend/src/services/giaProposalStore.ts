@@ -222,8 +222,8 @@ export function getSampleGiaProposalData(): GiaProposalData {
     emailAddress: 'maria.santos@davaosmartagri.org',
     contactNumber: '+63 917 555 3829',
     officeAddress: 'Km 12, McArthur Highway, Matina, Davao City',
-    projectCategory: 'Community Innovation',
-    projectType: 'Research & Community Development',
+    projectCategory: 'Agriculture and Fisheries',       // was 'Community Innovation' — not in the backend's `project_category => in:...` list
+    projectType: 'Research and Development',            // was 'Research & Community Development' — not in the backend's `project_type => in:...` list
     projectSummary: 'Deploying solar-powered automated hydroponics setups and IoT-based soil & climate monitoring sensors.',
     projectRationale: 'Frequent climate shifts affect traditional crop yields; hydroponics provides year-round food security.',
     generalObjective: 'Establish climate-resilient smart hydroponics and IoT monitoring systems for high-value crops in Davao Region.',
