@@ -15,6 +15,7 @@ class Project extends Model
         'approved_by',
         'program_type',
         'status',
+        'project_duration',
         'start_date',
         'expected_end_date',
         'actual_end_date',
@@ -51,5 +52,9 @@ class Project extends Model
     public function ledgers(): HasMany
     {
         return $this->hasMany(ProjectLedger::class);
+    }
+
+    public function executive_summary(): HasMany{
+        return $this->hasMany(ExecutiveSummary::class);
     }
 }

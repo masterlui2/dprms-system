@@ -10,13 +10,17 @@ use App\Services\ProjectModule\MarketService;
 use App\Services\ProjectModule\ProductionMaterialsService;
 use App\Services\AuthorizationModule\AuthService;
 use App\Services\Contracts\AuthorizationModule\AuthServiceInterface;
+use App\Services\Contracts\ProjectModule\AccomplishmentServiceInterface;
+use App\Services\Contracts\ProjectModule\ActionServiceInterface;
 use App\Services\Contracts\ProjectModule\AssetCapitalServiceInterface;
 use App\Services\Contracts\ProjectModule\AssetServiceInterface;
 use App\Services\Contracts\ProjectModule\EmployeeServiceInterface;
+use App\Services\Contracts\ProjectModule\ExecutiveSummaryServiceInterface;
 use App\Services\Contracts\ProjectModule\InterventionServiceInterface;
 use App\Services\Contracts\ProjectModule\LinkageServiceInterface;
 use App\Services\Contracts\ProjectModule\MarketServiceInterface;
 use App\Services\Contracts\ProjectModule\NarrativeServiceInterface;
+use App\Services\Contracts\ProjectModule\OutputServiceInterface;
 use App\Services\Contracts\ProjectModule\ProductionCostServiceInterface;
 use App\Services\Contracts\ProjectModule\ProductionMaterialsServiceInterface;
 use App\Services\Contracts\ProjectModule\ProductServiceInterface;
@@ -38,6 +42,10 @@ use App\Services\ProjectModule\ProductService;
 use App\Services\ProjectModule\ProjectService;
 use App\Services\ProjectModule\QuarterlyMetricsService;
 use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use App\Services\ProjectModule\AccomplishmentService;
+use App\Services\ProjectModule\ActionService;
+use App\Services\ProjectModule\ExecutiveSummaryService;
+use App\Services\ProjectModule\OutputService;
 use App\Services\ProposalModule\DocumentChecklistService;
 use App\Services\ProposalModule\DocumentsService;
 use App\Services\ProposalModule\GiaProposalService;
@@ -77,5 +85,9 @@ class ServiceServiceProvider extends ServiceProvider
         $this->app->bind(MarketServiceInterface::class,MarketService::class);
         $this->app->bind(NarrativeServiceInterface::class,NarrativeService::class);
         $this->app->bind(ProductionMaterialsServiceInterface::class, ProductionMaterialsService::class);
+        $this->app->bind(ExecutiveSummaryServiceInterface::class, ExecutiveSummaryService::class);
+        $this->app->bind(AccomplishmentServiceInterface::class, AccomplishmentService::class);
+        $this->app->bind(OutputServiceInterface::class, OutputService::class);
+        $this->app->bind(ActionServiceInterface::class,ActionService::class);
     }
 }

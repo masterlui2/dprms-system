@@ -5,6 +5,7 @@ use App\Http\Controllers\DocumentChecklistController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\DocumentTypeController;
 use App\Http\Controllers\EquipmentInspectionController;
+use App\Http\Controllers\ExecutiveSummaryController;
 use App\Http\Controllers\GiaMonitoringProjectController;
 use App\Http\Controllers\GiaProposalController;
 use App\Http\Controllers\GiaProposalSubmissionController;
@@ -180,6 +181,8 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::get('/', [ProjectController::class, 'index']);
     Route::get('/{projectId}/quarterly-metrics', [QuarterlyMetricController::class, 'index']);
     Route::post('/{projectId}/quarterly-metrics', [QuarterlyMetricController::class, 'store']);
+    Route::get('/{projectId}/executive-summary', [ExecutiveSummaryController::class, 'index']);
+    Route::post('/{projectId}/executive-summary', [ExecutiveSummaryController::class, 'store']);
 });
 
 Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,SYSTEM_ADMIN,RPMO'])->prefix('quarterly-metrics')->group(function (){
@@ -203,4 +206,10 @@ Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR
     Route::post('/{quarterId}/linkage/batch',[QuarterlyMetricController::class, 'batchLinkage']);
     Route::post('/{quarterId}/narrative/batch',[QuarterlyMetricController::class, 'batchNarrative']);
     Route::post('/{quarterId}/production-material/batch',[QuarterlyMetricController::class, 'batchProductionMaterial']);
+});
+
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,FOCAL,PROVINCIAL_DIRECTOR,SYSTEM_ADMIN,RPMO'])->prefix('executive-summary')->group(function () {
+    Route::post('/{summaryId}/accomplishment/batch',[ExecutiveSummaryController::class, 'batchAccomplishment']);
+    Route::post('/{summaryId}/output/batch',[ExecutiveSummaryController::class, 'batchOutput']);
+    Route::post('/{summaryId}/action/batch',[ExecutiveSummaryController::class, 'batchAction']);
 });

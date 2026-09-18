@@ -1,43 +1,10 @@
-import { useState, useRef, useLayoutEffect } from 'react'
-import {
-  ArrowLeft,
-  Plus,
-  Save,
-  Trash2,
-} from 'lucide-react'
+import { useState, useRef, useLayoutEffect, useEffect } from 'react'
+import { ArrowLeft, Plus, Save, Trash2 } from 'lucide-react'
 
 import { formatCurrency, type ProjectRecord } from '../../data/admin'
 import { cn } from '../../utils/cn'
-
-interface AccomplishmentRow {
-  id: string
-  objective: string
-  objectiveWeight: number
-  activities: string
-  targetAccomplishment: string
-  targetWeightY1: number
-  targetWeightY2: number
-  targetWeightY3: number
-  actualAccomplishment: string
-  actualY1Percent: number
-  actualY2Percent: number
-  actualY3Percent: number
-  remarks?: string
-}
-
-interface OutputRow {
-  id: string
-  category: string
-  targetY1: number
-  targetY2: number
-  targetY3: number
-  actualFigureY1: number
-  actualDescY1: string
-  actualFigureY2: number
-  actualDescY2: string
-  actualFigureY3: number
-  actualDescY3: string
-}
+import { useAutoSavedExecutiveSummary } from '../../services/useAutoSavedExecutiveSummary'
+import type { AccomplishmentRow, OutputRow, ActionRow } from '../../types/giaMonitoring'
 
 interface GiaMonitoringFormProps {
   project: ProjectRecord
@@ -45,6 +12,15 @@ interface GiaMonitoringFormProps {
   hideTopBar?: boolean
   readOnly?: boolean
   selectedReportingPeriod?: string
+}
+
+function deriveSemester(period: string): 1 | 2 {
+  return period.trim().toLowerCase().startsWith('2nd') ? 2 : 1
+}
+
+function deriveYear(period: string): number {
+  const match = period.match(/(\d{4})/)
+  return match ? Number(match[1]) : new Date().getFullYear()
 }
 
 function AutoResizeTextarea({
@@ -90,6 +66,152 @@ function AutoResizeTextarea({
   )
 }
 
+// Demo fallback rows — only ever used when the project has no backendId
+// (i.e. there's no ExecutiveSummary to fetch/create against).
+const DEMO_ACCOMPLISHMENTS: AccomplishmentRow[] = [
+  {
+    id: 'acc_1',
+    objective: '1. Establish and validate community science & technology facility in target municipality.',
+    objectiveWeight: 35,
+    activities: 'Procurement of processing machinery, facility renovation, and trial test runs.',
+    targetAccomplishment: 'Fully operational processing line compliant with regional standards.',
+    targetWeightY1: 35,
+    targetWeightY2: 0,
+    targetWeightY3: 0,
+    actualAccomplishment: 'Machinery delivered, installed, and validated by regional technical inspectorate.',
+    actualY1Percent: 85,
+    actualY2Percent: 0,
+    actualY3Percent: 0,
+    remarks: 'Calibrated and accepted by inspectorate.',
+  },
+  {
+    id: 'acc_2',
+    objective: '2. Capacity building and technical training of beneficiary operators and local personnel.',
+    objectiveWeight: 25,
+    activities: 'GMP, Food Safety, machine preventive maintenance, and digital inventory workshops.',
+    targetAccomplishment: '40 community operators trained and certified.',
+    targetWeightY1: 25,
+    targetWeightY2: 0,
+    targetWeightY3: 0,
+    actualAccomplishment: '25 community operators certified across 2 training modules.',
+    actualY1Percent: 70,
+    actualY2Percent: 0,
+    actualY3Percent: 0,
+    remarks: 'Batch 2 training scheduled next quarter.',
+  },
+  {
+    id: 'acc_3',
+    objective: '3. Formulate municipal adoption policy and sustainable operations turnover plan.',
+    objectiveWeight: 20,
+    activities: 'Draft Sangguniang Bayan resolution and MOA with beneficiary cooperative.',
+    targetAccomplishment: '1 SB Resolution enacted and approved turnover framework.',
+    targetWeightY1: 20,
+    targetWeightY2: 0,
+    targetWeightY3: 0,
+    actualAccomplishment: 'Drafted resolution submitted to Municipal Committee on Science and Technology.',
+    actualY1Percent: 60,
+    actualY2Percent: 0,
+    actualY3Percent: 0,
+    remarks: 'Under second reading at SB council.',
+  },
+  {
+    id: 'acc_4',
+    objective: '4. Semi-Annual Fund Liquidation, Audit, and Technical Reporting.',
+    objectiveWeight: 20,
+    activities: 'Preparation of financial statements, disbursement vouchers, and Form 10 filings.',
+    targetAccomplishment: '100% timely liquidation submissions with zero COA audit findings.',
+    targetWeightY1: 20,
+    targetWeightY2: 0,
+    targetWeightY3: 0,
+    actualAccomplishment: 'Tranche 1 liquidated with PSTO accounting endorsement.',
+    actualY1Percent: 90,
+    actualY2Percent: 0,
+    actualY3Percent: 0,
+    remarks: 'Audit compliance certified clean.',
+  },
+]
+
+const DEMO_OUTPUTS: OutputRow[] = [
+  {
+    id: 'out_1',
+    category: '1. Publications (P1)',
+    targetY1: 2,
+    targetY2: 1,
+    targetY3: 0,
+    actualFigureY1: 1,
+    actualDescY1: '1 Technical progress article prepared and submitted to DOST Region XI Newsletter.',
+    actualFigureY2: 0,
+    actualDescY2: '',
+    actualFigureY3: 0,
+    actualDescY3: '',
+  },
+  {
+    id: 'out_2',
+    category: '2. Patents / Intellectual Property (P2)',
+    targetY1: 1,
+    targetY2: 0,
+    targetY3: 0,
+    actualFigureY1: 0,
+    actualDescY1: 'Trademark application filed for community brand under IPO Philippines registration.',
+    actualFigureY2: 0,
+    actualDescY2: '',
+    actualFigureY3: 0,
+    actualDescY3: '',
+  },
+  {
+    id: 'out_3',
+    category: '3. Products / Commercialized Technologies (P3)',
+    targetY1: 3,
+    targetY2: 2,
+    targetY3: 0,
+    actualFigureY1: 2,
+    actualDescY1: '2 Standardized community products packaged with DOST nutrition label design.',
+    actualFigureY2: 0,
+    actualDescY2: '',
+    actualFigureY3: 0,
+    actualDescY3: '',
+  },
+  {
+    id: 'out_4',
+    category: '4. People Services / Beneficiaries Trained (P4)',
+    targetY1: 120,
+    targetY2: 80,
+    targetY3: 0,
+    actualFigureY1: 85,
+    actualDescY1: '85 community members and MSME staff trained in food safety, machine operations, and digital ledger.',
+    actualFigureY2: 0,
+    actualDescY2: '',
+    actualFigureY3: 0,
+    actualDescY3: '',
+  },
+  {
+    id: 'out_5',
+    category: '5. Places and Partnerships / LGUs Engaged (P5)',
+    targetY1: 4,
+    targetY2: 2,
+    targetY3: 0,
+    actualFigureY1: 3,
+    actualDescY1: '3 Barangays covered under active deployment with MOA signed by Municipal Mayor.',
+    actualFigureY2: 0,
+    actualDescY2: '',
+    actualFigureY3: 0,
+    actualDescY3: '',
+  },
+  {
+    id: 'out_6',
+    category: '6. Policies Adopted (P6)',
+    targetY1: 1,
+    targetY2: 1,
+    targetY3: 0,
+    actualFigureY1: 1,
+    actualDescY1: '1 Barangay Council Resolution adopting community facility guidelines enacted.',
+    actualFigureY2: 0,
+    actualDescY2: '',
+    actualFigureY3: 0,
+    actualDescY3: '',
+  },
+]
+
 export function GiaMonitoringForm({
   project,
   onBack,
@@ -102,218 +224,127 @@ export function GiaMonitoringForm({
   const gia = project?.gia
   const isBackendProject = project.backendId !== undefined
 
-  const reportingPeriod = selectedReportingPeriod || gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : '1st Semester 2026')
+  const reportingPeriod =
+    selectedReportingPeriod || gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : '1st Semester 2026')
+
   const [projectLeaderGender, setProjectLeaderGender] = useState(
     isBackendProject
       ? project.manager
-      : project.manager ? `${project.manager} (M)` : (mon ? `${mon.assignedStaff?.split('(')[0]?.trim()} (M)` : 'Dr. Kevin Lim (M)')
+      : project.manager
+        ? `${project.manager} (M)`
+        : mon
+          ? `${mon.assignedStaff?.split('(')[0]?.trim()} (M)`
+          : 'Dr. Kevin Lim (M)',
   )
   const [agency, setAgency] = useState(gia?.agency || project.enterprise)
   const [addressContact, setAddressContact] = useState(
     isBackendProject
-      ? (project.location || gia?.location || '')
-      : gia?.location ? `${gia.location} · 0917-123-4567 · info@dost.gov.ph` : (mon ? `${mon.pstoOffice}, Davao Oriental · 0917-888-2026 · enterprise@dost.gov.ph` : 'Mati City, Davao Oriental · 0917-123-4567 · gia@dost.gov.ph')
+      ? project.location || gia?.location || ''
+      : gia?.location
+        ? `${gia.location} · 0917-123-4567 · info@dost.gov.ph`
+        : mon
+          ? `${mon.pstoOffice}, Davao Oriental · 0917-888-2026 · enterprise@dost.gov.ph`
+          : 'Mati City, Davao Oriental · 0917-123-4567 · gia@dost.gov.ph',
   )
   const [cooperatingAgencies, setCooperatingAgencies] = useState(
-    gia?.cooperatingAgencies?.join(', ') || (isBackendProject ? '' : 'PSTO Davao Oriental, LGU Mati City')
+    gia?.cooperatingAgencies?.join(', ') || (isBackendProject ? '' : 'PSTO Davao Oriental, LGU Mati City'),
   )
-  const [baseStation, setBaseStation] = useState(gia?.baseStation || (mon ? `${mon.pstoOffice}, Mati City` : 'DOST PSTO Davao Oriental'))
-  const [sitesOfImplementation, setSitesOfImplementation] = useState(gia?.location || (mon ? `${mon.pstoOffice}, Region XI` : 'Davao Oriental, Region XI'))
+  const [baseStation, setBaseStation] = useState(
+    gia?.baseStation || (mon ? `${mon.pstoOffice}, Mati City` : 'DOST PSTO Davao Oriental'),
+  )
+  const [sitesOfImplementation, setSitesOfImplementation] = useState(
+    gia?.location || (mon ? `${mon.pstoOffice}, Region XI` : 'Davao Oriental, Region XI'),
+  )
   const [durationMonths, setDurationMonths] = useState(gia?.durationMonths ?? (isSetup ? 36 : 24))
   const [startDate, setStartDate] = useState(gia?.startDate || 'Jan 15, 2025')
   const [endDate, setEndDate] = useState(gia?.endDate || 'Jan 14, 2027')
   const [totalBudget, setTotalBudget] = useState(
-    isBackendProject ? project.budget : project.budget || (isSetup ? 3500000 : 2500000)
-  )
-
-  const [accomplishments, setAccomplishments] = useState<AccomplishmentRow[]>(
-    gia?.milestones?.length ? gia.milestones.map((milestone) => ({
-      id: `acc_${milestone.id}`,
-      objective: `${milestone.number}. ${milestone.title}`,
-      objectiveWeight: Math.round(100 / gia.milestones!.length),
-      activities: milestone.description || milestone.title,
-      targetAccomplishment: '100% milestone completion',
-      targetWeightY1: Math.round(100 / gia.milestones!.length),
-      targetWeightY2: 0,
-      targetWeightY3: 0,
-      actualAccomplishment: `${milestone.completionPercentage}% complete`,
-      actualY1Percent: milestone.completionPercentage,
-      actualY2Percent: 0,
-      actualY3Percent: 0,
-      remarks: milestone.status.replaceAll('_', ' '),
-    })) : isBackendProject ? [] : [
-      {
-        id: 'acc_1',
-        objective: '1. Establish and validate community science & technology facility in target municipality.',
-        objectiveWeight: 35,
-        activities: 'Procurement of processing machinery, facility renovation, and trial test runs.',
-        targetAccomplishment: 'Fully operational processing line compliant with regional standards.',
-        targetWeightY1: 35,
-        targetWeightY2: 0,
-        targetWeightY3: 0,
-        actualAccomplishment: 'Machinery delivered, installed, and validated by regional technical inspectorate.',
-        actualY1Percent: 85,
-        actualY2Percent: 0,
-        actualY3Percent: 0,
-        remarks: 'Calibrated and accepted by inspectorate.',
-      },
-      {
-        id: 'acc_2',
-        objective: '2. Capacity building and technical training of beneficiary operators and local personnel.',
-        objectiveWeight: 25,
-        activities: 'GMP, Food Safety, machine preventive maintenance, and digital inventory workshops.',
-        targetAccomplishment: '40 community operators trained and certified.',
-        targetWeightY1: 25,
-        targetWeightY2: 0,
-        targetWeightY3: 0,
-        actualAccomplishment: '25 community operators certified across 2 training modules.',
-        actualY1Percent: 70,
-        actualY2Percent: 0,
-        actualY3Percent: 0,
-        remarks: 'Batch 2 training scheduled next quarter.',
-      },
-      {
-        id: 'acc_3',
-        objective: '3. Formulate municipal adoption policy and sustainable operations turnover plan.',
-        objectiveWeight: 20,
-        activities: 'Draft Sangguniang Bayan resolution and MOA with beneficiary cooperative.',
-        targetAccomplishment: '1 SB Resolution enacted and approved turnover framework.',
-        targetWeightY1: 20,
-        targetWeightY2: 0,
-        targetWeightY3: 0,
-        actualAccomplishment: 'Drafted resolution submitted to Municipal Committee on Science and Technology.',
-        actualY1Percent: 60,
-        actualY2Percent: 0,
-        actualY3Percent: 0,
-        remarks: 'Under second reading at SB council.',
-      },
-      {
-        id: 'acc_4',
-        objective: '4. Semi-Annual Fund Liquidation, Audit, and Technical Reporting.',
-        objectiveWeight: 20,
-        activities: 'Preparation of financial statements, disbursement vouchers, and Form 10 filings.',
-        targetAccomplishment: '100% timely liquidation submissions with zero COA audit findings.',
-        targetWeightY1: 20,
-        targetWeightY2: 0,
-        targetWeightY3: 0,
-        actualAccomplishment: 'Tranche 1 liquidated with PSTO accounting endorsement.',
-        actualY1Percent: 90,
-        actualY2Percent: 0,
-        actualY3Percent: 0,
-        remarks: 'Audit compliance certified clean.',
-      },
-    ]
+    isBackendProject ? project.budget : project.budget || (isSetup ? 3500000 : 2500000),
   )
 
   const [catchUpPlan, setCatchUpPlan] = useState(
-    gia?.catchUpPlan || (isBackendProject ? '' : '1. Acceleration of remaining training schedules for Batch 2 operators within Q4.\n2. Coordinated follow-up with the Sangguniang Bayan Secretariat for the 2nd reading of the adoption ordinance.\n3. Conduct on-site technical inspection for commercial pilot run in coordination with PSTO Davao Oriental.')
+    gia?.catchUpPlan ||
+      (isBackendProject
+        ? ''
+        : '1. Acceleration of remaining training schedules for Batch 2 operators within Q4.\n2. Coordinated follow-up with the Sangguniang Bayan Secretariat for the 2nd reading of the adoption ordinance.\n3. Conduct on-site technical inspection for commercial pilot run in coordination with PSTO Davao Oriental.'),
   )
-
-  const [outputs, setOutputs] = useState<OutputRow[]>(gia?.outputs.length
-    ? gia.outputs.map((output, index) => ({
-        id: `out_${index + 1}`,
-        category: output.category,
-        targetY1: output.target,
-        targetY2: 0,
-        targetY3: 0,
-        actualFigureY1: output.actual,
-        actualDescY1: output.description,
-        actualFigureY2: 0,
-        actualDescY2: '',
-        actualFigureY3: 0,
-        actualDescY3: '',
-      }))
-    : isBackendProject ? [] : [
-    {
-      id: 'out_1',
-      category: '1. Publications (P1)',
-      targetY1: 2,
-      targetY2: 1,
-      targetY3: 0,
-      actualFigureY1: 1,
-      actualDescY1: '1 Technical progress article prepared and submitted to DOST Region XI Newsletter.',
-      actualFigureY2: 0,
-      actualDescY2: '',
-      actualFigureY3: 0,
-      actualDescY3: '',
-    },
-    {
-      id: 'out_2',
-      category: '2. Patents / Intellectual Property (P2)',
-      targetY1: 1,
-      targetY2: 0,
-      targetY3: 0,
-      actualFigureY1: 0,
-      actualDescY1: 'Trademark application filed for community brand under IPO Philippines registration.',
-      actualFigureY2: 0,
-      actualDescY2: '',
-      actualFigureY3: 0,
-      actualDescY3: '',
-    },
-    {
-      id: 'out_3',
-      category: '3. Products / Commercialized Technologies (P3)',
-      targetY1: 3,
-      targetY2: 2,
-      targetY3: 0,
-      actualFigureY1: 2,
-      actualDescY1: '2 Standardized community products packaged with DOST nutrition label design.',
-      actualFigureY2: 0,
-      actualDescY2: '',
-      actualFigureY3: 0,
-      actualDescY3: '',
-    },
-    {
-      id: 'out_4',
-      category: '4. People Services / Beneficiaries Trained (P4)',
-      targetY1: 120,
-      targetY2: 80,
-      targetY3: 0,
-      actualFigureY1: 85,
-      actualDescY1: '85 community members and MSME staff trained in food safety, machine operations, and digital ledger.',
-      actualFigureY2: 0,
-      actualDescY2: '',
-      actualFigureY3: 0,
-      actualDescY3: '',
-    },
-    {
-      id: 'out_5',
-      category: '5. Places and Partnerships / LGUs Engaged (P5)',
-      targetY1: 4,
-      targetY2: 2,
-      targetY3: 0,
-      actualFigureY1: 3,
-      actualDescY1: '3 Barangays covered under active deployment with MOA signed by Municipal Mayor.',
-      actualFigureY2: 0,
-      actualDescY2: '',
-      actualFigureY3: 0,
-      actualDescY3: '',
-    },
-    {
-      id: 'out_6',
-      category: '6. Policies Adopted (P6)',
-      targetY1: 1,
-      targetY2: 1,
-      targetY3: 0,
-      actualFigureY1: 1,
-      actualDescY1: '1 Barangay Council Resolution adopting community facility guidelines enacted.',
-      actualFigureY2: 0,
-      actualDescY2: '',
-      actualFigureY3: 0,
-      actualDescY3: '',
-    },
-  ])
 
   const [problemConcern, setProblemConcern] = useState(
-    gia?.issueSummary || (isBackendProject ? '' : '1. Intermittent power fluctuations at the community processing site causing slight delay in machinery calibration.\n2. Delays in raw material deliveries from upstream farming sitios due to heavy monsoon rains.')
+    gia?.issueSummary ||
+      (isBackendProject
+        ? ''
+        : '1. Intermittent power fluctuations at the community processing site causing slight delay in machinery calibration.\n2. Delays in raw material deliveries from upstream farming sitios due to heavy monsoon rains.'),
   )
   const [suggestedSolution, setSuggestedSolution] = useState(
-    gia?.suggestedSolution || (isBackendProject ? '' : '1. PSTO coordinated with Local Electric Cooperative (DORECO) for dedicated phase line and voltage regulator installation.\n2. Established buffer inventory storage schedule at the central processing hub.')
+    gia?.suggestedSolution ||
+      (isBackendProject
+        ? ''
+        : '1. PSTO coordinated with Local Electric Cooperative (DORECO) for dedicated phase line and voltage regulator installation.\n2. Established buffer inventory storage schedule at the central processing hub.'),
   )
 
   const [preparedBy, setPreparedBy] = useState(project.manager || (isBackendProject ? '' : 'Dr. Kevin Lim'))
   const [reviewedBy, setReviewedBy] = useState(isBackendProject ? '' : 'PSTD Officer, DOST PSTO Davao Oriental')
-  const [approvedBy, setApprovedBy] = useState(isBackendProject ? '' : 'Dr. Anthony C. Sales, CESO III / Regional Director')
+  const [approvedBy, setApprovedBy] = useState(
+    isBackendProject ? '' : 'Dr. Anthony C. Sales, CESO III / Regional Director',
+  )
+
+  // --- Accomplishments / Outputs: real backend sync for real projects,
+  // static demo state for mock projects with no backendId. ---
+  const semester = deriveSemester(reportingPeriod)
+  const year = deriveYear(reportingPeriod)
+  const backendProjectId = isBackendProject ? Number(project.backendId) : null
+
+  const {
+    record: execRecord,
+    updateAccomplishments,
+    updateOutputs,
+    updateActions,
+    status: saveStatus,
+    errors: saveErrors,
+    loading: execLoading,
+    flush,
+  } = useAutoSavedExecutiveSummary(backendProjectId, semester, year, totalBudget)
+
+  // --- Action row (cooperating agencies / catch-up plan / problem / solution):
+  // hydrate once from the backend record, then keep it synced on change. ---
+  const actionIdRef = useRef<string>(`act_${Date.now()}`)
+  const hydratedActionRef = useRef(false)
+
+  useEffect(() => {
+    if (!isBackendProject || hydratedActionRef.current) return
+    if (execLoading) return
+    const existing = execRecord?.actions?.[0]
+    if (existing) {
+      actionIdRef.current = existing.id
+      setCooperatingAgencies(existing.cooperatingAgency)
+      setCatchUpPlan(existing.plan)
+      setProblemConcern(existing.concern)
+      setSuggestedSolution(existing.solutions)
+    }
+    hydratedActionRef.current = true
+  }, [isBackendProject, execLoading, execRecord])
+
+  useEffect(() => {
+    if (!isBackendProject || !hydratedActionRef.current) return
+    updateActions([
+      {
+        id: actionIdRef.current,
+        cooperatingAgency: cooperatingAgencies,
+        plan: catchUpPlan,
+        solutions: suggestedSolution,
+        concern: problemConcern,
+      },
+    ])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cooperatingAgencies, catchUpPlan, suggestedSolution, problemConcern])
+
+  const [demoAccomplishments, setDemoAccomplishments] = useState<AccomplishmentRow[]>(DEMO_ACCOMPLISHMENTS)
+  const [demoOutputs, setDemoOutputs] = useState<OutputRow[]>(DEMO_OUTPUTS)
+
+  const accomplishments = isBackendProject ? (execRecord?.accomplishments ?? []) : demoAccomplishments
+  const outputs = isBackendProject ? (execRecord?.outputs ?? []) : demoOutputs
+  const setAccomplishments = isBackendProject ? updateAccomplishments : setDemoAccomplishments
+  const setOutputs = isBackendProject ? updateOutputs : setDemoOutputs
 
   const handleAddAccomplishment = () => {
     const newAcc: AccomplishmentRow = {
@@ -369,8 +400,21 @@ export function GiaMonitoringForm({
   const pct6pY1 = total6pTargetY1 > 0 ? Math.round((total6pActualY1 / total6pTargetY1) * 100) : 0
 
   const handleSave = () => {
-    // Save handler
+    if (isBackendProject) flush()
+    // Demo projects have nothing to persist.
   }
+
+  const saveLabel = isBackendProject
+    ? saveStatus === 'saving'
+      ? 'Saving…'
+      : saveStatus === 'pending'
+        ? 'Save Changes'
+        : saveStatus === 'error'
+          ? 'Retry Save'
+          : saveStatus === 'saved'
+            ? 'Saved'
+            : 'Save Changes'
+    : 'Save Changes'
 
   return (
     <div className="w-full space-y-6 font-sans text-slate-900">
@@ -403,13 +447,17 @@ export function GiaMonitoringForm({
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
+              {isBackendProject && saveErrors.length > 0 && (
+                <span className="text-xs font-semibold text-red-600">Some changes failed to save</span>
+              )}
               <button
-                className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497]"
+                className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] disabled:opacity-60"
+                disabled={isBackendProject && (execLoading || saveStatus === 'saving')}
                 onClick={handleSave}
                 type="button"
               >
                 <Save className="size-3.5 text-[#285497]" />
-                <span>Save Changes</span>
+                <span>{saveLabel}</span>
               </button>
             </div>
           </div>
@@ -432,9 +480,7 @@ export function GiaMonitoringForm({
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
                 <span className="md:col-span-3 font-bold text-slate-700 text-xs">Project Title:</span>
-                <span className="md:col-span-9 font-bold text-slate-900 text-xs">
-                  {project.title}
-                </span>
+                <span className="md:col-span-9 font-bold text-slate-900 text-xs">{project.title}</span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
@@ -533,6 +579,11 @@ export function GiaMonitoringForm({
                   type="number"
                   value={totalBudget}
                 />
+                {isBackendProject && (
+                  <p className="mt-1 text-[10px] text-slate-400">
+                    Only applied when the executive summary is first created for this period.
+                  </p>
+                )}
               </div>
               <div className="p-4">
                 <span className="text-[11px] font-bold uppercase text-slate-500 block">Year 1 (40%)</span>
@@ -560,7 +611,8 @@ export function GiaMonitoringForm({
                 </p>
               </div>
               <button
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#B5BFCD] bg-white px-3 py-1.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4] active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#B5BFCD] bg-white px-3 py-1.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4] active:scale-95 disabled:opacity-60"
+                disabled={isBackendProject && execLoading}
                 onClick={handleAddAccomplishment}
                 type="button"
               >
@@ -569,139 +621,147 @@ export function GiaMonitoringForm({
               </button>
             </div>
 
-            <div className="border border-[#B5BFCD] rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#E6EEF4]/60 border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
-                  <tr>
-                    <th className="py-3 px-3 w-[18%]">Objectives (8)</th>
-                    <th className="py-3 px-3 w-[18%]">Activities</th>
-                    <th className="py-3 px-3 w-[18%]">Target Accomplishments (9)</th>
-                    <th className="py-3 px-2 text-right w-14">Weight % (10)</th>
-                    <th className="py-3 px-3 w-[18%]">Actual Accomplishments (11)</th>
-                    <th className="py-3 px-2 text-right w-14">Actual % (12)</th>
-                    <th className="py-3 px-2 text-right w-16">Weighted % (13)</th>
-                    <th className="py-3 px-2 text-right w-16">Cumulative %</th>
-                    <th className="py-3 px-2 w-10 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#B5BFCD]/40 text-slate-800 bg-white">
-                  {accomplishments.map((row) => {
-                    const weightedY1 = (row.targetWeightY1 * row.actualY1Percent) / 100
-                    return (
-                      <tr className="hover:bg-[#E6EEF4]/20 transition-colors" key={row.id}>
-                        <td className="p-2.5">
-                          <AutoResizeTextarea
-                            className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
-                            minRows={2}
-                            onChange={(val) => {
-                              setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, objective: val } : a))
-                            }}
-                            placeholder="Objective..."
-                            value={row.objective}
-                          />
-                        </td>
-                        <td className="p-2.5">
-                          <AutoResizeTextarea
-                            className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
-                            minRows={2}
-                            onChange={(val) => {
-                              setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, activities: val } : a))
-                            }}
-                            placeholder="Activities..."
-                            value={row.activities}
-                          />
-                        </td>
-                        <td className="p-2.5">
-                          <AutoResizeTextarea
-                            className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
-                            minRows={2}
-                            onChange={(val) => {
-                              setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, targetAccomplishment: val } : a))
-                            }}
-                            placeholder="Target indicators..."
-                            value={row.targetAccomplishment}
-                          />
-                        </td>
-                        <td className="p-2 text-right">
-                          <input
-                            className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 0
-                              setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, targetWeightY1: val } : a))
-                            }}
-                            type="number"
-                            value={row.targetWeightY1}
-                          />
-                        </td>
-                        <td className="p-2.5">
-                          <AutoResizeTextarea
-                            className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
-                            minRows={2}
-                            onChange={(val) => {
-                              setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, actualAccomplishment: val } : a))
-                            }}
-                            placeholder="Actual accomplishments..."
-                            value={row.actualAccomplishment}
-                          />
-                        </td>
-                        <td className="p-2 text-right">
-                          <input
-                            className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
-                            onChange={(e) => {
-                              const val = Number(e.target.value) || 0
-                              setAccomplishments(accomplishments.map((a) => a.id === row.id ? { ...a, actualY1Percent: val } : a))
-                            }}
-                            type="number"
-                            value={row.actualY1Percent}
-                          />
-                        </td>
-                        <td className="p-2 text-right font-mono font-semibold text-[#285497]">
-                          {weightedY1.toFixed(1)}%
-                        </td>
-                        <td className="p-2 text-right font-mono font-semibold text-slate-900">
-                          {weightedY1.toFixed(1)}%
-                        </td>
-                        <td className="p-2 text-center">
-                          <button
-                            className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
-                            onClick={() => handleDeleteAccomplishment(row.id)}
-                            title="Delete Objective Row"
-                            type="button"
-                          >
-                            <Trash2 className="size-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#E6EEF4]/60 font-bold text-slate-900 border-t border-[#B5BFCD]">
-                    <td className="py-3 px-3 text-right" colSpan={3}>
-                      (14) Yearly Target / (15) Actual Accomplishment Totals:
-                    </td>
-                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
-                      {computedTargetTotal}%
-                    </td>
-                    <td className="py-3 px-3" />
-                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
-                      {computedWeightedTotal.toFixed(1)}%
-                    </td>
-                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-slate-900" colSpan={2}>
-                      {computedWeightedTotal.toFixed(1)}%
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+            {isBackendProject && execLoading ? (
+              <div className="border border-[#B5BFCD] rounded-xl p-6 text-center text-xs text-slate-500">
+                Loading executive summary…
+              </div>
+            ) : (
+              <div className="border border-[#B5BFCD] rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-[#E6EEF4]/60 border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
+                    <tr>
+                      <th className="py-3 px-3 w-[18%]">Objectives (8)</th>
+                      <th className="py-3 px-3 w-[18%]">Activities</th>
+                      <th className="py-3 px-3 w-[18%]">Target Accomplishments (9)</th>
+                      <th className="py-3 px-2 text-right w-14">Weight % (10)</th>
+                      <th className="py-3 px-3 w-[18%]">Actual Accomplishments (11)</th>
+                      <th className="py-3 px-2 text-right w-14">Actual % (12)</th>
+                      <th className="py-3 px-2 text-right w-16">Weighted % (13)</th>
+                      <th className="py-3 px-2 text-right w-16">Cumulative %</th>
+                      <th className="py-3 px-2 w-10 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#B5BFCD]/40 text-slate-800 bg-white">
+                    {accomplishments.map((row) => {
+                      const weightedY1 = (row.targetWeightY1 * row.actualY1Percent) / 100
+                      return (
+                        <tr className="hover:bg-[#E6EEF4]/20 transition-colors" key={row.id}>
+                          <td className="p-2.5">
+                            <AutoResizeTextarea
+                              className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
+                              minRows={2}
+                              onChange={(val) => {
+                                setAccomplishments(accomplishments.map((a) => (a.id === row.id ? { ...a, objective: val } : a)))
+                              }}
+                              placeholder="Objective..."
+                              value={row.objective}
+                            />
+                          </td>
+                          <td className="p-2.5">
+                            <AutoResizeTextarea
+                              className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
+                              minRows={2}
+                              onChange={(val) => {
+                                setAccomplishments(accomplishments.map((a) => (a.id === row.id ? { ...a, activities: val } : a)))
+                              }}
+                              placeholder="Activities..."
+                              value={row.activities}
+                            />
+                          </td>
+                          <td className="p-2.5">
+                            <AutoResizeTextarea
+                              className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
+                              minRows={2}
+                              onChange={(val) => {
+                                setAccomplishments(
+                                  accomplishments.map((a) => (a.id === row.id ? { ...a, targetAccomplishment: val } : a)),
+                                )
+                              }}
+                              placeholder="Target indicators..."
+                              value={row.targetAccomplishment}
+                            />
+                          </td>
+                          <td className="p-2 text-right">
+                            <input
+                              className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0
+                                setAccomplishments(accomplishments.map((a) => (a.id === row.id ? { ...a, targetWeightY1: val } : a)))
+                              }}
+                              type="number"
+                              value={row.targetWeightY1}
+                            />
+                          </td>
+                          <td className="p-2.5">
+                            <AutoResizeTextarea
+                              className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs font-normal text-slate-800 focus:border-[#0f53b7] leading-relaxed"
+                              minRows={2}
+                              onChange={(val) => {
+                                setAccomplishments(
+                                  accomplishments.map((a) => (a.id === row.id ? { ...a, actualAccomplishment: val } : a)),
+                                )
+                              }}
+                              placeholder="Actual accomplishments..."
+                              value={row.actualAccomplishment}
+                            />
+                          </td>
+                          <td className="p-2 text-right">
+                            <input
+                              className="h-8 w-12 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
+                              onChange={(e) => {
+                                const val = Number(e.target.value) || 0
+                                setAccomplishments(accomplishments.map((a) => (a.id === row.id ? { ...a, actualY1Percent: val } : a)))
+                              }}
+                              type="number"
+                              value={row.actualY1Percent}
+                            />
+                          </td>
+                          <td className="p-2 text-right font-mono font-semibold text-[#285497]">
+                            {weightedY1.toFixed(1)}%
+                          </td>
+                          <td className="p-2 text-right font-mono font-semibold text-slate-900">
+                            {weightedY1.toFixed(1)}%
+                          </td>
+                          <td className="p-2 text-center">
+                            <button
+                              className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                              onClick={() => handleDeleteAccomplishment(row.id)}
+                              title="Delete Objective Row"
+                              type="button"
+                            >
+                              <Trash2 className="size-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#E6EEF4]/60 font-bold text-slate-900 border-t border-[#B5BFCD]">
+                      <td className="py-3 px-3 text-right" colSpan={3}>
+                        (14) Yearly Target / (15) Actual Accomplishment Totals:
+                      </td>
+                      <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
+                        {computedTargetTotal}%
+                      </td>
+                      <td className="py-3 px-3" />
+                      <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
+                        {computedWeightedTotal.toFixed(1)}%
+                      </td>
+                      <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-slate-900" colSpan={2}>
+                        {computedWeightedTotal.toFixed(1)}%
+                      </td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="space-y-3">
             <div className="border-b border-[#B5BFCD] pb-2">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
-                B. CATCH-UP PLAN (17)
-              </h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">B. CATCH-UP PLAN (17)</h3>
               <p className="text-[11px] text-slate-500 font-normal">
                 Operational catch-up activities and adjustments for milestones
               </p>
@@ -728,7 +788,8 @@ export function GiaMonitoringForm({
                 </p>
               </div>
               <button
-                className="inline-flex items-center gap-1.5 rounded-lg border border-[#B5BFCD] bg-white px-3 py-1.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4] active:scale-95"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[#B5BFCD] bg-white px-3 py-1.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4] active:scale-95 disabled:opacity-60"
+                disabled={isBackendProject && execLoading}
                 onClick={handleAddOutput}
                 type="button"
               >
@@ -737,95 +798,99 @@ export function GiaMonitoringForm({
               </button>
             </div>
 
-            <div className="border border-[#B5BFCD] rounded-xl overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-[#E6EEF4]/60 border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
-                  <tr>
-                    <th className="py-3 px-3 w-[26%]">Expected Outputs / Category (18)</th>
-                    <th className="py-3 px-2 text-right w-20">Target (19)</th>
-                    <th className="py-3 px-2 text-right w-20">Actual (20)</th>
-                    <th className="py-3 px-3 w-[45%]">Accomplishment Description (22)</th>
-                    <th className="py-3 px-2 w-10 text-center"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#B5BFCD]/40 text-slate-800 bg-white">
-                  {outputs.map((out) => (
-                    <tr className="hover:bg-[#E6EEF4]/20 transition-colors" key={out.id}>
-                      <td className="p-2.5">
-                        <AutoResizeTextarea
-                          className="rounded-lg border border-[#B5BFCD] bg-white p-2 font-normal text-slate-800 focus:border-[#0f53b7] text-xs"
-                          minRows={1}
-                          onChange={(val) => {
-                            setOutputs(outputs.map((o) => o.id === out.id ? { ...o, category: val } : o))
-                          }}
-                          placeholder="6Ps Deliverable Category..."
-                          value={out.category}
-                        />
+            {isBackendProject && execLoading ? (
+              <div className="border border-[#B5BFCD] rounded-xl p-6 text-center text-xs text-slate-500">
+                Loading executive summary…
+              </div>
+            ) : (
+              <div className="border border-[#B5BFCD] rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-[#E6EEF4]/60 border-b border-[#B5BFCD] text-[11px] font-bold uppercase tracking-wider text-[#285497]">
+                    <tr>
+                      <th className="py-3 px-3 w-[26%]">Expected Outputs / Category (18)</th>
+                      <th className="py-3 px-2 text-right w-20">Target (19)</th>
+                      <th className="py-3 px-2 text-right w-20">Actual (20)</th>
+                      <th className="py-3 px-3 w-[45%]">Accomplishment Description (22)</th>
+                      <th className="py-3 px-2 w-10 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#B5BFCD]/40 text-slate-800 bg-white">
+                    {outputs.map((out) => (
+                      <tr className="hover:bg-[#E6EEF4]/20 transition-colors" key={out.id}>
+                        <td className="p-2.5">
+                          <AutoResizeTextarea
+                            className="rounded-lg border border-[#B5BFCD] bg-white p-2 font-normal text-slate-800 focus:border-[#0f53b7] text-xs"
+                            minRows={1}
+                            onChange={(val) => {
+                              setOutputs(outputs.map((o) => (o.id === out.id ? { ...o, category: val } : o)))
+                            }}
+                            placeholder="6Ps Deliverable Category..."
+                            value={out.category}
+                          />
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            className="h-8 w-14 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 0
+                              setOutputs(outputs.map((o) => (o.id === out.id ? { ...o, targetY1: val } : o)))
+                            }}
+                            type="number"
+                            value={out.targetY1}
+                          />
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            className="h-8 w-14 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
+                            onChange={(e) => {
+                              const val = Number(e.target.value) || 0
+                              setOutputs(outputs.map((o) => (o.id === out.id ? { ...o, actualFigureY1: val } : o)))
+                            }}
+                            type="number"
+                            value={out.actualFigureY1}
+                          />
+                        </td>
+                        <td className="p-2.5">
+                          <AutoResizeTextarea
+                            className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs text-slate-800 font-normal focus:border-[#0f53b7] leading-relaxed"
+                            minRows={1}
+                            onChange={(val) => {
+                              setOutputs(outputs.map((o) => (o.id === out.id ? { ...o, actualDescY1: val } : o)))
+                            }}
+                            placeholder="Description of accomplishments..."
+                            value={out.actualDescY1}
+                          />
+                        </td>
+                        <td className="p-2 text-center">
+                          <button
+                            className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
+                            onClick={() => handleDeleteOutput(out.id)}
+                            title="Delete Output Row"
+                            type="button"
+                          >
+                            <Trash2 className="size-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#E6EEF4]/60 font-bold text-slate-900 border-t border-[#B5BFCD]">
+                      <td className="py-3 px-3 text-right">(21) Overall 6Ps Deliverables Progress:</td>
+                      <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-slate-900">
+                        {total6pTargetY1}
                       </td>
-                      <td className="p-2 text-right">
-                        <input
-                          className="h-8 w-14 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-slate-900 focus:border-[#0f53b7] text-xs focus:outline-none"
-                          onChange={(e) => {
-                            const val = Number(e.target.value) || 0
-                            setOutputs(outputs.map((o) => o.id === out.id ? { ...o, targetY1: val } : o))
-                          }}
-                          type="number"
-                          value={out.targetY1}
-                        />
+                      <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
+                        {total6pActualY1}
                       </td>
-                      <td className="p-2 text-right">
-                        <input
-                          className="h-8 w-14 ml-auto rounded-lg border border-[#B5BFCD] bg-white p-1 text-right font-mono font-bold text-[#285497] focus:border-[#0f53b7] text-xs focus:outline-none"
-                          onChange={(e) => {
-                            const val = Number(e.target.value) || 0
-                            setOutputs(outputs.map((o) => o.id === out.id ? { ...o, actualFigureY1: val } : o))
-                          }}
-                          type="number"
-                          value={out.actualFigureY1}
-                        />
-                      </td>
-                      <td className="p-2.5">
-                        <AutoResizeTextarea
-                          className="rounded-lg border border-[#B5BFCD] bg-white p-2 text-xs text-slate-800 font-normal focus:border-[#0f53b7] leading-relaxed"
-                          minRows={1}
-                          onChange={(val) => {
-                            setOutputs(outputs.map((o) => o.id === out.id ? { ...o, actualDescY1: val } : o))
-                          }}
-                          placeholder="Description of accomplishments..."
-                          value={out.actualDescY1}
-                        />
-                      </td>
-                      <td className="p-2 text-center">
-                        <button
-                          className="rounded-lg p-1 text-slate-400 hover:bg-red-50 hover:text-red-600 transition"
-                          onClick={() => handleDeleteOutput(out.id)}
-                          title="Delete Output Row"
-                          type="button"
-                        >
-                          <Trash2 className="size-4" />
-                        </button>
+                      <td className="py-3 px-3 font-semibold text-slate-700" colSpan={2}>
+                        Accomplishment Rate: <strong className="text-[#285497] font-mono font-bold">{pct6pY1}%</strong>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="bg-[#E6EEF4]/60 font-bold text-slate-900 border-t border-[#B5BFCD]">
-                    <td className="py-3 px-3 text-right">
-                      (21) Overall 6Ps Deliverables Progress:
-                    </td>
-                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-slate-900">
-                      {total6pTargetY1}
-                    </td>
-                    <td className="py-3 px-2 text-right font-mono text-xs font-semibold text-[#285497]">
-                      {total6pActualY1}
-                    </td>
-                    <td className="py-3 px-3 font-semibold text-slate-700" colSpan={2}>
-                      Accomplishment Rate: <strong className="text-[#285497] font-mono font-bold">{pct6pY1}%</strong>
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -901,10 +966,11 @@ export function GiaMonitoringForm({
             <button
               type="button"
               onClick={handleSave}
-              className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#B5BFCD] bg-white px-5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95"
+              disabled={isBackendProject && (execLoading || saveStatus === 'saving')}
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#B5BFCD] bg-white px-5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95 disabled:opacity-60"
             >
               <Save className="size-4 text-[#285497]" />
-              <span>Save Changes</span>
+              <span>{saveLabel}</span>
             </button>
           </div>
         </div>
