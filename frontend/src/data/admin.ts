@@ -1,8 +1,8 @@
 export type Program = 'GIA' | 'SETUP'
 
 export interface ProposalRecord {
-  amount: number
-  completeness: number
+  amount?: number
+  completeness?: number
   id: string
   organization: string
   organizationType?: string

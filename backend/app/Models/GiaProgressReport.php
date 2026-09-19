@@ -27,6 +27,7 @@ class GiaProgressReport extends Model
         'reviewed_by',
         'reviewed_at',
         'review_remarks',
+        'form_data',
     ];
 
     protected function casts(): array
@@ -37,6 +38,7 @@ class GiaProgressReport extends Model
             'due_date' => 'date',
             'is_late' => 'boolean',
             'reviewed_at' => 'datetime',
+            'form_data' => 'array',
         ];
     }
 

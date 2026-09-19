@@ -130,6 +130,16 @@ const NOTIFICATIONS_BY_ROLE = {
       icon: FileCheck2,
     },
   ],
+  [ROLES.FINANCE_OFFICER]: [
+    {
+      id: 'notification-finance-1',
+      title: 'Payment verification pending',
+      description: 'A SETUP repayment proof is ready for finance review.',
+      time: 'Today',
+      read: false,
+      icon: Wallet,
+    },
+  ],
   [ROLES.PROPONENT]: [
     {
       id: 'notification-5',

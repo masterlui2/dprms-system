@@ -2,23 +2,32 @@
 
 namespace App\Services\ProposalModule;
 
-use App\Models\Project;
+use App\Enums\ProposalStatus;
+use App\Models\Document;
 use App\Models\Proposal;
-use App\Repositories\Contracts\ProjectModule\ProjectRepositoryInterface;
+use App\Models\ProposalReviewLog;
 use App\Repositories\Contracts\ProposalModule\ProposalAuditRepositoryInterface;
-
 use App\Repositories\Contracts\ProposalModule\ProposalRepositoryInterface;
 use App\Services\Contracts\ProjectModule\ProjectServiceInterface;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterface;
+use App\Support\ProgramAccess;
+use App\Support\ProposalWorkflow;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Override;
 
-class ProposalService implements ProposalServiceInterface{
-
-    public function __construct(protected ProposalRepositoryInterface $proposalRepository,protected ReferenceNumberGeneratorServiceInterface $referenceNumberGeneratorService,protected ProposalAuditRepositoryInterface $proposalAuditRepository, protected ProjectServiceInterface $projectService){}
+class ProposalService implements ProposalServiceInterface
+{
+    public function __construct(
+        protected ProposalRepositoryInterface $proposalRepository,
+        protected ReferenceNumberGeneratorServiceInterface $referenceNumberGeneratorService,
+        protected ProposalAuditRepositoryInterface $proposalAuditRepository,
+        protected ProjectServiceInterface $projectService,
+        protected DocumentChecklistServiceInterface $documentChecklistService,
+    ) {}
 
     #[Override]
     public function submit(array $data): Proposal
@@ -122,6 +131,14 @@ class ProposalService implements ProposalServiceInterface{
                 abort(404, 'Proposal not Found');
             }
 
+            $user = Auth::user();
+            abort_unless($user, 401);
+            ProposalWorkflow::assertCanAdvance($user, $existing, $newStatus);
+
+            if ($newStatus === ProposalStatus::ENDORSED_TO_DIRECTOR->value) {
+                $this->assertChecklistReadyForApproval($proposalId);
+            }
+
             $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
             if (! $updated) {
                 abort(404, 'Proposal not Found');
@@ -150,6 +167,11 @@ class ProposalService implements ProposalServiceInterface{
             if (! $existing) {
                 abort(404, 'Proposal not Found');
             }
+
+            $user = Auth::user();
+            abort_unless($user?->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR', 'REGIONAL_DIRECTOR', 'EXECOM_MEMBER']), 403);
+            abort_unless(ProgramAccess::canReadProgram($user, $existing->program_type), 403);
+            abort_unless($existing->status === ProposalStatus::ENDORSED_TO_DIRECTOR->value, 422, 'Only proposals endorsed to the Provincial Director can be disapproved.');
 
             $previousStatus = $existing->status;
             $updated = $this->proposalRepository->disapprove($proposalId, Auth::id(), $remarks);
@@ -183,6 +205,12 @@ class ProposalService implements ProposalServiceInterface{
                 abort(404, 'Proposal not Found');
             }
 
+            $user = Auth::user();
+            abort_unless($user?->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR', 'REGIONAL_DIRECTOR', 'EXECOM_MEMBER']), 403);
+            abort_unless(ProgramAccess::canReadProgram($user, $existing->program_type), 403);
+            abort_unless($existing->status === ProposalStatus::ENDORSED_TO_DIRECTOR->value, 422, 'Only proposals endorsed to the Provincial Director can be approved.');
+            $this->assertChecklistReadyForApproval($proposalId);
+
             $previousStatus = $existing->status;
             $updated = $this->proposalRepository->approve($proposalId, Auth::id(), $remarks);
 
@@ -194,12 +222,12 @@ class ProposalService implements ProposalServiceInterface{
                 $this->projectService->createFromProposal($existing, $remarks);
             }
 
-            \App\Models\Document::query()
+            Document::query()
                 ->where('proposal_id', $proposalId)
                 ->where('status', '!=', 'returned_for_revision')
                 ->update([
                     'status' => 'approved',
-                    'reviewed_by' => \Illuminate\Support\Facades\Auth::id(),
+                    'reviewed_by' => Auth::id(),
                     'reviewed_at' => now(),
                 ]);
 
@@ -218,7 +246,28 @@ class ProposalService implements ProposalServiceInterface{
         });
     }
 
+    private function assertChecklistReadyForApproval(int $proposalId): void
+    {
+        $checklist = $this->documentChecklistService->getProposalChecklist($proposalId);
+        $approvalItems = collect($checklist['items'] ?? [])->filter(function (array $item) use ($checklist) {
+            if (! ($item['is_required'] ?? false)) {
+                return false;
+            }
 
+            return ($checklist['program'] ?? null) === 'GIA'
+                ? ($item['stage_id'] ?? null) === '01'
+                : in_array($item['set_id'] ?? null, ['SET1', 'SET2'], true);
+        });
+
+        abort_unless(
+            $approvalItems->isNotEmpty()
+                && $approvalItems->every(fn (array $item) => ($item['is_present'] ?? false)
+                    && ($item['status'] ?? null) === 'Complied'
+                    && ! empty($item['uploaded_doc'])),
+            422,
+            'Verify every required pre-approval document before endorsement or approval.',
+        );
+    }
 
     #[Override]
     public function reviewDecision(int $proposalId, array $data): Proposal
@@ -230,6 +279,10 @@ class ProposalService implements ProposalServiceInterface{
                 abort(404, 'Proposal not Found');
             }
 
+            $user = Auth::user();
+            abort_unless($user, 401);
+            abort_unless(ProgramAccess::canReadProgram($user, $existing->program_type), 403);
+
             $decision = $data['decision'];
             $findings = $data['findings'] ?? null;
             $remarks = $data['remarks'] ?? $findings;
@@ -238,6 +291,7 @@ class ProposalService implements ProposalServiceInterface{
 
             if ($decision === 'return_for_revision' || $decision === 'RETURNED') {
                 $newStatus = 'RETURNED';
+                ProposalWorkflow::assertCanAdvance($user, $existing, $newStatus);
                 $this->proposalRepository->returnForRevision($proposalId, $remarks);
 
                 $this->recordAudit(
@@ -251,6 +305,7 @@ class ProposalService implements ProposalServiceInterface{
                 );
             } elseif ($decision === 'endorse_to_focal' || $decision === 'ENDORSED_TO_FOCAL') {
                 $newStatus = 'ENDORSED_TO_FOCAL';
+                ProposalWorkflow::assertCanAdvance($user, $existing, $newStatus);
                 if ($evaluatorId) {
                     $this->proposalRepository->endorseToFocal($proposalId, $evaluatorId, $remarks);
                 } else {
@@ -272,6 +327,7 @@ class ProposalService implements ProposalServiceInterface{
                 return $this->disapprove($proposalId, $remarks ?? 'Disapproved');
             } else {
                 $newStatus = $data['status'] ?? $existing->status;
+                ProposalWorkflow::assertCanAdvance($user, $existing, $newStatus);
                 $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
 
                 $this->recordAudit(
@@ -350,59 +406,58 @@ class ProposalService implements ProposalServiceInterface{
         ]);
     }
 
-
     protected function applyLoggedDecision(int $proposalId, string $action, string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): Proposal
-      {
-          return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId, $findings) {
-              $existing = $this->proposalRepository->findById($proposalId);
-              if (! $existing) {
-                  abort(404, "Not Found");
-              }
+    {
+        return DB::transaction(function () use ($proposalId, $action, $newStatus, $remarks, $assignedEvaluatorId, $findings) {
+            $existing = $this->proposalRepository->findById($proposalId);
+            if (! $existing) {
+                abort(404, 'Not Found');
+            }
 
-              $previousStatus = $existing->status;
-              $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
-              if (! $updated) {
-                  abort(404, "Not Found");
-              }
+            $previousStatus = $existing->status;
+            $updated = $this->proposalRepository->updateStatus($proposalId, $newStatus, $remarks);
+            if (! $updated) {
+                abort(404, 'Not Found');
+            }
 
-              $updated_proposal = $this->proposalRepository->findById($proposalId);
+            $updated_proposal = $this->proposalRepository->findById($proposalId);
 
-              $this->recordAudit(
-                  proposalId: $proposalId,
-                  action: $action,
-                  previousStatus: $previousStatus,
-                  newStatus: $newStatus,
-                  remarks: $remarks,
-                  assignedEvaluatorId: $assignedEvaluatorId,
-                  findings: $findings,
-              );
+            $this->recordAudit(
+                proposalId: $proposalId,
+                action: $action,
+                previousStatus: $previousStatus,
+                newStatus: $newStatus,
+                remarks: $remarks,
+                assignedEvaluatorId: $assignedEvaluatorId,
+                findings: $findings,
+            );
 
-              return $updated_proposal;
-          });
-      }
+            return $updated_proposal;
+        });
+    }
 
     protected function recordAudit(int $proposalId, string $action, ?string $previousStatus, ?string $newStatus, ?string $remarks, ?int $assignedEvaluatorId = null, ?string $findings = null): void
     {
         $this->proposalAuditRepository->create([
-            "proposal_id" => $proposalId,
-            "reviewed_by" => Auth::id(),
-            "action" => $action,
-            "previous_status" => $previousStatus,
-            "new_status" => $newStatus,
-            "remarks" => $remarks,
-            "findings" => $findings,
-            "assigned_evaluator_id" => $assignedEvaluatorId,
+            'proposal_id' => $proposalId,
+            'reviewed_by' => Auth::id(),
+            'action' => $action,
+            'previous_status' => $previousStatus,
+            'new_status' => $newStatus,
+            'remarks' => $remarks,
+            'findings' => $findings,
+            'assigned_evaluator_id' => $assignedEvaluatorId,
         ]);
 
-        \App\Models\ProposalReviewLog::create([
-            "proposal_id" => $proposalId,
-            "reviewed_by" => Auth::id(),
-            "action" => $action,
-            "previous_status" => $previousStatus,
-            "new_status" => $newStatus,
-            "remarks" => $remarks,
-            "findings" => $findings,
-            "assigned_evaluator_id" => $assignedEvaluatorId,
+        ProposalReviewLog::create([
+            'proposal_id' => $proposalId,
+            'reviewed_by' => Auth::id(),
+            'action' => $action,
+            'previous_status' => $previousStatus,
+            'new_status' => $newStatus,
+            'remarks' => $remarks,
+            'findings' => $findings,
+            'assigned_evaluator_id' => $assignedEvaluatorId,
         ]);
     }
 
@@ -413,13 +468,13 @@ class ProposalService implements ProposalServiceInterface{
             $existing = $this->proposalRepository->findById($proposalId);
 
             if (! $existing) {
-                abort(404, "Not Found");
+                abort(404, 'Not Found');
             }
 
             $updated = $this->proposalRepository->assignProjectStaff(Auth::id(), $proposalId);
 
             if (! $updated) {
-                abort(404, "Not Found");
+                abort(404, 'Not Found');
             }
 
             $proposal = $this->proposalRepository->findById($proposalId);

@@ -83,7 +83,7 @@ class SetupRepaymentLedgerService
         $hasPaymentActivity = $ledgers->contains(
             fn (ProjectLedger $ledger) => $ledger->repaymentTransactions->isNotEmpty(),
         );
-        $isDirector = $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR']);
+        $isDirector = $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR', 'REGIONAL_DIRECTOR']);
         $isSetupFocal = $this->isSetupFocal($user);
         $isOwner = $this->isSetupProponentOwner($user, $project);
 
@@ -403,7 +403,7 @@ class SetupRepaymentLedgerService
     {
         abort_unless($project->program_type === 'SETUP' && $project->status === 'active', 404);
 
-        $isDirector = $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR']);
+        $isDirector = $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR', 'REGIONAL_DIRECTOR']);
         $isSetupFocal = $this->isSetupFocal($user);
         $isOwner = $this->isSetupProponentOwner($user, $project);
 
@@ -450,7 +450,7 @@ class SetupRepaymentLedgerService
 
     private function isSetupFocal(User $user): bool
     {
-        return $user->hasRole(['FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL'])
+        return $user->hasRole(['FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL', 'FINANCE_OFFICER'])
             && $user->canAccessProgram('SETUP');
     }
 

@@ -34,6 +34,68 @@ export interface GiaMonitoringProjectsResult {
   readOnly: boolean
 }
 
+export interface GiaAccomplishmentRow {
+  id: string
+  objective: string
+  objectiveWeight: number
+  activities: string
+  targetAccomplishment: string
+  targetWeightY1: number
+  targetWeightY2: number
+  targetWeightY3: number
+  actualAccomplishment: string
+  actualY1Percent: number
+  actualY2Percent: number
+  actualY3Percent: number
+  remarks?: string
+}
+
+export interface GiaOutputRow {
+  id: string
+  category: string
+  targetY1: number
+  targetY2: number
+  targetY3: number
+  actualFigureY1: number
+  actualDescY1: string
+  actualFigureY2: number
+  actualDescY2: string
+  actualFigureY3: number
+  actualDescY3: string
+}
+
+export interface GiaMonitoringFormData {
+  projectLeaderGender: string
+  agency: string
+  addressContact: string
+  cooperatingAgencies: string
+  baseStation: string
+  sitesOfImplementation: string
+  durationMonths: number
+  startDate: string
+  endDate: string
+  totalBudget: number
+  accomplishments: GiaAccomplishmentRow[]
+  catchUpPlan: string
+  outputs: GiaOutputRow[]
+  problemConcern: string
+  suggestedSolution: string
+  preparedBy: string
+  reviewedBy: string
+  approvedBy: string
+}
+
+interface GiaMonitoringReportResponse {
+  data: {
+    id: number
+    status: string
+    reporting_period: string
+    year: number
+    form_data: GiaMonitoringFormData
+    updated_at: string
+  } | null
+}
+
 interface BackendGiaMilestone {
   id: number
   number: number
@@ -257,4 +319,35 @@ export async function fetchGiaMonitoringProjects(
     canEdit: response.data.access.can_edit,
     readOnly: response.data.access.read_only,
   }
+}
+
+export async function fetchGiaMonitoringReport(
+  projectId: number,
+  year: number,
+  semester: 1 | 2,
+): Promise<GiaMonitoringReportResponse['data']> {
+  const response = await api.get<GiaMonitoringReportResponse>(
+    `/gia/monitoring/projects/${projectId}/report`,
+    { params: { year, semester } },
+  )
+
+  return response.data.data
+}
+
+export async function saveGiaMonitoringReport(
+  projectId: number,
+  year: number,
+  semester: 1 | 2,
+  formData: GiaMonitoringFormData,
+): Promise<NonNullable<GiaMonitoringReportResponse['data']>> {
+  const response = await api.put<GiaMonitoringReportResponse>(
+    `/gia/monitoring/projects/${projectId}/report`,
+    { year, semester, form_data: formData },
+  )
+
+  if (!response.data.data) {
+    throw new Error('The server did not return the saved GIA monitoring report.')
+  }
+
+  return response.data.data
 }

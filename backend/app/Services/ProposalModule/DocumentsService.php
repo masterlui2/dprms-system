@@ -2,6 +2,7 @@
 
 namespace App\Services\ProposalModule;
 
+use App\Models\ArchivedDocument;
 use App\Models\Document;
 use App\Models\Proposal;
 use App\Repositories\Contracts\ProposalModule\DocumentsRepositoryInterface;
@@ -56,7 +57,7 @@ class DocumentsService implements DocumentsServiceInterface
                 return $this->documentsRepository->create($attributes);
             }
 
-            \App\Models\ArchivedDocument::create([
+            ArchivedDocument::create([
                 'document_id' => $existing->id,
                 'proposal_id' => $existing->proposal_id,
                 'document_type_id' => $existing->document_type_id,
@@ -112,16 +113,22 @@ class DocumentsService implements DocumentsServiceInterface
     #[Override]
     public function getOneForOwner(int $documentId): Document
     {
-        return $this->documentsRepository->findOneForOwner(
+        $document = $this->documentsRepository->findOneForOwner(
             $documentId,
             Auth::id()
         );
+        abort_unless($document, 404, 'Document not found.');
+
+        return $document;
     }
 
     #[Override]
     public function getOneForStaff(int $documentId): Document
     {
-        return $this->documentsRepository->findById($documentId);
+        $document = $this->documentsRepository->findById($documentId);
+        abort_unless($document, 404, 'Document not found.');
+
+        return $document;
     }
 
     #[Override]

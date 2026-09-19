@@ -202,15 +202,20 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "reports",
   ],
   proponent: [],
+  finance_officer: [
+    "dashboard",
+    "repaymentMonitoring",
+    "reports",
+  ],
 };
 
-export function getSidebarItems(role: UserRole, userProgram?: ApplicationProgram) {
+export function getSidebarItems(role: UserRole, userProgram?: ApplicationProgram, backendRole?: string) {
   const order = sidebarOrderByRole[role];
   return sidebarItems
     .filter(
       (sidebarItem) =>
         order.includes(sidebarItem.id) &&
-        canAccessModule(role, sidebarItem.id, userProgram),
+        canAccessModule(role, sidebarItem.id, userProgram, backendRole),
     )
     .map((sidebarItem) => {
       if (sidebarItem.id === "documentChecklist") {

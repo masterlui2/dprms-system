@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Models\Document;
 use App\Models\DocumentType;
 use App\Models\Proposal;
+use App\Support\ProgramAccess;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -20,24 +21,23 @@ class StoreDocumentRequest extends FormRequest
             return false;
         }
 
-        if ($user->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR', 'RPMO', 'ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'])) {
-            return true;
-        }
-
         $documentType = DocumentType::query()->find($this->input('document_type_id'));
-
-        if (! $documentType) {
-            return true;
-        }
-
         $proposal = Proposal::query()->find($this->input('proposal_id'));
 
-        if (! $documentType->is_applicant_visible) {
+        if (! $documentType || ! $proposal) {
+            return true;
+        }
+
+        if (! in_array($documentType->applicable_program, [$proposal->program_type, 'BOTH'], true)) {
             return false;
         }
 
-        if (! $proposal) {
+        if (ProgramAccess::canReviewProgram($user, $proposal->program_type)) {
             return true;
+        }
+
+        if (! $documentType->is_applicant_visible) {
+            return false;
         }
 
         if ($proposal->submitted_by !== $user->id) {

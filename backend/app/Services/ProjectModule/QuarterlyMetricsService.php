@@ -9,11 +9,9 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Override;
 
-class QuarterlyMetricsService implements QuarterlyMetricsServiceInterface{
-    public function __construct(protected QuarterlyMetricsRepositoryInterface $quarterlyMetricsRepository)
-    {
-
-    }
+class QuarterlyMetricsService implements QuarterlyMetricsServiceInterface
+{
+    public function __construct(protected QuarterlyMetricsRepositoryInterface $quarterlyMetricsRepository) {}
 
     #[Override]
     public function submit(int $projectId, array $data): QuarterlyMetrics
@@ -27,13 +25,13 @@ class QuarterlyMetricsService implements QuarterlyMetricsServiceInterface{
             'project_id' => $projectId,
             'quarter' => $data['quarter'],
             'year' => $data['year'],
-            'submitted_by' => Auth::id()
+            'submitted_by' => Auth::id(),
         ]);
     }
 
     #[Override]
     public function getByProject(int $projectId, ?int $quarter = null, ?int $year = null): Collection
     {
-        return $this->quarterlyMetricsRepository->findByProject($projectId);
+        return $this->quarterlyMetricsRepository->findByProject($projectId, $quarter, $year);
     }
 }

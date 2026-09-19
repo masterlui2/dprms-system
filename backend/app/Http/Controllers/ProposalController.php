@@ -12,19 +12,21 @@ use App\Http\Requests\StoreProposalRequest;
 use App\Http\Requests\UpdateProposalStatusRequest;
 use App\Models\Proposal;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
-use Illuminate\Http\Request;
+use App\Support\ProgramAccess;
 use Illuminate\Support\Facades\Auth;
 
 class ProposalController extends Controller
 {
-    public function __construct(protected ProposalServiceInterface $proposalService){}
+    public function __construct(protected ProposalServiceInterface $proposalService) {}
 
-    public function submit(StoreProposalRequest $request){
+    public function submit(StoreProposalRequest $request)
+    {
         $proposal = $this->proposalService->submit($request->validated());
+
         return response()->json([
             'message' => 'Proposal Created Successfully',
-            'data' => $proposal
-        ],201);
+            'data' => $proposal,
+        ], 201);
     }
 
     public function reviewDecision(ProposalReviewDecisionRequest $request, int $proposalId)
@@ -47,9 +49,8 @@ class ProposalController extends Controller
         ], 200);
     }
 
-
-
-    public function advanceStage(AdvanceStageRequest $request, int $id){
+    public function advanceStage(AdvanceStageRequest $request, int $id)
+    {
         $updated = $this->proposalService->advanceStage(
             $id,
             $request->validated('status'),
@@ -58,37 +59,54 @@ class ProposalController extends Controller
 
         return response()->json([
             'message' => 'Proposal Status Updated',
-            'data' => $updated
-        ],200);
+            'data' => $updated,
+        ], 200);
     }
 
-    public function approve(int $id, ProposalApproveRequest $request){
-        $this->proposalService->approve($id,$request->validated()['remarks'] ?? null);
+    public function approve(int $id, ProposalApproveRequest $request)
+    {
+        $this->proposalService->approve($id, $request->validated()['remarks'] ?? null);
+
         return response()->json([
             'message' => 'Proposal was Approved',
-        ],200);
+        ], 200);
     }
 
-    public function disapprove(int $id, ProposalDisapproveRequest $request){
-        $this->proposalService->disapprove($id,$request->validated()['remarks']);
+    public function disapprove(int $id, ProposalDisapproveRequest $request)
+    {
+        $this->proposalService->disapprove($id, $request->validated()['remarks']);
+
         return response()->json([
             'message' => 'Proposal was Disapproved',
-        ],200);
+        ], 200);
     }
 
-    public function getByReferenceNumber(string $referenceNumber){
+    public function getByReferenceNumber(string $referenceNumber)
+    {
         $proposal = $this->proposalService->getByReferenceNumber($referenceNumber);
         abort_unless($proposal, 404, 'Proposal not found.');
+        abort_unless($this->canReadProposal($proposal), 403);
 
         return response()->json([
-            'data' => $proposal
-        ],200);
+            'data' => $proposal,
+        ], 200);
     }
 
     public function getSubmitterProposals(string|int $userId)
     {
-        $resolvedUserId = ($userId === 'me') ? (int) \Illuminate\Support\Facades\Auth::id() : (int) $userId;
-        $proposal = $this->proposalService->getSubmitterProposals($resolvedUserId);
+        $resolvedUserId = ($userId === 'me') ? (int) Auth::id() : (int) $userId;
+        $currentUser = Auth::user();
+        abort_unless($currentUser, 401);
+        abort_unless(
+            $resolvedUserId === $currentUser->id
+                || $currentUser->hasRole(['PROJECT_STAFF', 'FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL', 'PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR', 'RPMO', 'SYSTEM_ADMIN', 'ADMIN', 'SUPER_ADMIN']),
+            403,
+        );
+
+        $proposal = $this->proposalService->getSubmitterProposals($resolvedUserId)
+            ->filter(fn (Proposal $item) => $this->canReadProposal($item))
+            ->values();
+
         return response()->json([
             'data' => $proposal,
         ], 200);
@@ -96,19 +114,26 @@ class ProposalController extends Controller
 
     public function getMyProposals()
     {
-        $proposal = $this->proposalService->getSubmitterProposals((int) \Illuminate\Support\Facades\Auth::id());
+        $proposal = $this->proposalService->getSubmitterProposals((int) Auth::id());
+
         return response()->json([
             'data' => $proposal,
         ], 200);
     }
 
-    public function index(){
+    public function index()
+    {
+        $proposals = $this->proposalService->getIndex()
+            ->filter(fn (Proposal $proposal) => $this->canReadProposal($proposal))
+            ->values();
+
         return response()->json([
-            'data' => $this->proposalService->getIndex()
-        ],200);
+            'data' => $proposals,
+        ], 200);
     }
 
-    public function resubmit(Proposal $proposal){
+    public function resubmit(Proposal $proposal)
+    {
         abort_unless($proposal->submitted_by === Auth::id(), 403);
         abort_unless($proposal->status === 'RETURNED', 422, 'Only returned proposals can be resubmitted.');
 
@@ -157,14 +182,16 @@ class ProposalController extends Controller
         ]);
     }
 
-    public function assignProjectStaff(int $proposalId){
+    public function assignProjectStaff(int $proposalId)
+    {
         return response()->json([
             'message' => 'Project Staff assigned',
             'data' => $this->proposalService->assignProjectStaff($proposalId),
-        ],201);
+        ], 201);
     }
 
-    public function update(int $proposalId, UpdateProposalStatusRequest $request){
+    public function update(int $proposalId, UpdateProposalStatusRequest $request)
+    {
         $updated = $this->proposalService->advanceStage(
             $proposalId,
             $request->validated('status'),
@@ -175,5 +202,14 @@ class ProposalController extends Controller
             'message' => 'Proposal Status Updated',
             'data' => $updated,
         ], 200);
+    }
+
+    private function canReadProposal(Proposal $proposal): bool
+    {
+        $user = Auth::user();
+
+        return $user
+            && ($proposal->submitted_by === $user->id
+                || ProgramAccess::canReadProgram($user, $proposal->program_type));
     }
 }

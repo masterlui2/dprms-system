@@ -32,6 +32,8 @@ class BatchEmployeeRequest extends FormRequest
             'creates.*.status' => ['required', Rule::in(['Regular', 'Contract-Based', 'Part-Timer', 'Project-Based'])],
             'creates.*.gender' => ['required', Rule::in(['Male', 'Female'])],
             'creates.*.sectoral_group' => ['required', Rule::in(['None', 'PWD', 'Senior'])],
+            'creates.*.sectoral_classification' => ['sometimes', Rule::in(['None', 'PWD', 'Senior', 'Youth'])],
+            'creates.*.employment_type' => ['sometimes', Rule::in(['DIRECT', 'INDIRECT'])],
             'creates.*.days_of_attendance' => ['required', 'integer', 'min:0', 'max:92'],
             'creates.*.salary_rate' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
 
@@ -42,6 +44,8 @@ class BatchEmployeeRequest extends FormRequest
             'updates.*.status' => ['sometimes', Rule::in(['Regular', 'Contract-Based', 'Part-Timer', 'Project-Based'])],
             'updates.*.gender' => ['sometimes', Rule::in(['Male', 'Female'])],
             'updates.*.sectoral_group' => ['sometimes', Rule::in(['None', 'PWD', 'Senior'])],
+            'updates.*.sectoral_classification' => ['sometimes', Rule::in(['None', 'PWD', 'Senior', 'Youth'])],
+            'updates.*.employment_type' => ['sometimes', Rule::in(['DIRECT', 'INDIRECT'])],
             'updates.*.days_of_attendance' => ['sometimes', 'integer', 'min:0', 'max:92'],
             'updates.*.salary_rate' => ['sometimes', 'numeric', 'min:0', 'decimal:0,2'],
 

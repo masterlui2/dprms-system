@@ -52,4 +52,9 @@ class Project extends Model
     {
         return $this->hasMany(ProjectLedger::class);
     }
+
+    public function quarterlyMetrics(): HasMany
+    {
+        return $this->hasMany(QuarterlyMetrics::class);
+    }
 }

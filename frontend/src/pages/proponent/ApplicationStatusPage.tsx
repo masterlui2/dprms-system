@@ -28,9 +28,10 @@ export function ApplicationStatusPage() {
 
   useEffect(() => {
     let cancelled = false
-    if (!user) return
+    const currentUser = getMockUser()
+    if (!currentUser) return
 
-    void syncUserApplicationsFromBackend(user).then((apps) => {
+    void syncUserApplicationsFromBackend(currentUser).then((apps) => {
       if (!cancelled) setAllApplications(apps)
     })
 

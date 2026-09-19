@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ReviewDocumentRequest;
 use App\Http\Requests\StoreDocumentRequest;
 use App\Models\Document;
+use App\Models\Proposal;
 use App\Services\Contracts\ProposalModule\DocumentsServiceInterface;
+use App\Support\ProgramAccess;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 
@@ -25,6 +27,9 @@ class DocumentController extends Controller
 
     public function index(int $proposalId)
     {
+        $proposal = Proposal::query()->findOrFail($proposalId);
+        $this->authorizeProposalRead($proposal);
+
         return response()->json([
             'data' => $this->documentsService->getDocumentsByProposalId($proposalId),
         ]);
@@ -33,8 +38,15 @@ class DocumentController extends Controller
     public function destroy(Document $document)
     {
         $user = Auth::user();
+        $document->loadMissing(['proposal', 'document_type']);
         abort_unless(
-            $document->uploaded_by === Auth::id() || ($user && $user->hasRole(['PROJECT_STAFF', 'FOCAL', 'PROVINCIAL_DIRECTOR', 'RPMO', 'ADMIN', 'SUPER_ADMIN', 'SYSTEM_ADMIN'])),
+            $user && (
+                ($document->uploaded_by === $user->id
+                    && $document->proposal?->submitted_by === $user->id
+                    && $document->document_type?->is_applicant_visible)
+                || ($document->proposal
+                    && ProgramAccess::canReviewProgram($user, $document->proposal->program_type))
+            ),
             403
         );
         $this->documentsService->deleteDocuments($document->id);
@@ -72,6 +84,9 @@ class DocumentController extends Controller
     public function showForStaff(int $documentId)
     {
         $data = $this->documentsService->getOneForStaff($documentId);
+        $data->loadMissing('proposal');
+        abort_unless($data->proposal, 404);
+        $this->authorizeProposalRead($data->proposal);
         abort_unless(Storage::exists($data->file_path), 404);
 
         return Storage::response(
@@ -83,6 +98,14 @@ class DocumentController extends Controller
 
     public function review(ReviewDocumentRequest $request, Document $document)
     {
+        $document->loadMissing('proposal');
+        $user = Auth::user();
+        abort_unless(
+            $user && $document->proposal
+                && ProgramAccess::canReviewProgram($user, $document->proposal->program_type),
+            403,
+        );
+
         $data = $this->documentsService->updateDocuments($document->id, [
             'status' => $request->validated('status'),
             'remarks' => $request->validated('remarks'),
@@ -98,6 +121,8 @@ class DocumentController extends Controller
 
     public function showForm(int $proposalId)
     {
+        $proposal = Proposal::query()->findOrFail($proposalId);
+        $this->authorizeProposalRead($proposal);
         $data = $this->documentsService->getProjectForm($proposalId);
         abort_unless(Storage::exists($data->file_path), 404);
 
@@ -105,6 +130,16 @@ class DocumentController extends Controller
             $data->file_path,
             $data->file_name,
             ['Content-Type' => $data->mime_type]
+        );
+    }
+
+    private function authorizeProposalRead(Proposal $proposal): void
+    {
+        $user = Auth::user();
+        abort_unless(
+            $user && ($proposal->submitted_by === $user->id
+                || ProgramAccess::canReadProgram($user, $proposal->program_type)),
+            403,
         );
     }
 }

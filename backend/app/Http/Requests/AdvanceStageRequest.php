@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ProposalStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,7 +27,7 @@ class AdvanceStageRequest extends FormRequest
         return [
             'status' => [
                 'required',
-                Rule::in(['DRAFT', 'SUBMITTED','UNDER_VALIDATION','ENDORSED_TO_RPMO','UNDER_SCREENING', 'ENDORSED_TO_RTEC', 'UNDER_EVALUATION', 'ENDORSED_TO_DIRECTOR', 'APPROVED','DISAPPROVED', 'RETURNED']),
+                Rule::in(ProposalStatus::reviewTransitions()),
             ],
             'remarks' => [
                 'nullable',

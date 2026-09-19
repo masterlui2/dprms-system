@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\ProgramAccess;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,8 +15,8 @@ class IndexGiaMonitoringProjectsRequest extends FormRequest
             return false;
         }
 
-        return $user->hasRole('PROVINCIAL_DIRECTOR')
-            || ($user->hasRole('FOCAL') && $user->program_type === 'GIA');
+        return $user->hasRole(['FOCAL', 'PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR', 'EXECOM_MEMBER', 'RPMO', 'SYSTEM_ADMIN'])
+            && ProgramAccess::canReadProgram($user, 'GIA');
     }
 
     public function rules(): array

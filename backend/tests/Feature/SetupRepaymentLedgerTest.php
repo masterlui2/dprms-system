@@ -156,6 +156,34 @@ class SetupRepaymentLedgerTest extends TestCase
             ->assertJsonPath('data.permissions.read_only', false);
     }
 
+    public function test_finance_officer_can_review_setup_repayment_but_cannot_submit_proponent_payment(): void
+    {
+        $financeRole = Role::create([
+            'name' => 'Finance & Accounting Officer',
+            'code' => 'FINANCE_OFFICER',
+            'program_type' => 'BOTH',
+        ]);
+        $finance = User::factory()->create(['program_type' => 'SETUP']);
+        $finance->role()->attach($financeRole->id, ['assigned_at' => now()]);
+        Sanctum::actingAs($finance);
+
+        $this->getJson('/api/setup/monitoring/projects')
+            ->assertOk();
+
+        $this->getJson("/api/setup/projects/{$this->project->id}/ledger")
+            ->assertOk()
+            ->assertJsonPath('data.permissions.can_manage_schedule', false)
+            ->assertJsonPath('data.permissions.can_record_payment', false)
+            ->assertJsonPath('data.permissions.can_verify_payment', true)
+            ->assertJsonPath('data.permissions.read_only', false);
+
+        $this->post(
+            "/api/setup/projects/{$this->project->id}/ledger/{$this->overdueInstallment->id}/payments",
+            $this->paymentPayload('900010'),
+            ['Accept' => 'application/json'],
+        )->assertForbidden();
+    }
+
     public function test_provincial_director_receives_read_only_ledger_access(): void
     {
         Sanctum::actingAs($this->director);

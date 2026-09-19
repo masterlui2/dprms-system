@@ -13,8 +13,8 @@ class ShowSetupRepaymentLedgerRequest extends FormRequest
             return false;
         }
 
-        $isDirector = $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR']);
-        $isSetupFocal = $user->hasRole(['FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL'])
+        $isDirector = $user->hasRole(['PROVINCIAL_DIRECTOR', 'PSTO_DIRECTOR', 'REGIONAL_DIRECTOR']);
+        $isSetupFocal = $user->hasRole(['FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL', 'FINANCE_OFFICER'])
             && $user->canAccessProgram('SETUP');
         $isSetupProponent = $user->hasRole(['PROPONENT', 'MSME_PROPONENT'])
             && $user->canAccessProgram('SETUP');

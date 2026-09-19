@@ -343,6 +343,8 @@ export interface DocumentApiRecord {
     name: string
     group?: string | null
     description?: string | null
+    set_number?: 'PROPOSAL' | 'SET1' | 'SET2' | 'SET3' | 'GIA1'
+    is_applicant_visible?: boolean
   }
 }
 
@@ -780,10 +782,7 @@ export async function fetchInternalDocumentTypes(
 ): Promise<DocumentTypeRecord[]> {
   return getDocumentTypes({
     program,
-    // GIA's internal workflow is represented by the shared SET3 records.
-    // SETUP intentionally spans SET1-SET3 because its post-inspection
-    // checklist begins before the post-approval set.
-    setNumber: program === 'GIA' ? 'SET3' : undefined,
+    setNumber: program === 'GIA' ? 'GIA1' : undefined,
     visibility: 'internal',
   })
 }

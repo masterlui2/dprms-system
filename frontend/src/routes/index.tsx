@@ -21,7 +21,7 @@ import { InventoryPage } from '../pages/admin/InventoryPage'
 import { MonitoringPage } from '../pages/admin/MonitoringPage'
 import { ReportsPage } from '../pages/admin/ReportsPage'
 import { DashboardHome } from '../pages/dashboard/DashboardHome'
-import { ModuleWorkspace } from '../pages/dashboard/ModuleWorkspace'
+import { SystemAdministrationPage } from '../pages/admin/SystemAdministrationPage'
 import { ApplicationStatusPage } from '../pages/proponent/ApplicationStatusPage'
 import { DocumentaryRequirementsPage } from '../pages/proponent/DocumentaryRequirementsPage'
 import { MyApplicationPage } from '../pages/proponent/MyApplicationPage'
@@ -113,15 +113,15 @@ export const router = createBrowserRouter([
       { path: 'projects', element: protect('projects', <MonitoringPage />) },
       { path: 'regional-monitoring', element: protect('regionalMonitoring', <MonitoringPage />) },
       { path: 'reports', element: protect('reports', <ReportsPage />) },
-      { path: 'users', element: protect('userManagement', <ModuleWorkspace title="User Management" description="Manage DPRMS user accounts and account status." />) },
-      { path: 'roles', element: protect('roleManagement', <ModuleWorkspace title="Role Management" description="Manage DPRMS roles and role assignments." />) },
-      { path: 'programs', element: protect('programManagement', <ModuleWorkspace title="Program Management" description="Manage available DOST programs and program settings." />) },
-      { path: 'municipalities', element: protect('municipalityManagement', <ModuleWorkspace title="Municipality Management" description="Manage municipalities used in DPRMS records." />) },
-      { path: 'budget-categories', element: protect('budgetCategories', <ModuleWorkspace title="Budget Categories" description="Maintain budget classifications used by project records." />) },
-      { path: 'notification-management', element: protect('notificationManagement', <ModuleWorkspace title="Notification Management" description="Configure platform notifications and delivery rules." />) },
+      { path: 'users', element: protect('userManagement', <SystemAdministrationPage module="users" />) },
+      { path: 'roles', element: protect('roleManagement', <SystemAdministrationPage module="roles" />) },
+      { path: 'programs', element: protect('programManagement', <SystemAdministrationPage module="programs" />) },
+      { path: 'municipalities', element: protect('municipalityManagement', <SystemAdministrationPage module="municipalities" />) },
+      { path: 'budget-categories', element: protect('budgetCategories', <SystemAdministrationPage module="budgets" />) },
+      { path: 'notification-management', element: protect('notificationManagement', <SystemAdministrationPage module="notifications" />) },
       { path: 'audit-logs', element: protect('auditLogs', <AuditTrailPage />) },
-      { path: 'backup', element: protect('backup', <ModuleWorkspace title="Backup" description="Manage DPRMS data backup and recovery operations." />) },
-      { path: 'system-settings', element: protect('systemSettings', <ModuleWorkspace title="System Settings" description="Manage shared DPRMS platform settings." />) },
+      { path: 'backup', element: protect('backup', <SystemAdministrationPage module="backup" />) },
+      { path: 'system-settings', element: protect('systemSettings', <SystemAdministrationPage module="settings" />) },
     ],
   },
   {

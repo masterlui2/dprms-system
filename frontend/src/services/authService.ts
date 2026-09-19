@@ -47,6 +47,10 @@ function resolveRole(user: BackendUser): MockUser['role'] {
   return normalizeUserRole(user.role ?? relationRole)
 }
 
+function resolveBackendRole(user: BackendUser): string | undefined {
+  return user.role ?? user.roles?.[0]?.code ?? user.roles?.[0]?.name
+}
+
 function getInitials(name: string) {
   const initials = name
     .split(' ')
@@ -90,6 +94,7 @@ export async function loginWithBackend(email: string, password: string) {
  
     const backendUser = response.data.data.user
     const user: MockUser = {
+      backendRole: resolveBackendRole(backendUser),
       id: backendUser.id,
       email: backendUser.email,
       initials: getInitials(backendUser.name),
@@ -102,7 +107,7 @@ export async function loginWithBackend(email: string, password: string) {
       token: response.data.data.token,
       user,
     }
-  } catch (error) {
+  } catch {
     // Any non-2xx (401, 422, 500, etc.) lands here as an AxiosError.
     throw new AuthError()
   }
@@ -122,6 +127,7 @@ export async function registerWithBackend(payload: RegisterPayload): Promise<{ t
     const response = await api.post<RegisterResponse>('/register', payload)
     const backendUser = response.data.data.user
     const user: MockUser = {
+      backendRole: resolveBackendRole(backendUser),
       id: backendUser.id,
       email: backendUser.email,
       initials: getInitials(backendUser.name),

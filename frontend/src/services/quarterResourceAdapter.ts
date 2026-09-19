@@ -141,6 +141,8 @@ export function employeeAdapter(
       status: e.employmentStatus === 'Part-timer' ? 'Part-Timer' : e.employmentStatus,
       gender: e.sex,
       sectoral_group: toBackendSectoralGroup(e.sectoralGroup),
+      sectoral_classification: e.sectoralGroup === 'SC' ? 'Senior' : e.sectoralGroup,
+      employment_type: recordKey === 'indirectEmployees' ? 'INDIRECT' : 'DIRECT',
       days_of_attendance: e.workdaysQuarter,
       salary_rate: e.salaryRate,
     }),
@@ -159,6 +161,7 @@ export function marketAdapter(
 
       return {
         market_name: m.marketName,
+        market_type: recordKey === 'internationalMarkets' ? 'INTERNATIONAL' : 'LOCAL',
         address: m.address,
         condition: (m.condition || 'NEW').toLowerCase(),
         ...(effectiveDate ? { effective_date: effectiveDate } : {}),

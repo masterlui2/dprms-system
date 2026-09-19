@@ -11,7 +11,7 @@ class VerifySetupRepaymentPaymentRequest extends FormRequest
     {
         $user = $this->user();
 
-        return $user?->hasRole(['FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL'])
+        return $user?->hasRole(['FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL', 'FINANCE_OFFICER'])
             && $user->canAccessProgram('SETUP');
     }
 

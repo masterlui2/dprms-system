@@ -10,15 +10,17 @@ class Market extends Model
     protected $fillable = [
         'quarter_id',
         'market_name',
+        'market_type',
         'address',
         'condition',
         'effective_date',
         'contact_person',
         'service',
-        'volume'
+        'volume',
     ];
 
-    public function quarter(): BelongsTo{
-        return $this->belongsTo(QuarterlyMetrics::class,'quarter_id');
+    public function quarter(): BelongsTo
+    {
+        return $this->belongsTo(QuarterlyMetrics::class, 'quarter_id');
     }
 }
