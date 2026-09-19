@@ -7,37 +7,12 @@ import {
 } from 'lucide-react'
 
 import { formatCurrency, type ProjectRecord } from '../../data/admin'
+import type {
+  GiaAccomplishmentRow as AccomplishmentRow,
+  GiaMonitoringFormData,
+  GiaOutputRow as OutputRow,
+} from '../../services/giaMonitoringStore'
 import { cn } from '../../utils/cn'
-
-interface AccomplishmentRow {
-  id: string
-  objective: string
-  objectiveWeight: number
-  activities: string
-  targetAccomplishment: string
-  targetWeightY1: number
-  targetWeightY2: number
-  targetWeightY3: number
-  actualAccomplishment: string
-  actualY1Percent: number
-  actualY2Percent: number
-  actualY3Percent: number
-  remarks?: string
-}
-
-interface OutputRow {
-  id: string
-  category: string
-  targetY1: number
-  targetY2: number
-  targetY3: number
-  actualFigureY1: number
-  actualDescY1: string
-  actualFigureY2: number
-  actualDescY2: string
-  actualFigureY3: number
-  actualDescY3: string
-}
 
 interface GiaMonitoringFormProps {
   project: ProjectRecord
@@ -45,6 +20,9 @@ interface GiaMonitoringFormProps {
   hideTopBar?: boolean
   readOnly?: boolean
   selectedReportingPeriod?: string
+  initialData?: GiaMonitoringFormData | null
+  isSaving?: boolean
+  onSave?: (data: GiaMonitoringFormData) => Promise<void>
 }
 
 function AutoResizeTextarea({
@@ -96,6 +74,9 @@ export function GiaMonitoringForm({
   hideTopBar = false,
   readOnly = false,
   selectedReportingPeriod,
+  initialData = null,
+  isSaving = false,
+  onSave,
 }: GiaMonitoringFormProps) {
   const mon = (project as any)?.setupMonitoring
   const isSetup = project?.program === 'SETUP'
@@ -104,30 +85,31 @@ export function GiaMonitoringForm({
 
   const reportingPeriod = selectedReportingPeriod || gia?.reportingPeriod || (isSetup ? 'CY 2026 (Quarterly)' : '1st Semester 2026')
   const [projectLeaderGender, setProjectLeaderGender] = useState(
-    isBackendProject
+    initialData?.projectLeaderGender ?? (isBackendProject
       ? project.manager
-      : project.manager ? `${project.manager} (M)` : (mon ? `${mon.assignedStaff?.split('(')[0]?.trim()} (M)` : 'Dr. Kevin Lim (M)')
+      : project.manager ? `${project.manager} (M)` : (mon ? `${mon.assignedStaff?.split('(')[0]?.trim()} (M)` : 'Dr. Kevin Lim (M)'))
   )
-  const [agency, setAgency] = useState(gia?.agency || project.enterprise)
+  const [agency, setAgency] = useState(initialData?.agency ?? gia?.agency ?? project.enterprise)
   const [addressContact, setAddressContact] = useState(
-    isBackendProject
+    initialData?.addressContact ?? (isBackendProject
       ? (project.location || gia?.location || '')
       : gia?.location ? `${gia.location} · 0917-123-4567 · info@dost.gov.ph` : (mon ? `${mon.pstoOffice}, Davao Oriental · 0917-888-2026 · enterprise@dost.gov.ph` : 'Mati City, Davao Oriental · 0917-123-4567 · gia@dost.gov.ph')
+    )
   )
   const [cooperatingAgencies, setCooperatingAgencies] = useState(
-    gia?.cooperatingAgencies?.join(', ') || (isBackendProject ? '' : 'PSTO Davao Oriental, LGU Mati City')
+    initialData?.cooperatingAgencies ?? gia?.cooperatingAgencies?.join(', ') ?? (isBackendProject ? '' : 'PSTO Davao Oriental, LGU Mati City')
   )
-  const [baseStation, setBaseStation] = useState(gia?.baseStation || (mon ? `${mon.pstoOffice}, Mati City` : 'DOST PSTO Davao Oriental'))
-  const [sitesOfImplementation, setSitesOfImplementation] = useState(gia?.location || (mon ? `${mon.pstoOffice}, Region XI` : 'Davao Oriental, Region XI'))
-  const [durationMonths, setDurationMonths] = useState(gia?.durationMonths ?? (isSetup ? 36 : 24))
-  const [startDate, setStartDate] = useState(gia?.startDate || 'Jan 15, 2025')
-  const [endDate, setEndDate] = useState(gia?.endDate || 'Jan 14, 2027')
+  const [baseStation, setBaseStation] = useState(initialData?.baseStation ?? gia?.baseStation ?? (mon ? `${mon.pstoOffice}, Mati City` : 'DOST PSTO Davao Oriental'))
+  const [sitesOfImplementation, setSitesOfImplementation] = useState(initialData?.sitesOfImplementation ?? gia?.location ?? (mon ? `${mon.pstoOffice}, Region XI` : 'Davao Oriental, Region XI'))
+  const [durationMonths, setDurationMonths] = useState(initialData?.durationMonths ?? gia?.durationMonths ?? (isSetup ? 36 : 24))
+  const [startDate, setStartDate] = useState(initialData?.startDate ?? gia?.startDate ?? 'Jan 15, 2025')
+  const [endDate, setEndDate] = useState(initialData?.endDate ?? gia?.endDate ?? 'Jan 14, 2027')
   const [totalBudget, setTotalBudget] = useState(
-    isBackendProject ? project.budget : project.budget || (isSetup ? 3500000 : 2500000)
+    initialData?.totalBudget ?? (isBackendProject ? project.budget : project.budget || (isSetup ? 3500000 : 2500000))
   )
 
   const [accomplishments, setAccomplishments] = useState<AccomplishmentRow[]>(
-    gia?.milestones?.length ? gia.milestones.map((milestone) => ({
+    initialData ? initialData.accomplishments : gia?.milestones?.length ? gia.milestones.map((milestone) => ({
       id: `acc_${milestone.id}`,
       objective: `${milestone.number}. ${milestone.title}`,
       objectiveWeight: Math.round(100 / gia.milestones!.length),
@@ -206,10 +188,10 @@ export function GiaMonitoringForm({
   )
 
   const [catchUpPlan, setCatchUpPlan] = useState(
-    gia?.catchUpPlan || (isBackendProject ? '' : '1. Acceleration of remaining training schedules for Batch 2 operators within Q4.\n2. Coordinated follow-up with the Sangguniang Bayan Secretariat for the 2nd reading of the adoption ordinance.\n3. Conduct on-site technical inspection for commercial pilot run in coordination with PSTO Davao Oriental.')
+    initialData?.catchUpPlan ?? gia?.catchUpPlan ?? (isBackendProject ? '' : '1. Acceleration of remaining training schedules for Batch 2 operators within Q4.\n2. Coordinated follow-up with the Sangguniang Bayan Secretariat for the 2nd reading of the adoption ordinance.\n3. Conduct on-site technical inspection for commercial pilot run in coordination with PSTO Davao Oriental.')
   )
 
-  const [outputs, setOutputs] = useState<OutputRow[]>(gia?.outputs.length
+  const [outputs, setOutputs] = useState<OutputRow[]>(initialData ? initialData.outputs : gia?.outputs.length
     ? gia.outputs.map((output, index) => ({
         id: `out_${index + 1}`,
         category: output.category,
@@ -305,15 +287,15 @@ export function GiaMonitoringForm({
   ])
 
   const [problemConcern, setProblemConcern] = useState(
-    gia?.issueSummary || (isBackendProject ? '' : '1. Intermittent power fluctuations at the community processing site causing slight delay in machinery calibration.\n2. Delays in raw material deliveries from upstream farming sitios due to heavy monsoon rains.')
+    initialData?.problemConcern ?? gia?.issueSummary ?? (isBackendProject ? '' : '1. Intermittent power fluctuations at the community processing site causing slight delay in machinery calibration.\n2. Delays in raw material deliveries from upstream farming sitios due to heavy monsoon rains.')
   )
   const [suggestedSolution, setSuggestedSolution] = useState(
-    gia?.suggestedSolution || (isBackendProject ? '' : '1. PSTO coordinated with Local Electric Cooperative (DORECO) for dedicated phase line and voltage regulator installation.\n2. Established buffer inventory storage schedule at the central processing hub.')
+    initialData?.suggestedSolution ?? gia?.suggestedSolution ?? (isBackendProject ? '' : '1. PSTO coordinated with Local Electric Cooperative (DORECO) for dedicated phase line and voltage regulator installation.\n2. Established buffer inventory storage schedule at the central processing hub.')
   )
 
-  const [preparedBy, setPreparedBy] = useState(project.manager || (isBackendProject ? '' : 'Dr. Kevin Lim'))
-  const [reviewedBy, setReviewedBy] = useState(isBackendProject ? '' : 'PSTD Officer, DOST PSTO Davao Oriental')
-  const [approvedBy, setApprovedBy] = useState(isBackendProject ? '' : 'Dr. Anthony C. Sales, CESO III / Regional Director')
+  const [preparedBy, setPreparedBy] = useState(initialData?.preparedBy ?? project.manager ?? (isBackendProject ? '' : 'Dr. Kevin Lim'))
+  const [reviewedBy, setReviewedBy] = useState(initialData?.reviewedBy ?? (isBackendProject ? '' : 'PSTD Officer, DOST PSTO Davao Oriental'))
+  const [approvedBy, setApprovedBy] = useState(initialData?.approvedBy ?? (isBackendProject ? '' : 'Dr. Anthony C. Sales, CESO III / Regional Director'))
 
   const handleAddAccomplishment = () => {
     const newAcc: AccomplishmentRow = {
@@ -368,8 +350,29 @@ export function GiaMonitoringForm({
   const total6pActualY1 = outputs.reduce((s, o) => s + (o.actualFigureY1 || 0), 0)
   const pct6pY1 = total6pTargetY1 > 0 ? Math.round((total6pActualY1 / total6pTargetY1) * 100) : 0
 
-  const handleSave = () => {
-    // Save handler
+  const handleSave = async () => {
+    if (!onSave || readOnly || isSaving) return
+
+    await onSave({
+      projectLeaderGender,
+      agency,
+      addressContact,
+      cooperatingAgencies,
+      baseStation,
+      sitesOfImplementation,
+      durationMonths,
+      startDate,
+      endDate,
+      totalBudget,
+      accomplishments,
+      catchUpPlan,
+      outputs,
+      problemConcern,
+      suggestedSolution,
+      preparedBy,
+      reviewedBy,
+      approvedBy,
+    })
   }
 
   return (
@@ -406,10 +409,11 @@ export function GiaMonitoringForm({
               <button
                 className="inline-flex h-8.5 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497]"
                 onClick={handleSave}
+                disabled={readOnly || isSaving || !onSave}
                 type="button"
               >
                 <Save className="size-3.5 text-[#285497]" />
-                <span>Save Changes</span>
+                <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
               </button>
             </div>
           </div>
@@ -901,10 +905,11 @@ export function GiaMonitoringForm({
             <button
               type="button"
               onClick={handleSave}
+              disabled={readOnly || isSaving || !onSave}
               className="inline-flex h-9 items-center gap-2 rounded-xl border border-[#B5BFCD] bg-white px-5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-[#E6EEF4] hover:text-[#285497] active:scale-95"
             >
               <Save className="size-4 text-[#285497]" />
-              <span>Save Changes</span>
+              <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
             </button>
           </div>
         </div>

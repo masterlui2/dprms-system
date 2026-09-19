@@ -83,14 +83,12 @@ export function ProposalDocumentsSection({
     fetchProposalDocumentsForStaff(proposalId)
       .then((data) => {
         if (cancelled) return;
-        // Filter out auto-generated proposal form since it is part of application data / Overview
+        // Hide only the system-generated application snapshot. Required files such
+        // as the GIA "Complete Project Proposal Form" must remain reviewable.
         const filteredData = data.filter((doc) => {
-          const name = (doc.document_type?.name || doc.file_name || "").toLowerCase();
           return !(
-            name.includes("project proposal") ||
-            name.includes("proposal form") ||
-            name.includes("setup form 1") ||
-            name.includes("gia form 1")
+            doc.document_type?.set_number === "PROPOSAL" &&
+            doc.document_type.is_applicant_visible === false
           );
         });
         setDocuments(filteredData);

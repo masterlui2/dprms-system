@@ -744,6 +744,8 @@ export interface BackendQuarterlyEmployeeItem {
   status: string
   gender: string
   sectoral_group: string
+  sectoral_classification: string | null
+  employment_type: 'DIRECT' | 'INDIRECT'
   days_of_attendance: number
   salary_rate: string
   total_salary: string
@@ -814,6 +816,7 @@ export interface BackendQuarterlyMarketItem {
   id: number
   quarter_id: number
   market_name: string
+  market_type: 'LOCAL' | 'INTERNATIONAL'
   address: string
   condition: string
   effective_date: string
@@ -902,6 +905,7 @@ function quarterNumberToLabel(q: number): Quarter {
 // needs a real 'Youth' value on the backend — flagging this again in case
 // priorities change later, even though it's parked for now.
 function fromBackendSectoralGroup(group: string | null | undefined): EmployeeItem['sectoralGroup'] {
+  if (group === 'Youth') return 'Youth'
   if (group === 'Senior') return 'SC'
   if (group === 'PWD') return 'PWD'
   return 'None'
@@ -1044,20 +1048,21 @@ export function mapBackendQuarterlyMetric(
   }))
 
   // --- Employment (see note 3: everything lands in Direct for now) ---
-  const directEmployees: EmployeeItem[] = metric.employees.map((e) => ({
+  const employees: EmployeeItem[] = metric.employees.map((e) => ({
     id: `emp_${e.id}`,
     type: 'DIRECT',
     name: e.employee_name,
     age: e.age,
     employmentStatus: (e.status as EmployeeItem['employmentStatus']) || 'Regular',
     sex: (e.gender as EmployeeItem['sex']) || 'Male',
-    sectoralGroup: fromBackendSectoralGroup(e.sectoral_group),
+    sectoralGroup: fromBackendSectoralGroup(e.sectoral_classification ?? e.sectoral_group),
     workdaysQuarter: e.days_of_attendance,
     salaryType: 'Daily',
     salaryRate: num(e.salary_rate),
     totalSalaryQuarter: num(e.total_salary),
   }))
-  const indirectEmployees: EmployeeItem[] = []
+  const directEmployees = employees.filter((_, index) => metric.employees[index]?.employment_type !== 'INDIRECT')
+  const indirectEmployees = employees.filter((_, index) => metric.employees[index]?.employment_type === 'INDIRECT')
 
   // --- Interventions (see note 6: routed by `type`, default = Consultancy) ---
   const consultancies: ConsultancyItem[] = []
@@ -1110,9 +1115,9 @@ export function mapBackendQuarterlyMetric(
   }
 
   // --- Markets (see note 2: everything lands in Local for now) ---
-  const localMarkets: MarketOutletItem[] = metric.market.map((m) => ({
+  const markets: MarketOutletItem[] = metric.market.map((m) => ({
     id: `mkt_${m.id}`,
-    marketType: 'LOCAL',
+    marketType: m.market_type ?? 'LOCAL',
     marketName: m.market_name,
     address: m.address,
     condition: (m.condition || '').toUpperCase() === 'NEW' ? 'NEW' : 'OLD',
@@ -1121,7 +1126,8 @@ export function mapBackendQuarterlyMetric(
     productServiceSold: m.service,
     volumeDelivered: m.volume,
   }))
-  const internationalMarkets: MarketOutletItem[] = []
+  const localMarkets = markets.filter((market) => market.marketType !== 'INTERNATIONAL')
+  const internationalMarkets = markets.filter((market) => market.marketType === 'INTERNATIONAL')
 
   // --- Narratives (see note 7: known backend issue, parked for now) ---
   const problemsText = metric.narrative

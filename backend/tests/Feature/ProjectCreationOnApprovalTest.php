@@ -2,11 +2,17 @@
 
 namespace Tests\Feature;
 
+use App\Models\Document;
 use App\Models\Project;
 use App\Models\Proposal;
+use App\Models\ProposalChecklistReview;
+use App\Models\ProposalChecklistSummary;
 use App\Models\Role;
 use App\Models\SetupProposal;
 use App\Models\User;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use Database\Seeders\DocumentChecklistTemplateSeeder;
+use Database\Seeders\DocumentTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -16,12 +22,17 @@ class ProjectCreationOnApprovalTest extends TestCase
     use RefreshDatabase;
 
     private User $director;
+
     private User $applicant;
+
     private Proposal $proposal;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->seed(DocumentChecklistTemplateSeeder::class);
+        $this->seed(DocumentTypeSeeder::class);
 
         $directorRole = Role::create([
             'name' => 'Provincial Director',
@@ -42,6 +53,35 @@ class ProjectCreationOnApprovalTest extends TestCase
             'title' => 'SETUP Modernization Project',
             'status' => 'ENDORSED_TO_DIRECTOR',
             'submitted_at' => now(),
+        ]);
+
+        $checklist = app(DocumentChecklistServiceInterface::class)
+            ->getProposalChecklist($this->proposal->id);
+        collect($checklist['items'])->where('is_required', true)->each(function (array $item) {
+            $document = empty($item['document_type_id']) ? null : Document::create([
+                'proposal_id' => $this->proposal->id,
+                'document_type_id' => $item['document_type_id'],
+                'uploaded_by' => $this->director->id,
+                'file_name' => $item['id'].'.pdf',
+                'file_path' => 'tests/'.$item['id'].'.pdf',
+                'status' => 'approved',
+            ]);
+            ProposalChecklistReview::create([
+                'proposal_id' => $this->proposal->id,
+                'template_item_id' => $item['template_id'],
+                'document_id' => $document?->id,
+                'is_present' => true,
+                'status' => 'Complied',
+                'reviewed_by' => $this->director->id,
+                'reviewed_at' => now(),
+            ]);
+        });
+
+        ProposalChecklistSummary::create([
+            'proposal_id' => $this->proposal->id,
+            'is_completed' => true,
+            'completed_by' => $this->director->id,
+            'completed_at' => now(),
         ]);
     }
 

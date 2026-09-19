@@ -6,6 +6,7 @@ use App\Models\Project;
 use App\Models\ProjectBudget;
 use App\Models\ProjectMonitoringRecord;
 use App\Models\Proposal;
+use App\Models\QuarterlyMetrics;
 use App\Models\Role;
 use App\Models\SetupProgressReport;
 use App\Models\SetupProposal;
@@ -141,6 +142,56 @@ class SetupMonitoringProjectsTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('pagination.current_page', 2);
+    }
+
+    public function test_employee_and_market_classifications_survive_a_database_round_trip(): void
+    {
+        $project = $this->createProject('SETUP', 'active', 'Classification Test', 'Mati City');
+        $metric = QuarterlyMetrics::create([
+            'project_id' => $project->id,
+            'submitted_by' => $this->setupStaff->id,
+            'quarter' => 3,
+            'year' => 2026,
+            'submitted_at' => now(),
+        ]);
+
+        Sanctum::actingAs($this->setupStaff);
+
+        $this->postJson("/api/quarterly-metrics/{$metric->id}/employee/batch", [
+            'creates' => [[
+                'employee_name' => 'Youth Contractor',
+                'age' => 19,
+                'status' => 'Contract-Based',
+                'gender' => 'Female',
+                'sectoral_group' => 'None',
+                'sectoral_classification' => 'Youth',
+                'employment_type' => 'INDIRECT',
+                'days_of_attendance' => 20,
+                'salary_rate' => 500,
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('data.0.sectoral_classification', 'Youth')
+            ->assertJsonPath('data.0.employment_type', 'INDIRECT');
+
+        $this->postJson("/api/quarterly-metrics/{$metric->id}/market/batch", [
+            'creates' => [[
+                'market_name' => 'Export Buyer',
+                'market_type' => 'INTERNATIONAL',
+                'address' => 'Singapore',
+                'condition' => 'new',
+                'effective_date' => '2026-09-01',
+                'contact_person' => 'Buyer Contact',
+                'service' => 'Processed goods',
+                'volume' => '100 units',
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('data.0.market_type', 'INTERNATIONAL');
+
+        $this->getJson("/api/projects/{$project->id}/quarterly-metrics?quarter=3&year=2026")
+            ->assertOk()
+            ->assertJsonPath('data.0.employees.0.sectoral_classification', 'Youth')
+            ->assertJsonPath('data.0.employees.0.employment_type', 'INDIRECT')
+            ->assertJsonPath('data.0.market.0.market_type', 'INTERNATIONAL');
     }
 
     private function createProject(

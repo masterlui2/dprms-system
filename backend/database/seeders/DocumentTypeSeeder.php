@@ -275,6 +275,15 @@ class DocumentTypeSeeder extends Seeder
             $this->doc(['name' => 'Candidate Risk Register', 'set_number' => 'SET3', 'applicable_program' => 'BOTH', 'is_applicant_visible' => false]),
             $this->doc(['name' => 'SETI Scorecard', 'set_number' => 'SET3', 'applicable_program' => 'BOTH', 'is_applicant_visible' => false]),
 
+            // GIA Stage 01 internal review documents. These are separate from
+            // SETUP SET3 so the GIA review screen never displays SETUP files.
+            $this->doc(['name' => 'Endorsement Letter from C/PSTO', 'set_number' => 'GIA1', 'applicable_program' => 'GIA', 'is_applicant_visible' => false]),
+            $this->doc(['name' => 'RTEC Report', 'set_number' => 'GIA1', 'applicable_program' => 'GIA', 'is_applicant_visible' => false]),
+            $this->doc(['name' => 'SETI Scorecard', 'set_number' => 'GIA1', 'applicable_program' => 'GIA', 'is_applicant_visible' => false]),
+            $this->doc(['name' => 'GAD Checklist for S&T Interventions in MSMEs', 'set_number' => 'GIA1', 'applicable_program' => 'GIA', 'is_applicant_visible' => false]),
+            $this->doc(['name' => 'Notarized and Signed MOA', 'set_number' => 'GIA1', 'applicable_program' => 'GIA', 'is_applicant_visible' => false]),
+            $this->doc(['name' => 'Approved Line-Item Budget', 'set_number' => 'GIA1', 'applicable_program' => 'GIA', 'is_applicant_visible' => false]),
+
             // ---------------------------------------------------------
             // GIA1 — applicant-facing checklist (Core Documents, all proponent categories)
             // ---------------------------------------------------------

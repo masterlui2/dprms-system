@@ -14,11 +14,14 @@ class Employee extends Model
         'status',
         'gender',
         'sectoral_group',
+        'sectoral_classification',
+        'employment_type',
         'days_of_attendance',
         'salary_rate',
     ];
 
-    public function quarter():BelongsTo{
-        return $this->belongsTo(QuarterlyMetrics::class,'quarter_id');
+    public function quarter(): BelongsTo
+    {
+        return $this->belongsTo(QuarterlyMetrics::class, 'quarter_id');
     }
 }

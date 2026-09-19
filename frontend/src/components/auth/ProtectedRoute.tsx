@@ -8,7 +8,7 @@ export function ProtectedRoute({ children, module }: { children: ReactNode, modu
   const user = getMockUser()
 
   if (!user) return <Navigate replace to="/login" />
-  if (!canAccessModule(user.role, module, user.program)) return <Navigate replace to="/unauthorized" />
+  if (!canAccessModule(user.role, module, user.program, user.backendRole)) return <Navigate replace to="/unauthorized" />
 
   return children
 }

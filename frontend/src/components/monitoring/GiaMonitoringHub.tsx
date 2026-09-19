@@ -1,14 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
+  AlertCircle,
   ArrowLeft,
   BarChart3,
   Check,
   FileDown,
   LockKeyhole,
+  LoaderCircle,
   X,
 } from 'lucide-react'
 
 import { formatCurrency, type ProjectRecord } from '../../data/admin'
+import {
+  fetchGiaMonitoringReport,
+  saveGiaMonitoringReport,
+  type GiaMonitoringFormData,
+} from '../../services/giaMonitoringStore'
 import { GiaMonitoringForm } from './GiaMonitoringForm'
 
 interface Props {
@@ -30,10 +37,84 @@ export function GiaMonitoringHub({
     `${initialSemester === 1 ? '1st' : '2nd'} Semester ${initialYear}`,
   )
   const [showSummarySidebar, setShowSummarySidebar] = useState(false)
-  const [isAutoSaving] = useState(false)
-  const [lastSavedTime] = useState('just now')
+  const [reportData, setReportData] = useState<GiaMonitoringFormData | null>(null)
+  const [reportUpdatedAt, setReportUpdatedAt] = useState<string | null>(null)
+  const [isLoadingReport, setIsLoadingReport] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [savedAt, setSavedAt] = useState<Date | null>(null)
   const gia = project.gia
   const hasPersistedProject = project.backendId !== undefined
+  const selectedReportPeriod = useMemo(() => {
+    const yearMatch = selectedPeriod.match(/(\d{4})$/)
+    return {
+      semester: (selectedPeriod.startsWith('2nd') ? 2 : 1) as 1 | 2,
+      year: yearMatch ? Number(yearMatch[1]) : initialYear,
+    }
+  }, [initialYear, selectedPeriod])
+
+  useEffect(() => {
+    if (!project.backendId) {
+      setReportData(null)
+      setReportUpdatedAt(null)
+      return
+    }
+
+    let cancelled = false
+    setIsLoadingReport(true)
+    setReportData(null)
+    setReportUpdatedAt(null)
+    setSaveError(null)
+    setSavedAt(null)
+
+    fetchGiaMonitoringReport(
+      project.backendId,
+      selectedReportPeriod.year,
+      selectedReportPeriod.semester,
+    )
+      .then((report) => {
+        if (cancelled) return
+        setReportData(report?.form_data ?? null)
+        setReportUpdatedAt(report?.updated_at ?? null)
+      })
+      .catch((error) => {
+        console.error('Failed to load GIA monitoring report:', error)
+        if (!cancelled) setSaveError('Saved report could not be loaded. Please try again.')
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingReport(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [project.backendId, selectedReportPeriod.semester, selectedReportPeriod.year])
+
+  const handleSave = async (formData: GiaMonitoringFormData) => {
+    if (!project.backendId) {
+      setSaveError('This project is not connected to a server record.')
+      return
+    }
+
+    setIsSaving(true)
+    setSaveError(null)
+    try {
+      const saved = await saveGiaMonitoringReport(
+        project.backendId,
+        selectedReportPeriod.year,
+        selectedReportPeriod.semester,
+        formData,
+      )
+      setReportData(saved.form_data)
+      setReportUpdatedAt(saved.updated_at)
+      setSavedAt(new Date(saved.updated_at))
+    } catch (error) {
+      console.error('Failed to save GIA monitoring report:', error)
+      setSaveError('Changes were not saved. Please check the form and try again.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <div className="w-full space-y-4 pb-20 font-sans text-slate-900">
@@ -109,18 +190,35 @@ export function GiaMonitoringHub({
           {readOnly ? (
             <>
               <LockKeyhole className="size-3.5 text-[#285497]" />
-              <span>Provincial Director read-only view</span>
+              <span>Read-only monitoring view</span>
             </>
-          ) : isAutoSaving ? (
+          ) : isLoadingReport ? (
             <>
-              <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
-              <span>Saving draft...</span>
+              <LoaderCircle className="size-3.5 animate-spin text-[#285497]" />
+              <span>Loading saved report...</span>
             </>
-          ) : (
+          ) : isSaving ? (
+            <>
+              <LoaderCircle className="size-3.5 animate-spin text-[#285497]" />
+              <span>Saving changes...</span>
+            </>
+          ) : saveError ? (
+            <>
+              <AlertCircle className="size-3.5 text-rose-600" />
+              <span className="text-rose-700">{saveError}</span>
+            </>
+          ) : savedAt ? (
             <>
               <Check className="size-3 text-emerald-600" />
-              <span>Autosaved {lastSavedTime}</span>
+              <span>Saved at {savedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
             </>
+          ) : reportUpdatedAt ? (
+            <>
+              <Check className="size-3 text-emerald-600" />
+              <span>Last saved {new Date(reportUpdatedAt).toLocaleString()}</span>
+            </>
+          ) : (
+            <span>No saved report for this period</span>
           )}
         </div>
       </div>
@@ -128,11 +226,15 @@ export function GiaMonitoringHub({
       <div className="flex items-start gap-5">
         <div className="min-w-0 flex-1 overflow-hidden">
           <GiaMonitoringForm
+            key={`${project.backendId ?? project.id}-${selectedPeriod}-${reportUpdatedAt ?? 'new'}`}
             project={project}
             onBack={onBack || (() => {})}
             hideTopBar={true}
-            readOnly={readOnly}
+            readOnly={readOnly || isLoadingReport}
             selectedReportingPeriod={selectedPeriod}
+            initialData={reportData}
+            isSaving={isSaving}
+            onSave={handleSave}
           />
         </div>
 

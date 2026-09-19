@@ -225,8 +225,6 @@ export function ApprovalsPage() {
     else if (stage === 0) status = "Pending";
 
     return {
-      amount: 1500000,
-      completeness: 100,
       id: app.referenceNo,
       proposalId: app.proposalId, // numeric backend id, needed by ProposalDocumentsSection
       organization: app.organizationName,
@@ -234,16 +232,13 @@ export function ApprovalsPage() {
         app.program === "GIA"
           ? (app.proponentCategory || "HEI / SUC / LGU Proponent")
           : (app.businessType || "MSME Enterprise"),
-      proponentName: app.applicantName || "Maria Proponent",
+      proponentName: app.applicantName || "—",
       proponentRole:
         app.program === "GIA"
           ? "Project Leader / Researcher"
           : "Business Owner / Enterprise Lead",
       program: app.program as "SETUP" | "GIA",
-      reviewer:
-        app.program === "GIA"
-          ? "Felix GIA Focal"
-          : "Faith SETUP Focal",
+      reviewer: "Unassigned",
       stage,
       status,
       remarks: app.remarks,

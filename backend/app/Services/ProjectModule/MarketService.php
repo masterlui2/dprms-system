@@ -9,10 +9,9 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Override;
 
-class MarketService implements MarketServiceInterface{
-    public function __construct(protected MarketRepositoryInterface $marketRepository)
-    {
-    }
+class MarketService implements MarketServiceInterface
+{
+    public function __construct(protected MarketRepositoryInterface $marketRepository) {}
 
     #[Override]
     public function submit(int $quarterId, array $data): Market
@@ -20,6 +19,7 @@ class MarketService implements MarketServiceInterface{
         return $this->marketRepository->create([
             'quarter_id' => $quarterId,
             'market_name' => $data['market_name'],
+            'market_type' => $data['market_type'] ?? 'LOCAL',
             'address' => $data['address'],
             'condition' => $data['condition'],
             'effective_date' => $data['effective_date'],
@@ -38,20 +38,22 @@ class MarketService implements MarketServiceInterface{
     #[Override]
     public function update(int $id, array $data): Market
     {
-        $updated = $this->marketRepository->update($id,$data);
+        $updated = $this->marketRepository->update($id, $data);
         if (! $updated) {
-            abort(404,"Not Found");
+            abort(404, 'Not Found');
         }
+
         return $this->marketRepository->findById($id);
     }
 
     #[Override]
     public function batch(int $quarterId, array $creates, array $updates, array $deletes): Collection
     {
-        return DB::transaction(function () use ($quarterId,$creates,$updates,$deletes):Collection{
-            $createdRows = Collection::make($creates)->map(fn(array $item) => [
+        return DB::transaction(function () use ($quarterId, $creates, $updates, $deletes): Collection {
+            $createdRows = Collection::make($creates)->map(fn (array $item) => [
                 'quarter_id' => $quarterId,
                 'market_name' => $item['market_name'],
+                'market_type' => $item['market_type'] ?? 'LOCAL',
                 'address' => $item['address'],
                 'condition' => $item['condition'],
                 'effective_date' => $item['effective_date'],
@@ -62,16 +64,16 @@ class MarketService implements MarketServiceInterface{
 
             $created = $this->marketRepository->createMany($createdRows);
 
-            foreach($created as $i => $model){
-                if(isset($creates[$i]['temp_id'])){
-                    $model->setAttribute('temp_id',$creates[$i]['temp_id']);
+            foreach ($created as $i => $model) {
+                if (isset($creates[$i]['temp_id'])) {
+                    $model->setAttribute('temp_id', $creates[$i]['temp_id']);
                 }
             }
 
-            $updated = empty($updates) ? Collection::make() : $this->marketRepository->updateMany($quarterId,$updates);
+            $updated = empty($updates) ? Collection::make() : $this->marketRepository->updateMany($quarterId, $updates);
 
-            if(! empty($deletes)){
-                $this->marketRepository->deleteMany($quarterId,$deletes);
+            if (! empty($deletes)) {
+                $this->marketRepository->deleteMany($quarterId, $deletes);
             }
 
             return Collection::make($created->concat($updated)->values());

@@ -6,6 +6,7 @@ export { ROLE_LABEL } from '../config/permissions'
 
 export type MockUser = {
   id?: number;
+  backendRole?: string;
   applicationReference?: string;
   email: string;
   initials: string;
@@ -178,6 +179,7 @@ export const DEFAULT_REDIRECT_BY_ROLE: Record<UserRole, string> = {
   [ROLES.PROVINCIAL_DIRECTOR]: "/dashboard",
   [ROLES.RPMO]: "/dashboard",
   [ROLES.PROPONENT]: "/dashboard",
+  [ROLES.FINANCE_OFFICER]: "/dashboard",
 };
 
 export function getDefaultRedirect(user: MockUser) {

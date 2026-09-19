@@ -2,10 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\Document;
 use App\Models\Proposal;
-use App\Models\ProposalReviewLog;
+use App\Models\ProposalChecklistReview;
+use App\Models\ProposalChecklistSummary;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use Database\Seeders\DocumentChecklistTemplateSeeder;
+use Database\Seeders\DocumentTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -15,13 +20,19 @@ class ProposalReviewDecisionTest extends TestCase
     use RefreshDatabase;
 
     private User $reviewer;
+
     private User $focal;
+
     private User $applicant;
+
     private Proposal $proposal;
 
     protected function setUp(): void
     {
         parent::setUp();
+
+        $this->seed(DocumentChecklistTemplateSeeder::class);
+        $this->seed(DocumentTypeSeeder::class);
 
         $role = Role::create([
             'name' => 'Project Staff',
@@ -52,6 +63,41 @@ class ProposalReviewDecisionTest extends TestCase
             'title' => 'Test Project',
             'status' => 'SUBMITTED',
             'submitted_at' => now(),
+        ]);
+
+        $this->markChecklistReady();
+    }
+
+    private function markChecklistReady(): void
+    {
+        $checklist = app(DocumentChecklistServiceInterface::class)
+            ->getProposalChecklist($this->proposal->id);
+
+        collect($checklist['items'])->where('is_required', true)->each(function (array $item) {
+            $document = empty($item['document_type_id']) ? null : Document::create([
+                'proposal_id' => $this->proposal->id,
+                'document_type_id' => $item['document_type_id'],
+                'uploaded_by' => $this->focal->id,
+                'file_name' => $item['id'].'.pdf',
+                'file_path' => 'tests/'.$item['id'].'.pdf',
+                'status' => 'approved',
+            ]);
+            ProposalChecklistReview::create([
+                'proposal_id' => $this->proposal->id,
+                'template_item_id' => $item['template_id'],
+                'document_id' => $document?->id,
+                'is_present' => true,
+                'status' => 'Complied',
+                'reviewed_by' => $this->focal->id,
+                'reviewed_at' => now(),
+            ]);
+        });
+
+        ProposalChecklistSummary::create([
+            'proposal_id' => $this->proposal->id,
+            'is_completed' => true,
+            'completed_by' => $this->focal->id,
+            'completed_at' => now(),
         ]);
     }
 
@@ -168,6 +214,26 @@ class ProposalReviewDecisionTest extends TestCase
         ]);
     }
 
+    public function test_focal_cannot_endorse_with_unverified_required_documents(): void
+    {
+        $incomplete = Proposal::create([
+            'submitted_by' => $this->applicant->id,
+            'program_type' => 'SETUP',
+            'reference_number' => 'SETUP-INCOMPLETE-001',
+            'title' => 'Incomplete Project',
+            'status' => 'UNDER_VALIDATION',
+            'submitted_at' => now(),
+        ]);
+        Sanctum::actingAs($this->focal);
+
+        $this->putJson("/api/proposal/advance-stage/{$incomplete->id}", [
+            'status' => 'ENDORSED_TO_DIRECTOR',
+        ])->assertUnprocessable()
+            ->assertJsonPath('message', 'Verify every required pre-approval document before endorsement or approval.');
+
+        $this->assertSame('UNDER_VALIDATION', $incomplete->fresh()->status);
+    }
+
     public function test_unauthorized_user_cannot_make_decision(): void
     {
         Sanctum::actingAs($this->applicant);
@@ -210,6 +276,7 @@ class ProposalReviewDecisionTest extends TestCase
 
     public function test_director_approve_records_timestamp_and_reviewer_id(): void
     {
+        $this->proposal->update(['status' => 'ENDORSED_TO_DIRECTOR']);
         $directorRole = Role::create([
             'name' => 'Provincial Director',
             'code' => 'PROVINCIAL_DIRECTOR',
@@ -243,6 +310,7 @@ class ProposalReviewDecisionTest extends TestCase
 
     public function test_director_disapprove_records_timestamp_and_reviewer_id(): void
     {
+        $this->proposal->update(['status' => 'ENDORSED_TO_DIRECTOR']);
         $directorRole = Role::firstOrCreate(['code' => 'PROVINCIAL_DIRECTOR'], [
             'name' => 'Provincial Director',
             'program_type' => 'BOTH',

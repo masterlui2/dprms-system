@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ProposalStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class UpdateProposalStatusRequest extends FormRequest
 {
@@ -24,8 +26,8 @@ class UpdateProposalStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            "status" => "required|string|max:300",
-            "remarks" => "string|max:500"
+            'status' => ['required', Rule::in(ProposalStatus::reviewTransitions())],
+            'remarks' => ['nullable', 'string', 'max:500'],
         ];
     }
 }

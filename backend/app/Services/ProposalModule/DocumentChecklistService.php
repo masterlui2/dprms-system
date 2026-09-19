@@ -100,8 +100,11 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     ];
 
     public const STATUS_COMPLIED = 'Complied';
+
     public const STATUS_MISSING = 'Missing';
+
     public const STATUS_UNDER_REVIEW = 'Under Review';
+
     public const STATUS_NEEDS_REVISION = 'Needs Revision';
 
     public static function normalizeStatus(?string $status): string
@@ -128,7 +131,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     public function getProjectSummaries(?string $programType = null, ?string $search = null, int $perPage = 20): array
     {
         $program = $programType ? strtoupper($programType) : null;
-        $needle = $search ? '%' . strtolower(trim($search)) . '%' : null;
+        $needle = $search ? '%'.strtolower(trim($search)).'%' : null;
 
         $query = Proposal::query()
             ->whereRaw('UPPER(status) = ?', ['APPROVED'])
@@ -298,7 +301,9 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         $templates = $this->checklistRepository->getTemplatesByProgram($program);
         $existingReviews = $this->checklistRepository->getReviewsByProposalId($proposalId)->keyBy('template_item_id');
         $summary = $this->checklistRepository->getSummary($proposalId);
-        $allDocTypes = DocumentType::query()->select(['id', 'name', 'applicable_program'])->get();
+        $allDocTypes = DocumentType::query()
+            ->select(['id', 'name', 'applicable_program', 'set_number', 'is_applicant_visible'])
+            ->get();
 
         $uploadedDocs = $proposal->documents;
 
@@ -389,7 +394,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                         'name' => $matchedDoc->document_type->name,
                         'group' => $matchedDoc->document_type->group,
                     ] : null,
-                    'archived_versions' => $matchedDoc->archived_versions?->map(fn($v) => [
+                    'archived_versions' => $matchedDoc->archived_versions?->map(fn ($v) => [
                         'id' => $v->id,
                         'file_name' => $v->file_name,
                         'file_path' => $v->file_path,
@@ -446,7 +451,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 'reviewed_at' => now(),
             ]);
 
-            if (!empty($data['document_id'])) {
+            if (! empty($data['document_id'])) {
                 $docStatus = match ($data['status'] ?? '') {
                     self::STATUS_COMPLIED => 'approved',
                     self::STATUS_NEEDS_REVISION => 'returned_for_revision',
@@ -470,7 +475,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 $action,
                 $template->document_name,
                 null,
-                "Status updated to {$data['status']}. Remarks: " . ($data['remarks'] ?? 'None')
+                "Status updated to {$data['status']}. Remarks: ".($data['remarks'] ?? 'None')
             );
 
             return $review;
@@ -487,10 +492,10 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 ]);
             }
 
-            if (!empty($payload['items']) && is_array($payload['items'])) {
+            if (! empty($payload['items']) && is_array($payload['items'])) {
                 foreach ($payload['items'] as $item) {
                     $templateId = $item['template_id'] ?? null;
-                    if (!$templateId && !empty($item['id'])) {
+                    if (! $templateId && ! empty($item['id'])) {
                         $template = DocumentChecklistTemplate::query()
                             ->where('item_code', $item['id'])
                             ->first();
@@ -547,6 +552,19 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     #[Override]
     public function completeReview(int $proposalId, ?string $finalRemarks, int $userId): ProposalChecklistSummary
     {
+        $checklist = $this->getProposalChecklist($proposalId);
+
+        abort_if(
+            ($checklist['total_required'] ?? 0) < 1,
+            422,
+            'The proposal has no required checklist items configured.',
+        );
+        abort_if(
+            ($checklist['complied_count'] ?? 0) < ($checklist['total_required'] ?? 0),
+            422,
+            'All required checklist items must be present and marked Complied before completing the review.',
+        );
+
         return DB::transaction(function () use ($proposalId, $finalRemarks, $userId) {
             $summary = $this->checklistRepository->updateOrCreateSummary($proposalId, [
                 'overall_remarks' => $finalRemarks,
@@ -664,30 +682,30 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
             return true;
         }
 
-        if (!empty($rules['business_types']) && is_array($rules['business_types'])) {
+        if (! empty($rules['business_types']) && is_array($rules['business_types'])) {
             $bizType = $context['business_type'] ?? '';
-            if (!in_array($bizType, $rules['business_types'], true)) {
+            if (! in_array($bizType, $rules['business_types'], true)) {
                 return false;
             }
         }
 
-        if (!empty($rules['space_ownership'])) {
+        if (! empty($rules['space_ownership'])) {
             $space = $context['space_ownership'] ?? '';
             if (strcasecmp($space, $rules['space_ownership']) !== 0) {
                 return false;
             }
         }
 
-        if (!empty($rules['org_types']) && is_array($rules['org_types'])) {
+        if (! empty($rules['org_types']) && is_array($rules['org_types'])) {
             $orgType = $context['org_type'] ?? '';
-            if (!in_array($orgType, $rules['org_types'], true)) {
+            if (! in_array($orgType, $rules['org_types'], true)) {
                 return false;
             }
         }
 
         if (isset($rules['has_equipment']) && $rules['has_equipment'] === true) {
             $hasEquipment = $context['has_equipment'] ?? true;
-            if (!$hasEquipment) {
+            if (! $hasEquipment) {
                 return false;
             }
         }
@@ -697,24 +715,26 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
 
     public static function normalizeText(?string $value): string
     {
-        if (!$value) {
+        if (! $value) {
             return '';
         }
         $cleaned = preg_replace('/^[a-z0-9]+[\.\)]\s*/i', '', $value);
         $cleaned = preg_replace('/[^a-z0-9]+/i', ' ', (string) $cleaned);
+
         return trim(strtolower((string) $cleaned));
     }
 
     protected function resolveDocumentTypeId(string $itemCode, string $program, Collection $allDocTypes): ?int
     {
         $targetName = self::TEMPLATE_CODE_TO_DOC_TYPE_NAME[$itemCode] ?? null;
-        if (!$targetName) {
+        if (! $targetName) {
             return null;
         }
 
-        $matched = $allDocTypes->first(function (DocumentType $dt) use ($targetName, $program) {
-            return $dt->name === $targetName && in_array($dt->applicable_program, [$program, 'BOTH'], true);
-        });
+        $matched = $allDocTypes->first(fn (DocumentType $dt) => $dt->name === $targetName
+            && $dt->applicable_program === $program)
+            ?? $allDocTypes->first(fn (DocumentType $dt) => $dt->name === $targetName
+                && $dt->applicable_program === 'BOTH');
 
         return $matched?->id ?? $allDocTypes->firstWhere('name', $targetName)?->id;
     }
@@ -787,6 +807,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 if (! in_array($doc->document_type->applicable_program, [$program, 'BOTH'], true)) {
                     return false;
                 }
+
                 return strcasecmp(trim($doc->document_type->name), trim($canonicalName)) === 0;
             });
 

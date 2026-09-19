@@ -1,785 +1,236 @@
-import {
-  BarChart3,
-  Check,
-  Download,
-  Filter,
-  FileBarChart,
-  FileSpreadsheet,
-  History,
-  Printer,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
-import { useState, type ComponentType } from "react";
+import { BarChart3, Download, FileCheck2, FolderKanban, Loader2, PackageSearch, Printer } from "lucide-react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 
-import { AdminPanel } from "../../components/admin/AdminPanel";
 import { DataTable, type DataColumn } from "../../components/admin/DataTable";
-import { StatusPill } from "../../components/admin/StatusPill";
-import {
-  generatedReports,
-  predictions,
-  reportCatalog,
-  type PredictionRecord,
-} from "../../data/admin";
+import api from "../../lib/axios";
 import { getMockUser } from "../../lib/mockAuth";
 import { downloadBlob, getAuthorizedDownloadPrograms } from "../../services/downloadManager";
 import type { ApplicationProgram } from "../../types/application";
 
-type AnalyticsScope = "all" | "equipment" | "finance" | "gia";
+interface ReportProject {
+  id: number;
+  reference_number: string | null;
+  title: string | null;
+  program: ApplicationProgram;
+  status: string;
+  reports_count: number;
+  updated_at: string | null;
+}
 
-const reportStats = reportCatalog.map((report, index) => {
-  const generatedCount =
-    index === 0 ? 8 : index === 1 ? 5 : index === 2 ? 3 : 2;
-
-  return {
-    ...report,
-    generatedCount,
-    share: Math.round((generatedCount / 18) * 100),
+interface ReportDashboard {
+  year: number;
+  programs: ApplicationProgram[];
+  summary: {
+    proposals: number;
+    projects: number;
+    equipment: number;
+    reports: number;
+    submitted_reports: number;
+    draft_reports: number;
+    submission_rate: number;
   };
-});
+  projects: ReportProject[];
+  generated_at: string;
+}
 
-interface AnalyticsCard {
-  detail: string;
+interface SummaryCardProps {
   icon: ComponentType<{ className?: string }>;
-  iconTone: string;
   label: string;
-  trend: string;
-  trendTone: string;
-  value: string;
+  value: number | string;
+  detail: string;
 }
 
-interface AnalyticsSummary {
-  cards: AnalyticsCard[];
-  completionLabel: string;
-  completionRate: number;
-  completionTarget: string;
-  completionValue: string;
-  growthMessage: string;
-  newReports: string;
-  stats: Array<{
-    count: string;
-    label: string;
-  }>;
-}
-
-const analyticsScopes: Array<{ label: string; value: AnalyticsScope }> = [
-  { label: "All analytics", value: "all" },
-  { label: "Equipment", value: "equipment" },
-  { label: "Finance", value: "finance" },
-  { label: "GIA Projects", value: "gia" },
-];
-
-const dateRanges = ["Last 7 days", "Last 30 days", "This quarter", "This year"];
-
-function escapePdfText(value: string): string {
-  return value.replace(/([\\()])/g, "\\$1").replace(/[^\x20-\x7e]/g, "?");
-}
-
-function createSimplePdf(lines: string[]): Blob {
-  const textCommands = lines
-    .slice(0, 20)
-    .map((line, index) => `BT /F1 ${index === 0 ? 16 : 11} Tf 54 ${750 - index * 28} Td (${escapePdfText(line)}) Tj ET`)
-    .join("\n");
-  const objects = [
-    "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
-    "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >> endobj",
-    `4 0 obj << /Length ${textCommands.length} >> stream\n${textCommands}\nendstream endobj`,
-    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-  ];
-  let pdf = "%PDF-1.4\n";
-  const offsets = [0];
-  for (const object of objects) {
-    offsets.push(pdf.length);
-    pdf += `${object}\n`;
-  }
-  const xrefOffset = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  pdf += offsets.slice(1).map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
-  pdf += `trailer << /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
-  return new Blob([pdf], { type: "application/pdf" });
-}
-
-const defaultCards: AnalyticsCard[] = [
-  {
-    label: "Total Reports",
-    value: "21.2k",
-    detail: "Generated records",
-    trend: "+12.7%",
-    trendTone: "text-emerald-600",
-    icon: FileBarChart,
-    iconTone: "bg-blue-50 text-[#0f53b7]",
-  },
-  {
-    label: "Templates Used",
-    value: "1.6k",
-    detail: "Report requests",
-    trend: "+112.7%",
-    trendTone: "text-emerald-600",
-    icon: FileSpreadsheet,
-    iconTone: "bg-violet-50 text-violet-600",
-  },
-  {
-    label: "Pending Review",
-    value: "826",
-    detail: "Needs validation",
-    trend: "-24.2%",
-    trendTone: "text-red-500",
-    icon: History,
-    iconTone: "bg-amber-50 text-amber-600",
-  },
-  {
-    label: "Compliance Rate",
-    value: "18.2%",
-    detail: "Engagement rate",
-    trend: "+112.7%",
-    trendTone: "text-emerald-600",
-    icon: BarChart3,
-    iconTone: "bg-emerald-50 text-emerald-600",
-  },
-];
-
-const analyticsSummaries: Record<AnalyticsScope, AnalyticsSummary> = {
-  all: {
-    cards: defaultCards,
-    completionLabel: "Report Completion",
-    completionRate: 77,
-    completionTarget: "77% of 36,000 target",
-    completionValue: "29.2k",
-    growthMessage: "With 22.8% growth rate we are steadily growing our reports.",
-    newReports: "12.8k new reports",
-    stats: reportStats.map((report) => ({
-      count: `${report.generatedCount} reports`,
-      label: report.category,
-    })),
-  },
-  equipment: {
-    cards: [
-      {
-        label: "Total Equipment",
-        value: "2.4k",
-        detail: "Tracked assets",
-        trend: "+8.4%",
-        trendTone: "text-emerald-600",
-        icon: FileBarChart,
-        iconTone: "bg-blue-50 text-[#0f53b7]",
-      },
-      {
-        label: "Issued Assets",
-        value: "1.1k",
-        detail: "Currently deployed",
-        trend: "+15.2%",
-        trendTone: "text-emerald-600",
-        icon: FileSpreadsheet,
-        iconTone: "bg-violet-50 text-violet-600",
-      },
-      {
-        label: "Needs Inspection",
-        value: "142",
-        detail: "For follow-up",
-        trend: "-6.8%",
-        trendTone: "text-red-500",
-        icon: History,
-        iconTone: "bg-amber-50 text-amber-600",
-      },
-      {
-        label: "Scan Compliance",
-        value: "91.6%",
-        detail: "QR scan coverage",
-        trend: "+9.1%",
-        trendTone: "text-emerald-600",
-        icon: BarChart3,
-        iconTone: "bg-emerald-50 text-emerald-600",
-      },
-    ],
-    completionLabel: "Equipment Accountability",
-    completionRate: 84,
-    completionTarget: "84% of assigned assets verified",
-    completionValue: "2.0k",
-    growthMessage: "Equipment scans are improving as more assets are validated.",
-    newReports: "2.4k asset records",
-    stats: [
-      { label: "Issued", count: "1.1k assets" },
-      { label: "In storage", count: "740 assets" },
-      { label: "Returned", count: "412 assets" },
-      { label: "For repair", count: "142 assets" },
-    ],
-  },
-  finance: {
-    cards: [
-      {
-        label: "Total Allocation",
-        value: "₱42.8M",
-        detail: "Approved budget",
-        trend: "+10.5%",
-        trendTone: "text-emerald-600",
-        icon: FileBarChart,
-        iconTone: "bg-blue-50 text-[#0f53b7]",
-      },
-      {
-        label: "Utilized Funds",
-        value: "₱31.4M",
-        detail: "Released and spent",
-        trend: "+18.7%",
-        trendTone: "text-emerald-600",
-        icon: FileSpreadsheet,
-        iconTone: "bg-violet-50 text-violet-600",
-      },
-      {
-        label: "For Validation",
-        value: "₱4.2M",
-        detail: "Pending documents",
-        trend: "-11.2%",
-        trendTone: "text-red-500",
-        icon: History,
-        iconTone: "bg-amber-50 text-amber-600",
-      },
-      {
-        label: "Utilization Rate",
-        value: "73.4%",
-        detail: "Portfolio burn rate",
-        trend: "+7.9%",
-        trendTone: "text-emerald-600",
-        icon: BarChart3,
-        iconTone: "bg-emerald-50 text-emerald-600",
-      },
-    ],
-    completionLabel: "Finance Utilization",
-    completionRate: 73,
-    completionTarget: "73% of allocated budget utilized",
-    completionValue: "₱31.4M",
-    growthMessage: "Validated releases are increasing while pending items decline.",
-    newReports: "₱4.2M pending validation",
-    stats: [
-      { label: "Released", count: "₱31.4M" },
-      { label: "Obligated", count: "₱7.2M" },
-      { label: "For validation", count: "₱4.2M" },
-      { label: "Remaining", count: "₱11.4M" },
-    ],
-  },
-  gia: {
-    cards: [
-      {
-        label: "GIA Projects",
-        value: "18",
-        detail: "Total monitored",
-        trend: "+5.6%",
-        trendTone: "text-emerald-600",
-        icon: FileBarChart,
-        iconTone: "bg-blue-50 text-[#0f53b7]",
-      },
-      {
-        label: "Active Grants",
-        value: "12",
-        detail: "Under implementation",
-        trend: "+9.4%",
-        trendTone: "text-emerald-600",
-        icon: FileSpreadsheet,
-        iconTone: "bg-violet-50 text-violet-600",
-      },
-      {
-        label: "Pending Review",
-        value: "4",
-        detail: "Needs action",
-        trend: "-18.0%",
-        trendTone: "text-red-500",
-        icon: History,
-        iconTone: "bg-amber-50 text-amber-600",
-      },
-      {
-        label: "Compliance Rate",
-        value: "88.5%",
-        detail: "Report compliance",
-        trend: "+12.1%",
-        trendTone: "text-emerald-600",
-        icon: BarChart3,
-        iconTone: "bg-emerald-50 text-emerald-600",
-      },
-    ],
-    completionLabel: "GIA Project Compliance",
-    completionRate: 89,
-    completionTarget: "89% of GIA requirements complete",
-    completionValue: "16/18",
-    growthMessage: "GIA projects are moving steadily through required reporting.",
-    newReports: "16 compliant projects",
-    stats: [
-      { label: "Research", count: "6 projects" },
-      { label: "Community", count: "5 projects" },
-      { label: "Training", count: "4 projects" },
-      { label: "S&T Intervention", count: "3 projects" },
-    ],
-  },
-};
-
-const predictionColumns: DataColumn<PredictionRecord>[] = [
-  {
-    id: "enterprise",
-    header: "Enterprise",
-    sortValue: (prediction) => prediction.enterprise,
-    render: (prediction) => (
-      <div>
-        <p className="font-bold text-slate-900">{prediction.enterprise}</p>
-        <p className="mt-1 text-xs text-slate-500">{prediction.projectId}</p>
-      </div>
-    ),
-  },
-  {
-    id: "growth",
-    header: "Growth",
-    sortValue: (prediction) => prediction.growth,
-    render: (prediction) => (
-      <StatusPill
-        tone={
-          prediction.growth === "Expanding"
-            ? "success"
-            : prediction.growth === "Declining"
-              ? "danger"
-              : "neutral"
-        }
-      >
-        {prediction.growth}
-      </StatusPill>
-    ),
-  },
-  {
-    id: "sustainability",
-    header: "Sustainability",
-    sortValue: (prediction) => prediction.sustainability,
-    render: (prediction) => (
-      <span className="font-semibold text-slate-700">
-        {prediction.sustainability}
-      </span>
-    ),
-  },
-  {
-    id: "risk",
-    header: "Risk Score",
-    sortValue: (prediction) => prediction.riskScore,
-    render: (prediction) => (
-      <div className="flex items-center gap-2">
-        <div className="h-2 w-20 overflow-hidden rounded-full bg-slate-100">
-          <div
-            className={
-              prediction.riskScore >= 70
-                ? "h-full bg-red-500"
-                : prediction.riskScore >= 45
-                  ? "h-full bg-amber-500"
-                  : "h-full bg-emerald-500"
-            }
-            style={{ width: `${prediction.riskScore}%` }}
-          />
+function SummaryCard({ icon: Icon, label, value, detail }: SummaryCardProps) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">{label}</p>
+          <p className="mt-2 text-2xl font-black text-slate-900">{value}</p>
+          <p className="mt-1 text-xs text-slate-500">{detail}</p>
         </div>
-        <span className="text-xs font-black text-slate-700">
-          {prediction.riskScore}
+        <span className="grid size-10 place-items-center rounded-xl bg-blue-50 text-[#0f5cc0]">
+          <Icon className="size-5" />
         </span>
       </div>
-    ),
-  },
-  {
-    id: "recommendation",
-    header: "Recommendation",
-    sortValue: (prediction) => prediction.recommendation,
-    render: (prediction) => (
-      <StatusPill
-        tone={
-          prediction.recommendation === "Renewal recommended"
-            ? "success"
-            : prediction.recommendation === "At risk"
-              ? "danger"
-              : "warning"
-        }
-      >
-        {prediction.recommendation}
-      </StatusPill>
-    ),
-  },
-];
+    </div>
+  );
+}
+
+function formatDate(value: string | null): string {
+  if (!value) return "—";
+  return new Date(value).toLocaleDateString("en-PH", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
 
 export function ReportsPage() {
-  const currentUser = getMockUser();
-  const [analyticsScope, setAnalyticsScope] = useState<AnalyticsScope>("all");
-  const [dateRange, setDateRange] = useState("Last 30 days");
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const user = getMockUser();
+  const currentYear = new Date().getFullYear();
+  const [year, setYear] = useState(currentYear);
+  const [program, setProgram] = useState<"ALL" | ApplicationProgram>("ALL");
+  const [dashboard, setDashboard] = useState<ReportDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
-  const analytics = analyticsSummaries[analyticsScope];
-  const activeFilterCount =
-    (analyticsScope === "all" ? 0 : 1) + (dateRange === "Last 30 days" ? 0 : 1);
-  const selectedScopeLabel =
-    analyticsScopes.find((scope) => scope.value === analyticsScope)?.label ??
-    "All analytics";
 
-  function printAnalytics() {
-    setFiltersOpen(false);
-    window.requestAnimationFrame(() => window.print());
-  }
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
 
-  async function downloadGeneratedReport(report: (typeof generatedReports)[number]) {
-    if (!currentUser) return;
-    const programs = getAuthorizedDownloadPrograms(currentUser);
-    const inferredProgram: ApplicationProgram = report.title.toUpperCase().includes("GIA")
-      ? "GIA"
-      : report.title.toUpperCase().includes("SETUP")
-        ? "SETUP"
-        : programs[0];
-    const program = programs.includes(inferredProgram) ? inferredProgram : programs[0];
-    const baseName = report.title.replace(/[^a-z0-9]+/gi, "_").replace(/^_|_$/g, "");
-    const reportLines = [
-      report.title,
-      `Report ID: ${report.id}`,
-      `Program: ${program}`,
-      `Generated: ${report.generated}`,
-      `Owner: ${report.owner}`,
-      `Scope: ${selectedScopeLabel}`,
-      `Date range: ${dateRange}`,
+    api
+      .get<{ data: ReportDashboard }>("/reports/dashboard", {
+        params: { year, ...(program === "ALL" ? {} : { program }) },
+      })
+      .then((response) => {
+        if (!cancelled) setDashboard(response.data.data);
+      })
+      .catch((requestError) => {
+        console.error("Failed to load report dashboard:", requestError);
+        if (!cancelled) setError("The report data could not be loaded. Please try again.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [program, year]);
+
+  useEffect(() => {
+    if (dashboard && program !== "ALL" && !dashboard.programs.includes(program)) setProgram("ALL");
+  }, [dashboard, program]);
+
+  const columns = useMemo<DataColumn<ReportProject>[]>(
+    () => [
+      {
+        id: "reference",
+        header: "Reference",
+        sortValue: (row) => row.reference_number ?? "",
+        render: (row) => (
+          <span className="font-mono text-xs font-bold text-[#0b4f9c]">
+            {row.reference_number ?? `PROJECT-${row.id}`}
+          </span>
+        ),
+      },
+      {
+        id: "project",
+        header: "Project",
+        sortValue: (row) => row.title ?? "",
+        render: (row) => <span className="font-semibold text-slate-800">{row.title ?? "Untitled project"}</span>,
+      },
+      {
+        id: "program",
+        header: "Program",
+        sortValue: (row) => row.program,
+        render: (row) => <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#0f5cc0]">{row.program}</span>,
+      },
+      {
+        id: "reports",
+        header: "Reports",
+        sortValue: (row) => row.reports_count,
+        render: (row) => <span className="font-bold text-slate-700">{row.reports_count}</span>,
+      },
+      {
+        id: "status",
+        header: "Status",
+        sortValue: (row) => row.status,
+        render: (row) => <span className="capitalize text-slate-600">{row.status.replaceAll("_", " ").toLowerCase()}</span>,
+      },
+      {
+        id: "updated",
+        header: "Updated",
+        sortValue: (row) => row.updated_at ?? "",
+        render: (row) => <span className="text-slate-500">{formatDate(row.updated_at)}</span>,
+      },
+    ],
+    [],
+  );
+
+  async function exportCsv() {
+    if (!dashboard || !user) return;
+
+    const rows = [
+      ["Reference", "Project", "Program", "Status", "Reports", "Updated"],
+      ...dashboard.projects.map((projectRow) => [
+        projectRow.reference_number ?? `PROJECT-${projectRow.id}`,
+        projectRow.title ?? "Untitled project",
+        projectRow.program,
+        projectRow.status,
+        String(projectRow.reports_count),
+        projectRow.updated_at ?? "",
+      ]),
     ];
-    const isPdf = report.format === "PDF";
-    const blob = isPdf
-      ? createSimplePdf(reportLines)
-      : new Blob(
-          [`Field,Value\n${reportLines.map((line) => {
-            const [field, ...value] = line.split(": ");
-            return `"${field.replace(/"/g, '""')}","${value.join(": ").replace(/"/g, '""')}"`;
-          }).join("\n")}`],
-          { type: "text/csv;charset=utf-8" },
-        );
+    const csv = rows.map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(",")).join("\n");
+    const programs = getAuthorizedDownloadPrograms(user);
+    const destinationProgram = program === "ALL" ? programs[0] : program;
+
     try {
       const result = await downloadBlob({
-        blob,
-        fileName: `${baseName}.${isPdf ? "pdf" : "csv"}`,
-        program,
-        user: currentUser,
+        blob: new Blob([csv], { type: "text/csv;charset=utf-8" }),
+        fileName: `DPRMS_Report_${program}_${year}.csv`,
+        program: destinationProgram,
+        user,
       });
       setDownloadNotice(`Saved to ${result.destination}`);
-    } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
-        setDownloadNotice("The report could not be downloaded. Please try again.");
-      }
+    } catch (downloadError) {
+      if (!(downloadError instanceof DOMException && downloadError.name === "AbortError")) setDownloadNotice("The report could not be downloaded.");
     }
   }
 
   return (
-    <div className="space-y-7">
-      <section className="printable-analytics rounded-2xl border border-[#d8e1ee] bg-[#f5f8fc] p-5 shadow-[0_14px_36px_-32px_rgba(15,23,42,0.75)]">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-5">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-lg font-black text-slate-800">
-              Analytics Overview
-            </h2>
-            <p className="mt-1 text-xs font-semibold text-slate-500">
-              {selectedScopeLabel} - {dateRange}
-            </p>
-            <p className="print-only mt-1 text-xs font-semibold text-slate-500">
-              Printed analytics report
-            </p>
+            <h1 className="text-xl font-black text-slate-900">Reports</h1>
+            <p className="mt-1 text-sm text-slate-500">Live project and reporting data for your authorized records.</p>
           </div>
-
-          <div className="print-hidden flex items-center gap-2">
-            <button
-              aria-label="Print selected analytics"
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-white px-3 text-xs font-bold text-[#073b82] shadow-sm ring-1 ring-slate-200 transition hover:bg-blue-50"
-              onClick={printAnalytics}
-              type="button"
-            >
-              <Printer className="size-4" />
-              <span>Print</span>
-            </button>
-
-            <div className="relative">
-            <button
-              aria-expanded={filtersOpen}
-              aria-label="Filter analytics"
-              className="relative inline-flex h-10 items-center gap-2 rounded-lg bg-white px-3 text-xs font-bold text-[#073b82] shadow-sm ring-1 ring-slate-200 transition hover:bg-blue-50"
-              onClick={() => setFiltersOpen((open) => !open)}
-              type="button"
-            >
-              <Filter className="size-4" />
-              <span>Filters</span>
-              {activeFilterCount > 0 ? (
-                <span className="grid size-5 place-items-center rounded-full bg-[#f4c542] text-[11px] font-black text-[#073b82]">
-                  {activeFilterCount}
-                </span>
-              ) : null}
-            </button>
-
-            {filtersOpen ? (
-              <div className="absolute right-0 top-12 z-30 w-[320px] overflow-hidden rounded-xl border border-[#d8e1ee] bg-white shadow-xl shadow-slate-900/10">
-                <div className="border-b border-slate-100 px-4 py-3">
-                  <p className="text-sm font-black text-[#073b82]">
-                    Filter analytics
-                  </p>
-                  <p className="mt-0.5 text-xs text-slate-500">
-                    Choose the report area and period to view.
-                  </p>
-                </div>
-
-                <div className="p-3">
-                  <p className="px-1 pb-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                    Analytics area
-                  </p>
-                  <div className="grid gap-1">
-                    {analyticsScopes.map((scope) => (
-                      <button
-                        className={`flex h-9 items-center justify-between rounded-lg px-3 text-left text-sm font-bold transition ${
-                          analyticsScope === scope.value
-                            ? "bg-blue-50 text-[#073b82]"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                        key={scope.value}
-                        onClick={() => setAnalyticsScope(scope.value)}
-                        type="button"
-                      >
-                        <span>{scope.label}</span>
-                        {analyticsScope === scope.value ? (
-                          <Check className="size-4" />
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="border-t border-slate-100 p-3">
-                  <p className="px-1 pb-2 text-xs font-black uppercase tracking-wide text-slate-400">
-                    Date range
-                  </p>
-                  <div className="grid gap-1">
-                    {dateRanges.map((range) => (
-                      <button
-                        className={`flex h-9 items-center justify-between rounded-lg px-3 text-left text-sm font-bold transition ${
-                          dateRange === range
-                            ? "bg-blue-50 text-[#073b82]"
-                            : "text-slate-600 hover:bg-slate-50"
-                        }`}
-                        key={range}
-                        onClick={() => setDateRange(range)}
-                        type="button"
-                      >
-                        <span>{range}</span>
-                        {dateRange === range ? (
-                          <Check className="size-4" />
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {activeFilterCount > 0 ? (
-                  <div className="border-t border-slate-100 bg-slate-50 px-3 py-3">
-                    <button
-                      className="h-9 w-full rounded-lg text-sm font-black text-[#073b82] transition hover:bg-white"
-                      onClick={() => {
-                        setAnalyticsScope("all");
-                        setDateRange("Last 30 days");
-                      }}
-                      type="button"
-                    >
-                      Clear filters
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            </div>
+          <div className="print-hidden flex flex-wrap gap-2">
+            <select aria-label="Program" className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700" onChange={(event) => setProgram(event.target.value as "ALL" | ApplicationProgram)} value={program}>
+              <option value="ALL">All programs</option>
+              {(dashboard?.programs ?? []).map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+            <select aria-label="Reporting year" className="h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700" onChange={(event) => setYear(Number(event.target.value))} value={year}>
+              {[currentYear, currentYear - 1, currentYear - 2, currentYear - 3].map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+            <button className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm font-bold text-slate-700 hover:bg-slate-50" onClick={() => window.print()} type="button"><Printer className="size-4" /> Print</button>
+            <button className="inline-flex h-10 items-center gap-2 rounded-lg bg-[#0f5cc0] px-3 text-sm font-bold text-white hover:bg-[#0b4f9c] disabled:opacity-50" disabled={!dashboard} onClick={exportCsv} type="button"><Download className="size-4" /> Export CSV</button>
           </div>
         </div>
-
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {analytics.cards.map((card) => (
-            <article
-              className="group flex min-w-0 items-center justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white p-4.5 shadow-[0_4px_20px_-4px_rgba(15,23,42,0.05)] transition-all duration-200 hover:border-slate-300 hover:shadow-[0_8px_30px_-6px_rgba(15,23,42,0.08)]"
-              key={card.label}
-            >
-              <div className="flex min-w-0 items-center gap-3.5">
-                <span
-                  className={`flex size-10 shrink-0 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${card.iconTone}`}
-                >
-                  <card.icon className="size-5" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold leading-snug text-slate-800 line-clamp-2" title={card.label}>
-                    {card.label}
-                  </p>
-                  {card.detail ? (
-                    <p className="mt-0.5 text-xs font-medium leading-tight text-slate-400 line-clamp-1" title={card.detail}>
-                      {card.detail}
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="shrink-0 text-right">
-                <p className="numeric-value whitespace-nowrap text-2xl sm:text-3xl font-black leading-none tracking-tight text-slate-900 tabular-nums">
-                  {card.value}
-                </p>
-
-                {card.trend ? (
-                  <p
-                    className={`mt-1 inline-flex items-center gap-1 text-xs font-bold tabular-nums ${card.trendTone}`}
-                  >
-                    {card.trend.startsWith("+") ? (
-                      <TrendingUp className="size-3" />
-                    ) : (
-                      <TrendingDown className="size-3" />
-                    )}
-                    <span>{card.trend}</span>
-                  </p>
-                ) : null}
-              </div>
-            </article>
-          ))}
-        </div>
-
-        <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-          <article className="rounded-lg bg-white p-5 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.65)]">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-sm font-black text-slate-800">
-                {analytics.completionLabel}
-              </h3>
-              <button
-                aria-label="More report completion options"
-                className="print-hidden grid size-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
-                type="button"
-              >
-                ...
-              </button>
-            </div>
-            <div className="mt-6 flex justify-center">
-              <div
-                className="grid size-52 place-items-center rounded-full"
-                style={{
-                  background: `conic-gradient(#ff3838 0deg ${analytics.completionRate * 3.6}deg, #e5e7eb ${analytics.completionRate * 3.6}deg 360deg)`,
-                }}
-              >
-                <div className="grid size-36 place-items-center rounded-full bg-white">
-                  <div className="text-center">
-                    <p className="text-4xl font-black text-slate-800">
-                      {analytics.completionValue}
-                    </p>
-                    <p className="mt-2 text-xs font-semibold text-slate-500">
-                      {analytics.completionTarget}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article className="rounded-lg bg-white p-5 shadow-[0_16px_36px_-28px_rgba(15,23,42,0.65)]">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-black text-slate-800">
-                  Report Category Growth
-                </h3>
-                <p className="mt-1 flex items-center gap-2 text-xs font-semibold text-slate-500">
-                  <span className="size-2 rounded-sm bg-[#168cf2]" />
-                  {analytics.newReports}
-                </p>
-              </div>
-              <button
-                aria-label="More category growth options"
-                className="print-hidden grid size-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
-                type="button"
-              >
-                ...
-              </button>
-            </div>
-            <div className="relative mt-5">
-              <div className="absolute inset-x-0 top-[34%] border-t border-dashed border-slate-300" />
-              <span className="absolute right-0 top-[30%] bg-white pl-2 text-[10px] font-black uppercase text-slate-400">
-                Goal
-              </span>
-              <div className="absolute left-[46%] top-0 z-10 max-w-48 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold leading-5 text-white shadow-xl">
-                {analytics.growthMessage}
-              </div>
-              <div className="flex h-52 items-end gap-3 border-b border-slate-200 px-1 pt-14">
-                {[52, 34, 72, 48, 36, 58, 51, 82, 56, 49, 50, 35].map(
-                  (height, index) => (
-                    <div
-                      className="flex flex-1 items-end"
-                      key={`${height}-${index}`}
-                    >
-                      <span
-                        className={
-                          index === 2 || index === 7
-                            ? "w-full rounded-t-md bg-[#168cf2]"
-                            : "w-full rounded-t-md bg-slate-300"
-                        }
-                        style={{ height: `${height}%` }}
-                      />
-                    </div>
-                  ),
-                )}
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {analytics.stats.map((item) => (
-                <div
-                  className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2"
-                  key={item.label}
-                >
-                  <span className="text-xs font-bold text-slate-600">
-                    {item.label}
-                  </span>
-                  <span className="text-xs font-black text-[#073b82]">
-                    {item.count}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </article>
-        </div>
+        {downloadNotice ? <p className="mt-3 text-sm font-semibold text-[#0f5cc0]">{downloadNotice}</p> : null}
       </section>
 
-      <AdminPanel className="rounded-[28px]" title="Prediction assessments">
-        <DataTable
-          columns={predictionColumns}
-          data={predictions}
-          emptyTitle="No assessments available"
-          getRowKey={(prediction) => prediction.projectId}
-          initialRowsPerPage={5}
-          searchPlaceholder="Search enterprise, project, growth, or recommendation..."
-          searchText={(prediction) =>
-            `${prediction.enterprise} ${prediction.projectId} ${prediction.growth} ${prediction.sustainability} ${prediction.recommendation}`
-          }
-          variant="clean"
-        />
-      </AdminPanel>
-
-      <AdminPanel title="Recent reports">
-        {downloadNotice ? (
-          <div className="mx-5 mt-4 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-xs font-bold text-[#073b82]" role="status">
-            {downloadNotice}
-          </div>
-        ) : null}
-        <div className="divide-y divide-slate-100">
-          {generatedReports.map((report) => (
-            <article
-              className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center"
-              key={report.id}
-            >
-              <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600">
-                <FileBarChart className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="font-bold text-slate-900">{report.title}</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {report.id} - Generated {report.generated} by {report.owner}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <StatusPill tone="info">{report.format}</StatusPill>
-                <button
-                  aria-label={`Download ${report.title}`}
-                  className="inline-flex size-9 items-center justify-center rounded-lg border border-slate-200 text-[#0f53b7] transition hover:border-blue-300 hover:bg-blue-50"
-                  onClick={() => void downloadGeneratedReport(report)}
-                  type="button"
-                >
-                  <Download className="size-4" />
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </AdminPanel>
+      {loading ? (
+        <div className="grid min-h-64 place-items-center rounded-2xl border border-slate-200 bg-white"><div className="flex items-center gap-2 text-sm font-semibold text-slate-500"><Loader2 className="size-5 animate-spin" /> Loading live report data…</div></div>
+      ) : error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</div>
+      ) : dashboard ? (
+        <>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryCard icon={FolderKanban} label="Projects" value={dashboard.summary.projects} detail={`${dashboard.summary.proposals} proposal records`} />
+            <SummaryCard icon={FileCheck2} label="Reports" value={dashboard.summary.reports} detail={`${dashboard.summary.submitted_reports} submitted · ${dashboard.summary.draft_reports} drafts`} />
+            <SummaryCard icon={PackageSearch} label="Equipment" value={dashboard.summary.equipment} detail="Registered assets in scope" />
+            <SummaryCard icon={BarChart3} label="Submission rate" value={`${dashboard.summary.submission_rate}%`} detail={`For reporting year ${dashboard.year}`} />
+          </section>
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4"><h2 className="font-black text-slate-900">Project report activity</h2><p className="mt-1 text-sm text-slate-500">Only projects you are allowed to view are included.</p></div>
+            <DataTable
+              columns={columns}
+              data={dashboard.projects}
+              emptyDescription="No project reports were found for this selection."
+              emptyTitle="No report activity"
+              getRowKey={(row) => String(row.id)}
+              searchPlaceholder="Search projects…"
+              searchText={(row) => `${row.reference_number ?? ""} ${row.title ?? ""} ${row.program} ${row.status}`}
+            />
+          </section>
+        </>
+      ) : null}
     </div>
   );
 }

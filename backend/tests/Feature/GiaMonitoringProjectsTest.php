@@ -21,7 +21,9 @@ class GiaMonitoringProjectsTest extends TestCase
     use RefreshDatabase;
 
     private User $giaFocal;
+
     private User $director;
+
     private Role $focalRole;
 
     protected function setUp(): void
@@ -168,7 +170,9 @@ class GiaMonitoringProjectsTest extends TestCase
         $bothProgramFocal = User::factory()->create(['program_type' => 'BOTH']);
         $bothProgramFocal->role()->attach($this->focalRole->id, ['assigned_at' => now()]);
         Sanctum::actingAs($bothProgramFocal);
-        $this->getJson('/api/gia/monitoring/projects')->assertForbidden();
+        $this->getJson('/api/gia/monitoring/projects')
+            ->assertOk()
+            ->assertJsonPath('access.can_edit', true);
 
         $staffRole = Role::create([
             'name' => 'GIA Project Staff',
@@ -202,6 +206,89 @@ class GiaMonitoringProjectsTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('pagination.current_page', 2);
+    }
+
+    public function test_gia_focal_can_save_and_reload_a_semester_report(): void
+    {
+        $project = $this->createProject('GIA', 'active', 'Persistent GIA Agency');
+        Sanctum::actingAs($this->giaFocal);
+
+        $payload = [
+            'year' => 2026,
+            'semester' => 2,
+            'form_data' => [
+                'projectLeaderGender' => 'Dr. Test Lead (F)',
+                'agency' => 'Updated Persistent Agency',
+                'addressContact' => 'Mati City',
+                'cooperatingAgencies' => 'DOST XI',
+                'baseStation' => 'Davao Oriental',
+                'sitesOfImplementation' => 'Mati City',
+                'durationMonths' => 24,
+                'startDate' => 'Jan 15, 2026',
+                'endDate' => 'Jan 14, 2028',
+                'totalBudget' => 1500000,
+                'accomplishments' => [],
+                'catchUpPlan' => 'Complete delayed procurement.',
+                'outputs' => [],
+                'problemConcern' => 'Supplier delay',
+                'suggestedSolution' => 'Use the alternate supplier.',
+                'preparedBy' => 'Dr. Test Lead',
+                'reviewedBy' => 'PSTD',
+                'approvedBy' => 'Regional Director',
+            ],
+        ];
+
+        $this->putJson("/api/gia/monitoring/projects/{$project->id}/report", $payload)
+            ->assertOk()
+            ->assertJsonPath('data.form_data.agency', 'Updated Persistent Agency');
+
+        $this->getJson("/api/gia/monitoring/projects/{$project->id}/report?year=2026&semester=2")
+            ->assertOk()
+            ->assertJsonPath('data.form_data.problemConcern', 'Supplier delay')
+            ->assertJsonPath('data.reporting_period', '2nd Semester 2026');
+
+        $this->getJson("/api/gia/monitoring/projects/{$project->id}/report?year=2026&semester=1")
+            ->assertOk()
+            ->assertJsonPath('data', null);
+    }
+
+    public function test_read_only_roles_cannot_save_gia_monitoring_reports(): void
+    {
+        $project = $this->createProject('GIA', 'active', 'Read Only GIA Agency');
+        Sanctum::actingAs($this->director);
+
+        $this->putJson("/api/gia/monitoring/projects/{$project->id}/report", [
+            'year' => 2026,
+            'semester' => 1,
+            'form_data' => ['accomplishments' => [], 'outputs' => []],
+        ])->assertForbidden();
+    }
+
+    public function test_execom_member_can_open_but_cannot_edit_a_gia_monitoring_report(): void
+    {
+        $project = $this->createProject('GIA', 'active', 'ExeCom Review Agency');
+        $role = Role::create([
+            'name' => 'ExeCom Member',
+            'code' => 'EXECOM_MEMBER',
+            'program_type' => 'GIA',
+        ]);
+        $member = User::factory()->create(['program_type' => 'GIA']);
+        $member->role()->attach($role->id, ['assigned_at' => now()]);
+        Sanctum::actingAs($member);
+
+        $this->getJson('/api/gia/monitoring/projects')
+            ->assertOk()
+            ->assertJsonPath('access.read_only', true);
+
+        $this->getJson("/api/gia/monitoring/projects/{$project->id}/report?year=2026&semester=1")
+            ->assertOk()
+            ->assertJsonPath('data', null);
+
+        $this->putJson("/api/gia/monitoring/projects/{$project->id}/report", [
+            'year' => 2026,
+            'semester' => 1,
+            'form_data' => ['accomplishments' => [], 'outputs' => []],
+        ])->assertForbidden();
     }
 
     private function createProject(string $program, string $status, string $organization): Project

@@ -5,13 +5,23 @@ namespace Tests\Feature;
 use App\Models\Document;
 use App\Models\DocumentChecklistTemplate;
 use App\Models\DocumentType;
+use App\Models\GiaProposal;
 use App\Models\Proposal;
+use App\Models\ProposalChecklistReview;
 use App\Models\Role;
 use App\Models\SetupProposal;
 use App\Models\User;
 use App\Models\UserRole;
+use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use App\Services\Contracts\ProposalModule\DocumentsServiceInterface;
+use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use Database\Seeders\DocumentChecklistTemplateSeeder;
+use Database\Seeders\DocumentTypeSeeder;
+use Database\Seeders\RoleSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\TestCase;
 
 class DocumentChecklistTest extends TestCase
@@ -21,8 +31,9 @@ class DocumentChecklistTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(\Database\Seeders\RoleSeeder::class);
+        $this->seed(RoleSeeder::class);
         $this->seed(DocumentChecklistTemplateSeeder::class);
+        $this->seed(DocumentTypeSeeder::class);
     }
 
     public function test_can_fetch_checklist_templates(): void
@@ -223,6 +234,8 @@ class DocumentChecklistTest extends TestCase
             'reference_number' => 'PROP-2026-COMPL',
         ]);
 
+        $this->markRequiredItemsComplied($proposal, $user);
+
         $completeRes = $this->actingAs($user)->postJson("/api/proposals/{$proposal->id}/checklist/complete", [
             'final_remarks' => 'All mandatory documents verified.',
         ]);
@@ -235,6 +248,28 @@ class DocumentChecklistTest extends TestCase
         $historyRes->assertStatus(200);
         $historyRes->assertJsonPath('status', 'success');
         $this->assertNotEmpty($historyRes->json('data'));
+    }
+
+    public function test_incomplete_checklist_cannot_be_marked_complete(): void
+    {
+        $user = User::factory()->create();
+        $user->role()->attach(Role::where('code', 'FOCAL')->firstOrFail()->id, ['assigned_at' => now()]);
+        $proposal = Proposal::create([
+            'submitted_by' => $user->id,
+            'title' => 'Incomplete Checklist Project',
+            'program_type' => 'SETUP',
+            'status' => 'UNDER_VALIDATION',
+            'reference_number' => 'SETUP-INCOMPLETE-CHECKLIST',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson("/api/proposals/{$proposal->id}/checklist/complete")
+            ->assertUnprocessable();
+
+        $this->assertDatabaseMissing('proposal_checklist_summaries', [
+            'proposal_id' => $proposal->id,
+            'is_completed' => true,
+        ]);
     }
 
     public function test_setup_sole_proprietorship_vs_corporation_conditions(): void
@@ -311,7 +346,7 @@ class DocumentChecklistTest extends TestCase
             'status' => 'Submitted',
             'reference_number' => 'GIA-2026-HEI',
         ]);
-        \App\Models\GiaProposal::create([
+        GiaProposal::create([
             'proposal_id' => $giaHei->id,
             'proponent_category' => 'Higher Education Institution',
             'organization_name' => 'Davao Oriental State University',
@@ -329,7 +364,7 @@ class DocumentChecklistTest extends TestCase
             'status' => 'Submitted',
             'reference_number' => 'GIA-2026-NGO',
         ]);
-        \App\Models\GiaProposal::create([
+        GiaProposal::create([
             'proposal_id' => $giaNgo->id,
             'proponent_category' => 'Private Sector',
             'organization_name' => 'Davao NGO Foundation',
@@ -449,6 +484,7 @@ class DocumentChecklistTest extends TestCase
             'is_present' => true,
             'status' => 'Complied',
         ])->assertOk();
+        $this->markRequiredItemsComplied($proposal, $focal);
         $this->actingAs($focal)->postJson("/api/proposals/{$proposal->id}/checklist/complete", [
             'final_remarks' => 'Focal completed signoff',
         ])->assertOk();
@@ -474,7 +510,7 @@ class DocumentChecklistTest extends TestCase
             'status' => 'Submitted',
             'reference_number' => 'GIA-2026-NOEQUIP',
         ]);
-        \App\Models\GiaProposal::create([
+        GiaProposal::create([
             'proposal_id' => $giaNoEquip->id,
             'proponent_category' => 'Higher Education Institution',
             'organization_name' => 'DOSCST',
@@ -508,7 +544,7 @@ class DocumentChecklistTest extends TestCase
             'reference_number' => 'SETUP-2026-APPRV',
         ]);
 
-        \App\Models\SetupProposal::create([
+        SetupProposal::create([
             'proposal_id' => $proposal->id,
             'business_name' => 'Approved Agro-Industrial Enterprise',
             'business_type' => 'Sole Proprietorship',
@@ -522,14 +558,14 @@ class DocumentChecklistTest extends TestCase
             'space_ownership' => 'Owned',
         ]);
 
-        $docType = \App\Models\DocumentType::create([
+        $docType = DocumentType::create([
             'name' => 'DTI Registration',
             'applicable_program' => 'SETUP',
             'set_number' => 'SET1',
             'is_required' => true,
         ]);
 
-        \App\Models\Document::create([
+        Document::create([
             'proposal_id' => $proposal->id,
             'document_type_id' => $docType->id,
             'uploaded_by' => $user->id,
@@ -553,7 +589,7 @@ class DocumentChecklistTest extends TestCase
 
     public function test_document_reupload_preserves_previous_version_in_archive(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('local');
+        Storage::fake('local');
 
         $user = User::factory()->create();
         $staff = User::factory()->create();
@@ -568,7 +604,7 @@ class DocumentChecklistTest extends TestCase
             'reference_number' => 'SETUP-2026-VERS',
         ]);
 
-        \App\Models\SetupProposal::create([
+        SetupProposal::create([
             'proposal_id' => $proposal->id,
             'business_name' => 'Tech Foods Corp',
             'business_type' => 'Sole Proprietorship',
@@ -582,15 +618,15 @@ class DocumentChecklistTest extends TestCase
             'space_ownership' => 'Owned',
         ]);
 
-        $docType = \App\Models\DocumentType::create([
+        $docType = DocumentType::create([
             'name' => 'DTI Registration',
             'applicable_program' => 'SETUP',
             'set_number' => 'SET1',
             'is_required' => true,
         ]);
 
-        $fileV1 = \Illuminate\Http\UploadedFile::fake()->create('dti_permit_v1.pdf', 500, 'application/pdf');
-        $documentsService = app(\App\Services\Contracts\ProposalModule\DocumentsServiceInterface::class);
+        $fileV1 = UploadedFile::fake()->create('dti_permit_v1.pdf', 500, 'application/pdf');
+        $documentsService = app(DocumentsServiceInterface::class);
 
         $docV1 = $this->actingAs($user)->withoutMiddleware()->postJson('/api/documents', [
             'proposal_id' => $proposal->id,
@@ -600,7 +636,7 @@ class DocumentChecklistTest extends TestCase
         $docV1->assertStatus(201);
 
         // Mark V1 as returned for revision with remarks
-        $createdDoc = \App\Models\Document::where('proposal_id', $proposal->id)->first();
+        $createdDoc = Document::where('proposal_id', $proposal->id)->first();
         $createdDoc->update([
             'status' => 'returned_for_revision',
             'remarks' => 'Expired certification. Please upload latest 2026 DTI permit.',
@@ -609,7 +645,7 @@ class DocumentChecklistTest extends TestCase
         ]);
 
         // Re-upload V2
-        $fileV2 = \Illuminate\Http\UploadedFile::fake()->create('dti_permit_v2_renewed.pdf', 600, 'application/pdf');
+        $fileV2 = UploadedFile::fake()->create('dti_permit_v2_renewed.pdf', 600, 'application/pdf');
         $docV2 = $this->actingAs($user)->withoutMiddleware()->postJson('/api/documents', [
             'proposal_id' => $proposal->id,
             'document_type_id' => $docType->id,
@@ -676,13 +712,13 @@ class DocumentChecklistTest extends TestCase
             'space_ownership' => 'Owned',
         ]);
 
-        $dtiType = \App\Models\DocumentType::create([
+        $dtiType = DocumentType::create([
             'name' => 'DTI Registration',
             'applicable_program' => 'SETUP',
             'set_number' => 'SET1',
             'is_required' => true,
         ]);
-        \App\Models\Document::create([
+        Document::create([
             'proposal_id' => $setupProposal->id,
             'document_type_id' => $dtiType->id,
             'uploaded_by' => $user->id,
@@ -709,7 +745,7 @@ class DocumentChecklistTest extends TestCase
             'approved_at' => now(),
             'reference_number' => 'GIA-2026-AUTO',
         ]);
-        \App\Models\GiaProposal::create([
+        GiaProposal::create([
             'proposal_id' => $giaProposal->id,
             'proponent_category' => 'Higher Education Institution',
             'organization_name' => 'State University',
@@ -720,13 +756,13 @@ class DocumentChecklistTest extends TestCase
             'research_category' => 'Agriculture and Fisheries',
         ]);
 
-        $loiType = \App\Models\DocumentType::create([
+        $loiType = DocumentType::create([
             'name' => 'Letter of Intent',
             'applicable_program' => 'GIA',
             'set_number' => 'GIA1',
             'is_required' => true,
         ]);
-        \App\Models\Document::create([
+        Document::create([
             'proposal_id' => $giaProposal->id,
             'document_type_id' => $loiType->id,
             'uploaded_by' => $user->id,
@@ -778,7 +814,7 @@ class DocumentChecklistTest extends TestCase
             'status' => 'Submitted',
             'reference_number' => 'GIA-RBAC-01',
         ]);
-        \App\Models\GiaProposal::create([
+        GiaProposal::create([
             'proposal_id' => $giaProp->id,
             'proponent_category' => 'Higher Education Institution',
             'organization_name' => 'Davao State College',
@@ -823,6 +859,7 @@ class DocumentChecklistTest extends TestCase
             'is_present' => true,
             'status' => 'Complied',
         ])->assertOk();
+        $this->markRequiredItemsComplied($giaProp, $focalUser);
         $this->actingAs($focalUser)->postJson("/api/proposals/{$giaProp->id}/checklist/complete", [
             'final_remarks' => 'Focal approved and signed off',
         ])->assertOk();
@@ -874,7 +911,7 @@ class DocumentChecklistTest extends TestCase
         ]);
 
         // Create a custom-ID DocumentType for Mayor's permit to verify ID-independent resolution
-        $customDocType = \App\Models\DocumentType::create([
+        $customDocType = DocumentType::create([
             'name' => "Recent Mayor's Permit",
             'group' => 'Business Documents',
             'set_number' => 'SET1',
@@ -884,7 +921,7 @@ class DocumentChecklistTest extends TestCase
         ]);
 
         // Upload a Mayor's permit matching the custom DocumentType
-        \App\Models\Document::create([
+        Document::create([
             'proposal_id' => $setupProposal->id,
             'document_type_id' => $customDocType->id,
             'file_name' => 'mayors_permit_2026.pdf',
@@ -896,7 +933,7 @@ class DocumentChecklistTest extends TestCase
         ]);
 
         // Create a strictly GIA document type and upload it to the SETUP proposal
-        $giaDocType = \App\Models\DocumentType::create([
+        $giaDocType = DocumentType::create([
             'name' => 'CHED Accreditation',
             'group' => 'GIA Specific',
             'set_number' => 'GIA1',
@@ -904,7 +941,7 @@ class DocumentChecklistTest extends TestCase
             'is_required' => true,
             'is_applicant_visible' => true,
         ]);
-        \App\Models\Document::create([
+        Document::create([
             'proposal_id' => $setupProposal->id,
             'document_type_id' => $giaDocType->id,
             'file_name' => 'ched_accreditation.pdf',
@@ -923,7 +960,13 @@ class DocumentChecklistTest extends TestCase
         // 1. Mayor's permit slot dynamically resolved and matched with the custom DocType ID
         $mayorsSlot = $items->firstWhere('id', 'setup-s1-mayors-permit');
         $this->assertNotNull($mayorsSlot);
-        $this->assertEquals($customDocType->id, $mayorsSlot['document_type_id']);
+        $this->assertSame(
+            DocumentType::query()
+                ->where('name', "Recent Mayor's Permit")
+                ->whereIn('applicable_program', ['SETUP', 'BOTH'])
+                ->value('id'),
+            $mayorsSlot['document_type_id'],
+        );
         $this->assertNotNull($mayorsSlot['uploaded_doc']);
         $this->assertEquals('mayors_permit_2026.pdf', $mayorsSlot['uploaded_doc']['file_name']);
 
@@ -984,6 +1027,7 @@ class DocumentChecklistTest extends TestCase
         ]);
 
         // 2. Complete review
+        $this->markRequiredItemsComplied($proposal, $focalUser);
         $this->actingAs($focalUser)->postJson("/api/proposals/{$proposal->id}/checklist/complete", [
             'final_remarks' => 'All verified by Focal',
         ])->assertOk();
@@ -1087,12 +1131,12 @@ class DocumentChecklistTest extends TestCase
             'space_ownership' => 'Owned',
         ]);
 
-        $proposalDocType = \App\Models\DocumentType::firstOrCreate([
+        $proposalDocType = DocumentType::firstOrCreate([
             'name' => 'Project Proposal Form (SETUP Form 001)',
             'set_number' => 'PROPOSAL',
             'applicable_program' => 'SETUP',
         ]);
-        \App\Models\Document::create([
+        Document::create([
             'proposal_id' => $proposal->id,
             'document_type_id' => $proposalDocType->id,
             'uploaded_by' => $user->id,
@@ -1120,13 +1164,13 @@ class DocumentChecklistTest extends TestCase
         $this->assertFalse($items['setup-s2-tna-form-4']['is_present']);
         $this->assertEquals('Missing', $items['setup-s2-tna-form-4']['status']);
 
-        $tnaDocType = \App\Models\DocumentType::firstOrCreate([
+        $tnaDocType = DocumentType::firstOrCreate([
             'name' => 'Filled-out TNA Form 01',
             'set_number' => 'SET1',
             'applicable_program' => 'SETUP',
             'is_applicant_visible' => false,
         ]);
-        $internalDoc = \App\Models\Document::create([
+        $internalDoc = Document::create([
             'proposal_id' => $proposal->id,
             'document_type_id' => $tnaDocType->id,
             'uploaded_by' => $staff->id,
@@ -1179,14 +1223,52 @@ class DocumentChecklistTest extends TestCase
         ]);
 
         $this->actingAs($user);
-        $service = app(\App\Services\Contracts\ProposalModule\ProposalServiceInterface::class);
+        $service = app(ProposalServiceInterface::class);
 
-        $this->expectException(\Symfony\Component\HttpKernel\Exception\HttpException::class);
+        $this->expectException(HttpException::class);
         $this->expectExceptionMessage('You already have an active application under review for this program.');
 
         $service->submit([
             'program_type' => 'SETUP',
             'title' => 'Second Proposal',
         ]);
+    }
+
+    private function markRequiredItemsComplied(Proposal $proposal, User $reviewer): void
+    {
+        $checklist = app(DocumentChecklistServiceInterface::class)
+            ->getProposalChecklist($proposal->id);
+
+        collect($checklist['items'])
+            ->where('is_required', true)
+            ->each(function (array $item) use ($proposal, $reviewer) {
+                $document = empty($item['document_type_id']) ? null : Document::query()->firstOrCreate(
+                    [
+                        'proposal_id' => $proposal->id,
+                        'document_type_id' => $item['document_type_id'],
+                    ],
+                    [
+                        'uploaded_by' => $reviewer->id,
+                        'file_name' => $item['id'].'.pdf',
+                        'file_path' => 'tests/'.$item['id'].'.pdf',
+                        'file_size' => 100,
+                        'mime_type' => 'application/pdf',
+                        'status' => 'approved',
+                    ],
+                );
+                ProposalChecklistReview::query()->updateOrCreate(
+                    [
+                        'proposal_id' => $proposal->id,
+                        'template_item_id' => $item['template_id'],
+                    ],
+                    [
+                        'document_id' => $document?->id,
+                        'is_present' => true,
+                        'status' => 'Complied',
+                        'reviewed_by' => $reviewer->id,
+                        'reviewed_at' => now(),
+                    ],
+                );
+            });
     }
 }

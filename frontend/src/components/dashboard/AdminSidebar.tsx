@@ -111,7 +111,7 @@ export function AdminSidebar({
 }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const visible = getSidebarItems(user.role, user.program)
+  const visible = getSidebarItems(user.role, user.program, user.backendRole)
   const isActive = (route: string) => isRoutePathActive(location.pathname, route)
 
   function handleSignOut() {

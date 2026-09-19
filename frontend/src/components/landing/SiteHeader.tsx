@@ -277,26 +277,19 @@ export function SiteHeader() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!user) {
+    const currentUser = getMockUser();
+    if (!currentUser) {
       setProfile(null);
       return;
     }
-    getProponentProfile(user).then((result) => {
+    getProponentProfile(currentUser).then((result) => {
       if (!cancelled) setProfile(result);
     });
     return () => {
       cancelled = true;
     };
-    // NOTE: depends on user?.email (a primitive), not the `user` object
-    // itself. getMockUser() re-parses localStorage on every call and
-    // returns a brand-new object reference each time, even when nothing
-    // has actually changed. Using `user` directly here made React treat
-    // the dependency as "changed" on every single render, which re-ran
-    // this effect every time, which called setProfile on resolve, which
-    // triggered a re-render, which called getMockUser() again... an
-    // infinite effect loop that froze the tab (see the "SiteHeader.tsx:251"
-    // stack trace investigation). Do not swap this back to `user` without
-    // also fixing getMockUser() to return a stable/memoized reference.
+    // Depend on a primitive because getMockUser() returns a new object on
+    // every call. The effect reads the latest user after that key changes.
   }, [user?.email, profileRevision]);
 
   useEffect(() => {

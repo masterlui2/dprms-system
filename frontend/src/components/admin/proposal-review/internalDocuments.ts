@@ -132,7 +132,7 @@ function mergeGiaDocuments(
   uploadedDocuments: DocumentApiRecord[],
 ): InternalDocument[] {
   return documentTypes
-    .filter((type) => type.set_number === "SET3")
+    .filter((type) => type.set_number === "GIA1" && type.applicable_program === "GIA")
     .map((documentType) =>
       mergeServerFields(
         {

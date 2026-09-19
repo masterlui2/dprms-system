@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,8 +13,8 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens;
+    /** @use HasFactory<UserFactory> */
+    use HasApiTokens, HasFactory, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -26,7 +27,7 @@ class User extends Authenticatable
         'password',
         'is_active',
         'program_type',
-        'last_login_at'
+        'last_login_at',
     ];
 
     /**
@@ -50,46 +51,55 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'last_login_at' => 'datetime',
-            'is_active' => 'boolean'
+            'is_active' => 'boolean',
         ];
     }
 
-    public function role(): BelongsToMany{
+    public function role(): BelongsToMany
+    {
         return $this->belongsToMany(Role::class, 'user_roles')
             ->using(UserRole::class)
-            ->withPivot(['assigned_at','assigned_by'])
+            ->withPivot(['assigned_at', 'assigned_by'])
             ->withTimestamps();
     }
 
-    public function auditlog():HasMany{
+    public function auditlog(): HasMany
+    {
         return $this->HasMany(AuditLog::class);
     }
 
-    public function notification(): HasMany{
+    public function notification(): HasMany
+    {
         return $this->HasMany(Notification::class);
     }
 
-    public function proposal(): HasMany{
-        return $this->HasMany(Proposal::class,"submitted_by");
+    public function proposal(): HasMany
+    {
+        return $this->HasMany(Proposal::class, 'submitted_by');
     }
 
-    public function setup_proposal(): HasMany{
-        return $this->hasMany(SetupProposal::class,"tna_encoded_by");
+    public function setup_proposal(): HasMany
+    {
+        return $this->hasMany(SetupProposal::class, 'tna_encoded_by');
     }
 
-    public function setup_financial_document(): HasMany{
-        return $this->hasMany(SetupFinancialDocuments::class,"verified_by");
+    public function setup_financial_document(): HasMany
+    {
+        return $this->hasMany(SetupFinancialDocuments::class, 'verified_by');
     }
 
-    public function gia_document(): HasMany{
-        return $this->hasMany(GiaDocument::class,"verified_by");
+    public function gia_document(): HasMany
+    {
+        return $this->hasMany(GiaDocument::class, 'verified_by');
     }
 
-    public function proposal_template():HasMany{
-        return $this->hasMany(ProposalTemplate::class,"uploaded_by");
+    public function proposal_template(): HasMany
+    {
+        return $this->hasMany(ProposalTemplate::class, 'uploaded_by');
     }
 
-    public function hasRole(string|array $roles): bool{
+    public function hasRole(string|array $roles): bool
+    {
         $roles = is_array($roles) ? $roles : [$roles];
 
         return $this->role()->whereIn('code', $roles)->exists();
@@ -103,6 +113,10 @@ class User extends Authenticatable
 
         if (in_array($this->program_type, ['SETUP', 'GIA'], true)) {
             return [$this->program_type];
+        }
+
+        if ($this->role()->where('program_type', 'BOTH')->exists()) {
+            return ['SETUP', 'GIA'];
         }
 
         return $this->role()
