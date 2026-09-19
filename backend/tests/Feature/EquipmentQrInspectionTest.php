@@ -324,6 +324,43 @@ class EquipmentQrInspectionTest extends TestCase
             ->assertJsonCount(1, 'data.inspection_history');
     }
 
+    public function test_rpmo_inspection_notifies_staff_and_sends_a_priority_alert_to_the_focal(): void
+    {
+        $rpmoRole = Role::query()->create([
+            'name' => 'RPMO Officer',
+            'code' => 'RPMO',
+            'program_type' => 'BOTH',
+        ]);
+        $focalRole = Role::query()->create([
+            'name' => 'SETUP Focal',
+            'code' => 'FOCAL',
+            'program_type' => 'SETUP',
+        ]);
+        $rpmo = User::factory()->create(['program_type' => 'BOTH', 'is_active' => true]);
+        $rpmo->role()->attach($rpmoRole->id, ['assigned_at' => now()]);
+        $focal = User::factory()->create(['program_type' => 'SETUP', 'is_active' => true]);
+        $focal->role()->attach($focalRole->id, ['assigned_at' => now()]);
+        $equipment = $this->createEquipment('SETUP', 'SETUP-RPMO-001');
+
+        Sanctum::actingAs($rpmo);
+        $this->postJson("/api/v1/equipment/{$equipment->id}/inspections", [
+            'condition' => 'poor',
+            'remarks' => 'Drive belt needs replacement.',
+            'qr_reference' => 'SETUP-RPMO-001',
+        ])->assertOk();
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $this->setupStaff->id,
+            'actor_id' => $rpmo->id,
+            'type' => 'EQUIPMENT_SCANNED',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $focal->id,
+            'actor_id' => $rpmo->id,
+            'type' => 'EQUIPMENT_PRIORITY_ALERT',
+        ]);
+    }
+
     private function createEquipment(string $program, string $qrReference): EquipmentRegistry
     {
         $owner = User::factory()->create(['program_type' => $program]);

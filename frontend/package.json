@@ -6,8 +6,12 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint",
-    "test:downloads": "playwright test --config playwright.downloads.config.ts",
+    "lint": "oxlint && npm run check:itd",
+    "check:itd": "node scripts/itd_check.mjs && node scripts/itd_format.mjs",
+    "format:itd": "node scripts/itd_format.mjs --write",
+    "test": "playwright test --config playwright.downloads.config.ts",
+    "test:downloads": "playwright test --config playwright.downloads.config.ts downloads.spec.ts",
+    "test:compliance": "playwright test --config playwright.downloads.config.ts compliance.spec.ts",
     "preview": "vite preview",
     "test:setup-application": "playwright test ../tests/setup-application.spec.ts --project=chromium"
   },
@@ -36,6 +40,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
     "oxlint": "^1.69.0",
+    "prettier": "3.9.8",
     "typescript": "~6.0.2",
     "vite": "^8.1.0"
   }

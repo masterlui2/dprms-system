@@ -8,6 +8,7 @@ use App\Http\Controllers\EquipmentInspectionController;
 use App\Http\Controllers\GiaMonitoringProjectController;
 use App\Http\Controllers\GiaProposalController;
 use App\Http\Controllers\GiaProposalSubmissionController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProposalAuditController;
 use App\Http\Controllers\ProposalController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\SetupMonitoringProjectController;
 use App\Http\Controllers\SetupProposalController;
 use App\Http\Controllers\SetupProposalSubmissionController;
 use App\Http\Controllers\SetupRepaymentLedgerController;
+use App\Http\Controllers\SiteVisitController;
 use App\Http\Controllers\SystemAdministrationController;
 use App\Http\Middleware\EnsureCanReadProjectMonitoring;
 use App\Http\Middleware\EnsureCanWriteProjectMonitoring;
@@ -28,6 +30,19 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
+    Route::patch('/notifications/{notification}/unread', [NotificationController::class, 'markUnread']);
+    Route::get('/site-visits/mine', [SiteVisitController::class, 'mine'])
+        ->middleware('role:PROPONENT,MSME_PROPONENT,GIA_PROJECT_LEADER');
+    Route::get('/site-visits/{siteVisit}/calendar', [SiteVisitController::class, 'calendarFile']);
+});
+
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,PSTO_STAFF,FOCAL,SSCP_FOCAL,SETUP_FOCAL,PROVINCIAL_DIRECTOR,PSTO_DIRECTOR,REGIONAL_DIRECTOR,RPMO,RPMO_STAFF'])->prefix('site-visits')->group(function () {
+    Route::get('/', [SiteVisitController::class, 'index']);
+    Route::get('/options', [SiteVisitController::class, 'options']);
+    Route::post('/', [SiteVisitController::class, 'store']);
 });
 
 Route::middleware('auth:sanctum')->prefix('proposal-templates')->group(function () {
@@ -163,7 +178,7 @@ Route::middleware(['auth:sanctum', 'role:FOCAL,SSCP_FOCAL,SETUP_FOCAL,PROVINCIAL
 Route::middleware(['auth:sanctum', 'role:FOCAL,SSCP_FOCAL,SETUP_FOCAL,FINANCE_OFFICER'])
     ->patch('setup/projects/{project}/ledger/{ledger}/payments/{transaction}', [SetupRepaymentLedgerController::class, 'verifyPayment']);
 
-Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,PSTO_STAFF,FOCAL,SSCP_FOCAL,SETUP_FOCAL'])->prefix('v1/equipment')->group(function () {
+Route::middleware(['auth:sanctum', 'role:PROJECT_STAFF,PSTO_STAFF,FOCAL,SSCP_FOCAL,SETUP_FOCAL,RPMO,RPMO_STAFF'])->prefix('v1/equipment')->group(function () {
     Route::get('/', [EquipmentInspectionController::class, 'index']);
     Route::get('/options', [EquipmentInspectionController::class, 'options']);
     Route::post('/', [EquipmentInspectionController::class, 'store']);

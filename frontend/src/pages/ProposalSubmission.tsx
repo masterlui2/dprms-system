@@ -1,39 +1,53 @@
-import { Navigate, useLocation, useParams } from 'react-router-dom'
+/**
+ * System: DPRMS
+ * Purpose: Render proposal submission for the application pages.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 
-import { getMockUser } from '../lib/mockAuth'
-import { grantProgramAccess, hasProgramAccess } from '../lib/programAccess'
-import type { ApplicationProgram } from '../types/application'
+import { getMockUser } from '../lib/mock_auth';
+import { grantProgramAccess, hasProgramAccess } from '../lib/program_access';
+import type { ApplicationProgram } from '../types/application';
 
-export function ProposalSubmission() {
-  const { program = '' } = useParams()
-  const location = useLocation()
-  const user = getMockUser()
+/** Render proposal submission and its available actions. */
+export function ProposalSubmission()
+{
+    const { program: strProgram = '' } = useParams();
+    const objLocation = useLocation();
+    const objUser = getMockUser();
 
-  let selectedProgram: ApplicationProgram = 'SETUP'
-  if (program.toUpperCase() === 'GIA' || location.pathname.includes('/gia')) {
-    selectedProgram = 'GIA'
-  } else if (program.toUpperCase() === 'SETUP' || location.pathname.includes('/setup')) {
-    selectedProgram = 'SETUP'
-  } else if (user?.program) {
-    selectedProgram = user.program
-  }
+    let strSelectedProgram: ApplicationProgram = 'SETUP';
+    if (strProgram.toUpperCase() === 'GIA' || objLocation.pathname.includes('/gia'))
+    {
+        strSelectedProgram = 'GIA';
+    } else if (strProgram.toUpperCase() === 'SETUP' || objLocation.pathname.includes('/setup'))
+    {
+        strSelectedProgram = 'SETUP';
+    } else if (objUser?.program)
+    {
+        strSelectedProgram = objUser.program;
+    }
 
-  if (user) {
-    grantProgramAccess(selectedProgram)
-  }
+    if (objUser)
+    {
+        grantProgramAccess(strSelectedProgram);
+    }
 
-  const hasAccess = user || hasProgramAccess(selectedProgram)
+    const objHasAccess = objUser || hasProgramAccess(strSelectedProgram);
 
-  if (!hasAccess) {
-    const slug = selectedProgram.toLowerCase()
-    const target = `/programs/${slug}/register`
-    const redirect = encodeURIComponent(target)
-    return <Navigate replace to={`/register?program=${slug}&redirect=${redirect}`} />
-  }
+    if (!objHasAccess)
+    {
+        const strSlug = strSelectedProgram.toLowerCase();
+        const strTarget = `/programs/${strSlug}/register`;
+        const strRedirect = encodeURIComponent(strTarget);
+        return <Navigate replace to={`/register?program=${strSlug}&redirect=${strRedirect}`} />;
+    }
 
-  if (selectedProgram === 'GIA') {
-    return <Navigate replace to="/gia/my-proposal" />
-  }
+    if (strSelectedProgram === 'GIA')
+    {
+        return <Navigate replace to="/gia/my-proposal" />;
+    }
 
-  return <Navigate replace to="/setup/my-application" />
-}
+    return <Navigate replace to="/setup/my-application" />;
+} /* end ProposalSubmission */

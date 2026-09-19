@@ -9,8 +9,10 @@ use App\Models\Proposal;
 use App\Models\ProposalChecklistHistory;
 use App\Models\ProposalChecklistReview;
 use App\Models\ProposalChecklistSummary;
+use App\Models\User;
 use App\Repositories\Contracts\ProposalModule\DocumentChecklistRepositoryInterface;
 use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use App\Services\UniversalNotificationService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Override;
@@ -118,7 +120,8 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     }
 
     public function __construct(
-        protected DocumentChecklistRepositoryInterface $checklistRepository
+        protected DocumentChecklistRepositoryInterface $checklistRepository,
+        protected UniversalNotificationService $notifications,
     ) {}
 
     #[Override]
@@ -441,6 +444,10 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
     {
         return DB::transaction(function () use ($proposalId, $templateItemId, $data, $userId) {
             $template = DocumentChecklistTemplate::query()->findOrFail($templateItemId);
+            $previousStatus = ProposalChecklistReview::query()
+                ->where('proposal_id', $proposalId)
+                ->where('template_item_id', $templateItemId)
+                ->value('status');
 
             $review = $this->checklistRepository->updateOrCreateReview($proposalId, $templateItemId, [
                 'document_id' => $data['document_id'] ?? null,
@@ -478,6 +485,11 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                 "Status updated to {$data['status']}. Remarks: ".($data['remarks'] ?? 'None')
             );
 
+            if (self::normalizeStatus($data['status'] ?? '') === self::STATUS_NEEDS_REVISION
+                && self::normalizeStatus($previousStatus) !== self::STATUS_NEEDS_REVISION) {
+                $this->notifyNeedsRevision($proposalId, $userId, $template->document_name, $data['remarks'] ?? null);
+            }
+
             return $review;
         });
     }
@@ -494,6 +506,7 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
 
             if (! empty($payload['items']) && is_array($payload['items'])) {
                 foreach ($payload['items'] as $item) {
+                    $template = null;
                     $templateId = $item['template_id'] ?? null;
                     if (! $templateId && ! empty($item['id'])) {
                         $template = DocumentChecklistTemplate::query()
@@ -503,6 +516,11 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                     }
 
                     if ($templateId) {
+                        $template ??= DocumentChecklistTemplate::query()->find($templateId);
+                        $previousStatus = ProposalChecklistReview::query()
+                            ->where('proposal_id', $proposalId)
+                            ->where('template_item_id', $templateId)
+                            ->value('status');
                         $docId = $item['document_id'] ?? $item['uploaded_doc']['id'] ?? $item['uploadedDoc']['id'] ?? null;
                         $reviewData = [
                             'is_present' => $item['is_present'] ?? false,
@@ -532,6 +550,17 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
                         }
 
                         $this->checklistRepository->updateOrCreateReview($proposalId, $templateId, $reviewData);
+
+                        if ($template
+                            && self::normalizeStatus($reviewData['status']) === self::STATUS_NEEDS_REVISION
+                            && self::normalizeStatus($previousStatus) !== self::STATUS_NEEDS_REVISION) {
+                            $this->notifyNeedsRevision(
+                                $proposalId,
+                                $userId,
+                                $template->document_name,
+                                $reviewData['remarks'] ?? null,
+                            );
+                        }
                     }
                 }
             }
@@ -547,6 +576,19 @@ class DocumentChecklistService implements DocumentChecklistServiceInterface
         });
 
         return $this->getProposalChecklist($proposalId);
+    }
+
+    private function notifyNeedsRevision(
+        int $proposalId,
+        int $userId,
+        string $documentName,
+        ?string $remarks,
+    ): void {
+        $proposal = Proposal::query()->with('user')->find($proposalId);
+        $actor = User::query()->find($userId);
+        if ($proposal && $actor) {
+            $this->notifications->checklistNeedsRevision($proposal, $actor, $documentName, $remarks);
+        }
     }
 
     #[Override]

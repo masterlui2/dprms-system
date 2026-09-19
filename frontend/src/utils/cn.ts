@@ -1,6 +1,15 @@
-import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+/**
+ * System: DPRMS
+ * Purpose: Provide cn utilities.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 
-export function cn(...inputs: ClassValue[]): string {
-  return twMerge(clsx(inputs))
+/** Cn. */
+/** Cn. */
+export function cn(...arrInputs: ClassValue[]): string
+{
+    return twMerge(clsx(arrInputs));
 }

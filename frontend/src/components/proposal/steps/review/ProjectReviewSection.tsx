@@ -1,63 +1,62 @@
-import type { ProposalFormData } from "../../../../types/proposal";
-import { ReviewSection } from "./ReviewSection";
-import { SummaryItem } from "./SummaryItem";
+/**
+ * System: DPRMS
+ * Purpose: Render project review section for the frontend.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import type { ProposalFormData } from '../../../../types/proposal';
+import { ReviewSection } from './ReviewSection';
+import { SummaryItem } from './SummaryItem';
 
-interface ProjectReviewSectionProps {
-  data: ProposalFormData;
-  isGia: boolean;
-  onEdit: () => void;
+interface ProjectReviewSectionProps
+{
+    objData: ProposalFormData;
+    blnIsGia: boolean;
+    onEdit: () => void;
 }
 
-export function ProjectReviewSection({
-  data,
-  isGia,
-  onEdit,
-}: ProjectReviewSectionProps) {
-  return (
-    <ReviewSection
-      description="Project scope, location, need, and expected outputs."
-      onEdit={onEdit}
-      title="Project Details"
-    >
-      <SummaryItem label="Project Title" value={data.projectTitle} wide />
-      {isGia ? (
-        <>
-          <SummaryItem label="Project Category" value={data.projectCategory} />
-          <SummaryItem label="Project Type" value={data.projectType} />
-        </>
-      ) : (
-        <SummaryItem
-          label="Type of Assistance Needed"
-          value={data.scopeOfAssistance}
-        />
-      )}
-      <SummaryItem
-        label="Site of Implementation"
-        value={data.siteOfImplementation}
-      />
-      <SummaryItem
-        label={isGia ? "Project Summary / Need" : "Business Problem or Need"}
-        value={isGia ? data.projectDescription : data.currentOperationalProblem}
-        wide
-      />
-      <SummaryItem label="Objectives" value={data.projectObjectives} wide />
-      {isGia ? (
-        <SummaryItem
-          label="Target Beneficiaries"
-          value={data.targetBeneficiary}
-        />
-      ) : (
-        <SummaryItem
-          label="Technology or Equipment Requested"
-          value={data.proposedTechnologyAssistance}
-          wide
-        />
-      )}
-      <SummaryItem
-        label={isGia ? "Expected Outputs" : "Expected Results"}
-        value={data.expectedOutputs}
-        wide
-      />
-    </ReviewSection>
-  );
-}
+/** Render project review section and its available actions. */
+export function ProjectReviewSection({ objData, blnIsGia, onEdit }: ProjectReviewSectionProps)
+{
+    return (
+        <ReviewSection
+            txtDescription="Project scope, location, need, and expected outputs."
+            onEdit={onEdit}
+            title="Project Details"
+        >
+            <SummaryItem strLabel="Project Title" value={objData.projectTitle} blnWide />
+            {blnIsGia ? (
+                <>
+                    <SummaryItem strLabel="Project Category" value={objData.projectCategory} />
+                    <SummaryItem strLabel="Project Type" value={objData.projectType} />
+                </>
+            ) : (
+                <SummaryItem
+                    strLabel="Type of Assistance Needed"
+                    value={objData.scopeOfAssistance}
+                />
+            )}
+            <SummaryItem strLabel="Site of Implementation" value={objData.siteOfImplementation} />
+            <SummaryItem
+                strLabel={blnIsGia ? 'Project Summary / Need' : 'Business Problem or Need'}
+                value={blnIsGia ? objData.projectDescription : objData.currentOperationalProblem}
+                blnWide
+            />
+            <SummaryItem strLabel="Objectives" value={objData.projectObjectives} blnWide />
+            {blnIsGia ? (
+                <SummaryItem strLabel="Target Beneficiaries" value={objData.targetBeneficiary} />
+            ) : (
+                <SummaryItem
+                    strLabel="Technology or Equipment Requested"
+                    value={objData.proposedTechnologyAssistance}
+                    blnWide
+                />
+            )}
+            <SummaryItem
+                strLabel={blnIsGia ? 'Expected Outputs' : 'Expected Results'}
+                value={objData.expectedOutputs}
+                blnWide
+            />
+        </ReviewSection>
+    ); // end return
+} /* end ProjectReviewSection */

@@ -7,6 +7,7 @@ use App\Models\ProjectBudget;
 use App\Models\ProjectLedger;
 use App\Models\RepaymentTransaction;
 use App\Models\User;
+use App\Services\UniversalNotificationService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,8 @@ use Throwable;
 
 class SetupRepaymentLedgerService
 {
+    public function __construct(private readonly UniversalNotificationService $notifications) {}
+
     public function getProjectsForProponent(User $user): array
     {
         abort_unless(
@@ -282,7 +285,7 @@ class SetupRepaymentLedgerService
         $this->ensureLedgerBelongsToProject($project, $ledger);
         $this->ensureTransactionBelongsToLedger($ledger, $transaction);
 
-        DB::transaction(function () use ($user, $ledger, $transaction, $data) {
+        DB::transaction(function () use ($user, $project, $ledger, $transaction, $data) {
             $lockedLedger = ProjectLedger::query()->lockForUpdate()->findOrFail($ledger->id);
             $lockedTransaction = RepaymentTransaction::query()
                 ->lockForUpdate()
@@ -323,6 +326,17 @@ class SetupRepaymentLedgerService
             $lockedLedger->update([
                 'status' => $this->installmentStatus($lockedLedger, $verifiedPaid),
             ]);
+
+            $project->loadMissing('proposal.user');
+            if ($project->proposal) {
+                $this->notifications->paymentReviewed(
+                    $project->proposal,
+                    $lockedTransaction,
+                    $user,
+                    $data['decision'],
+                    $data['remarks'] ?? null,
+                );
+            }
         });
 
         return $this->getLedger($user, $project);

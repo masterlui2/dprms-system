@@ -423,6 +423,12 @@ class SetupRepaymentLedgerTest extends TestCase
             'verified_by' => $this->focal->id,
             'remarks' => 'Matched with the deposit record.',
         ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $this->proponent->id,
+            'actor_id' => $this->focal->id,
+            'type' => 'PAYMENT_VERIFIED',
+            'category' => 'FINANCE',
+        ]);
     }
 
     public function test_rejecting_payment_requires_remarks_and_keeps_balance_unpaid(): void
@@ -456,6 +462,27 @@ class SetupRepaymentLedgerTest extends TestCase
             'status' => 'rejected',
             'verified_by' => $this->focal->id,
             'remarks' => 'The OR number does not match the payment record.',
+        ]);
+    }
+
+    public function test_notification_feed_creates_repayment_reminders_and_can_mark_them_unread(): void
+    {
+        Sanctum::actingAs($this->proponent);
+
+        $response = $this->getJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonFragment(['type' => 'REPAYMENT_OVERDUE']);
+
+        $notificationId = collect($response->json('data.notifications'))
+            ->firstWhere('type', 'REPAYMENT_OVERDUE')['id'];
+
+        $this->patchJson("/api/notifications/{$notificationId}/read")->assertOk();
+        $this->patchJson("/api/notifications/{$notificationId}/unread")->assertOk();
+        $this->assertDatabaseHas('notifications', [
+            'id' => $notificationId,
+            'user_id' => $this->proponent->id,
+            'is_read' => false,
+            'read_at' => null,
         ]);
     }
 

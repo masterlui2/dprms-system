@@ -1,41 +1,50 @@
+/**
+ * System: DPRMS
+ * Purpose: Render proposal information step for the frontend.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
 import type {
-  ProposalFieldName,
-  ProposalFormData,
-  ProposalFormErrors,
-} from "../../../types/proposal";
-import { ProposalSectionHeading } from "../ProposalSectionHeading";
-import { ContactDetailsSection } from "./proposal-information/ContactDetailsSection";
-import { OrganizationSection } from "./proposal-information/OrganizationSection";
-import { ProjectDetailsSection } from "./proposal-information/ProjectDetailsSection";
+    ProposalFieldName,
+    ProposalFormData,
+    ProposalFormErrors,
+} from '../../../types/proposal';
+import { ProposalSectionHeading } from '../ProposalSectionHeading';
+import { ContactDetailsSection } from './proposal-information/ContactDetailsSection';
+import { OrganizationSection } from './proposal-information/OrganizationSection';
+import { ProjectDetailsSection } from './proposal-information/ProjectDetailsSection';
 
-interface ProposalInformationStepProps {
-  data: ProposalFormData;
-  errors: ProposalFormErrors;
-  onFieldChange: <K extends ProposalFieldName>(
-    field: K,
-    value: ProposalFormData[K],
-  ) => void;
+interface ProposalInformationStepProps
+{
+    objData: ProposalFormData;
+    objErrors: ProposalFormErrors;
+    onFieldChange: <K extends ProposalFieldName>(
+        udtField: K,
+        objValue: ProposalFormData[K],
+    ) => void;
 }
 
+/** Render proposal information step and its available actions. */
 export function ProposalInformationStep({
-  data,
-  errors,
-  onFieldChange,
-}: ProposalInformationStepProps) {
-  const isGia = data.proposalType === "GIA";
-  const sectionProps = { data, errors, isGia, onFieldChange };
+    objData,
+    objErrors,
+    onFieldChange,
+}: ProposalInformationStepProps)
+{
+    const blnIsGia = objData.proposalType === 'GIA';
+    const objSectionProps = { objData, objErrors, blnIsGia, onFieldChange };
 
-  return (
-    <div className="space-y-8">
-      <ProposalSectionHeading
-        description="Complete the essential information DOST needs to screen your proposal. You can edit these details before final submission."
-        divided={false}
-        title="Proposal Information"
-      />
+    return (
+        <div className="space-y-8">
+            <ProposalSectionHeading
+                txtDescription="Complete the essential information DOST needs to screen your proposal. You can edit these details before final submission."
+                blnDivided={false}
+                title="Proposal Information"
+            />
 
-      <ContactDetailsSection {...sectionProps} />
-      <OrganizationSection {...sectionProps} />
-      <ProjectDetailsSection {...sectionProps} />
-    </div>
-  );
+            <ContactDetailsSection {...objSectionProps} />
+            <OrganizationSection {...objSectionProps} />
+            <ProjectDetailsSection {...objSectionProps} />
+        </div>
+    );
 }

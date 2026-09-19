@@ -1,106 +1,113 @@
-export const portalFeatures = [
-  {
-    title: 'Centralized Records',
-    description: 'Keep proposal documents, status updates, and project records in one secure place.',
-  },
-  {
-    title: 'Program Monitoring',
-    description: 'Track GIA and SETUP proposal review, implementation milestones, and compliance updates.',
-  },
-  {
-    title: 'Official Communication',
-    description: 'Stay connected with DOST staff handling validation, review, and monitoring activities.',
-  },
-]
+/**
+ * System: DPRMS
+ * Purpose: Landing definitions for DPRMS.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+export const PORTAL_FEATURES = [
+    {
+        title: 'Centralized Records',
+        description:
+            'Keep proposal documents, status updates, and project records in one secure place.',
+    },
+    {
+        title: 'Program Monitoring',
+        description:
+            'Track GIA and SETUP proposal review, implementation milestones, and compliance updates.',
+    },
+    {
+        title: 'Official Communication',
+        description:
+            'Stay connected with DOST staff handling validation, review, and monitoring activities.',
+    },
+];
 
-export const programCards = [
-  {
-    label: 'SETUP',
-    title: 'Small Enterprise Technology Upgrading Program',
-    description:
-      'Support for qualified enterprises that need equipment upgrading, process improvement, packaging support, and technology-based productivity assistance.',
-    tone: 'blue',
-  },
-  {
-    label: 'GIA',
-    title: 'DOST Grants-in-Aid',
-    description:
-      'Assistance for research, community-based projects, capability building, training, and science and technology interventions with public benefit.',
-    tone: 'orange',
-  },
-]
+export const PROGRAM_CARDS = [
+    {
+        label: 'SETUP',
+        title: 'Small Enterprise Technology Upgrading Program',
+        description:
+            'Support for qualified enterprises that need equipment upgrading, process improvement, packaging support, and technology-based productivity assistance.',
+        tone: 'blue',
+    },
+    {
+        label: 'GIA',
+        title: 'DOST Grants-in-Aid',
+        description:
+            'Assistance for research, community-based projects, capability building, training, and science and technology interventions with public benefit.',
+        tone: 'orange',
+    },
+];
 
-export const processSteps = [
-  {
-    title: 'Choose Program',
-    description:
-      'Select SETUP for enterprise technology upgrading or GIA for research, community, training, and S&T intervention proposals.',
-  },
-  {
-    title: 'Submit Proposal',
-    description:
-      'Complete the official online form and upload the required documents based on the selected DOST program.',
-  },
-  {
-    title: 'Review and Validation',
-    description:
-      'DOST reviewers validate documents, assess technical scope, check budget details, and endorse qualified proposals.',
-  },
-  {
-    title: 'Monitor Implementation',
-    description:
-      'Approved GIA and SETUP projects are monitored through milestones, reports, site visits, and compliance updates.',
-  },
-]
+export const PROCESS_STEPS = [
+    {
+        title: 'Choose Program',
+        description:
+            'Select SETUP for enterprise technology upgrading or GIA for research, community, training, and S&T intervention proposals.',
+    },
+    {
+        title: 'Submit Proposal',
+        description:
+            'Complete the official online form and upload the required documents based on the selected DOST program.',
+    },
+    {
+        title: 'Review and Validation',
+        description:
+            'DOST reviewers validate documents, assess technical scope, check budget details, and endorse qualified proposals.',
+    },
+    {
+        title: 'Monitor Implementation',
+        description:
+            'Approved GIA and SETUP projects are monitored through milestones, reports, site visits, and compliance updates.',
+    },
+];
 
-export const benefits = [
-  {
-    title: 'Program-specific guidance',
-    description: 'Applicants can quickly understand whether their proposal belongs under GIA or SETUP before submitting.',
-  },
-  {
-    title: 'Centralized requirements',
-    description: 'Each form guides users through the documents and project details required for the selected program.',
-  },
-  {
-    title: 'Transparent review status',
-    description: 'Submitted proposals can move through document validation, technical review, finance review, and approval.',
-  },
-  {
-    title: 'Government-ready monitoring',
-    description: 'The portal is structured for official reporting, implementation tracking, compliance, and audit trails.',
-  },
-]
+export const BENEFITS = [
+    {
+        title: 'Program-specific guidance',
+        description:
+            'Applicants can quickly understand whether their proposal belongs under GIA or SETUP before submitting.',
+    },
+    {
+        title: 'Centralized requirements',
+        description:
+            'Each form guides users through the documents and project details required for the selected program.',
+    },
+    {
+        title: 'Transparent review status',
+        description:
+            'Submitted proposals can move through document validation, technical review, finance review, and approval.',
+    },
+    {
+        title: 'Government-ready monitoring',
+        description:
+            'The portal is structured for official reporting, implementation tracking, compliance, and audit trails.',
+    },
+];
 
-export const faqs = [
-  {
-    question: 'Who is this portal for?',
-    answer:
-      'This portal is for proponents preparing DOST GIA or SETUP proposals, including enterprises, organizations, communities, LGUs, and partner institutions.',
-  },
-  {
-    question: 'What is the difference between GIA and SETUP?',
-    answer:
-      'SETUP is for enterprise technology upgrading and productivity support. GIA is for research, community-based, training, and science and technology intervention projects.',
-  },
-  {
-    question: 'Can proposals be submitted online?',
-    answer:
-      'Yes. Proponents can start the online proposal form and select either GIA or SETUP so the proper fields and document requirements appear.',
-  },
-  {
-    question: 'Do I need an account before sending my first submission?',
-    answer:
-      'No. You may send the first GIA proposal or SETUP request through the public form. The portal account is activated afterward so you can track updates and remarks.',
-  },
-  {
-    question: 'How do I track my submitted proposal or request?',
-    answer:
-      'After submission, the system shows a reference number. Use the activation step to set your portal password, then sign in through Track Proposal or Sign In.',
-  },
-  {
-    question: 'How are approved projects monitored?',
-    answer:
-      'Approved projects can be tracked through milestones, accomplishment reports, budget monitoring, equipment records, and site visit schedules.',
-  },
-]
+export const FAQS = [
+    {
+        question: 'Who is this portal for?',
+        answer: 'This portal is for proponents preparing DOST GIA or SETUP proposals, including enterprises, organizations, communities, LGUs, and partner institutions.',
+    },
+    {
+        question: 'What is the difference between GIA and SETUP?',
+        answer: 'SETUP is for enterprise technology upgrading and productivity support. GIA is for research, community-based, training, and science and technology intervention projects.',
+    },
+    {
+        question: 'Can proposals be submitted online?',
+        answer: 'Yes. Proponents can start the online proposal form and select either GIA or SETUP so the proper fields and document requirements appear.',
+    },
+    {
+        question: 'Do I need an account before sending my first submission?',
+        answer: 'No. You may send the first GIA proposal or SETUP request through the public form. The portal account is activated afterward so you can track updates and remarks.',
+    },
+    {
+        question: 'How do I track my submitted proposal or request?',
+        answer: 'After submission, the system shows a reference number. Use the activation step to set your portal password, then sign in through Track Proposal or Sign In.',
+    },
+    {
+        question: 'How are approved projects monitored?',
+        answer: 'Approved projects can be tracked through milestones, accomplishment reports, budget monitoring, equipment records, and site visit schedules.',
+    },
+];

@@ -1,66 +1,110 @@
-import type { DocumentChecklistItem } from '../../../services/documentChecklistStore';
+/**
+ * System: DPRMS
+ * Purpose: Utils definitions for DPRMS.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import type { DocumentChecklistItem } from '../../../services/document_checklist_store';
+import { reportError } from '../../../utils/error_reporting';
 
-export function formatFileSize(bytes?: number | null): string {
-  if (bytes == null || bytes <= 0) return 'Unknown size';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+/** Format file size. */
+export function formatFileSize(intBytes?: number | null): string
+{
+    if (intBytes == null || intBytes <= 0)
+    {
+        return 'Unknown size';
+    }
+    if (intBytes < 1024)
+    {
+        return `${intBytes} B`;
+    }
+    if (intBytes < 1024 * 1024)
+    {
+        return `${(intBytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(intBytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function formatRelativeDate(dateStr?: string | null): string {
-  if (!dateStr) return 'Recently';
-  try {
-    const date = new Date(dateStr);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    if (diffDays === 0) return 'Today';
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 30) return `${diffDays}d ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch {
-    return 'Recently';
-  }
-}
+/** Format relative date. */
+export function formatRelativeDate(strDateStr?: string | null): string
+{
+    if (!strDateStr)
+    {
+        return 'Recently';
+    }
+    try
+    {
+        const dtDate = new Date(strDateStr);
+        const dtNow = new Date();
+        const intDiffMs = dtNow.getTime() - dtDate.getTime();
+        const intDiffDays = Math.floor(intDiffMs / (1000 * 60 * 60 * 24));
+        if (intDiffDays === 0)
+        {
+            return 'Today';
+        }
+        if (intDiffDays === 1)
+        {
+            return 'Yesterday';
+        }
+        if (intDiffDays < 30)
+        {
+            return `${intDiffDays}d ago`;
+        }
+        return dtDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    } catch (errCaught)
+    {
+        reportError(errCaught, 'utils: format relative date failed.');
 
-export function getItemComplianceState(item: DocumentChecklistItem) {
-  const hasFile = Boolean(item.uploadedDoc);
-  const isReturned =
-    hasFile && (item.status === 'Needs Revision' || item.uploadedDoc?.status === 'returned_for_revision');
-  const isApproved =
-    item.status === 'Complied' && (item.uploadedDoc?.status === 'approved' || !hasFile || Boolean(item.reviewedAt));
+        return 'Recently';
+    }
+} /* end formatRelativeDate */
 
-  if (isReturned) {
+/** Get item compliance state. */
+export function getItemComplianceState(objItem: DocumentChecklistItem)
+{
+    const blnHasFile = Boolean(objItem.uploadedDoc);
+    const blnIsReturned =
+        blnHasFile &&
+        (objItem.status === 'Needs Revision' ||
+            objItem.uploadedDoc?.status === 'returned_for_revision');
+    const blnIsApproved =
+        objItem.status === 'Complied' &&
+        (objItem.uploadedDoc?.status === 'approved' || !blnHasFile || Boolean(objItem.reviewedAt));
+
+    if (blnIsReturned)
+    {
+        return {
+            type: 'RETURNED' as const,
+            label: 'Revision',
+            badgeClass: 'text-rose-700',
+            iconClass: 'bg-rose-500 text-white',
+        };
+    }
+
+    if (blnIsApproved || (objItem.isPresent && !blnIsReturned))
+    {
+        return {
+            type: 'SATISFIED' as const,
+            label: 'Verified',
+            badgeClass: 'text-emerald-700',
+            iconClass: 'bg-emerald-500 text-white',
+        };
+    }
+
+    if (blnHasFile)
+    {
+        return {
+            type: 'UNDER_REVIEW' as const,
+            label: 'In Review',
+            badgeClass: 'text-[#0f53b7]',
+            iconClass: 'bg-[#0f53b7] text-white',
+        };
+    }
+
     return {
-      type: 'RETURNED' as const,
-      label: 'Revision',
-      badgeClass: 'text-rose-700',
-      iconClass: 'bg-rose-500 text-white',
+        type: 'PENDING' as const,
+        label: null,
+        badgeClass: '',
+        iconClass: 'bg-slate-100 text-slate-400',
     };
-  }
-
-  if (isApproved || (item.isPresent && !isReturned)) {
-    return {
-      type: 'SATISFIED' as const,
-      label: 'Verified',
-      badgeClass: 'text-emerald-700',
-      iconClass: 'bg-emerald-500 text-white',
-    };
-  }
-
-  if (hasFile) {
-    return {
-      type: 'UNDER_REVIEW' as const,
-      label: 'In Review',
-      badgeClass: 'text-[#0f53b7]',
-      iconClass: 'bg-[#0f53b7] text-white',
-    };
-  }
-
-  return {
-    type: 'PENDING' as const,
-    label: null,
-    badgeClass: '',
-    iconClass: 'bg-slate-100 text-slate-400',
-  };
-}
+} /* end getItemComplianceState */
