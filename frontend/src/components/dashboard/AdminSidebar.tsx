@@ -1,185 +1,243 @@
-import { LogOut, X } from 'lucide-react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+/**
+ * System: DPRMS
+ * Purpose: Render admin sidebar for the frontend.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import { LogOut, X } from 'lucide-react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
-import logoImage from '../../assets/logo.png'
-import { getSidebarItems, type SidebarItem, type SidebarSubItem } from '../../config/sidebarItems'
-import { ROLE_LABEL } from '../../config/permissions'
-import { clearMockUser, type MockUser } from '../../lib/mockAuth'
-import { cn } from '../../utils/cn'
+import logoImage from '../../assets/logo.png';
+import { ROLE_LABEL } from '../../config/permissions';
+import { getSidebarItems, type SidebarItem, type SidebarSubItem } from '../../config/sidebar_items';
+import { clearMockUser, type MockUser } from '../../lib/mock_auth';
+import { cn } from '../../utils/cn';
 
-function isRoutePathActive(pathname: string, route: string): boolean {
-  const [routePath] = route.split('?')
+/** Is route path active. */
+function _isRoutePathActive(strPathname: string, strRoute: string): boolean
+{
+    const [strRoutePath] = strRoute.split('?');
 
-  if (routePath === '/dashboard') return pathname === routePath
-  return pathname === routePath || pathname.startsWith(`${routePath}/`)
+    if (strRoutePath === '/dashboard')
+    {
+        return strPathname === strRoutePath;
+    }
+    return strPathname === strRoutePath || strPathname.startsWith(`${strRoutePath}/`);
 }
 
-function isSubRouteActive(pathname: string, search: string, route: string): boolean {
-  const [routePath, routeQuery] = route.split('?')
-  if (!isRoutePathActive(pathname, routePath)) return false
-  if (!routeQuery) return search === ''
+/** Is sub route active. */
+function _isSubRouteActive(strPathname: string, strSearch: string, strRoute: string): boolean
+{
+    const [strRoutePath, strRouteQuery] = strRoute.split('?');
+    if (!_isRoutePathActive(strPathname, strRoutePath))
+    {
+        return false;
+    }
+    if (!strRouteQuery)
+    {
+        return strSearch === '';
+    }
 
-  const currentParams = new URLSearchParams(search)
-  const expectedParams = new URLSearchParams(routeQuery)
-  return Array.from(expectedParams.entries()).every(
-    ([key, value]) => currentParams.get(key) === value,
-  )
+    const objCurrentParams = new URLSearchParams(strSearch);
+    const objExpectedParams = new URLSearchParams(strRouteQuery);
+    return Array.from(objExpectedParams.entries()).every(
+        ([strKey, strValue]) => objCurrentParams.get(strKey) === strValue,
+    );
 }
 
+/** Render sidebar item and its available actions. */
 function SidebarItem({
-  collapsed,
-  isActive,
-  item,
-  onNavigate,
+    blnCollapsed,
+    blnIsActive,
+    objItem,
+    onNavigate,
 }: {
-  collapsed: boolean
-  isActive: boolean
-  item: SidebarItem
-  onNavigate?: () => void
-}) {
-  const location = useLocation()
-  const hasSubItems = Boolean(item.subItems && item.subItems.length > 0)
-  const isParentActive = isRoutePathActive(location.pathname, item.route)
+    blnCollapsed: boolean;
+    blnIsActive: boolean;
+    objItem: SidebarItem;
+    onNavigate?: () => void;
+})
+{
+    const objLocation = useLocation();
+    const blnHasSubItems = Boolean(objItem.subItems && objItem.subItems.length > 0);
+    const blnIsParentActive = _isRoutePathActive(objLocation.pathname, objItem.route);
 
-  const className = cn(
-    'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition',
-    collapsed && 'justify-center px-0',
-    isActive
-      ? 'bg-[#e8f1ff] text-[#073b82] shadow-sm ring-1 ring-[#b9d2f2]'
-      : 'text-slate-700 hover:bg-white/75 hover:text-[#073b82]',
-  )
+    const strClassName = cn(
+        'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold transition',
+        blnCollapsed && 'justify-center px-0',
+        blnIsActive
+            ? 'bg-[#e8f1ff] text-[#073b82] shadow-sm ring-1 ring-[#b9d2f2]'
+            : 'text-slate-700 hover:bg-white/75 hover:text-[#073b82]',
+    );
 
-  return (
-    <div className="space-y-1">
-      <NavLink
-        aria-current={isActive ? 'page' : undefined}
-        className={className}
-        onClick={onNavigate}
-        title={item.label}
-        to={item.route}
-      >
-        <item.icon className="h-4 w-4 shrink-0" />
-        {!collapsed ? <span className="min-w-0 flex-1 truncate">{item.label}</span> : null}
-      </NavLink>
+    const arrSubItems = objItem.subItems ?? [];
+    const blnShowSubmenu = !blnCollapsed && blnHasSubItems && blnIsParentActive;
 
-      {!collapsed && hasSubItems && isParentActive && item.subItems ? (
-        <div className="ml-4 space-y-0.5 border-l-2 border-[#d8e1ee] pl-2 pt-1">
-          {item.subItems.map((sub: SidebarSubItem) => {
-            const isSubActive = isSubRouteActive(
-              location.pathname,
-              location.search,
-              sub.route,
-            )
-
-            return (
-              <NavLink
-                aria-current={isSubActive ? 'page' : undefined}
-                key={sub.label}
-                to={sub.route}
+    return (
+        <div className="space-y-1">
+            <NavLink
+                aria-current={blnIsActive ? 'page' : undefined}
+                className={strClassName}
                 onClick={onNavigate}
-                className={cn(
-                  'flex h-8 items-center rounded-md px-2.5 text-xs font-semibold transition',
-                  isSubActive
-                    ? 'bg-blue-50/90 font-bold text-[#073b82]'
-                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-900',
-                )}
-              >
-                <span className="truncate">{sub.label}</span>
-              </NavLink>
-            )
-          })}
-        </div>
-      ) : null}
-    </div>
-  )
-}
+                title={objItem.label}
+                to={objItem.route}
+            >
+                <objItem.icon className="h-4 w-4 shrink-0" />
+                {!blnCollapsed ? (
+                    <span className="min-w-0 flex-1 truncate">{objItem.label}</span>
+                ) : null}
+            </NavLink>
 
-export function AdminSidebar({
-  collapsed = false,
-  mobileOpen = false,
-  onClose,
-  user,
-}: {
-  collapsed?: boolean
-  mobileOpen?: boolean
-  onClose?: () => void
-  user: MockUser
-}) {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const visible = getSidebarItems(user.role, user.program, user.backendRole)
-  const isActive = (route: string) => isRoutePathActive(location.pathname, route)
+            {blnShowSubmenu ? (
+                <div className="ml-4 space-y-0.5 border-l-2 border-[#d8e1ee] pl-2 pt-1">
+                    {arrSubItems.map((objSub: SidebarSubItem) =>
+                    {
+                        const blnIsSubActive = _isSubRouteActive(
+                            objLocation.pathname,
+                            objLocation.search,
+                            objSub.route,
+                        );
 
-  function handleSignOut() {
-    clearMockUser()
-    onClose?.()
-    navigate('/login')
-  }
-
-  return (
-    <aside className={cn(
-      'fixed inset-y-0 left-0 z-40 w-[280px] border-r border-[#d8e1ee] bg-[#f7fbff] shadow-xl transition-transform lg:static lg:z-auto lg:h-full lg:w-auto lg:translate-x-0 lg:shadow-none',
-      mobileOpen ? 'translate-x-0' : '-translate-x-full',
-    )}>
-      <div className="flex h-full flex-col">
-        <div className="flex items-center gap-2 border-b border-[#d8e1ee] px-6 py-4">
-          <NavLink
-            className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', collapsed && 'justify-center px-0')}
-            onClick={onClose}
-            title="DOST DPRMS"
-            to="/dashboard"
-          >
-            <span className="grid size-16 shrink-0 place-items-center overflow-hidden">
-              <img alt="DOST XI" className="size-14 object-contain" src={logoImage} />
-            </span>
-            {!collapsed ? (
-              <span className="min-w-0 leading-tight">
-                <span className="block text-lg font-extrabold text-[#073b82]">DOST</span>
-                <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">DPRMS</span>
-              </span>
-            ) : null}
-          </NavLink>
-          <button aria-label="Close navigation" className="inline-flex size-9 items-center justify-center rounded-lg text-slate-600 hover:bg-white lg:hidden" onClick={onClose} type="button">
-            <X className="size-5" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-3 py-4">
-          {!collapsed ? <p className="px-2 pb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Modules</p> : null}
-          <nav className="space-y-1">
-            {visible.map((item) => {
-              return (
-                <div key={item.id}>
-                  <SidebarItem
-                    collapsed={collapsed}
-                    isActive={isActive(item.route)}
-                    item={item}
-                    onNavigate={onClose}
-                  />
+                        return (
+                            <NavLink
+                                aria-current={blnIsSubActive ? 'page' : undefined}
+                                key={objSub.label}
+                                to={objSub.route}
+                                onClick={onNavigate}
+                                className={cn(
+                                    'flex h-8 items-center rounded-md px-2.5 text-xs font-semibold transition',
+                                    blnIsSubActive
+                                        ? 'bg-blue-50/90 font-bold text-[#073b82]'
+                                        : 'text-slate-600 hover:bg-white/60 hover:text-slate-900',
+                                )}
+                            >
+                                <span className="truncate">{objSub.label}</span>
+                            </NavLink>
+                        );
+                    })}
                 </div>
-              )
-            })}
-          </nav>
+            ) : null}
         </div>
+    ); // end return
+} /* end SidebarItem */
 
-        <div className="border-t border-[#d8e1ee] bg-white px-3 py-4">
-          {!collapsed ? (
-            <div className="px-2 pb-3">
-              <div className="truncate text-sm font-semibold text-slate-900">{user.name}</div>
-              <div className="truncate text-[11px] text-slate-500">{ROLE_LABEL[user.role]}</div>
+/** Render admin sidebar and its available actions. */
+export function AdminSidebar({
+    blnCollapsed = false,
+    blnMobileOpen = false,
+    onClose,
+    objUser,
+}: {
+    blnCollapsed?: boolean;
+    blnMobileOpen?: boolean;
+    onClose?: () => void;
+    objUser: MockUser;
+})
+{
+    const objLocation = useLocation();
+    const _navigate = useNavigate();
+    const arrVisible = getSidebarItems(objUser.role, objUser.program, objUser.backendRole);
+    /** Is active. */
+    const _isActive = (strRoute: string) => _isRoutePathActive(objLocation.pathname, strRoute);
+
+    /** Handle sign out. */
+    function _handleSignOut()
+    {
+        clearMockUser();
+        onClose?.();
+        _navigate('/login');
+    }
+
+    return (
+        <aside
+            className={cn(
+                'fixed inset-y-0 left-0 z-40 w-[280px] border-r border-[#d8e1ee] bg-[#f7fbff] shadow-xl transition-transform lg:static lg:z-auto lg:h-full lg:w-auto lg:translate-x-0 lg:shadow-none',
+                blnMobileOpen ? 'translate-x-0' : '-translate-x-full',
+            )}
+        >
+            <div className="flex h-full flex-col">
+                <div className="flex items-center gap-2 border-b border-[#d8e1ee] px-6 py-4">
+                    <NavLink
+                        className={cn(
+                            'flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100',
+                            blnCollapsed && 'justify-center px-0',
+                        )}
+                        onClick={onClose}
+                        title="DOST DPRMS"
+                        to="/dashboard"
+                    >
+                        <span className="grid size-16 shrink-0 place-items-center overflow-hidden">
+                            <img alt="DOST XI" className="size-14 object-contain" src={logoImage} />
+                        </span>
+                        {!blnCollapsed ? (
+                            <span className="min-w-0 leading-tight">
+                                <span className="block text-lg font-extrabold text-[#073b82]">
+                                    DOST
+                                </span>
+                                <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                                    DPRMS
+                                </span>
+                            </span>
+                        ) : null}
+                    </NavLink>
+                    <button
+                        aria-label="Close navigation"
+                        className="inline-flex size-9 items-center justify-center rounded-lg text-slate-600 hover:bg-white lg:hidden"
+                        onClick={onClose}
+                        type="button"
+                    >
+                        <X className="size-5" />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto px-3 py-4">
+                    {!blnCollapsed ? (
+                        <p className="px-2 pb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                            Modules
+                        </p>
+                    ) : null}
+                    <nav className="space-y-1">
+                        {arrVisible.map((objItem) =>
+                        {
+                            return (
+                                <div key={objItem.id}>
+                                    <SidebarItem
+                                        blnCollapsed={blnCollapsed}
+                                        blnIsActive={_isActive(objItem.route)}
+                                        objItem={objItem}
+                                        onNavigate={onClose}
+                                    />
+                                </div>
+                            );
+                        })}
+                    </nav>
+                </div>
+
+                <div className="border-t border-[#d8e1ee] bg-white px-3 py-4">
+                    {!blnCollapsed ? (
+                        <div className="px-2 pb-3">
+                            <div className="truncate text-sm font-semibold text-slate-900">
+                                {objUser.name}
+                            </div>
+                            <div className="truncate text-[11px] text-slate-500">
+                                {ROLE_LABEL[objUser.role]}
+                            </div>
+                        </div>
+                    ) : null}
+                    <button
+                        className={cn(
+                            'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100',
+                            blnCollapsed && 'justify-center px-0',
+                        )}
+                        onClick={_handleSignOut}
+                        title="Sign out"
+                        type="button"
+                    >
+                        <LogOut className="h-4 w-4" />
+                        {!blnCollapsed ? <span>Sign out</span> : null}
+                    </button>
+                </div>
             </div>
-          ) : null}
-          <button
-            className={cn('flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-semibold text-slate-700 transition hover:bg-[#f3f8fe] hover:text-[#073b82] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100', collapsed && 'justify-center px-0')}
-            onClick={handleSignOut}
-            title="Sign out"
-            type="button"
-          >
-            <LogOut className="h-4 w-4" />
-            {!collapsed ? <span>Sign out</span> : null}
-          </button>
-        </div>
-      </div>
-    </aside>
-  )
-}
+        </aside>
+    ); // end return
+} /* end AdminSidebar */

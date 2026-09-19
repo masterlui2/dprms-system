@@ -1,18 +1,30 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
+/**
+ * System: DPRMS
+ * Purpose: Mount the DPRMS React application.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
 
-import App from './App'
-import 'sweetalert2/dist/sweetalert2.min.css'
-import './index.css'
+import 'sweetalert2/dist/sweetalert2.min.css';
+import App from './App';
+import { ApplicationErrorBoundary } from './components/common/ApplicationErrorBoundary';
+import { AsyncErrorNotice } from './components/common/AsyncErrorNotice';
+import './index.css';
 
-const rootElement = document.getElementById('root')
+const g_objRootElement = document.getElementById('root');
 
-if (!rootElement) {
-  throw new Error('Root element was not found.')
+if (!g_objRootElement)
+{
+    throw new Error('Root element was not found.');
 }
 
-createRoot(rootElement).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+createRoot(g_objRootElement).render(
+    <StrictMode>
+        <ApplicationErrorBoundary>
+            <AsyncErrorNotice />
+            <App />
+        </ApplicationErrorBoundary>
+    </StrictMode>,
+);

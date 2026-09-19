@@ -1,56 +1,59 @@
-import type { ProposalFormData } from "../../../../types/proposal";
-import { ReviewSection } from "./ReviewSection";
-import { SummaryItem } from "./SummaryItem";
+/**
+ * System: DPRMS
+ * Purpose: Render proponent review section for the frontend.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import type { ProposalFormData } from '../../../../types/proposal';
+import { ReviewSection } from './ReviewSection';
+import { SummaryItem } from './SummaryItem';
 
-interface ProponentReviewSectionProps {
-  data: ProposalFormData;
-  isGia: boolean;
-  onEdit: () => void;
+interface ProponentReviewSectionProps
+{
+    objData: ProposalFormData;
+    blnIsGia: boolean;
+    onEdit: () => void;
 }
 
-export function ProponentReviewSection({
-  data,
-  isGia,
-  onEdit,
-}: ProponentReviewSectionProps) {
-  return (
-    <ReviewSection
-      description="Contact and organization information for DOST notifications."
-      onEdit={onEdit}
-      title={isGia ? "Proponent and Agency" : "Proponent and Business"}
-    >
-      <SummaryItem label="Program" value={data.proposalType} />
-      <SummaryItem
-        label={
-          isGia ? "Project Leader / Contact Person" : "Owner / Representative"
-        }
-        value={data.applicantFullName}
-      />
-      <SummaryItem label="Position / Designation" value={data.applicantPosition} />
-      <SummaryItem label="Email Address" value={data.emailAddress} />
-      <SummaryItem label="Contact Number" value={data.contactNumber} />
-      <SummaryItem
-        label={isGia ? "Implementing Agency / Organization" : "Business Name"}
-        value={data.organizationName}
-      />
-      <SummaryItem
-        label={isGia ? "Organization Type" : "Business Type"}
-        value={isGia ? data.organizationType : data.businessType}
-      />
-      <SummaryItem label="Municipality / City" value={data.municipality} />
-      <SummaryItem
-        label={isGia ? "Office Address" : "Business Address"}
-        value={data.businessAddress}
-        wide
-      />
-      {isGia ? null : (
-        <>
-          <SummaryItem label="Line of Business" value={data.lineOfBusiness} />
-          <SummaryItem label="Enterprise Size" value={data.enterpriseSize} />
-          <SummaryItem label="Industry Sector" value={data.industryCategory} />
-          <SummaryItem label="Years in Operation" value={data.yearEstablished} />
-        </>
-      )}
-    </ReviewSection>
-  );
-}
+/** Render proponent review section and its available actions. */
+export function ProponentReviewSection({ objData, blnIsGia, onEdit }: ProponentReviewSectionProps)
+{
+    return (
+        <ReviewSection
+            txtDescription="Contact and organization information for DOST notifications."
+            onEdit={onEdit}
+            title={blnIsGia ? 'Proponent and Agency' : 'Proponent and Business'}
+        >
+            <SummaryItem strLabel="Program" value={objData.proposalType} />
+            <SummaryItem
+                strLabel={blnIsGia ? 'Project Leader / Contact Person' : 'Owner / Representative'}
+                value={objData.applicantFullName}
+            />
+            <SummaryItem strLabel="Position / Designation" value={objData.applicantPosition} />
+            <SummaryItem strLabel="Email Address" value={objData.emailAddress} />
+            <SummaryItem strLabel="Contact Number" value={objData.contactNumber} />
+            <SummaryItem
+                strLabel={blnIsGia ? 'Implementing Agency / Organization' : 'Business Name'}
+                value={objData.organizationName}
+            />
+            <SummaryItem
+                strLabel={blnIsGia ? 'Organization Type' : 'Business Type'}
+                value={blnIsGia ? objData.organizationType : objData.businessType}
+            />
+            <SummaryItem strLabel="Municipality / City" value={objData.municipality} />
+            <SummaryItem
+                strLabel={blnIsGia ? 'Office Address' : 'Business Address'}
+                value={objData.businessAddress}
+                blnWide
+            />
+            {blnIsGia ? null : (
+                <>
+                    <SummaryItem strLabel="Line of Business" value={objData.lineOfBusiness} />
+                    <SummaryItem strLabel="Enterprise Size" value={objData.enterpriseSize} />
+                    <SummaryItem strLabel="Industry Sector" value={objData.industryCategory} />
+                    <SummaryItem strLabel="Years in Operation" value={objData.yearEstablished} />
+                </>
+            )}
+        </ReviewSection>
+    ); // end return
+} /* end ProponentReviewSection */

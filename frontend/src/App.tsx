@@ -1,7 +1,15 @@
-import { RouterProvider } from 'react-router-dom'
+/**
+ * System: DPRMS
+ * Purpose: Render app for the frontend.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import { RouterProvider } from 'react-router-dom';
 
-import { router } from './routes'
+import { g_objRouter } from './routes';
 
-export default function App() {
-  return <RouterProvider router={router} />
+/** Render app and its available actions. */
+export default function App()
+{
+    return <RouterProvider router={g_objRouter} />;
 }

@@ -8,12 +8,12 @@ export function Fixture() {
   return <><EquipmentRegistrationModal
     onClose={() => {}}
     onSaved={(equipment) => setSaved(equipment.name)}
-    options={{
+    objOptions={{
       categories: [{ category_code: 'LAB', category_name: 'Laboratory Equipment', id: 9 }],
       programs: ['GIA'],
       projects: [{ cooperator: 'Davao State University', id: 88, location: 'Mati City', program_type: 'GIA', reference_number: 'GIA-2026-0088', title: 'Cacao Research Center' }],
     }}
-    program="GIA"
+    strProgram="GIA"
   /><output data-testid="saved-equipment">{saved}</output></>
 }
 

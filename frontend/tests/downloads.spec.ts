@@ -32,7 +32,7 @@ for (const [role, program, folders] of [
   test(`initialization creates only authorized folders for ${role} ${program ?? 'both'}`, async ({ page }) => {
     await prepare(page, { ...staff, role, program } as typeof staff)
     const result = await page.evaluate(async () => {
-      const manager = await import('/src/services/downloadManager.ts')
+      const manager = await import('/src/services/download_manager.ts')
       const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
       await manager.initializeDownloadDirectories(user)
       const before = (window as any).pickerCalls
@@ -52,7 +52,7 @@ for (const prepared of [false, true]) {
     await prepare(page, staff, 'cancel')
     const download = page.waitForEvent('download')
     const result = await page.evaluate(async (prepared) => {
-      const manager = await import('/src/services/downloadManager.ts')
+      const manager = await import('/src/services/download_manager.ts')
       const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
       const directory = prepared ? await manager.prepareDownloadDirectory(user) : undefined
       const result = await manager.downloadBlob({ blob: new Blob(['receipt']), directory, fileName: 'receipt.txt', program: 'SETUP', user })
@@ -68,7 +68,7 @@ for (const prepared of [false, true]) {
 test('custom subfolders persist across reloads and stay isolated by account', async ({ page }) => {
   await prepare(page)
   await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     await manager.chooseDefaultDownloadRoot(user)
     ;(window as any).testFolder = 'Custom'
@@ -77,7 +77,7 @@ test('custom subfolders persist across reloads and stay isolated by account', as
   })
   await page.reload()
   const result = await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     const cached = manager.getCachedDownloadDirectoryState(user)
     const state = await manager.getDownloadDirectoryState(user)
@@ -104,7 +104,7 @@ for (const hasDefault of [true, false]) {
 test(`a missing custom handle reports its fallback, default available=${hasDefault}`, async ({ page }) => {
   await prepare(page)
   await page.evaluate(async (hasDefault) => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     await manager.chooseDefaultDownloadRoot(user)
     await new Promise<void>((resolve) => {
@@ -122,7 +122,7 @@ test(`a missing custom handle reports its fallback, default available=${hasDefau
   await page.reload()
   const download = hasDefault ? null : page.waitForEvent('download')
   const result = await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     const saved = await manager.downloadBlob({ blob: new Blob(['proof']), fileName: 'receipt.txt', user })
     return { saved, alerts: (window as any).testAlerts, calls: (window as any).pickerCalls }
@@ -143,7 +143,7 @@ test('removed custom and default folders fall back to browser downloads', async 
   await prepare(page)
   const download = page.waitForEvent('download')
   const result = await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     await manager.chooseDefaultDownloadRoot(user)
     ;(window as any).testFolder = 'Custom'
@@ -164,7 +164,7 @@ test('cold start never requests permission and denied access falls back', async 
   await prepare(page)
   const download = page.waitForEvent('download')
   const result = await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     await manager.chooseDefaultDownloadRoot(user)
     let requests = 0
@@ -185,7 +185,7 @@ test('cold start never requests permission and denied access falls back', async 
 test('multi-program legacy callers infer filenames and have a deterministic default', async ({ page }) => {
   await prepare(page, director as typeof staff)
   const result = await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     const inferred = await manager.downloadBlob({ blob: new Blob(['a']), fileName: 'SETUP_report.csv', user })
     const defaulted = await manager.downloadBlob({ blob: new Blob(['b']), fileName: 'report.csv', user })
@@ -198,7 +198,7 @@ test('multi-program legacy callers infer filenames and have a deterministic defa
 test('unassigned and unauthorized programs cannot write and paths cannot escape the chosen root', async ({ page }) => {
   await prepare(page)
   const messages = await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     await manager.chooseDefaultDownloadRoot(user)
     const messages = []
@@ -234,7 +234,7 @@ test('unsupported browsers download without requiring a program from multi-progr
   await prepare(page, director as typeof staff, 'unsupported')
   const download = page.waitForEvent('download')
   const result = await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     return manager.downloadBlob({ blob: new Blob(['content']), fileName: 'SETUP_report.csv', user: JSON.parse(localStorage.getItem('dprms.mock-user')!) })
   })
   expect((await download).suggestedFilename()).toBe('SETUP_report.csv')
@@ -246,7 +246,7 @@ test('unavailable IndexedDB does not prevent a browser download', async ({ page 
   const download = page.waitForEvent('download')
   const result = await page.evaluate(async () => {
     indexedDB.open = () => { throw new DOMException('Storage blocked', 'SecurityError') }
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     return manager.downloadBlob({ blob: new Blob(['content']), fileName: 'report.csv', user: JSON.parse(localStorage.getItem('dprms.mock-user')!) })
   })
   await download
@@ -256,7 +256,7 @@ test('unavailable IndexedDB does not prevent a browser download', async ({ page 
 test('a canceled preparation stays attached to its own download', async ({ page }) => {
   await prepare(page, staff, 'cancel')
   await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     const user = JSON.parse(localStorage.getItem('dprms.mock-user')!)
     ;(window as any).canceledDirectory = await manager.prepareDownloadDirectory(user)
     Object.defineProperty(window, 'showDirectoryPicker', { value: async () => (await navigator.storage.getDirectory()).getDirectoryHandle('Chosen', { create: true }) })
@@ -266,7 +266,7 @@ test('a canceled preparation stays attached to its own download', async ({ page 
   })
   const download = page.waitForEvent('download')
   await page.evaluate(async () => {
-    const manager = await import('/src/services/downloadManager.ts')
+    const manager = await import('/src/services/download_manager.ts')
     await manager.downloadBlob({ blob: new Blob(['canceled']), directory: (window as any).canceledDirectory, fileName: 'canceled.txt', user: JSON.parse(localStorage.getItem('dprms.mock-user')!) })
   })
   expect((await download).suggestedFilename()).toBe('SETUP_canceled.txt')

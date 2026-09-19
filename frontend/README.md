@@ -1,32 +1,26 @@
-# React + TypeScript + Vite
+# DPRMS frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React and TypeScript frontend for the DOST Project and Resource Management System.
 
-Currently, two official plugins are available:
+Install dependencies with `npm ci` and start the development server with `npm run dev`.
+Set `VITE_API_BASE_URL` in a local `.env` file when the API is not served at
+`http://127.0.0.1:8000/api`.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Before submitting changes, run:
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm run format:itd
+npm run lint
+npm run build
+npm test
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Use `format:itd` for the four-space Allman layout. Running Prettier directly
+reverts the required brace style. `lint` runs Oxlint and the ITD source checks.
+The Playwright suite starts its own frontend on port 5178 and uses isolated
+fixtures and mocked API responses. Install Chromium with `npx playwright install chromium` if it is not already present. `test:downloads` and `test:compliance`
+run the two suites separately.
+
+See [DPT-147 conventions and API dependency](../docs/DPT-147_FRONTEND_COMPLIANCE.md)
+for naming rules, React exceptions, verification coverage, and the outstanding
+backend schema-prefix migration.

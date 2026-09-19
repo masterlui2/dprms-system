@@ -1,24 +1,34 @@
-import type { ReactNode } from "react";
-import { Navigate } from "react-router-dom";
+/**
+ * System: DPRMS
+ * Purpose: Render role gate for the frontend.
+ * Programmer: ITD Development Team
+ * Copyright: (c) 2026 ITD. All rights reserved.
+ */
+import type { ReactNode } from 'react';
+import { Navigate } from 'react-router-dom';
 
-import { getMockUser, type UserRole } from "../../lib/mockAuth";
+import { getMockUser, type UserRole } from '../../lib/mock_auth';
 
+/** Render role gate and its available actions. */
 export function RoleGate({
-  allowedRoles,
-  children,
+    arrAllowedRoles,
+    children: objChildren,
 }: {
-  allowedRoles: UserRole[];
-  children: ReactNode;
-}) {
-  const user = getMockUser();
+    arrAllowedRoles: UserRole[];
+    children: ReactNode;
+})
+{
+    const objUser = getMockUser();
 
-  if (!user) {
-    return <Navigate replace to="/login" />;
-  }
+    if (!objUser)
+    {
+        return <Navigate replace to="/login" />;
+    }
 
-  if (!allowedRoles.includes(user.role)) {
-    return <Navigate replace to="/dashboard" />;
-  }
+    if (!arrAllowedRoles.includes(objUser.role))
+    {
+        return <Navigate replace to="/dashboard" />;
+    }
 
-  return children;
+    return objChildren;
 }
