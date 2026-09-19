@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { fetchProjects, type Program, type ProjectRecord } from '../../services/projectStore'
 import { cn } from '../../utils/cn'
+import { LegacyProjectModal } from './LegacyProjectModal'
 
 interface Props {
   onSelectProject: (project: any) => void
@@ -136,6 +137,7 @@ export function MonitoredProjectsSection({
   onPageChange,
 }: Props) {
   const navigate = useNavigate()
+  const [isLegacyProjectModalOpen, setIsLegacyProjectModalOpen] = useState(false)
   const [internalViewMode, setInternalViewMode] = useState<'box' | 'list'>('box')
   const viewMode = propViewMode ?? internalViewMode
   const setViewMode = (mode: 'box' | 'list') => {
@@ -333,6 +335,8 @@ export function MonitoredProjectsSection({
               type="button"
               className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b] hover:shadow-sm"
               title="Add Active Project"
+              aria-haspopup="dialog"
+              onClick={() => setIsLegacyProjectModalOpen(true)}
             >
               <Plus className="size-4" />
               <span>Add Active Project</span>
@@ -854,6 +858,12 @@ export function MonitoredProjectsSection({
           </footer>
         ) : null}
       </section>
+      {isLegacyProjectModalOpen ? (
+        <LegacyProjectModal
+          program={program ?? (isGia ? 'GIA' : 'SETUP')}
+          onClose={() => setIsLegacyProjectModalOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }
