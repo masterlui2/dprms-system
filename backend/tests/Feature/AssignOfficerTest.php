@@ -87,6 +87,11 @@ class AssignOfficerTest extends TestCase
             'action' => 'ASSIGN_OFFICER',
             'assigned_evaluator_id' => $this->staff->id,
         ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $this->staff->id,
+            'actor_id' => $this->director->id,
+            'type' => 'CHECKLIST_ASSIGNED',
+        ]);
     }
 
     public function test_assign_focal_officer(): void

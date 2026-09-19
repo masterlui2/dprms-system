@@ -56,4 +56,9 @@ class ProjectMonitoringRecord extends Model
     {
         return $this->hasMany(GiaDeliverableTracking::class, 'monitoring_record_id');
     }
+
+    public function siteVisits(): HasMany
+    {
+        return $this->hasMany(SiteVisit::class, 'monitoring_record_id');
+    }
 }

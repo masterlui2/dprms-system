@@ -9,7 +9,7 @@ class StoreEquipmentInspectionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->hasRole(['PROJECT_STAFF', 'FOCAL']) ?? false;
+        return $this->user()?->hasRole(['PROJECT_STAFF', 'PSTO_STAFF', 'FOCAL', 'SSCP_FOCAL', 'SETUP_FOCAL', 'RPMO', 'RPMO_STAFF']) ?? false;
     }
 
     public function rules(): array

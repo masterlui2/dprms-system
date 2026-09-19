@@ -176,6 +176,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "applications",
     "documentChecklist",
     "equipmentTracking",
+    "projectMonitoring",
     "reports",
   ],
   focal: [
@@ -191,6 +192,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "applications",
     "documentChecklist",
     "repaymentMonitoring",
+    "projectMonitoring",
     "projects",
     "reports",
   ],
@@ -198,6 +200,7 @@ const sidebarOrderByRole: Record<UserRole, ModuleId[]> = {
     "dashboard",
     "applications",
     "documentChecklist",
+    "projectMonitoring",
     "regionalMonitoring",
     "reports",
   ],

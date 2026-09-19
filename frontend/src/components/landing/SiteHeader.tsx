@@ -23,6 +23,7 @@ import {
   PROFILE_UPDATED_EVENT,
   type ProponentProfile,
 } from "../../services/profileStore";
+import { useUnreadNotificationCount } from "../../services/notificationStore";
 
 function getProgramHomePath(pathname: string, user?: MockUser | null) {
   if (pathname.startsWith("/programs/gia") || pathname.startsWith("/gia"))
@@ -258,6 +259,7 @@ export function SiteHeader() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [profileRevision, setProfileRevision] = useState(0);
+  const unreadNotifications = useUnreadNotificationCount(Boolean(user));
   const isProponent = user?.role === "proponent";
   const [profile, setProfile] = useState<ProponentProfile | null>(null);
   const activeProgram: "SETUP" | "GIA" =
@@ -453,12 +455,15 @@ export function SiteHeader() {
                   type="button"
                 >
                   <Bell className="size-5" />
-                  <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-[#ff8a1f]" />
+                  {unreadNotifications > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-[#ff8a1f] px-1 text-[10px] font-black text-white">
+                      {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                    </span>
+                  ) : null}
                 </button>
                 {notificationsOpen ? (
                   <NotificationPanel
                     onClose={() => setNotificationsOpen(false)}
-                    role="proponent"
                   />
                 ) : null}
               </div>
@@ -521,12 +526,15 @@ export function SiteHeader() {
                   type="button"
                 >
                   <Bell className="size-5" />
-                  <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-[#ff8a1f]" />
+                  {unreadNotifications > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-[#ff8a1f] px-1 text-[10px] font-black text-white">
+                      {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                    </span>
+                  ) : null}
                 </button>
                 {notificationsOpen ? (
                   <NotificationPanel
                     onClose={() => setNotificationsOpen(false)}
-                    role="proponent"
                   />
                 ) : null}
               </div>
