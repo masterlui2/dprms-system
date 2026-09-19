@@ -1209,6 +1209,11 @@ class DocumentChecklistTest extends TestCase
             'status' => 'returned_for_revision',
             'remarks' => 'Signatures missing on section 3',
         ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $proposal->submitted_by,
+            'actor_id' => $staff->id,
+            'type' => 'CHECKLIST_NEEDS_REVISION',
+        ]);
     }
 
     public function test_user_cannot_submit_multiple_active_proposals_for_same_program(): void

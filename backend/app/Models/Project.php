@@ -57,4 +57,9 @@ class Project extends Model
     {
         return $this->hasMany(QuarterlyMetrics::class);
     }
+
+    public function siteVisits(): HasMany
+    {
+        return $this->hasMany(SiteVisit::class);
+    }
 }

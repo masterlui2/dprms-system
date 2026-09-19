@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   Brain,
@@ -12,7 +13,6 @@ import {
 import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { AdminPanel } from "../../components/admin/AdminPanel";
 import { MetricCard } from "../../components/admin/MetricCard";
-import { SiteVisitCalendarModal } from "../../components/admin/site-visits/SiteVisitCalendarModal";
 import { StatusPill } from "../../components/admin/StatusPill";
 import {
   featureImportance,
@@ -43,7 +43,7 @@ const reminders = [
 ];
 
 export function AdminDashboard() {
-  const [siteVisitCalendarOpen, setSiteVisitCalendarOpen] = useState(false);
+  const navigate = useNavigate();
   const [snapshotPage, setSnapshotPage] = useState(1);
   const snapshotRowsPerPage = 4;
   const snapshotPageCount = Math.max(
@@ -343,7 +343,7 @@ export function AdminDashboard() {
               <button
                 aria-label="Open site visit calendar"
                 className="inline-flex size-11 items-center justify-center rounded-xl border border-slate-200 text-[#0f53b7] transition hover:border-blue-300 hover:bg-blue-50"
-                onClick={() => setSiteVisitCalendarOpen(true)}
+                onClick={() => navigate("/dashboard/project-monitoring?view=calendar")}
                 title="Open site visit calendar"
                 type="button"
               >
@@ -405,11 +405,6 @@ export function AdminDashboard() {
         </div>
       </div>
 
-      {siteVisitCalendarOpen ? (
-        <SiteVisitCalendarModal
-          onClose={() => setSiteVisitCalendarOpen(false)}
-        />
-      ) : null}
     </div>
   );
 }

@@ -12,6 +12,7 @@ use App\Services\Contracts\ProjectModule\ProjectServiceInterface;
 use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
 use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use App\Services\Contracts\ProposalModule\ReferenceNumberGeneratorServiceInterface;
+use App\Services\UniversalNotificationService;
 use App\Support\ProgramAccess;
 use App\Support\ProposalWorkflow;
 use Illuminate\Database\Eloquent\Collection;
@@ -27,6 +28,7 @@ class ProposalService implements ProposalServiceInterface
         protected ProposalAuditRepositoryInterface $proposalAuditRepository,
         protected ProjectServiceInterface $projectService,
         protected DocumentChecklistServiceInterface $documentChecklistService,
+        protected UniversalNotificationService $notifications,
     ) {}
 
     #[Override]
@@ -62,6 +64,10 @@ class ProposalService implements ProposalServiceInterface
                 remarks: $data['remarks'] ?? null,
             );
 
+            if ($actor = Auth::user()) {
+                $this->notifications->proposalSubmitted($proposal, $actor);
+            }
+
             return $proposal;
         });
     }
@@ -91,6 +97,15 @@ class ProposalService implements ProposalServiceInterface
                 newStatus: $proposal->status,
                 remarks: $data['remarks'] ?? null,
             );
+
+            if ($existing->status !== $proposal->status && ($actor = Auth::user())) {
+                $this->notifications->proposalStatusChanged(
+                    $proposal,
+                    $actor,
+                    $proposal->status,
+                    $data['remarks'] ?? null,
+                );
+            }
 
             return $proposal;
         });
@@ -154,6 +169,8 @@ class ProposalService implements ProposalServiceInterface
                 remarks: $remarks,
             );
 
+            $this->notifications->proposalStatusChanged($proposal, $user, $newStatus, $remarks);
+
             return $proposal;
         });
     }
@@ -190,6 +207,8 @@ class ProposalService implements ProposalServiceInterface
                 remarks: $remarks,
                 assignedEvaluatorId: Auth::id(),
             );
+
+            $this->notifications->proposalStatusChanged($proposal, $user, 'DISAPPROVED', $remarks);
 
             return $proposal;
         });
@@ -241,6 +260,8 @@ class ProposalService implements ProposalServiceInterface
                 remarks: $remarks,
                 assignedEvaluatorId: Auth::id(),
             );
+
+            $this->notifications->proposalStatusChanged($proposal, $user, 'APPROVED', $remarks);
 
             return $proposal;
         });
@@ -341,7 +362,10 @@ class ProposalService implements ProposalServiceInterface
                 );
             }
 
-            return $this->proposalRepository->findById($proposalId);
+            $proposal = $this->proposalRepository->findById($proposalId);
+            $this->notifications->proposalStatusChanged($proposal, $user, $newStatus, $remarks);
+
+            return $proposal;
         });
     }
 
@@ -375,6 +399,14 @@ class ProposalService implements ProposalServiceInterface
                 remarks: $remarks ?? 'Assigned officer(s) to proposal',
                 assignedEvaluatorId: $focalId ?? $staffId,
             );
+
+            if ($actor = Auth::user()) {
+                $this->notifications->proposalAssigned(
+                    $proposal,
+                    $actor,
+                    array_values(array_filter([$staffId, $focalId])),
+                );
+            }
 
             return $proposal;
         });
@@ -431,6 +463,10 @@ class ProposalService implements ProposalServiceInterface
                 assignedEvaluatorId: $assignedEvaluatorId,
                 findings: $findings,
             );
+
+            if ($actor = Auth::user()) {
+                $this->notifications->proposalStatusChanged($updated_proposal, $actor, $newStatus, $remarks);
+            }
 
             return $updated_proposal;
         });

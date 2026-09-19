@@ -9,6 +9,7 @@ use App\Models\EquipmentRegistry;
 use App\Models\Project;
 use App\Models\QrScanLog;
 use App\Models\User;
+use App\Services\UniversalNotificationService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -25,6 +26,8 @@ class EquipmentInspectionService
         'proposal.setup_proposal',
         'proposal.gia_proposal',
     ];
+
+    public function __construct(private readonly UniversalNotificationService $notifications) {}
 
     public function listForUser(User $user, array $filters = []): array
     {
@@ -291,6 +294,8 @@ class EquipmentInspectionService
             ]);
 
             $lockedEquipment->load(self::PROFILE_RELATIONS);
+
+            $this->notifications->equipmentInspected($lockedEquipment, $user);
 
             return $this->profile($lockedEquipment, true);
         });

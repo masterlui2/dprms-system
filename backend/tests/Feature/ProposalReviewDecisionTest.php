@@ -9,6 +9,7 @@ use App\Models\ProposalChecklistSummary;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\Contracts\ProposalModule\DocumentChecklistServiceInterface;
+use App\Services\Contracts\ProposalModule\ProposalServiceInterface;
 use Database\Seeders\DocumentChecklistTemplateSeeder;
 use Database\Seeders\DocumentTypeSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -98,6 +99,29 @@ class ProposalReviewDecisionTest extends TestCase
             'is_completed' => true,
             'completed_by' => $this->focal->id,
             'completed_at' => now(),
+        ]);
+    }
+
+    public function test_submission_notifies_reviewers_and_the_applicant(): void
+    {
+        $applicant = User::factory()->create(['program_type' => 'SETUP']);
+        Sanctum::actingAs($applicant);
+
+        $proposal = app(ProposalServiceInterface::class)->submit([
+            'program_type' => 'SETUP',
+            'title' => 'Notification Test Project',
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $this->reviewer->id,
+            'actor_id' => $applicant->id,
+            'type' => 'PROPOSAL_SUBMITTED',
+            'program' => 'SETUP',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $applicant->id,
+            'type' => 'PROPOSAL_SUBMITTED_CONFIRMATION',
+            'related_id' => $proposal->id,
         ]);
     }
 
@@ -298,6 +322,12 @@ class ProposalReviewDecisionTest extends TestCase
         $this->proposal->refresh();
         $this->assertSame('APPROVED', $this->proposal->status);
         $this->assertNotNull($this->proposal->approved_at);
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $this->applicant->id,
+            'actor_id' => $director->id,
+            'type' => 'PROPOSAL_STATUS_CHANGED',
+            'title' => 'Proposal Approved',
+        ]);
         $this->assertSame($director->id, $this->proposal->reviewed_by);
 
         $this->assertDatabaseHas('proposal_review_logs', [

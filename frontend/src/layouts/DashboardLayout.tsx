@@ -8,6 +8,7 @@ import { SiteHeader } from '../components/landing/SiteHeader'
 import { ROLE_LABEL, ROLES } from '../config/permissions'
 import { clearMockUser, getMockUser } from '../lib/mockAuth'
 import { initializeDownloadDirectories } from '../services/downloadManager'
+import { useUnreadNotificationCount } from '../services/notificationStore'
 import { AccountExportDirectory } from '../components/common/ExportDirectorySettings'
 import { cn } from '../utils/cn'
 
@@ -18,6 +19,7 @@ export function DashboardLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [accountMenuOpen, setAccountMenuOpen] = useState(false)
+  const unreadNotifications = useUnreadNotificationCount()
 
   useEffect(() => {
     const activeUser = getMockUser()
@@ -70,7 +72,7 @@ export function DashboardLayout() {
       />
 
       <div className="min-w-0 flex flex-col h-screen overflow-hidden bg-[#eef5fb]">
-        <header className="shrink-0 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
+        <header className="relative z-40 shrink-0 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
           <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
             <button
               aria-expanded={mobileSidebarOpen}
@@ -114,12 +116,15 @@ export function DashboardLayout() {
                 type="button"
               >
                 <Bell className="h-5 w-5" />
-                <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[#ff8a1f]" />
+                {unreadNotifications > 0 ? (
+                  <span className="absolute -right-0.5 -top-0.5 grid min-w-5 place-items-center rounded-full bg-[#ff8a1f] px-1 text-[10px] font-black text-white">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </span>
+                ) : null}
               </button>
               {notificationsOpen ? (
                 <NotificationPanel
                   onClose={() => setNotificationsOpen(false)}
-                  role={user.role}
                 />
               ) : null}
             </div>
