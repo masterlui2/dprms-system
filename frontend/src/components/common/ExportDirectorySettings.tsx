@@ -8,14 +8,17 @@ import
 {
     AlertTriangle,
     CheckCircle2,
-    FolderCog,
-    FolderOpen,
+    Folder,
+    Info,
+    Settings,
     LoaderCircle,
     RotateCcw,
 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { MockUser } from '../../lib/mock_auth';
+import { ROLE_LABEL } from '../../config/permissions';
+import { cn } from '../../utils/cn';
 import
 {
     chooseCustomDownloadDirectory,
@@ -124,153 +127,197 @@ export function ExportDirectorySettings({ objUser }: { objUser: MockUser; })
         strPending !== null ||
         !objDirectory.browserSupported ||
         objDirectory.authorizedPrograms.length === 0;
-    const strButtonClass =
-        'inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100 disabled:cursor-not-allowed disabled:opacity-50';
+    const blnFormDisabled = blnDisabled || !objDirectory.configured;
 
     return (
-        <div className="space-y-5">
-            <div className="rounded-2xl border border-blue-100 bg-[#f3f8fe] p-4 sm:p-5">
-                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Current destination
-                    </span>
-                    <span className="rounded-full border border-blue-100 bg-white px-2.5 py-1 text-xs font-semibold text-[#073b82]">
-                        Authorized:{' '}
-                        {objDirectory.authorizedPrograms.join(' & ') || 'No assigned program'}
-                    </span>
+        <div className="space-y-4 font-sans">
+            <section className="rounded-xl border border-slate-200/90 bg-slate-50/70 p-4">
+                <div className="flex items-center gap-3.5">
+                    <div className="grid size-11 place-items-center rounded-full bg-[#0f53b7] text-sm font-bold text-white shadow-xs shrink-0">
+                        {objUser.initials}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                        <h4 className="truncate text-sm font-bold text-slate-900">
+                            {objUser.name}
+                        </h4>
+                        <p className="truncate text-xs text-slate-500">{objUser.email}</p>
+                    </div>
                 </div>
-                <div className="flex items-start gap-3">
-                    <FolderOpen className="mt-0.5 size-5 shrink-0 text-[#0f53b7]" />
-                    <p className="break-all text-sm font-semibold leading-6 text-slate-800">
-                        {objDirectory.activePath}
-                    </p>
+
+                <div className="mt-3 flex flex-wrap items-center gap-8 border-t border-slate-200/80 pt-2.5 text-xs">
+                    <div>
+                        <span className="block text-[11px] font-medium text-slate-400">Role</span>
+                        <span className="font-semibold text-slate-700">
+                            {ROLE_LABEL[objUser.role] ?? objUser.role}
+                        </span>
+                    </div>
+                    <div>
+                        <span className="block text-[11px] font-medium text-slate-400">
+                            Program
+                        </span>
+                        <span className="font-semibold text-slate-700">
+                            {objUser.program || 'All Programs'}
+                        </span>
+                    </div>
+                    {objUser.applicationReference ? (
+                        <div>
+                            <span className="block text-[11px] font-medium text-slate-400">
+                                Application Reference
+                            </span>
+                            <span className="font-mono font-semibold text-slate-700">
+                                {objUser.applicationReference}
+                            </span>
+                        </div>
+                    ) : null}
                 </div>
-                <p className="mt-3 text-xs text-slate-500">
-                    {objDirectory.mode === 'custom' ? 'Custom destination' : 'Default destination'}{' '}
-                    · Applies to documents, reports, exports, and attachments.
-                </p>
-            </div>
+            </section>
 
-            {!objDirectory.browserSupported ? (
-                <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-                    This browser uses its standard download destination. Use a browser with folder
-                    access, such as desktop Chrome or Edge, to enable GIA / SETUP folders.
-                </p>
-            ) : objDirectory.configured && objDirectory.permission !== 'granted' && !blnLoading ? (
-                <p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">
-                    Folder access needs confirmation. Your browser may ask for permission on your
-                    next download. If access is unavailable, the file goes to browser downloads.
-                </p>
-            ) : null}
-
-            <div className="flex flex-wrap gap-2">
-                <button
-                    className={`${strButtonClass} bg-[#0f53b7] text-white hover:bg-[#073b82]`}
-                    disabled={blnDisabled}
-                    onClick={() =>
-                        void _change('browse', () =>
-                            objDirectory.configured
-                                ? chooseCustomDownloadDirectory(objUser)
-                                : chooseDefaultDownloadRoot(objUser),
-                        )
-                    }
-                    type="button"
-                >
-                    {strPending === 'browse' ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                        <FolderOpen className="size-4" />
-                    )}
-                    Browse / Change folder
-                </button>
-                <button
-                    className={`${strButtonClass} border border-slate-200 text-slate-700 hover:bg-slate-50`}
-                    disabled={blnDisabled}
-                    onClick={() => void _change('reset', () => resetDownloadDirectory(objUser))}
-                    type="button"
-                >
-                    {strPending === 'reset' ? (
-                        <LoaderCircle className="size-4 animate-spin" />
-                    ) : (
-                        <RotateCcw className="size-4" />
-                    )}
-                    Reset to default
-                </button>
-            </div>
-
-            <form
-                className="space-y-2 border-t border-slate-100 pt-5"
-                onSubmit={(objEvent) =>
-                {
-                    objEvent.preventDefault();
-                    if (!blnDisabled)
+            <section className="rounded-xl border border-slate-200/90 bg-white p-4 shadow-xs">
+                <form
+                    className="space-y-4"
+                    onSubmit={(objEvent) =>
                     {
-                        void _change('save', () => saveDownloadSubpath(objUser, strPath));
-                    }
-                }}
-            >
-                <label
-                    className="block text-sm font-semibold text-slate-800"
-                    htmlFor="export-subfolder"
+                        objEvent.preventDefault();
+                        if (!blnFormDisabled)
+                        {
+                            void _change('save', () => saveDownloadSubpath(objUser, strPath));
+                        }
+                    }}
                 >
-                    Subfolder path <span className="font-normal text-slate-400">(optional)</span>
-                </label>
-                <div className="flex gap-2">
-                    <input
-                        aria-describedby="export-path-help"
-                        className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-50 disabled:bg-slate-50"
-                        disabled={blnDisabled || !objDirectory.configured}
-                        id="export-subfolder"
-                        onChange={(objEvent) => setStrPath(objEvent.target.value)}
-                        placeholder="Reports/2026"
-                        value={strPath}
-                    />
-                    <button
-                        className={`${strButtonClass} border border-slate-200 text-[#073b82] hover:bg-blue-50`}
-                        disabled={blnDisabled || !objDirectory.configured}
-                        type="submit"
-                    >
-                        {strPending === 'save' ? (
-                            <LoaderCircle className="size-4 animate-spin" />
-                        ) : null}
-                        Save
-                    </button>
-                </div>
-                <p className="text-xs leading-5 text-slate-500" id="export-path-help">
-                    Choose a parent folder first, then type a path inside it. Files go into its
-                    authorized GIA / SETUP subfolders. To use another drive or an absolute path,
-                    select it through Browse.
-                </p>
-            </form>
+                    <div className="flex items-center gap-2">
+                        <Folder className="size-4 text-[#0f53b7]" />
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                            Downloads
+                        </h3>
+                    </div>
 
-            <div aria-live="polite">
-                {blnLoading ? (
-                    <p className="flex items-center gap-2 text-sm text-slate-500">
-                        <LoaderCircle className="size-4 animate-spin" />
-                        Checking saved folder…
-                    </p>
-                ) : null}
-                {strNotice ? (
-                    <p className="flex items-start gap-2 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-800">
-                        <CheckCircle2 className="mt-0.5 size-4 shrink-0" />
-                        {strNotice}
-                    </p>
-                ) : null}
-                {strError ? (
-                    <p
-                        className="flex items-start gap-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-800"
-                        role="alert"
-                    >
-                        <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                        {strError}
-                    </p>
-                ) : null}
-            </div>
-            <p className="text-xs leading-5 text-slate-500">
-                Your first chosen folder is the default for this account in this browser. Reset
-                restores it. Canceling a folder picker during a download sends the file to browser
-                downloads. Browsers show folder names here, rather than the full device path.
-            </p>
+                    <div className="space-y-1.5">
+                        <label
+                            className="block text-xs font-semibold text-slate-700"
+                            htmlFor="downloads-location"
+                        >
+                            Save files to
+                        </label>
+                        <div className="flex gap-2">
+                            <div className="flex flex-1 items-center rounded-lg border border-slate-300 bg-slate-100 px-3 overflow-hidden">
+                                <Folder className="mr-2 size-4 shrink-0 text-slate-400" />
+                                <input
+                                    className="h-10 min-w-0 flex-1 bg-transparent font-mono text-xs text-slate-700 outline-none select-all cursor-default"
+                                    id="downloads-location"
+                                    readOnly
+                                    type="text"
+                                    value={objDirectory.activePath}
+                                />
+                            </div>
+                            <button
+                                className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 bg-slate-100 px-4 text-xs font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
+                                disabled={blnDisabled}
+                                onClick={() =>
+                                    void _change('browse', () =>
+                                        objDirectory.configured
+                                            ? chooseCustomDownloadDirectory(objUser)
+                                            : chooseDefaultDownloadRoot(objUser),
+                                    )
+                                }
+                                type="button"
+                            >
+                                {strPending === 'browse' ? (
+                                    <LoaderCircle className="size-4 animate-spin text-[#0f53b7]" />
+                                ) : (
+                                    'Choose...'
+                                )}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        <label
+                            className="block text-xs font-semibold text-slate-700"
+                            htmlFor="subfolder-path"
+                        >
+                            Subfolder <span className="font-normal text-slate-400">(optional)</span>
+                        </label>
+                        <input
+                            className={cn(
+                                'h-10 w-full rounded-lg border border-slate-300 px-3 font-mono text-xs text-slate-800 outline-none',
+                                'placeholder:font-sans placeholder:text-slate-400',
+                                'focus:border-[#0f53b7] focus:ring-2 focus:ring-blue-100 disabled:bg-slate-50',
+                            )}
+                            disabled={blnFormDisabled}
+                            id="subfolder-path"
+                            onChange={(objEvent) => setStrPath(objEvent.target.value)}
+                            placeholder="e.g. Reports/2026"
+                            type="text"
+                            value={strPath}
+                        />
+                    </div>
+
+                    {!objDirectory.browserSupported ? (
+                        <div className="flex items-start gap-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-xs text-slate-600">
+                            <Info className="mt-0.5 size-4 shrink-0 text-slate-500" />
+                            <span>
+                                Default folder active. To select a custom folder, enable File System
+                                Access in Brave (
+                                <code className="text-[11px]">
+                                    brave://flags/#file-system-access-api
+                                </code>
+                                ) or use Chrome/Edge.
+                            </span>
+                        </div>
+                    ) : null}
+
+                    {strNotice ? (
+                        <div
+                            role="status"
+                            className="flex items-center gap-2 rounded-lg bg-emerald-50 border border-emerald-200 p-2.5 text-xs font-semibold text-emerald-800"
+                        >
+                            <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                            <span>{strNotice}</span>
+                        </div>
+                    ) : null}
+
+                    {strError ? (
+                        <div
+                            className="flex items-center gap-2 rounded-lg bg-rose-50 border border-rose-200 p-2.5 text-xs font-semibold text-rose-800"
+                            role="alert"
+                        >
+                            <AlertTriangle className="size-4 shrink-0 text-rose-600" />
+                            <span>{strError}</span>
+                        </div>
+                    ) : null}
+
+                    <div className="flex items-center justify-between border-t border-slate-100 pt-3">
+                        {objDirectory.configured ? (
+                            <button
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:opacity-50"
+                                disabled={blnDisabled}
+                                onClick={() =>
+                                    void _change('reset', () => resetDownloadDirectory(objUser))
+                                }
+                                type="button"
+                            >
+                                <RotateCcw className="size-3.5" />
+                                <span>Reset to default</span>
+                            </button>
+                        ) : (
+                            <div />
+                        )}
+                        <button
+                            className={cn(
+                                'inline-flex h-9 items-center justify-center rounded-lg bg-[#0f53b7] px-5',
+                                'text-xs font-bold text-white shadow-xs transition hover:bg-[#0b3f8b] disabled:opacity-50',
+                            )}
+                            disabled={blnFormDisabled}
+                            type="submit"
+                        >
+                            {strPending === 'save' ? (
+                                <LoaderCircle className="mr-1.5 size-3.5 animate-spin" />
+                            ) : null}
+                            <span>Save Settings</span>
+                        </button>
+                    </div>
+                </form>
+            </section>
         </div>
     ); // end return
 } /* end ExportDirectorySettings */
@@ -283,19 +330,19 @@ export function AccountExportDirectory({ objUser }: { objUser: MockUser; })
     return (
         <>
             <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-[#073b82]"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-sm font-semibold text-slate-700 transition hover:bg-blue-50 hover:text-[#073b82]"
                 onClick={() => setBlnOpen(true)}
                 type="button"
             >
-                <FolderCog className="size-4 shrink-0 text-[#0f53b7]" />
-                Export directory
+                <Settings className="size-4 shrink-0 text-slate-500" />
+                <span>Settings</span>
             </button>
             {blnOpen
                 ? createPortal(
                     <ModalShell
-                        txtDescription="Choose where your DPRMS files are saved."
+                        txtDescription="Manage account profile and download preferences."
                         onClose={_close}
-                        title="Report Export Directory"
+                        title="Settings"
                         strWidth="md"
                     >
                         <ExportDirectorySettings

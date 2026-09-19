@@ -205,7 +205,7 @@ export function DataTable<T>({
                 ) : null}
             </div>
 
-            <div className="hidden max-w-full overflow-hidden xl:block">
+            <div className="hidden max-w-full overflow-x-auto xl:block">
                 <table className="w-full table-fixed text-left text-sm">
                     <thead
                         className={cn(

@@ -417,7 +417,7 @@ export function ApprovalsPage()
         {
             id: 'id',
             header: 'Reference',
-            className: 'w-[13%] min-w-[140px]',
+            className: 'w-[11%] min-w-[125px]',
             sortValue: (objProposal) => objProposal.id,
             render: (objProposal) => (
                 <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-slate-100/90 border border-slate-200/80 font-mono text-xs font-bold text-slate-700 whitespace-nowrap shadow-2xs">
@@ -428,7 +428,7 @@ export function ApprovalsPage()
         {
             id: 'title',
             header: 'Project Title',
-            className: 'w-[24%] min-w-[220px]',
+            className: 'w-[22%] min-w-[190px]',
             sortValue: (objProposal) => objProposal.title,
             render: (objProposal) => (
                 <p className="font-bold leading-snug text-slate-900 text-sm line-clamp-2 hover:text-[#0f53b7] transition-colors">
@@ -439,7 +439,7 @@ export function ApprovalsPage()
         {
             id: 'proponent',
             header: 'Proponent',
-            className: 'w-[13%] min-w-[130px]',
+            className: 'w-[12%] min-w-[120px]',
             sortValue: (objProposal) => objProposal.proponentName ?? '',
             render: (objProposal) => (
                 <p className="font-bold text-sm text-slate-900 leading-snug">
@@ -450,7 +450,7 @@ export function ApprovalsPage()
         {
             id: 'organization',
             header: 'Organization',
-            className: 'w-[16%] min-w-[160px]',
+            className: 'w-[14%] min-w-[130px]',
             sortValue: (objProposal) => objProposal.organization,
             render: (objProposal) => (
                 <div className="space-y-0.5">
@@ -468,7 +468,7 @@ export function ApprovalsPage()
         {
             id: 'classification',
             header: 'Classification',
-            className: 'w-[13%] min-w-[130px]',
+            className: 'w-[12%] min-w-[120px]',
             sortValue: (objProposal) =>
                 objProposal.program === 'SETUP'
                     ? (objProposal.industrySector ?? '')
@@ -503,7 +503,7 @@ export function ApprovalsPage()
         {
             id: 'submitted',
             header: 'Submission Date',
-            className: 'w-[10%] min-w-[110px]',
+            className: 'w-[9%] min-w-[100px]',
             sortValue: (objProposal) => objProposal.submitted,
             render: (objProposal) => (
                 <span className="text-xs font-medium text-slate-600 whitespace-nowrap block">
@@ -514,7 +514,7 @@ export function ApprovalsPage()
         {
             id: 'status',
             header: 'Status',
-            className: 'w-[11%] min-w-[110px]',
+            className: 'w-[8%] min-w-[85px]',
             sortValue: (objProposal) => objProposal.status,
             render: (objProposal) =>
             {
@@ -553,16 +553,16 @@ export function ApprovalsPage()
         {
             id: 'action',
             header: 'Action',
-            className: 'w-[10%] min-w-[100px] text-right',
+            className: 'w-[15%] min-w-[185px] text-right',
             render: (objProposal) =>
             {
                 if (objProposal.status === 'Approved')
                 {
                     return (
-                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                             {objProposal.proposalId ? (
                                 <button
-                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition shrink-0"
+                                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
                                     onClick={(objEvent) =>
                                     {
                                         objEvent.stopPropagation();
@@ -595,7 +595,7 @@ export function ApprovalsPage()
                                 </button>
                             ) : null}
                             <button
-                                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition shrink-0"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition"
                                 onClick={(objEvent) =>
                                 {
                                     objEvent.stopPropagation();
@@ -626,10 +626,10 @@ export function ApprovalsPage()
                 if (blnCanDecide)
                 {
                     return (
-                        <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                             {objProposal.proposalId ? (
                                 <button
-                                    className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
+                                    className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
                                     onClick={(objEvent) =>
                                     {
                                         objEvent.stopPropagation();
@@ -644,7 +644,7 @@ export function ApprovalsPage()
                                 </button>
                             ) : null}
                             <button
-                                className="inline-flex size-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs hover:bg-emerald-700 transition"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-xs hover:bg-emerald-700 transition"
                                 onClick={(objEvent) =>
                                 {
                                     objEvent.stopPropagation();
@@ -656,7 +656,7 @@ export function ApprovalsPage()
                                 <Check className="size-4" />
                             </button>
                             <button
-                                className="inline-flex size-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs hover:bg-rose-700 transition"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg bg-rose-600 text-white shadow-xs hover:bg-rose-700 transition"
                                 onClick={(objEvent) =>
                                 {
                                     objEvent.stopPropagation();
@@ -673,7 +673,7 @@ export function ApprovalsPage()
                                 <X className="size-4" />
                             </button>
                             <button
-                                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-slate-900 transition"
                                 onClick={(objEvent) =>
                                 {
                                     objEvent.stopPropagation();
@@ -689,10 +689,10 @@ export function ApprovalsPage()
                 } /* end if */
 
                 return (
-                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    <div className="flex items-center justify-end gap-1.5 whitespace-nowrap">
                         {objProposal.proposalId ? (
                             <button
-                                className="inline-flex size-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
+                                className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-xs hover:bg-slate-100 hover:text-[#0f53b7] transition"
                                 onClick={(objEvent) =>
                                 {
                                     objEvent.stopPropagation();
@@ -707,7 +707,7 @@ export function ApprovalsPage()
                             </button>
                         ) : null}
                         <button
-                            className="inline-flex items-center gap-1.5 rounded-xl bg-[#0f53b7] px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0b3f8b] transition hover:shadow-md"
+                            className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-[#0f53b7] px-3.5 text-xs font-bold text-white shadow-xs hover:bg-[#0b3f8b] transition hover:shadow-md"
                             onClick={(objEvent) =>
                             {
                                 objEvent.stopPropagation();
@@ -776,6 +776,7 @@ export function ApprovalsPage()
                     </p>
                 ) : null}
                 <DataTable
+                    blnFitColumns
                     arrColumns={arrColumns}
                     arrData={arrFilteredProposals}
                     txtEmptyDescription="No applications match the selected filter."

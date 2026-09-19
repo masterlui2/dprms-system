@@ -40,9 +40,15 @@ function _isSubRouteActive(strPathname: string, strSearch: string, strRoute: str
 
     const objCurrentParams = new URLSearchParams(strSearch);
     const objExpectedParams = new URLSearchParams(strRouteQuery);
-    return Array.from(objExpectedParams.entries()).every(
-        ([strKey, strValue]) => objCurrentParams.get(strKey) === strValue,
-    );
+    let blnMatches = true;
+    objExpectedParams.forEach((strValue, strKey) =>
+    {
+        if (objCurrentParams.get(strKey) !== strValue)
+        {
+            blnMatches = false;
+        }
+    });
+    return blnMatches;
 }
 
 /** Render sidebar item and its available actions. */
@@ -191,11 +197,6 @@ export function AdminSidebar({
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-3 py-4">
-                    {!blnCollapsed ? (
-                        <p className="px-2 pb-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-                            Modules
-                        </p>
-                    ) : null}
                     <nav className="space-y-1">
                         {arrVisible.map((objItem) =>
                         {
