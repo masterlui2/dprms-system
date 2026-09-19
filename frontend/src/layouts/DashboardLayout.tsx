@@ -72,7 +72,7 @@ export function DashboardLayout() {
       />
 
       <div className="min-w-0 flex flex-col h-screen overflow-hidden bg-[#eef5fb]">
-        <header className="shrink-0 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
+        <header className="relative z-40 shrink-0 border-b border-[#d8e1ee] bg-white/95 backdrop-blur">
           <div className="flex flex-wrap items-center gap-4 px-4 py-4 sm:px-6">
             <button
               aria-expanded={mobileSidebarOpen}
