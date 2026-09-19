@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   BarChart3,
+  CalendarDays,
   FileDown,
   ListFilter,
   LoaderCircle,
@@ -9,6 +10,7 @@ import {
 } from 'lucide-react'
 
 import { AnimatedTabs } from '../../components/common/AnimatedTabs'
+import { SiteVisitCalendar } from '../../components/admin/site-visits/SiteVisitCalendar'
 import { GiaMonitoringHub } from '../../components/monitoring/GiaMonitoringHub'
 import { GiaMonitoringOverviewSection } from '../../components/monitoring/GiaMonitoringOverviewSection'
 import { MonitoredProjectsSection } from '../../components/monitoring/MonitoredProjectsSection'
@@ -115,9 +117,11 @@ export function MonitoringPage() {
       : null
   const selectedProgram: Program = lockedProgram ??
     (searchParams.get('program') === 'GIA' ? 'GIA' : 'SETUP')
-  const [currentView, setCurrentView] = useState<'overview' | 'projects'>(
-    searchParams.get('view') === 'projects' ? 'projects' : 'overview'
-  )
+  const [currentView, setCurrentView] = useState<'overview' | 'projects' | 'calendar'>(() => {
+    const requested = searchParams.get('view')
+    if (requested === 'projects' || requested === 'calendar') return requested
+    return currentUser?.role === ROLES.PROJECT_STAFF ? 'calendar' : 'overview'
+  })
   const projectIdParam = searchParams.get('projectId')
 
   const initialQuarter = (() => {
@@ -177,13 +181,16 @@ export function MonitoringPage() {
   }, [searchParams, setSearchParams])
 
   useEffect(() => {
-    const view = searchParams.get('view') === 'projects' ? 'projects' : 'overview'
+    const requested = searchParams.get('view')
+    const view = requested === 'projects' || requested === 'calendar'
+      ? requested
+      : (currentUser?.role === ROLES.PROJECT_STAFF ? 'calendar' : 'overview')
     setCurrentView(view)
-  }, [searchParams])
+  }, [currentUser?.role, searchParams])
 
-  const handleTabSwitch = (view: 'overview' | 'projects') => {
+  const handleTabSwitch = (view: 'overview' | 'projects' | 'calendar') => {
     setCurrentView(view)
-    updateSearchParams({ projectId: null, view: view === 'projects' ? 'projects' : null })
+    updateSearchParams({ projectId: null, view: view === 'overview' ? null : view })
   }
 
   useEffect(() => {
@@ -251,8 +258,12 @@ export function MonitoringPage() {
   ])
 
   useEffect(() => {
+    if (currentView === 'calendar') {
+      setIsLoadingProjects(false)
+      return
+    }
     void loadProjects()
-  }, [loadProjects])
+  }, [currentView, loadProjects])
 
   useEffect(() => {
     if (!projectIdParam) {
@@ -273,6 +284,7 @@ export function MonitoringPage() {
   const activePeriod = selectedProgram === 'SETUP' ? globalQuarter : globalSemester
   const programProjects = projects.filter((project) => project.program === selectedProgram)
   const isOverview = currentView === 'overview'
+  const viewLabel = currentView === 'calendar' ? 'Site Visits' : isOverview ? 'Overview' : 'Monitored Projects'
 
   async function handleExport() {
     if (!currentUser || isExporting) return
@@ -407,7 +419,7 @@ export function MonitoringPage() {
             <div className="flex items-center gap-1.5 text-xs font-semibold leading-none text-slate-400">
               <span>Project Monitoring</span>
               <span>&gt;</span>
-              <span className="font-bold text-[#285497]">{isOverview ? 'Overview' : 'Monitored Projects'}</span>
+              <span className="font-bold text-[#285497]">{viewLabel}</span>
             </div>
             <h1 className="mt-1 text-2xl sm:text-3xl font-black leading-tight tracking-tight text-slate-900">
               Project Monitoring
@@ -419,7 +431,7 @@ export function MonitoringPage() {
           <AnimatedTabs
             layoutId="monitoring-view-tabs"
             activeTab={currentView}
-            onChange={(id) => handleTabSwitch(id as 'overview' | 'projects')}
+            onChange={(id) => handleTabSwitch(id as 'overview' | 'projects' | 'calendar')}
             tabs={[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               {
@@ -428,10 +440,11 @@ export function MonitoringPage() {
                 icon: ListFilter,
                 count: pagination.total,
               },
+              { id: 'calendar', label: 'Site Visits', icon: CalendarDays },
             ]}
           />
 
-          {!lockedProgram ? (
+          {currentView !== 'calendar' && !lockedProgram ? (
             <AnimatedTabs
               layoutId="monitoring-program-tabs"
               activeTab={selectedProgram}
@@ -443,7 +456,7 @@ export function MonitoringPage() {
             />
           ) : null}
 
-          <div className="flex items-center gap-2">
+          <div className={cn('flex items-center gap-2', currentView === 'calendar' && 'hidden')}>
             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
               {selectedProgram === 'SETUP' ? 'Quarter:' : 'Semester:'}
             </span>
@@ -490,7 +503,7 @@ export function MonitoringPage() {
             type="button"
             disabled={isExporting || isLoadingProjects || Boolean(projectsError)}
             onClick={() => void handleExport()}
-            className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4] disabled:cursor-not-allowed disabled:opacity-50"
+            className={cn('inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#B5BFCD] bg-white px-3.5 text-xs font-bold text-[#285497] shadow-sm transition hover:bg-[#E6EEF4] disabled:cursor-not-allowed disabled:opacity-50', currentView === 'calendar' && 'hidden')}
           >
             {isExporting ? <LoaderCircle className="size-3.5 animate-spin" /> : <FileDown className="size-3.5" />}
             {isExporting ? 'Exporting…' : isOverview ? 'Export report' : 'Export list'}
@@ -500,7 +513,9 @@ export function MonitoringPage() {
 
       {exportNotice ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">{exportNotice}</p> : null}
       {exportError ? <p className="rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800" role="alert">{exportError}</p> : null}
-      {!hasLoadedInitial && isLoadingProjects ? (
+      {currentView === 'calendar' ? (
+        <SiteVisitCalendar focusDate={searchParams.get('date')} />
+      ) : !hasLoadedInitial && isLoadingProjects ? (
         <div className="flex min-h-52 items-center justify-center rounded-2xl border border-[#B5BFCD]/80 bg-white text-sm font-semibold text-slate-500 shadow-sm">
           <LoaderCircle className="mr-2 size-5 animate-spin text-[#285497]" />
           Loading {selectedProgram} monitoring projects...

@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Bell,
   CheckCircle2,
-  Clock,
   CreditCard,
   FileCheck2,
   FilePlus2,
@@ -18,6 +17,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { AdminPageHeader } from '../../components/admin/AdminPageHeader'
 import { MetricCard } from '../../components/admin/MetricCard'
 import { ProposalProgress } from '../../components/proponent/ProposalProgress'
+import { ProponentSiteVisits } from '../../components/proponent/ProponentSiteVisits'
+import { NotificationHistory } from '../../components/proponent/NotificationHistory'
 import { StatusPill } from '../../components/admin/StatusPill'
 import { getMockUser } from '../../lib/mockAuth'
 import {
@@ -37,12 +38,23 @@ export function ProponentDashboard() {
   const location = useLocation()
   const navigate = useNavigate()
   const user = getMockUser()
-  const [activeTab, setActiveTab] = useState<TabType>('overview')
+  const requestedTab = new URLSearchParams(location.search).get('tab')
+  const [activeTab, setActiveTab] = useState<TabType>(
+    location.pathname.endsWith('/notifications')
+      ? 'notifications'
+      : requestedTab === 'monitoring' ? 'monitoring' : 'overview',
+  )
   const [allApplications, setAllApplications] = useState<ApplicationRecord[]>(() => getApplications())
   const userId = user?.id
   const userName = user?.name
   const userEmail = user?.email
   const userApplicationReference = user?.applicationReference
+
+  useEffect(() => {
+    const tab = new URLSearchParams(location.search).get('tab')
+    if (location.pathname.endsWith('/notifications')) setActiveTab('notifications')
+    else if (tab === 'monitoring') setActiveTab('monitoring')
+  }, [location.pathname, location.search])
 
   useEffect(() => {
     if (!userName || !userEmail) return
@@ -339,20 +351,7 @@ export function ProponentDashboard() {
 
           {/* ── OTHER TABS ─────────────────────────────────────────── */}
           {activeTab === 'monitoring' && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-                <div className="grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><Activity className="size-5" /></div>
-                <div>
-                  <h2 className="text-base font-black text-slate-900">Project Monitoring & Progress Milestones</h2>
-                  <p className="text-xs text-slate-500">Quarterly technical progress reports and PSTO monitoring logs.</p>
-                </div>
-              </div>
-              <div className="py-10 text-center">
-                <Clock className="mx-auto size-10 text-slate-300" />
-                <h3 className="mt-3 text-sm font-black text-slate-800">No Active Monitoring Schedule</h3>
-                <p className="mx-auto mt-1.5 max-w-sm text-xs leading-6 text-slate-500">Milestones activate upon DOST approval and project funding.</p>
-              </div>
-            </div>
+            <ProponentSiteVisits />
           )}
 
           {activeTab === 'equipment' && (
@@ -390,20 +389,7 @@ export function ProponentDashboard() {
           )}
 
           {activeTab === 'notifications' && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-5">
-                <div className="grid size-10 place-items-center rounded-xl bg-purple-50 text-purple-600"><Bell className="size-5" /></div>
-                <div>
-                  <h2 className="text-base font-black text-slate-900">System Notifications & Evaluation Bulletins</h2>
-                  <p className="text-xs text-slate-500">Official updates from DOST PSTO officers and reviewers.</p>
-                </div>
-              </div>
-              <div className="py-10 text-center">
-                <Bell className="mx-auto size-10 text-slate-300" />
-                <h3 className="mt-3 text-sm font-black text-slate-800">No New Notifications</h3>
-                <p className="mx-auto mt-1.5 max-w-sm text-xs leading-6 text-slate-500">You'll be notified when DOST officers evaluate or update your proposal status.</p>
-              </div>
-            </div>
+            <NotificationHistory />
           )}
         </div>
       )}
